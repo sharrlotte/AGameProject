@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the type of a block.
 /// This acts as a key to look up static properties (Mass, Health, etc.) in the BlockRegistry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
 pub enum BlockType {
     Hull,
     Frame,
@@ -12,6 +12,7 @@ pub enum BlockType {
     ReactorSmall,
     WeaponLaser,
     Cockpit,
+    Core,
 }
 
 /// Component attached to every block entity.

@@ -1,7 +1,12 @@
+mod content;
+mod ui;
+mod data;
+
+use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
-use shared::AppState;
-use shared::structure::registry::{BlockRegistry, register_default_blocks};
+use content::AppState;
+use content::structure::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
@@ -18,18 +23,19 @@ fn main() {
         }),
         ..Default::default()
     }))
-    .init_state::<AppState>()
     .init_resource::<BlockRegistry>()
-    .add_systems(Startup, (camera_setup, register_default_blocks))
+    .init_state::<AppState>()
+    .add_systems(PreStartup, register_default_blocks)
+    .add_systems(Startup, setup_camera)
     .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin));
 
     #[cfg(debug_assertions)]
     app.add_plugins(EguiPlugin::default());
-    app.add_plugins(WorldInspectorPlugin::new());
+    app.add_plugins(WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)));
 
     app.run();
 }
 
-fn camera_setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2d::default());
 }

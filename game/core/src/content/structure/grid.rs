@@ -1,5 +1,8 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use crate::content::structure::block::BlockType;
 
 /// The main component for a spaceship entity.
 /// It acts as the root for all attached blocks.
@@ -35,4 +38,17 @@ impl ShipGrid {
     pub fn remove(&mut self, pos: IVec2) -> Option<Entity> {
         self.blocks.remove(&pos)
     }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SavedBlock {
+    pub pos: IVec2,
+    pub block_type: BlockType,
+    pub rotation: u8,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SavedShip {
+    pub name: String,
+    pub blocks: Vec<SavedBlock>,
 }

@@ -1,4 +1,4 @@
-use crate::structure::block::{BlockShape, BlockType};
+use crate::content::structure::block::{BlockShape, BlockType};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,6 +36,7 @@ pub struct BlockDefinition {
     pub cost: u32,
     /// A list of features this block possesses.
     pub features: Vec<BlockFeature>,
+    pub texture_paths: Vec<String>,
 }
 
 /// A global resource to register and retrieve block definitions.
@@ -53,6 +54,10 @@ impl BlockRegistry {
     pub fn get(&self, block_type: &BlockType) -> Option<&BlockDefinition> {
         self.map.get(block_type)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &BlockDefinition)> {
+        self.map.iter()
+    }
 }
 
 /// Helper system to register default blocks (can be expanded to load from files later).
@@ -68,6 +73,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 5,
             features: vec![],
+            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
         },
     );
 
@@ -85,6 +91,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 BlockFeature::Thruster { force: 100.0 },
                 BlockFeature::PowerConsumer { required: 10.0 },
             ],
+            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
         },
     );
 
@@ -99,6 +106,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 200,
             features: vec![BlockFeature::PowerProducer { output: 50.0 }],
+            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
         },
     );
 
@@ -113,6 +121,20 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
+            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
+        },
+    );
+    registry.register(
+        BlockType::Core,
+        BlockDefinition {
+            name: "Core".into(),
+            description: "Core".into(),
+            mass: 50.0,
+            max_health: 60.0,
+            shape: BlockShape::default(),
+            cost: 150,
+            features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
+            texture_paths: vec!["textures/blocks/core-nucleus.png".into(), "textures/blocks/core-nucleus-team.png".into()],
         },
     );
 }

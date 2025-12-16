@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use shared::AppState;
+use crate::content::AppState;
 
 pub struct GamePlugin;
 

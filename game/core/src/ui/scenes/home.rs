@@ -1,17 +1,28 @@
 use bevy::prelude::*;
-use shared::AppState;
+use content::AppState;
+
+use crate::content;
 
 pub struct HomePlugin;
 
 impl Plugin for HomePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Home), setup_home)
+            .add_systems(Update, handle_home_buttons.run_if(in_state(AppState::Home)))
             .add_systems(OnExit(AppState::Home), cleanup_home);
     }
 }
 
 #[derive(Component)]
 struct HomeScreen;
+
+#[derive(Component)]
+enum HomeButton {
+    Play,
+    Settings,
+    Exit,
+    ShipEditor,
+}
 
 fn setup_home(mut commands: Commands) {
     info!("Setting up Home Screen");
@@ -38,19 +49,46 @@ fn setup_home(mut commands: Commands) {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
                         border: UiRect::all(Val::Px(5.0)),
-                        // horizontally center child text
                         justify_content: JustifyContent::Center,
-                        // vertically center child text
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
                         ..default()
                     },
                     BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    HomeButton::Play,
                 ))
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Play"),
+                        TextFont {
+                            font_size: 40.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // Ship Editor Button (New)
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    HomeButton::ShipEditor,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Ship Editor"),
                         TextFont {
                             font_size: 40.0,
                             ..default()
@@ -74,6 +112,7 @@ fn setup_home(mut commands: Commands) {
                     },
                     BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    HomeButton::Settings,
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -101,6 +140,7 @@ fn setup_home(mut commands: Commands) {
                     },
                     BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    HomeButton::Exit,
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -113,6 +153,48 @@ fn setup_home(mut commands: Commands) {
                     ));
                 });
         });
+}
+
+fn handle_home_buttons(
+    mut interaction_query: Query<
+        (&Interaction, &HomeButton, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut next_state: ResMut<NextState<AppState>>,
+    // Use AppExit event directly to avoid EventWriter deprecation/method issues
+    mut exit: MessageWriter<AppExit>,
+) {
+    for (interaction, button_type, mut bg_color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
+                match button_type {
+                    HomeButton::Play => {
+                        info!("Play button clicked");
+                        next_state.set(AppState::Game);
+                    }
+                    HomeButton::ShipEditor => {
+                        info!("Ship Editor button clicked");
+                        next_state.set(AppState::ShipEditor);
+                    }
+                    HomeButton::Settings => {
+                        info!("Settings button clicked");
+                        // TODO: Implement settings screen
+                    }
+                    HomeButton::Exit => {
+                        info!("Exit button clicked");
+                        exit.write(AppExit::Success);
+                    }
+                }
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
+            }
+        }
+    }
 }
 
 fn cleanup_home(mut commands: Commands, query: Query<Entity, With<HomeScreen>>) {
