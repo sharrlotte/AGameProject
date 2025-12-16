@@ -8,7 +8,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "AGameProject".to_string(),
-                fullsize_content_view: true,
+                // mode: WindowMode::Fullscreen(MonitorSelection::Primary, VideoModeSelection::Current),
                 ..Default::default()
             }),
             ..Default::default()
