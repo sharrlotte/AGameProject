@@ -50,6 +50,24 @@ pub struct BlockShape {
     pub voxels: Vec<Voxel>,
 }
 
+impl BlockShape {
+    pub fn filled(width: i32, height: i32) -> Self {
+        let mut voxels = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                voxels.push(Voxel {
+                    pos: IVec2::new(x, y),
+                    connectable_faces: FACE_ALL,
+                });
+            }
+        }
+        Self {
+            size: IVec2::new(width, height),
+            voxels,
+        }
+    }
+}
+
 impl Default for BlockShape {
     fn default() -> Self {
         Self {

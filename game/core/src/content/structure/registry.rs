@@ -73,7 +73,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 5,
             features: vec![],
-            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
+            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
         },
     );
 
@@ -91,7 +91,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 BlockFeature::Thruster { force: 100.0 },
                 BlockFeature::PowerConsumer { required: 10.0 },
             ],
-            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
+            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
         },
     );
 
@@ -106,7 +106,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 200,
             features: vec![BlockFeature::PowerProducer { output: 50.0 }],
-            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
+            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
         },
     );
 
@@ -121,7 +121,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            texture_paths: vec!["textures/blocks/surge-wall.png".into()],
+            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
         },
     );
     registry.register(
@@ -131,10 +131,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             description: "Core".into(),
             mass: 50.0,
             max_health: 60.0,
-            shape: BlockShape::default(),
+            shape: BlockShape::filled(3,3),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            texture_paths: vec!["textures/blocks/core-nucleus.png".into(), "textures/blocks/core-nucleus-team.png".into()],
+            texture_paths: vec![
+                "textures/blocks/core-nucleus.png".into(),
+                "textures/blocks/core-nucleus-team.png".into(),
+            ],
         },
     );
 }
