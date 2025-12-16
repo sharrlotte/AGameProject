@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
 use shared::AppState;
+use shared::structure::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
@@ -18,8 +19,9 @@ fn main() {
         ..Default::default()
     }))
     .init_state::<AppState>()
-    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin))
-    .add_systems(Startup, camera_setup);
+    .init_resource::<BlockRegistry>()
+    .add_systems(Startup, (camera_setup, register_default_blocks))
+    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin));
 
     #[cfg(debug_assertions)]
     app.add_plugins(EguiPlugin::default());
