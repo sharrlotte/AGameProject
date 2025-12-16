@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
 use shared::AppState;
-use ui::{GamePlugin, HomePlugin};
+use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
@@ -18,7 +18,7 @@ fn main() {
         ..Default::default()
     }))
     .init_state::<AppState>()
-    .add_plugins((HomePlugin, GamePlugin))
+    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin))
     .add_systems(Startup, camera_setup);
 
     #[cfg(debug_assertions)]
