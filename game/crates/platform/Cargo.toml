@@ -1,7 +1,6 @@
 [package]
-name = "core"
+name = "platform"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.17.3" }

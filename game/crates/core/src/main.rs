@@ -1,5 +1,7 @@
 use bevy::prelude::*;
-use bevy::window::{WindowPlugin};
+use bevy::window::WindowPlugin;
+use shared::AppState;
+use ui::{HomePlugin, GamePlugin};
 
 fn main() {
     App::new()
@@ -11,6 +13,8 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .init_state::<AppState>()
+        .add_plugins((HomePlugin, GamePlugin))
         .add_systems(Startup, camera_setup)
         .run();
 }

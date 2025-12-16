@@ -1,2 +1,6 @@
 [workspace]
-members = ["core", "server"]
+resolver = "3"
+members = [
+   "crates/core", "crates/net", "crates/platform",
+   "crates/server", "crates/ui",
+]
