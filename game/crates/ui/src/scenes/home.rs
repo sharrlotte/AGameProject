@@ -45,6 +45,7 @@ fn setup_home(mut commands: Commands) {
                         padding: UiRect::all(Val::Px(10.0)),
                         ..default()
                     },
+                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
                 .with_children(|parent| {
@@ -71,6 +72,7 @@ fn setup_home(mut commands: Commands) {
                         padding: UiRect::all(Val::Px(10.0)),
                         ..default()
                     },
+                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
                 .with_children(|parent| {
@@ -97,6 +99,7 @@ fn setup_home(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
+                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
                 .with_children(|parent| {
