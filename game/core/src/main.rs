@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use bevy::window::{WindowPlugin, WindowResolution};
+use bevy::window::{WindowPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "AGameProject".to_string(),
-                resolution: WindowResolution::new(700, 800),
+                fullsize_content_view: true,
                 ..Default::default()
             }),
             ..Default::default()
