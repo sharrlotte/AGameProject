@@ -1,8 +1,8 @@
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use crate::data::save_dir;
 use crate::content::structure::grid::{SavedBlock, SavedShip};
 use crate::content::{self, AppState};
+use crate::data::save_dir;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use content::structure::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
 };
@@ -936,8 +936,20 @@ fn handle_ship_saving(
                 .unwrap()
                 .as_secs();
 
+            let ships_dir = save_dir().join("ships");
             let filename = format!("ship_{}.json", timestamp);
-            let path = save_dir().join("ships").join(&filename);
+            let path = ships_dir.join(&filename);
+
+
+            // Create ships directory if it doesn't exist
+            if !ships_dir.exists() {
+                if let Err(e) = fs::create_dir_all(&ships_dir) {
+                    error!("Failed to create ships directory: {}", e);
+                    return;
+                }
+            }
+            
+            info!("Saving to {}", path.to_str().unwrap());
 
             if let Ok(json) = serde_json::to_string_pretty(&saved_ship) {
                 if let Err(e) = fs::write(&path, json) {

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
         "com",          // qualifier
-        "agameproject", // organization
+        "somerandomdev", // organization
         "agameproject", // application
     )
     .expect("Failed to get project directory");
