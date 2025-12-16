@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "core"
+, "server"]
+
+[dependencies]
+bevy = "0.17.3"
