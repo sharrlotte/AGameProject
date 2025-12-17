@@ -1,6 +1,7 @@
 mod content;
 mod save;
 mod ui;
+mod turret;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
@@ -14,6 +15,7 @@ use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
 use crate::content::ships::features::ShipFeature;
 use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
+use crate::turret::TurretPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -33,7 +35,7 @@ fn main() {
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
-    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin, ShipFeature));
+    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin, ShipFeature, TurretPlugin));
 
     #[cfg(debug_assertions)]
     {
