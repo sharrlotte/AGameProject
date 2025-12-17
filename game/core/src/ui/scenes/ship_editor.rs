@@ -19,7 +19,7 @@ impl Plugin for ShipEditorPlugin {
             .add_message::<ShipSaved>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
-                (setup_editor_ui, refresh_ship_list),
+                (setup_editor_ui, refresh_ship_list.after(setup_editor_ui)),
             )
             .add_systems(
                 Update,
@@ -831,6 +831,8 @@ fn refresh_ship_list(
     }
     available_ships.names = new_names;
 
+    info!("Refreshed ship list: {:?}", available_ships.names);
+
     // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
 
@@ -940,7 +942,6 @@ fn handle_ship_saving(
             let filename = format!("ship_{}.json", timestamp);
             let path = ships_dir.join(&filename);
 
-
             // Create ships directory if it doesn't exist
             if !ships_dir.exists() {
                 if let Err(e) = fs::create_dir_all(&ships_dir) {
@@ -948,7 +949,7 @@ fn handle_ship_saving(
                     return;
                 }
             }
-            
+
             info!("Saving to {}", path.to_str().unwrap());
 
             if let Ok(json) = serde_json::to_string_pretty(&saved_ship) {

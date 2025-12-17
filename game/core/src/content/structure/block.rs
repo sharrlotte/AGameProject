@@ -13,6 +13,7 @@ pub enum BlockType {
     WeaponLaser,
     Cockpit,
     Core,
+    LazerTurret,
 }
 
 /// Component attached to every block entity.
@@ -87,3 +88,39 @@ pub const FACE_LEFT: u8 = 0b0010; // -X
 pub const FACE_UP: u8 = 0b0100; // +Y
 pub const FACE_DOWN: u8 = 0b1000; // -Y
 pub const FACE_ALL: u8 = 0b1111;
+
+/// Enum representing distinct features/behaviors a block can have.
+/// This allows us to extend block functionality without growing the base struct.
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub enum BlockFeature {
+    /// Provides thrust force.
+    Thruster { force: f32 },
+    /// Generates power.
+    PowerProducer { output: f32 },
+    /// Consumes power to function.
+    PowerConsumer { required: f32 },
+    /// Stores power.
+    PowerStorage { capacity: f32 },
+    /// Can deal damage.
+    Weapon {
+        damage: f32,
+        cooldown: f32,
+        range: f32,
+    },
+}
+
+/// A definition struct that holds the static data for a block type.
+/// This allows us to define blocks once and look them up later.
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct BlockDefinition {
+    pub name: String,
+    pub description: String,
+    pub mass: f32,
+    pub max_health: f32,
+    /// Replaced `size` with `shape` to support complex voxel structures
+    pub shape: BlockShape,
+    pub cost: u32,
+    /// A list of features this block possesses.
+    pub features: Vec<BlockFeature>,
+    pub texture_paths: Vec<String>,
+}

@@ -62,7 +62,7 @@ fn setup_home(mut commands: Commands) {
                     parent.spawn((
                         Text::new("Play"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: 20.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -90,7 +90,7 @@ fn setup_home(mut commands: Commands) {
                     parent.spawn((
                         Text::new("Ship Editor"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: 20.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -118,7 +118,7 @@ fn setup_home(mut commands: Commands) {
                     parent.spawn((
                         Text::new("Settings"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: 20.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -146,7 +146,7 @@ fn setup_home(mut commands: Commands) {
                     parent.spawn((
                         Text::new("Exit"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: 20.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),

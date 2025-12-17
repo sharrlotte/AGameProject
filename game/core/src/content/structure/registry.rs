@@ -1,43 +1,6 @@
-use crate::content::structure::block::{BlockShape, BlockType};
+use crate::content::structure::block::{BlockDefinition, BlockFeature, BlockShape, BlockType};
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-/// Enum representing distinct features/behaviors a block can have.
-/// This allows us to extend block functionality without growing the base struct.
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub enum BlockFeature {
-    /// Provides thrust force.
-    Thruster { force: f32 },
-    /// Generates power.
-    PowerProducer { output: f32 },
-    /// Consumes power to function.
-    PowerConsumer { required: f32 },
-    /// Stores power.
-    PowerStorage { capacity: f32 },
-    /// Can deal damage.
-    Weapon {
-        damage: f32,
-        cooldown: f32,
-        range: f32,
-    },
-}
-
-/// A definition struct that holds the static data for a block type.
-/// This allows us to define blocks once and look them up later.
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub struct BlockDefinition {
-    pub name: String,
-    pub description: String,
-    pub mass: f32,
-    pub max_health: f32,
-    /// Replaced `size` with `shape` to support complex voxel structures
-    pub shape: BlockShape,
-    pub cost: u32,
-    /// A list of features this block possesses.
-    pub features: Vec<BlockFeature>,
-    pub texture_paths: Vec<String>,
-}
 
 /// A global resource to register and retrieve block definitions.
 #[derive(Resource, Default, Reflect)]
@@ -60,9 +23,7 @@ impl BlockRegistry {
     }
 }
 
-/// Helper system to register default blocks (can be expanded to load from files later).
 pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
-    // 1. Basic Hull
     registry.register(
         BlockType::Hull,
         BlockDefinition {
@@ -77,7 +38,6 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         },
     );
 
-    // 2. Small Thruster
     registry.register(
         BlockType::ThrusterSmall,
         BlockDefinition {
@@ -95,7 +55,6 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         },
     );
 
-    // 3. Small Reactor
     registry.register(
         BlockType::ReactorSmall,
         BlockDefinition {
@@ -110,7 +69,6 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         },
     );
 
-    // 4. Cockpit
     registry.register(
         BlockType::Cockpit,
         BlockDefinition {
@@ -124,6 +82,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
         },
     );
+
     registry.register(
         BlockType::Core,
         BlockDefinition {
@@ -131,12 +90,29 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             description: "Core".into(),
             mass: 50.0,
             max_health: 60.0,
-            shape: BlockShape::filled(3,3),
+            shape: BlockShape::filled(3, 3),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
             texture_paths: vec![
                 "textures/blocks/core-nucleus.png".into(),
                 "textures/blocks/core-nucleus-team.png".into(),
+            ],
+        },
+    );
+
+    registry.register(
+        BlockType::LazerTurret,
+        BlockDefinition {
+            name: "Lazer Turret".into(),
+            description: "Core".into(),
+            mass: 50.0,
+            max_health: 60.0,
+            shape: BlockShape::filled(1, 1),
+            cost: 150,
+            features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
+            texture_paths: vec![
+                "textures/blocks/block-2.png".into(),
+                "textures/blocks/lancer.png".into(),
             ],
         },
     );
