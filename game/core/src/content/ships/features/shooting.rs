@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{ActiveEvents, Collider, GravityScale, RigidBody, Sensor, Velocity};
+use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::content::team::Team;
 
 pub struct ShootingFeaturePlugin;
 
@@ -31,10 +33,13 @@ pub struct Bullet {
 
 pub fn handle_shooting(
     time: Res<Time>,
-    mut query: Query<(&GlobalTransform, &mut Shooter)>,
+    mut shooter_query: Query<(&GlobalTransform, &mut Shooter, Option<&Team>)>,
     mut commands: Commands,
 ) {
-    for (global_transform, mut shooter) in &mut query {
+    for (global_transform, mut shooter, team_opt) in &mut shooter_query {
+        // Use the team from the component, or default to Ally if missing
+        let team = team_opt.copied().unwrap_or_default();
+
         // Get current global rotation around Z
         let (_, current_rot, _) = global_transform.to_scale_rotation_translation();
 
@@ -57,6 +62,8 @@ pub fn handle_shooting(
                 Velocity::linear(direction2d * 1000.0),
                 ActiveEvents::COLLISION_EVENTS,
                 GravityScale(0.0),
+                CollisionGroups::new(Group::default(), team.get_bullet_filter()),
+                team,
             ));
 
             shooter.last_fire_time = time.elapsed_secs();

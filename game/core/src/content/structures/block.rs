@@ -3,9 +3,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     GRID_SIZE,
-    content::ships::features::{
-        shooting::{Shooter, ShooterFeature},
-        tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
+    content::{
+        ships::features::{
+            shooting::{Shooter, ShooterFeature},
+            tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
+        },
+        team::Team,
     },
 };
 
@@ -153,7 +156,7 @@ pub enum LayerFeature {
 }
 
 impl LayerFeature {
-    pub fn render(&self, commands: &mut Commands, entity: Entity) {
+    pub fn render(&self, commands: &mut Commands, entity: Entity, team: Option<Team>) {
         match self {
             LayerFeature::Rotatable(f) => {
                 commands.entity(entity).insert(Rotatable {
@@ -164,11 +167,15 @@ impl LayerFeature {
                 commands.entity(entity).insert(Tracker { range: f.range });
             }
             LayerFeature::Shooter(f) => {
-                commands.entity(entity).insert(Shooter {
+                let mut cmd = commands.entity(entity);
+                cmd.insert(Shooter {
                     fire_rate: f.fire_rate,
                     projectile: f.projectile.clone(),
                     last_fire_time: 0.0,
                 });
+                if let Some(t) = team {
+                    cmd.insert(t);
+                }
             }
             LayerFeature::Recoil(_recoil_feature) => todo!(),
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
@@ -237,6 +244,7 @@ impl BlockDefinition {
         commands: &mut Commands,
         asset_server: &AssetServer,
         grid_pos: IVec2,
+        team: Option<Team>,
     ) -> Entity {
         let size_vec = self.shape.size.as_vec2();
         let center_offset = (size_vec - 1.0) * GRID_SIZE * 0.5;
@@ -249,18 +257,22 @@ impl BlockDefinition {
 
         let pos = anchor_pos + center_offset.extend(0.0);
 
-        let entity = commands
-            .spawn((
-                Transform::from_translation(pos),
-                Visibility::Visible,
-                Block {
-                    block_type: self.block_type,
-                    rotation: 0,
-                },
-                GridPosition(grid_pos),
-                PlacedBlock,
-            ))
-            .id();
+        let mut entity_cmd = commands.spawn((
+            Transform::from_translation(pos),
+            Visibility::Visible,
+            Block {
+                block_type: self.block_type,
+                rotation: 0,
+            },
+            GridPosition(grid_pos),
+            PlacedBlock,
+        ));
+
+        if let Some(t) = team {
+            entity_cmd.insert(t);
+        }
+
+        let entity = entity_cmd.id();
 
         for layer in &self.layers {
             let layer_entity = commands
@@ -294,7 +306,7 @@ impl BlockDefinition {
 
             // Features
             for feature in &layer.features {
-                feature.render(commands, layer_entity);
+                feature.render(commands, layer_entity, team);
             }
         }
 

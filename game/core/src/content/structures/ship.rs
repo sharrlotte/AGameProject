@@ -52,3 +52,9 @@ pub struct SavedShip {
     pub name: String,
     pub blocks: Vec<SavedBlock>,
 }
+
+#[derive(Component)]
+pub struct ShipBlockHitbox;
+
+#[derive(Component)]
+pub struct PlayerShip;

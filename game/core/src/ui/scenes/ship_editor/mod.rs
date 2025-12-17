@@ -1106,7 +1106,7 @@ fn spawn_placed_block(
     grid_pos: IVec2,
 ) -> bool {
     if let Some(def) = registry.get(&block_type) {
-        let entity = def.render(commands, asset_server, grid_pos);
+        let entity = def.render(commands, asset_server, grid_pos, None);
 
         for voxel in &def.shape.voxels {
             editor_ship.grid.insert(grid_pos + voxel.pos, entity);
@@ -1197,7 +1197,7 @@ fn perform_load_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let entity = def.render(commands, asset_server, saved_block.pos);
+                let entity = def.render(commands, asset_server, saved_block.pos, None);
 
                 for voxel in &def.shape.voxels {
                     editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
