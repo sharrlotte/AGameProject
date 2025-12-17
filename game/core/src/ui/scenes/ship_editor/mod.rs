@@ -1,15 +1,15 @@
-use crate::content::structures::block::{LayerFeature, LayerKind};
-use crate::content::structures::grid::{SavedBlock, SavedShip};
-use crate::content::{self, AppState};
+use crate::AppState;
+use crate::content::ships::features::ShipFeature;
+use crate::content::structures::block::LayerKind;
+use crate::content::structures::block::{
+    Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
+};
+use crate::content::structures::ship::{SavedBlock, SavedShip};
+use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
 use crate::save::{delete_ship, load_saved_ships, save_ship};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use content::structures::block::{
-    Block, BlockType, GridPosition, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
-};
-use content::structures::{grid::ShipGrid, registry::BlockRegistry};
-
 pub struct ShipEditorPlugin;
 
 impl Plugin for ShipEditorPlugin {
@@ -42,86 +42,19 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_deletion,
                     update_block_properties_panel,
                     update_save_button_state,
-                    system_tracker_tracking,
-                    draw_tracker_ranges,
                     handle_camera_controls,
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
             )
-            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor);
-    }
-}
-
-fn draw_tracker_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Tracker)>) {
-    for (global_transform, tracker) in &query {
-        if tracker.range > 0.0 {
-            gizmos.circle_2d(
-                global_transform.translation().truncate(),
-                tracker.range,
-                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
-            );
-        }
-    }
-}
-
-fn handle_camera_controls(
-    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
-    mut mouse_motion_events: MessageReader<MouseMotion>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-) {
-    if let Ok((mut transform, mut projection)) = query.single_mut() {
-        // Zoom
-        for event in mouse_wheel_events.read() {
-            if let Projection::Orthographic(ortho) = &mut *projection {
-                let zoom_speed = 0.1;
-                ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(0.1, 5.0);
-            }
-        }
-
-        // Pan
-        if mouse_button_input.pressed(MouseButton::Left) {
-            let scale = if let Projection::Orthographic(ortho) = &*projection {
-                ortho.scale
-            } else {
-                1.0
-            };
-
-            for event in mouse_motion_events.read() {
-                // Pan speed scales with zoom level for consistent feel
-                let pan_speed = scale * 0.5;
-                transform.translation.x -= event.delta.x * pan_speed;
-                transform.translation.y += event.delta.y * pan_speed;
-            }
-        }
+            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor)
+            .add_plugins(ShipFeature);
     }
 }
 
 #[derive(Component)]
 pub struct BlockLayer {
-    pub kind: LayerKind,
-}
-
-#[derive(Component)]
-pub struct Rotatable {
-    pub speed: f32,
-}
-
-#[derive(Component)]
-pub struct Shooter {
-    pub fire_rate: f32,
-}
-
-#[derive(Component)]
-pub struct Tracker {
-    pub range: f32,
-}
-
-#[derive(Component)]
-pub struct Recoil {
-    pub strength: f32,
+    pub _kind: LayerKind,
 }
 
 #[derive(Message)]
@@ -142,7 +75,6 @@ struct EditorState {
     selected_block: Option<BlockType>,
     hovered_grid_pos: Option<IVec2>,
     // Input Abstraction
-    cursor_world_pos: Option<Vec2>,
     place_req: bool,
     delete_req: bool,
 }
@@ -510,8 +442,6 @@ fn process_input(
 
         // Convert to world coordinates
         if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            editor_state.cursor_world_pos = Some(world_pos);
-
             // Grid size = 40.0 pixels
             let grid_size = 40.0;
             let grid_x = (world_pos.x / grid_size).round() as i32;
@@ -531,7 +461,6 @@ fn process_input(
         }
     } else {
         editor_state.hovered_grid_pos = None;
-        editor_state.cursor_world_pos = None;
     }
 }
 
@@ -795,7 +724,6 @@ fn cleanup_ship_editor(
     if let Some(e) = ui_root.iter().next() {
         commands.entity(e).despawn();
     }
-    // Do not despawn camera!
     for e in &preview {
         commands.entity(e).despawn();
     }
@@ -1047,66 +975,6 @@ fn handle_ship_loading(
         }
     }
 }
-
-fn system_tracker_tracking(
-    editor_state: Res<EditorState>,
-    time: Res<Time>,
-    mut query: Query<(
-        &mut Transform,
-        &GlobalTransform,
-        &Tracker,
-        Option<&Rotatable>,
-    )>,
-) {
-    if let Some(target_pos) = editor_state.cursor_world_pos {
-        for (mut transform, global_transform, tracker, rotatable) in &mut query {
-            let current_pos = global_transform.translation().truncate();
-            let diff = target_pos - current_pos;
-            let dist_sq = diff.length_squared();
-
-            if dist_sq < 0.0001 {
-                continue;
-            }
-
-            if tracker.range > 0.0 && dist_sq > tracker.range * tracker.range {
-                continue;
-            }
-
-            // Atan2 returns angle in radians [-PI, PI] relative to X-axis
-            // Assuming sprites face UP (Y+), we need to subtract PI/2
-            let target_angle = diff.y.atan2(diff.x) - std::f32::consts::FRAC_PI_2;
-
-            // Get current global rotation around Z
-            let (_, current_rot, _) = global_transform.to_scale_rotation_translation();
-            let current_angle = current_rot.to_euler(EulerRot::XYZ).2;
-
-            let mut angle_error = target_angle - current_angle;
-
-            // Normalize angle_error to [-PI, PI]
-            while angle_error > std::f32::consts::PI {
-                angle_error -= 2.0 * std::f32::consts::PI;
-            }
-            while angle_error < -std::f32::consts::PI {
-                angle_error += 2.0 * std::f32::consts::PI;
-            }
-
-            // Determine max rotation this frame
-            let speed = if let Some(r) = rotatable {
-                r.speed
-            } else {
-                2.0 // Default slower speed
-            };
-
-            let max_rot = speed * time.delta_secs();
-
-            // Clamp rotation to max_rot, but don't overshoot
-            let rot_amount = angle_error.clamp(-max_rot, max_rot);
-
-            transform.rotate_z(rot_amount);
-        }
-    }
-}
-
 fn spawn_placed_block(
     commands: &mut Commands,
     editor_ship: &mut EditorShip,
@@ -1146,7 +1014,7 @@ fn spawn_placed_block(
         let layer_entity = commands
             .spawn((
                 BlockLayer {
-                    kind: layer.kind.clone(),
+                    _kind: layer.kind.clone(),
                 },
                 Transform::default(),
                 GlobalTransform::default(),
@@ -1174,29 +1042,7 @@ fn spawn_placed_block(
 
         // Features
         for feature in &layer.features {
-            match feature {
-                LayerFeature::Rotatable(f) => {
-                    commands.entity(layer_entity).insert(Rotatable {
-                        speed: f.turn_speed,
-                    });
-                }
-                LayerFeature::Shooter(f) => {
-                    commands.entity(layer_entity).insert(Shooter {
-                        fire_rate: f.fire_rate,
-                    });
-                }
-                LayerFeature::Tracker(f) => {
-                    commands
-                        .entity(layer_entity)
-                        .insert(Tracker { range: f.range });
-                }
-                LayerFeature::Recoil(f) => {
-                    commands.entity(layer_entity).insert(Recoil {
-                        strength: f.strength,
-                    });
-                }
-                _ => {}
-            }
+            feature.apply(commands, layer_entity);
         }
     }
 
@@ -1315,7 +1161,7 @@ fn perform_load_ship(
                     let layer_entity = commands
                         .spawn((
                             BlockLayer {
-                                kind: layer.kind.clone(),
+                                _kind: layer.kind.clone(),
                             },
                             Transform::default(),
                             GlobalTransform::default(),
@@ -1343,29 +1189,7 @@ fn perform_load_ship(
 
                     // Features
                     for feature in &layer.features {
-                        match feature {
-                            LayerFeature::Rotatable(f) => {
-                                commands.entity(layer_entity).insert(Rotatable {
-                                    speed: f.turn_speed,
-                                });
-                            }
-                            LayerFeature::Shooter(f) => {
-                                commands.entity(layer_entity).insert(Shooter {
-                                    fire_rate: f.fire_rate,
-                                });
-                            }
-                            LayerFeature::Tracker(f) => {
-                                commands
-                                    .entity(layer_entity)
-                                    .insert(Tracker { range: f.range });
-                            }
-                            LayerFeature::Recoil(f) => {
-                                commands.entity(layer_entity).insert(Recoil {
-                                    strength: f.strength,
-                                });
-                            }
-                            _ => {}
-                        }
+                        feature.apply(commands, layer_entity);
                     }
                 }
 
@@ -1377,5 +1201,40 @@ fn perform_load_ship(
         }
     } else {
         error!("Ship {} not found", ship_name);
+    }
+}
+
+
+fn handle_camera_controls(
+    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+) {
+    if let Ok((mut transform, mut projection)) = query.single_mut() {
+        // Zoom
+        for event in mouse_wheel_events.read() {
+            if let Projection::Orthographic(ortho) = &mut *projection {
+                let zoom_speed = 0.1;
+                ortho.scale -= event.y * zoom_speed * ortho.scale;
+                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+            }
+        }
+
+        // Pan
+        if mouse_button_input.pressed(MouseButton::Left) {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+
+            for event in mouse_motion_events.read() {
+                // Pan speed scales with zoom level for consistent feel
+                let pan_speed = scale * 0.5;
+                transform.translation.x -= event.delta.x * pan_speed;
+                transform.translation.y += event.delta.y * pan_speed;
+            }
+        }
     }
 }

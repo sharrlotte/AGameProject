@@ -5,7 +5,6 @@ mod save;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
-use content::AppState;
 use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
@@ -38,4 +37,13 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d::default());
+}
+
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum AppState {
+    #[default]
+    Home,
+    Game,
+    ShipEditor,
 }

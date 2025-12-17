@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::content::ships::features::tracking::{
+    Rotatable, RotatableFeature, Tracker, TrackerFeature,
+};
+
 /// Represents the type of a block.
 /// This acts as a key to look up static properties (Mass, Health, etc.) in the BlockRegistry.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
@@ -144,9 +148,28 @@ pub enum LayerFeature {
     EnergyConsumer(EnergyConsumerFeature),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub struct RotatableFeature {
-    pub turn_speed: f32,
+impl LayerFeature {
+    pub fn apply(&self, commands: &mut Commands, entity: Entity) {
+        match self {
+            LayerFeature::Rotatable(f) => {
+                commands.entity(entity).insert(Rotatable {
+                    speed: f.turn_speed,
+                });
+            }
+            LayerFeature::Tracker(f) => {
+                commands.entity(entity).insert(Tracker { range: f.range });
+            }
+            LayerFeature::Shooter(f) => {
+                commands.entity(entity).insert(Shooter {
+                    fire_rate: f.fire_rate,
+                    projectile: f.projectile.clone(),
+                });
+            }
+            LayerFeature::Recoil(_recoil_feature) => todo!(),
+            LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
+            LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
@@ -161,12 +184,6 @@ pub struct RecoilFeature {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub struct TrackerFeature {
-    pub range: f32,
-    pub fov: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct HeatEmitterFeature {
     pub amount: f32,
 }
@@ -174,6 +191,12 @@ pub struct HeatEmitterFeature {
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct EnergyConsumerFeature {
     pub rate: f32,
+}
+
+#[derive(Component)]
+pub struct Shooter {
+    pub fire_rate: f32,
+    pub projectile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]

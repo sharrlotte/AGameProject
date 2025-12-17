@@ -1,7 +1,7 @@
-use crate::content::structures::block::{
+use crate::content::{ships::features::tracking::{RotatableFeature, TrackerFeature}, structures::block::{
     BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
-    LayerKind, LayerVisual, RotatableFeature, TrackerFeature,
-};
+    LayerKind, LayerVisual,
+}};
 use bevy::prelude::*;
 use std::collections::HashMap;
 

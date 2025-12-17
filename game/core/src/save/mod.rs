@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{fs, io::Error, path::PathBuf};
 
-use crate::content::structures::grid::SavedShip;
+use crate::content::structures::ship::SavedShip;
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(

@@ -1,7 +1,6 @@
 use bevy::prelude::*;
-use content::AppState;
 
-use crate::content;
+use crate::AppState;
 
 pub struct HomePlugin;
 
