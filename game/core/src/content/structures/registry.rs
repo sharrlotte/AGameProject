@@ -1,4 +1,4 @@
-use crate::content::structure::block::{
+use crate::content::structures::block::{
     BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
     LayerKind, LayerVisual, RotatableFeature, TrackerFeature,
 };

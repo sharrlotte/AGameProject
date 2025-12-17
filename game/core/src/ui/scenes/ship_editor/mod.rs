@@ -1,14 +1,14 @@
-use crate::content::structure::block::{LayerFeature, LayerKind};
-use crate::content::structure::grid::{SavedBlock, SavedShip};
+use crate::content::structures::block::{LayerFeature, LayerKind};
+use crate::content::structures::grid::{SavedBlock, SavedShip};
 use crate::content::{self, AppState};
 use crate::save::{delete_ship, load_saved_ships, save_ship};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use content::structure::block::{
-    Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
+use content::structures::block::{
+    Block, BlockType, GridPosition, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
 };
-use content::structure::{grid::ShipGrid, registry::BlockRegistry};
+use content::structures::{grid::ShipGrid, registry::BlockRegistry};
 
 pub struct ShipEditorPlugin;
 

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub mod structure;
+pub mod structures;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {

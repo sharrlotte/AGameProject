@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::content::structure::block::BlockType;
+use crate::content::structures::block::BlockType;
 
 /// The main component for a spaceship entity.
 /// It acts as the root for all attached blocks.

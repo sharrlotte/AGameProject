@@ -6,7 +6,7 @@ use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
 use content::AppState;
-use content::structure::registry::{BlockRegistry, register_default_blocks};
+use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
