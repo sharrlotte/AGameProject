@@ -1,6 +1,6 @@
 mod content;
-mod ui;
 mod save;
+mod ui;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
@@ -10,6 +10,8 @@ use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+
+use crate::content::structures::ship::SavedShip;
 
 fn main() {
     let mut app = App::new();
@@ -23,6 +25,7 @@ fn main() {
         ..Default::default()
     }))
     .init_resource::<BlockRegistry>()
+    .init_resource::<AppVar>()
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, setup_camera)
@@ -39,11 +42,15 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d::default());
 }
 
-
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {
     #[default]
     Home,
     Game,
     ShipEditor,
+}
+
+#[derive(Resource, Default)]
+pub struct AppVar {
+    pub current_ship: Option<SavedShip>,
 }

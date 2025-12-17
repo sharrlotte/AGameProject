@@ -35,6 +35,13 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
         }
     }
 
+    while ships.len() < 3 {
+        ships.push(SavedShip {
+            name: format!("ship_{}", ships.len()),
+            blocks: Vec::new(),
+        });
+    }
+
     return ships;
 }
 
@@ -63,7 +70,7 @@ pub fn save_ship(data: &SavedShip) -> Result<(), Error> {
     }
 }
 
-pub fn delete_ship(name: &str) {
+pub fn _delete_ship(name: &str) {
     let ships_dir = save_dir().join("ships");
     let filename = format!("ship_{}.json", name);
     let path = ships_dir.join(&filename);

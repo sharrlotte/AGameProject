@@ -1,4 +1,3 @@
-use crate::AppState;
 use crate::content::ships::features::ShipFeature;
 use crate::content::structures::block::LayerKind;
 use crate::content::structures::block::{
@@ -6,7 +5,9 @@ use crate::content::structures::block::{
 };
 use crate::content::structures::ship::{SavedBlock, SavedShip};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
-use crate::save::{delete_ship, load_saved_ships, save_ship};
+use crate::save::{load_saved_ships, save_ship};
+use crate::{AppState, AppVar};
+
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -18,6 +19,7 @@ impl Plugin for ShipEditorPlugin {
             .init_resource::<EditorShip>()
             .init_resource::<AvailableShips>()
             .add_message::<ShipSavesChanged>()
+            .add_message::<ShipSaveChanged>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
                 (
@@ -32,8 +34,7 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_selection,
                     handle_tab_switching,
                     handle_ship_loading,
-                    handle_ship_saving,
-                    handle_ship_deletion,
+                    handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                     process_input, // Replaced handle_grid_input
                     draw_grid,     // New system
@@ -41,8 +42,9 @@ impl Plugin for ShipEditorPlugin {
                     handle_placement,
                     handle_block_deletion,
                     update_block_properties_panel,
-                    update_save_button_state,
                     handle_camera_controls,
+                    handle_deploy_button,
+                    handle_deploy_button_click,
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
@@ -59,6 +61,9 @@ pub struct BlockLayer {
 
 #[derive(Message)]
 struct ShipSavesChanged;
+
+#[derive(Message)]
+struct ShipSaveChanged;
 
 // --- Resources ---
 
@@ -77,6 +82,8 @@ struct EditorState {
     // Input Abstraction
     place_req: bool,
     delete_req: bool,
+    // Drag detection for click-to-pan vs click-to-place
+    drag_accumulator: f32,
 }
 
 #[derive(Resource, Default)]
@@ -86,6 +93,7 @@ struct AvailableShips {
 
 #[derive(Resource, Default)]
 struct EditorShip {
+    name: String,
     grid: ShipGrid,
 }
 
@@ -108,13 +116,10 @@ struct BlockListPanel;
 struct ShipListPanel;
 
 #[derive(Component)]
-struct SaveButton;
-
-#[derive(Component)]
 struct LoadShipButton(String);
 
 #[derive(Component)]
-struct DeleteShipButton(String);
+struct DeployButton;
 
 // --- Systems ---
 
@@ -338,33 +343,6 @@ fn setup_editor_ui(
                         BlockPropertiesText,
                     ));
 
-                    // Save Button
-                    right_panel
-                        .spawn((
-                            Button,
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(40.0),
-                                margin: UiRect::top(Val::Px(20.0)),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.6, 0.2)),
-                            BorderRadius::all(Val::Px(5.0)),
-                            SaveButton,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Save Ship"),
-                                TextFont {
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
-
                     // Instructions
                     right_panel.spawn((
                         Text::new("\n\nLeft Click: Place\nRight Click: Delete"),
@@ -378,6 +356,39 @@ fn setup_editor_ui(
                             ..default()
                         },
                     ));
+
+                    // Spacer
+                    right_panel.spawn(Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    });
+
+                    // Deploy Button
+                    right_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(40.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::top(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.2, 0.6, 1.0)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            DeployButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Deploy"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
                 });
         });
 }
@@ -417,6 +428,61 @@ fn handle_block_selection(
     }
 }
 
+fn handle_deploy_button_click(
+    mut buttons: Query<(&Interaction, &mut BackgroundColor), With<DeployButton>>,
+    mut app_var: ResMut<AppVar>,
+    editor_ship: Res<EditorShip>,
+    blocks_query: Query<(&Block, &GridPosition)>,
+) {
+    for (interaction, mut bg_color) in &mut buttons {
+        if *interaction == Interaction::Pressed {
+            // Deploy Logic
+            let mut saved_blocks = Vec::new();
+            for (block, grid_pos) in &blocks_query {
+                saved_blocks.push(SavedBlock {
+                    pos: grid_pos.0,
+                    block_type: block.block_type,
+                    rotation: block.rotation,
+                });
+            }
+
+            let saved_ship = SavedShip {
+                name: editor_ship.name.clone(),
+                blocks: saved_blocks,
+            };
+
+            app_var.current_ship = Some(saved_ship);
+            info!("Deployed ship: {}", editor_ship.name);
+        }
+
+        match interaction {
+            Interaction::Pressed => *bg_color = BackgroundColor(Color::srgb(0.1, 0.4, 0.8)),
+            Interaction::Hovered => *bg_color = BackgroundColor(Color::srgb(0.3, 0.7, 1.0)),
+            _def => {}
+        }
+    }
+}
+
+fn handle_deploy_button(
+    mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
+    app_var: ResMut<AppVar>,
+    editor_ship: Res<EditorShip>,
+) {
+    let is_deployed = if let Some(current) = &app_var.current_ship {
+        current.name == editor_ship.name
+    } else {
+        false
+    };
+
+    for mut bg_color in &mut buttons {
+        if is_deployed {
+            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+        } else {
+            *bg_color = BackgroundColor(Color::srgb(0.2, 0.6, 1.0));
+        }
+    }
+}
+
 /// Abstract input processing system
 /// Converts raw inputs (Mouse, Touch) into high-level editor intents.
 fn process_input(
@@ -450,7 +516,12 @@ fn process_input(
 
             // Process Actions (Abstraction)
             if mouse.just_pressed(MouseButton::Left) {
-                editor_state.place_req = true;
+                editor_state.drag_accumulator = 0.0;
+            }
+            if mouse.just_released(MouseButton::Left) {
+                if editor_state.drag_accumulator < 5.0 {
+                    editor_state.place_req = true;
+                }
             }
             if mouse.just_pressed(MouseButton::Right) {
                 editor_state.delete_req = true;
@@ -569,11 +640,16 @@ fn update_placement_preview(
     preview_query: Query<Entity, With<PlacementPreview>>,
     blocks_query: Query<(&Block, &GridPosition)>, // Added query
 ) {
-    if let (Some(selected_type), Some(grid_pos)) =
+    if let (Some(selected_type), Some(mouse_grid_pos)) =
         (editor_state.selected_block, editor_state.hovered_grid_pos)
     {
         let def = registry.get(&selected_type).unwrap();
         let grid_size = 40.0;
+
+        // Calculate anchor position to center the block on mouse
+        let size = def.shape.size;
+        let anchor_offset = (size - IVec2::ONE) / 2;
+        let grid_pos = mouse_grid_pos - anchor_offset;
 
         // Calculate center offset
         let size_vec = def.shape.size.as_vec2();
@@ -643,12 +719,18 @@ fn handle_placement(
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
     blocks_query: Query<(&Block, &GridPosition)>, // Added query
+    mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
     if editor_state.place_req {
-        if let (Some(selected_type), Some(grid_pos)) =
+        if let (Some(selected_type), Some(mouse_grid_pos)) =
             (editor_state.selected_block, editor_state.hovered_grid_pos)
         {
+            let def = registry.get(&selected_type).unwrap();
+            let size = def.shape.size;
+            let anchor_offset = (size - IVec2::ONE) / 2;
+            let grid_pos = mouse_grid_pos - anchor_offset;
+
             let is_valid = check_placement_validity(
                 &editor_ship.grid,
                 &registry,
@@ -667,6 +749,7 @@ fn handle_placement(
                     selected_type,
                     grid_pos,
                 );
+                events.write(ShipSaveChanged);
             } else {
                 info!("Cannot place block here!");
             }
@@ -680,6 +763,7 @@ fn handle_block_deletion(
     mut editor_ship: ResMut<EditorShip>,
     registry: Res<BlockRegistry>,
     blocks_query: Query<(&Block, &GridPosition)>,
+    mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
     if editor_state.delete_req {
@@ -691,6 +775,7 @@ fn handle_block_deletion(
                 &blocks_query,
                 grid_pos,
             );
+            events.write(ShipSaveChanged);
         }
     }
 }
@@ -857,100 +942,34 @@ fn refresh_ship_list(
                                 TextColor(Color::WHITE),
                             ));
                         });
-
-                        // Delete Button
-                        row.spawn((
-                            Button,
-                            Node {
-                                width: Val::Px(40.0),
-                                height: Val::Percent(100.0),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderRadius::all(Val::Px(4.0)),
-                            BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
-                            DeleteShipButton(ship.name.clone()),
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("X"),
-                                TextFont {
-                                    font_size: 14.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
                     });
             }
         });
 }
 
-fn update_save_button_state(
-    mut save_btn: Single<(&mut BackgroundColor, &mut Interaction), With<SaveButton>>,
-    blocks_query: Query<&Block>,
-) {
-    let mut has_core = false;
-    let mut block_count = 0;
-
-    for block in &blocks_query {
-        block_count += 1;
-        if block.block_type == BlockType::Core {
-            has_core = true;
-        }
-    }
-
-    // Must have core and at least one other block (total > 1)
-    let can_save = has_core && block_count > 1;
-
-    if can_save {
-        *save_btn.0 = BackgroundColor(Color::srgb(0.2, 0.6, 0.2));
-    } else {
-        *save_btn.0 = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)); // Disabled grey
-    }
-}
-
 fn handle_ship_saving(
-    mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<SaveButton>)>,
     blocks_query: Query<(&Block, &GridPosition)>,
     mut ship_saved_event: MessageWriter<ShipSavesChanged>,
+    state: Res<EditorShip>,
 ) {
     // Re-validate before saving
     let mut has_core = false;
     let mut block_count = 0;
+
     for (block, _) in &blocks_query {
         block_count += 1;
         if block.block_type == BlockType::Core {
             has_core = true;
         }
     }
+
     if !has_core || block_count <= 1 {
         return;
     }
 
-    for interaction in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            perform_save_ship(&blocks_query, &mut ship_saved_event);
-        }
-    }
+    perform_save_ship(state.name.clone(), &blocks_query, &mut ship_saved_event);
 }
 
-fn handle_ship_deletion(
-    mut interaction_query: Query<
-        (&Interaction, &DeleteShipButton),
-        (Changed<Interaction>, With<Button>),
-    >,
-    mut ship_saved_event: MessageWriter<ShipSavesChanged>,
-) {
-    for (interaction, delete_btn) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            delete_ship(&delete_btn.0);
-            ship_saved_event.write(ShipSavesChanged);
-        }
-    }
-}
 fn handle_ship_loading(
     mut commands: Commands,
     mut editor_ship: ResMut<EditorShip>,
@@ -982,7 +1001,7 @@ fn spawn_placed_block(
     asset_server: &AssetServer,
     block_type: BlockType,
     grid_pos: IVec2,
-) {
+) -> bool {
     let def = registry.get(&block_type).unwrap();
     let grid_size = 40.0;
 
@@ -1051,6 +1070,8 @@ fn spawn_placed_block(
     }
 
     info!("Placed block {:?} at {:?}", block_type, grid_pos);
+
+    return true;
 }
 
 fn remove_block_at(
@@ -1079,6 +1100,7 @@ fn remove_block_at(
 }
 
 fn perform_save_ship(
+    name: String,
     blocks_query: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
@@ -1094,13 +1116,8 @@ fn perform_save_ship(
         });
     }
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
     let saved_ship = SavedShip {
-        name: timestamp.to_string(),
+        name,
         blocks: saved_blocks,
     };
 
@@ -1127,6 +1144,8 @@ fn perform_load_ship(
 
         // 1. Clear current ship
         editor_ship.grid = ShipGrid::new();
+        editor_ship.name = ship_to_load.name;
+
         for entity in placed_blocks {
             commands.entity(entity).despawn();
         }
@@ -1204,12 +1223,12 @@ fn perform_load_ship(
     }
 }
 
-
 fn handle_camera_controls(
     mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut editor_state: ResMut<EditorState>,
 ) {
     if let Ok((mut transform, mut projection)) = query.single_mut() {
         // Zoom
@@ -1234,6 +1253,7 @@ fn handle_camera_controls(
                 let pan_speed = scale * 0.5;
                 transform.translation.x -= event.delta.x * pan_speed;
                 transform.translation.y += event.delta.y * pan_speed;
+                editor_state.drag_accumulator += event.delta.length();
             }
         }
     }
