@@ -2,15 +2,15 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-pub mod control;
 pub mod emission;
 pub mod targeting;
 pub mod tracking;
 
-use control::update_player_fire_controller;
 use emission::handle_turret_emission;
 use serde::{Deserialize, Serialize};
-use targeting::{apply_targeting_to_fire_intent, update_turret_target};
+use targeting::{
+    apply_targeting_to_fire_targeter, update_player_fire_controller, update_turret_target,
+};
 
 use crate::content::turret::tracking::{draw_turret_ranges, system_turret_tracking};
 
@@ -18,8 +18,7 @@ pub struct TurretPlugin;
 
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<FireIntent>()
-            .register_type::<PlayerFireController>()
+        app.register_type::<PlayerFireController>()
             .register_type::<AIFireController>()
             .register_type::<FireStyle>()
             .register_type::<TurretBarrel>()
@@ -30,7 +29,7 @@ impl Plugin for TurretPlugin {
                 (
                     update_player_fire_controller,
                     update_turret_target,
-                    apply_targeting_to_fire_intent,
+                    apply_targeting_to_fire_targeter,
                     handle_turret_emission,
                     system_turret_tracking,
                     draw_turret_ranges,
@@ -63,11 +62,7 @@ pub struct TurretTargeter {
     // Track potential targets currently inside the sensor range
     #[reflect(ignore)]
     pub potential_targets: HashSet<Entity>,
-}
 
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct FireIntent {
     pub active: bool,
     pub target_pos: Option<Vec2>,
 }

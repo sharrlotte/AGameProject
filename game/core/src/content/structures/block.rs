@@ -199,6 +199,8 @@ impl LayerFeature {
                     turn_speed: f.turn_speed,
                     target: None,
                     potential_targets: HashSet::default(),
+                    active: false,
+                    target_pos: None,
                 },));
 
                 if team.unwrap_or_default() == Team::default() {

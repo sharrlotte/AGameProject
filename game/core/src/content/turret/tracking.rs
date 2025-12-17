@@ -1,18 +1,13 @@
 use bevy::prelude::*;
 
-use crate::content::turret::{FireIntent, TurretTargeter};
+use crate::content::turret::TurretTargeter;
 
 pub fn system_turret_tracking(
     time: Res<Time>,
-    mut query: Query<(
-        &mut Transform,
-        &GlobalTransform,
-        &TurretTargeter,
-        &FireIntent,
-    )>,
+    mut query: Query<(&mut Transform, &GlobalTransform, &TurretTargeter)>,
 ) {
-    for (mut transform, global_transform, targerter, fire_intent) in &mut query {
-        if let Some(target_pos) = fire_intent.target_pos {
+    for (mut transform, global_transform, targeter) in &mut query {
+        if let Some(target_pos) = targeter.target_pos {
             let current_pos = global_transform.translation().truncate();
             let diff = target_pos - current_pos;
             let dist_sq = diff.length_squared();
@@ -39,7 +34,7 @@ pub fn system_turret_tracking(
                 angle_error += 2.0 * std::f32::consts::PI;
             }
 
-            let max_rot = targerter.turn_speed * time.delta_secs();
+            let max_rot = targeter.turn_speed * time.delta_secs();
 
             // Clamp rotation to max_rot, but don't overshoot
             let rot_amount = angle_error.clamp(-max_rot, max_rot);

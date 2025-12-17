@@ -1,6 +1,8 @@
 use crate::content::ships::features::shooting::Bullet;
 use crate::content::team::Team;
-use crate::content::turret::{EmissionType, FireIntent, FireStyle, TurretBarrel, TurretEmission};
+use crate::content::turret::{
+    EmissionType, FireStyle, TurretBarrel, TurretEmission, TurretTargeter,
+};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*; // Reusing existing Bullet component if possible, or define new one.
 
@@ -10,7 +12,7 @@ pub fn handle_turret_emission(
     mut query: Query<(
         Entity,
         &GlobalTransform,
-        &FireIntent,
+        &TurretTargeter,
         &mut TurretEmission,
         &mut TurretBarrel,
         &mut FireStyle,

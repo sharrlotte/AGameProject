@@ -1,10 +1,28 @@
 use crate::content::{
     structures::ship::Enemy,
     team::Team,
-    turret::{AIFireController, FireIntent, TargetingStrategy, TurretTargeter},
+    turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretTargeter},
 };
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+
+pub fn update_player_fire_controller(
+    mut query: Query<(&mut TurretTargeter, &GlobalTransform), With<PlayerFireController>>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    window: Single<&Window>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+) {
+    let (camera, camera_transform) = *camera_query;
+
+    if let Some(cursor_position) = window.cursor_position() {
+        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+            for (mut targeter, _) in query.iter_mut() {
+                targeter.target_pos = Some(world_position);
+                targeter.active = mouse_input.pressed(MouseButton::Left);
+            }
+        }
+    }
+}
 
 pub fn update_turret_target(
     mut turret_query: Query<(Entity, &GlobalTransform, &mut TurretTargeter, &Team)>,
@@ -112,22 +130,22 @@ pub fn update_turret_target(
     }
 }
 
-pub fn apply_targeting_to_fire_intent(
-    mut query: Query<(&mut FireIntent, &TurretTargeter), With<AIFireController>>,
+pub fn apply_targeting_to_fire_targeter(
+    mut query: Query<&mut TurretTargeter, With<AIFireController>>,
     target_query: Query<&GlobalTransform>,
 ) {
-    for (mut intent, targeter) in query.iter_mut() {
+    for mut targeter in query.iter_mut() {
         if let Some(target_entity) = targeter.target {
             if let Ok(target_transform) = target_query.get(target_entity) {
-                intent.target_pos = Some(target_transform.translation().truncate());
-                intent.active = true;
+                targeter.target_pos = Some(target_transform.translation().truncate());
+                targeter.active = true;
             } else {
-                intent.active = false;
-                intent.target_pos = None;
+                targeter.active = false;
+                targeter.target_pos = None;
             }
         } else {
-            intent.active = false;
-            intent.target_pos = None;
+            targeter.active = false;
+            targeter.target_pos = None;
         }
     }
 }
