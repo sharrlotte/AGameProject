@@ -217,7 +217,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                     }],
                     features: vec![
                         LayerFeature::Tracker(TrackerFeature {
-                            range: 400.0,
+                            range: 1200.0,
                             fov: 360.0,
                         }),
                         LayerFeature::Rotatable(RotatableFeature { turn_speed: 2.0 }),

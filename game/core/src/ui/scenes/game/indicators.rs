@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::content::structures::ship::Ship;
 use crate::content::team::Team;
 use bevy::prelude::*;
@@ -12,15 +14,15 @@ impl Plugin for IndicatorsPlugin {
 
 fn draw_indicators(
     mut gizmos: Gizmos,
-    ships: Query<(&GlobalTransform, &Team), With<Ship>>,
+    ships: Query<(&GlobalTransform, &Team, &Ship)>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
     window: Single<&Window>,
 ) {
     let (camera, camera_transform) = *camera;
     let window_size = Vec2::new(window.width(), window.height());
 
-    for (ship_transform, team) in &ships {
-        let ship_pos = ship_transform.translation();
+    for (ship_transform, team, ship) in &ships {
+        let ship_pos = ship_transform.transform_point(ship.center.extend(0.0));
 
         // Project to screen to check visibility and clamp
         if let Ok(viewport_pos) = camera.world_to_viewport(camera_transform, ship_pos) {
@@ -40,17 +42,34 @@ fn draw_indicators(
                     Color::srgb(1.0, 0.0, 0.0) // Red
                 };
 
-                // Triangle pointing down
-                let size = 30.0; // World units
+                // Triangle pointing toward the target
+                let size = 30.0 * 1.5; // 1.5 times bigger
 
-                // Tip at the location
-                let p1 = world_pos;
-                // Top Left
-                let p2 = world_pos + Vec2::new(-size * 0.5, size);
-                // Top Right
-                let p3 = world_pos + Vec2::new(size * 0.5, size);
+                let diff = ship_pos.truncate() - world_pos;
+                // Only draw if we are somewhat far from the target (avoid drawing on top)
+                let angle: f32 = if diff.length_squared() > 1.0 {
+                    diff.y.atan2(diff.x)
+                } else {
+                    -PI / 2.0
+                };
 
-                gizmos.linestrip_2d(vec![p1, p2, p3, p1], color);
+                let rotation = Quat::from_rotation_z(angle);
+
+                // Local points: Tip at (0,0), Base at -size
+                let p1 = Vec2::ZERO; // Tip
+                let p2 = Vec2::new(-size, size * 0.5); // Top Back
+                let p3 = Vec2::new(-size, -size * 0.5); // Bottom Back
+
+                // Rotate and Translate
+                let transform_point =
+                    |p: Vec2| -> Vec2 { world_pos + (rotation * p.extend(0.0)).truncate() };
+
+                let v1 = transform_point(p1);
+                let v2 = transform_point(p2);
+                let v3 = transform_point(p3);
+
+                // Draw outline (Gizmos don't support solid fill natively yet)
+                gizmos.linestrip_2d(vec![v1, v2, v3, v1], color);
             }
         }
     }

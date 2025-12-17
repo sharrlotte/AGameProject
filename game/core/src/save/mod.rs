@@ -38,7 +38,6 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
     while ships.len() < 3 {
         ships.push(SavedShip {
             name: format!("ship_{}", ships.len()),
-            center: Vec2::ZERO,
             blocks: Vec::new(),
         });
     }

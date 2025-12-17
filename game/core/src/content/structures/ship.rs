@@ -51,7 +51,6 @@ pub struct SavedBlock {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SavedShip {
     pub name: String,
-    pub center: Vec2,
     pub blocks: Vec<SavedBlock>,
 }
 

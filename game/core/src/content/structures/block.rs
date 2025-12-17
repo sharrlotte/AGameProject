@@ -302,7 +302,7 @@ impl BlockDefinition {
                     .spawn((
                         Sprite {
                             image: asset_server.load(&visual.sprite),
-                            custom_size: Some(size_vec * GRID_SIZE - 2.0),
+                            custom_size: Some(size_vec * GRID_SIZE),
                             ..default()
                         },
                         Transform::from_translation(visual.offset.extend(visual.z)),

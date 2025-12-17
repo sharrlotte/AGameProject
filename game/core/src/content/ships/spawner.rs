@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::GRID_SIZE;
+use crate::content::structures::block::BlockGroup;
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::{PlayerShip, SavedShip, Ship, ShipBlockHitbox};
 use crate::content::team::Team;
@@ -17,6 +18,20 @@ pub fn spawn_ship(
 ) -> Entity {
     let mut compound_shapes = Vec::new();
     let mut total_mass = 0.0;
+
+    // Recalculate center based on Core block to fix legacy saves
+    let mut ship_center = Vec2::ZERO;
+
+    for saved_block in &ship_data.blocks {
+        if let Some(def) = registry.get(&saved_block.block_type) {
+            if def.block_group == BlockGroup::Core {
+                let size = def.shape.size.as_vec2();
+                let offset = (size - 1.0) * GRID_SIZE * 0.5;
+                ship_center = saved_block.pos.as_vec2() * GRID_SIZE + offset;
+                break;
+            }
+        }
+    }
 
     let mut ship_cmd = commands.spawn((
         transform,
@@ -37,7 +52,7 @@ pub fn spawn_ship(
         team,
         Ship {
             name: ship_data.name.clone(),
-            center: ship_data.center,
+            center: ship_center,
         },
     ));
 

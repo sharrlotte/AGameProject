@@ -21,7 +21,7 @@ pub struct BackgroundConfig;
 
 fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load the single background image
-    let texture_handle = asset_server.load("textures/background/background2.png");
+    let texture_handle = asset_server.load("textures/background/background1.png");
 
     commands.insert_resource(BackgroundConfig);
 
@@ -50,36 +50,12 @@ fn update_background(
     images: Res<Assets<Image>>,
 ) {
     let (mut transform, sprite) = bg_transform.into_inner();
-    let (camera_transform, projection) = *camera_query;
+    let (camera_transform, _projection) = *camera_query;
     let camera_pos = camera_transform.translation.truncate();
 
-    // Get zoom level from projection
-    let zoom = if let Projection::Orthographic(ortho) = projection {
-        ortho.scale
-    } else {
-        1.0
-    };
-
-    // --- Parallax Movement ---
-    // User Requirement: "move it slowly base on user positon, user max position is x=50k and y=50k, lerp it base on that"
-    // We map the player's position to a background position.
-    // If the background moves at 95% of the camera speed, it appears very far away.
-    // Relative displacement = CameraPos * (1 - Factor).
-    // At 50,000 units, with 0.95 factor, relative displacement is 2,500 units.
     let parallax_factor = 0.95;
     let target_pos = camera_pos * parallax_factor;
-
-    // --- Zoom Scaling ---
-    // User Requirement: "scale it when use zoom too so when user zoom, they only see it bigger a bit"
-    // Normal behavior: VisualSize ~ 1/Zoom.
-    // We want it to be less sensitive.
-    // If we scale the object by sqrt(Zoom), then VisualSize ~ sqrt(Zoom)/Zoom = 1/sqrt(Zoom).
-    // This dampens the zoom effect.
-    let zoom_damping = zoom.sqrt();
-
-    // User Requirement: "make it 2x bigger than user viewport is enough"
-    // Calculate required base scale dynamically
-    let mut base_scale = 10.0; // Default fallback
+    let mut base_scale = 2.0; // Default fallback
 
     if let Some(image) = images.get(&sprite.image) {
         let image_size = Vec2::new(image.width() as f32, image.height() as f32);
@@ -103,7 +79,7 @@ fn update_background(
             // BaseScale >= CoverScale * 2.236 * 2.0 = CoverScale * 4.47
 
             // We use 4.5 as a safe multiplier.
-            base_scale = cover_scale * 4.5;
+            base_scale = cover_scale * 6.0;
         }
     }
 
@@ -111,5 +87,5 @@ fn update_background(
     transform.translation.y = target_pos.y;
     transform.translation.z = -100.0;
 
-    transform.scale = Vec3::new(base_scale * zoom_damping, base_scale * zoom_damping, 1.0);
+    transform.scale = Vec3::new(base_scale, base_scale, 1.0);
 }

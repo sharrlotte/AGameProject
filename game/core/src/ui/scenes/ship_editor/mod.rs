@@ -504,7 +504,6 @@ fn handle_deploy_button_click(
         if *interaction == Interaction::Pressed {
             // Deploy Logic
             let mut saved_blocks = Vec::new();
-            let mut center: Option<IVec2> = None;
 
             for (block, grid_pos) in &blocks_query {
                 saved_blocks.push(SavedBlock {
@@ -512,20 +511,10 @@ fn handle_deploy_button_click(
                     block_type: block.block_type,
                     rotation: block.rotation,
                 });
-
-                if block.block_type == BlockType::Core {
-                    center = Some(grid_pos.0);
-                }
-            }
-
-            if center.is_none() {
-                error!("Ship must have a core block");
-                return;
             }
 
             let saved_ship = SavedShip {
                 name: editor_ship.name.clone(),
-                center: center.unwrap().as_vec2() * GRID_SIZE,
                 blocks: saved_blocks,
             };
 
@@ -1164,7 +1153,6 @@ fn perform_save_ship(
     let mut saved_blocks = Vec::new();
     // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
     // We can iterate the query instead.
-    let mut center: Option<IVec2> = None;
 
     for (block, grid_pos) in blocks_query {
         saved_blocks.push(SavedBlock {
@@ -1172,20 +1160,10 @@ fn perform_save_ship(
             block_type: block.block_type,
             rotation: block.rotation,
         });
-
-        if block.block_type == BlockType::Core {
-            center = Some(grid_pos.0);
-        }
-    }
-
-    if center.is_none() {
-        error!("Ship must have a core block");
-        return;
     }
 
     let saved_ship = SavedShip {
         name,
-        center: center.unwrap().as_vec2() * GRID_SIZE,
         blocks: saved_blocks,
     };
 

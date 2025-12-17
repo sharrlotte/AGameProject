@@ -4,7 +4,7 @@ mod ui;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
-use bevy::window::WindowPlugin;
+use bevy::window::{PresentMode, WindowPlugin};
 use bevy_rapier2d::prelude::*;
 use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
@@ -21,7 +21,7 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "AGameProject".to_string(),
-            // mode: WindowMode::Fullscreen(MonitorSelection::Primary, VideoModeSelection::Current),
+            present_mode: PresentMode::AutoNoVsync,
             ..Default::default()
         }),
         ..Default::default()

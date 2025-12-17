@@ -5,10 +5,8 @@ mod ship;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-use crate::content::structures::block::BlockGroup;
-use crate::content::structures::ship::PlayerShip;
+use crate::content::structures::ship::{PlayerShip, Ship};
 use crate::ui::scenes::game::background::BackgroundPlugin;
-use crate::ui::scenes::game::indicators::IndicatorsPlugin;
 use crate::{AppState, ui::scenes::game::ship::ShipPlugin};
 
 pub struct GamePlugin;
@@ -19,42 +17,60 @@ impl Plugin for GamePlugin {
             .add_systems(OnExit(AppState::Game), cleanup_game)
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom).run_if(in_state(AppState::Game)),
+                (camera_follow, camera_zoom, update_fps).run_if(in_state(AppState::Game)),
             )
             .add_plugins(ShipPlugin)
-            .add_plugins(BackgroundPlugin)
-            .add_plugins(IndicatorsPlugin);
+            .add_plugins(BackgroundPlugin);
     }
 }
 
-fn setup_game(_commands: Commands) {
-    info!("Setting up Game Scene");
+#[derive(Component)]
+struct FpsText;
+
+fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
+    let fps = 1.0 / time.delta_secs();
+    if fps.is_finite() {
+        text.0 = format!("FPS: {:.0}", fps);
+    }
 }
 
-fn cleanup_game(_commands: Commands) {
+fn setup_game(mut commands: Commands) {
+    info!("Setting up Game Scene");
+
+    commands.spawn((
+        Text::new("FPS: N/A"),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        },
+        FpsText,
+    ));
+}
+
+fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
     info!("Cleaning up Game Scene");
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn camera_follow(
-    player: Single<(&Transform, Option<&Children>), (With<PlayerShip>, Without<Camera2d>)>,
-    block_query: Query<(&GlobalTransform, &BlockGroup)>,
+    player: Single<(&Transform, &Ship), (With<PlayerShip>, Without<Camera2d>)>,
     mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShip>)>,
     time: Res<Time>,
 ) {
-    let (ship_transform, children) = *player;
+    let (ship_transform, ship) = *player;
 
-    let mut target = ship_transform.translation.truncate();
-
-    if let Some(children) = children {
-        for child in children.iter() {
-            if let Ok((global_transform, group)) = block_query.get(child) {
-                if *group == BlockGroup::Core {
-                    target = global_transform.translation().truncate();
-                    break;
-                }
-            }
-        }
-    }
+    let target = ship_transform
+        .transform_point(ship.center.extend(0.0))
+        .truncate();
 
     let current = camera_transform.translation.truncate();
 

@@ -5,17 +5,22 @@ use crate::content::ships::spawner;
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::PlayerShip;
 use crate::content::team::Team;
+use crate::ui::scenes::game::indicators::IndicatorsPlugin;
 use crate::{AppState, AppVar};
 
 pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Game), (spawn_player_ship, spawn_enemy_ship))
-            .add_systems(
-                Update,
-                ship_movement_controls.run_if(in_state(AppState::Game)),
-            );
+        app.add_systems(
+            OnEnter(AppState::Game),
+            (spawn_player_ship, spawn_enemy_ship),
+        )
+        .add_systems(
+            Update,
+            ship_movement_controls.run_if(in_state(AppState::Game)),
+        )
+        .add_plugins(IndicatorsPlugin);
     }
 }
 
