@@ -1,3 +1,4 @@
+use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{fs, io::Error, path::PathBuf};
 
@@ -37,13 +38,6 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
     return ships;
 }
 
-pub fn load_saved_ship_names() -> Vec<String> {
-    load_saved_ships()
-        .iter()
-        .map(|s| s.name.clone())
-        .collect::<Vec<_>>()
-}
-
 pub fn save_ship(data: &SavedShip) -> Result<(), Error> {
     let ships_dir = save_dir().join("ships");
     let filename = format!("ship_{}.json", data.name);
@@ -61,9 +55,22 @@ pub fn save_ship(data: &SavedShip) -> Result<(), Error> {
             if let Err(e) = fs::write(&path, json) {
                 return Err(e);
             } else {
+                info!("Ship saved at: {}", path.display());
                 return Ok(());
             }
         }
         Err(e) => return Err(e.into()),
+    }
+}
+
+pub fn delete_ship(name: &str) {
+    let ships_dir = save_dir().join("ships");
+    let filename = format!("ship_{}.json", name);
+    let path = ships_dir.join(&filename);
+
+    if path.exists() {
+        if let Err(e) = fs::remove_file(&path) {
+            eprintln!("Failed to delete ship: {}", e);
+        }
     }
 }

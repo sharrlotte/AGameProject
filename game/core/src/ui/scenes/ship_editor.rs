@@ -1,7 +1,7 @@
 use crate::content::structure::block::{LayerFeature, LayerKind};
 use crate::content::structure::grid::{SavedBlock, SavedShip};
 use crate::content::{self, AppState};
-use crate::save::{load_saved_ship_names, load_saved_ships, save_ship};
+use crate::save::{delete_ship, load_saved_ships, save_ship};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -17,7 +17,7 @@ impl Plugin for ShipEditorPlugin {
         app.init_resource::<EditorState>()
             .init_resource::<EditorShip>()
             .init_resource::<AvailableShips>()
-            .add_message::<ShipSaved>()
+            .add_message::<ShipSavesChanged>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
                 (
@@ -33,7 +33,8 @@ impl Plugin for ShipEditorPlugin {
                     handle_tab_switching,
                     handle_ship_loading,
                     handle_ship_saving,
-                    refresh_ship_list.run_if(on_message::<ShipSaved>),
+                    handle_ship_deletion,
+                    refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                     process_input, // Replaced handle_grid_input
                     draw_grid,     // New system
                     update_placement_preview,
@@ -124,7 +125,7 @@ pub struct Recoil {
 }
 
 #[derive(Message)]
-struct ShipSaved;
+struct ShipSavesChanged;
 
 // --- Resources ---
 
@@ -148,7 +149,7 @@ struct EditorState {
 
 #[derive(Resource, Default)]
 struct AvailableShips {
-    names: Vec<String>,
+    ships: Vec<SavedShip>,
 }
 
 #[derive(Resource, Default)]
@@ -179,6 +180,9 @@ struct SaveButton;
 
 #[derive(Component)]
 struct LoadShipButton(String);
+
+#[derive(Component)]
+struct DeleteShipButton(String);
 
 // --- Systems ---
 
@@ -852,7 +856,7 @@ fn load_initial_ship(
     asset_server: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
 ) {
-    let ship_names = load_saved_ship_names();
+    let ship_names = load_saved_ships();
 
     if ship_names.is_empty() {
         info!("No ships available to load.");
@@ -865,10 +869,10 @@ fn load_initial_ship(
         &registry,
         &asset_server,
         &placed_blocks,
-        &ship_names[0],
+        &ship_names[0].name,
     );
 
-    info!("Load initial ship: {}", &ship_names[0]);
+    info!("Load initial ship: {}", &ship_names[0].name);
 }
 
 fn refresh_ship_list(
@@ -876,9 +880,9 @@ fn refresh_ship_list(
     mut available_ships: ResMut<AvailableShips>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    available_ships.names = load_saved_ship_names();
+    available_ships.ships = load_saved_ships();
 
-    info!("Refreshed ship list: {:?}", available_ships.names);
+    info!("Refreshed ship list: {:?}", available_ships.ships.len());
 
     // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
@@ -886,33 +890,71 @@ fn refresh_ship_list(
     commands
         .entity(ship_list_panel.entity())
         .with_children(|parent| {
-            for name in &available_ships.names {
+            for ship in &available_ships.ships {
                 parent
-                    .spawn((
-                        Button,
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(40.0),
-                            justify_content: JustifyContent::Start,
-                            align_items: AlignItems::Center,
-                            border: UiRect::all(Val::Px(1.0)),
-                            padding: UiRect::all(Val::Px(8.0)),
-                            margin: UiRect::bottom(Val::Px(4.0)),
-                            ..default()
-                        },
-                        BorderRadius::all(Val::Px(4.0)),
-                        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                        LoadShipButton(name.clone()),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn((
-                            Text::new(name.replace(".json", "")),
-                            TextFont {
-                                font_size: 14.0,
+                    .spawn((Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(40.0),
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(4.0)),
+                        ..default()
+                    },))
+                    .with_children(|row| {
+                        // Load Button
+                        row.spawn((
+                            Button,
+                            Node {
+                                flex_grow: 1.0,
+                                height: Val::Percent(100.0),
+                                justify_content: JustifyContent::Start,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(1.0)),
+                                padding: UiRect::all(Val::Px(8.0)),
+                                margin: UiRect::right(Val::Px(4.0)),
                                 ..default()
                             },
-                            TextColor(Color::WHITE),
-                        ));
+                            BorderRadius::all(Val::Px(4.0)),
+                            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                            LoadShipButton(ship.name.clone()),
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new(ship.name.replace(".json", "")),
+                                TextFont {
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
+
+                        // Delete Button
+                        row.spawn((
+                            Button,
+                            Node {
+                                width: Val::Px(40.0),
+                                height: Val::Percent(100.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(4.0)),
+                            BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
+                            DeleteShipButton(ship.name.clone()),
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("X"),
+                                TextFont {
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
                     });
             }
         });
@@ -945,7 +987,7 @@ fn update_save_button_state(
 fn handle_ship_saving(
     mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<SaveButton>)>,
     blocks_query: Query<(&Block, &GridPosition)>,
-    mut ship_saved_event: MessageWriter<ShipSaved>,
+    mut ship_saved_event: MessageWriter<ShipSavesChanged>,
 ) {
     // Re-validate before saving
     let mut has_core = false;
@@ -967,16 +1009,30 @@ fn handle_ship_saving(
     }
 }
 
-fn handle_ship_loading(
-    mut commands: Commands,
+fn handle_ship_deletion(
     mut interaction_query: Query<
-        (&Interaction, &LoadShipButton),
+        (&Interaction, &DeleteShipButton),
         (Changed<Interaction>, With<Button>),
     >,
+    mut ship_saved_event: MessageWriter<ShipSavesChanged>,
+) {
+    for (interaction, delete_btn) in &mut interaction_query {
+        if *interaction == Interaction::Pressed {
+            delete_ship(&delete_btn.0);
+            ship_saved_event.write(ShipSavesChanged);
+        }
+    }
+}
+fn handle_ship_loading(
+    mut commands: Commands,
     mut editor_ship: ResMut<EditorShip>,
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
+    mut interaction_query: Query<
+        (&Interaction, &LoadShipButton),
+        (Changed<Interaction>, With<Button>),
+    >,
 ) {
     for (interaction, load_btn) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
@@ -1178,7 +1234,7 @@ fn remove_block_at(
 
 fn perform_save_ship(
     blocks_query: &Query<(&Block, &GridPosition)>,
-    ship_saved_event: &mut MessageWriter<ShipSaved>,
+    ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     // 1. Serialize
     let mut saved_blocks = Vec::new();
@@ -1205,8 +1261,8 @@ fn perform_save_ship(
     if let Err(e) = save_ship(&saved_ship) {
         error!("Fail to save ship: {:?}", e)
     } else {
-        ship_saved_event.write(ShipSaved);
-        info!("Ship saved: {:?}", saved_ship);
+        ship_saved_event.write(ShipSavesChanged);
+        info!("Ship saved at: {}", saved_ship.name);
     }
 }
 
