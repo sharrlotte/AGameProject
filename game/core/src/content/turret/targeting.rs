@@ -25,7 +25,10 @@ pub fn update_player_fire_controller(
 }
 
 pub fn update_turret_target(
-    mut turret_query: Query<(Entity, &GlobalTransform, &mut TurretTargeter, &Team)>,
+    mut turret_query: Query<
+        (Entity, &GlobalTransform, &mut TurretTargeter, &Team),
+        With<AIFireController>,
+    >,
     mut collision_events: MessageReader<CollisionEvent>,
     sensors: Query<Entity, With<TurretTargeter>>,
     enemies: Query<Entity, With<Enemy>>,
@@ -126,26 +129,17 @@ pub fn update_turret_target(
             }
         }
 
-        targeter.target = best_target;
-    }
-}
-
-pub fn apply_targeting_to_fire_targeter(
-    mut query: Query<&mut TurretTargeter, With<AIFireController>>,
-    target_query: Query<&GlobalTransform>,
-) {
-    for mut targeter in query.iter_mut() {
-        if let Some(target_entity) = targeter.target {
-            if let Ok(target_transform) = target_query.get(target_entity) {
-                targeter.target_pos = Some(target_transform.translation().truncate());
+        if let Some(entity) = best_target {
+            if let Ok(target_pos) = global_transforms
+                .get(entity)
+                .map(|op| op.translation().truncate())
+            {
+                targeter.target_pos = Some(target_pos);
                 targeter.active = true;
             } else {
-                targeter.active = false;
                 targeter.target_pos = None;
+                targeter.active = false;
             }
-        } else {
-            targeter.active = false;
-            targeter.target_pos = None;
         }
     }
 }

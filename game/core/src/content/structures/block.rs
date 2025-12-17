@@ -197,7 +197,11 @@ impl LayerFeature {
                     strategy: f.strategy.clone(),
                     range: f.range,
                     turn_speed: f.turn_speed,
-                    target: None,
+                    fire_all_at_once: f.fire_all_at_once,
+                    barrels: f.barrels.clone(),
+                    shooting_pattern: f.shooting_pattern.clone(),
+                    // state
+                    current_barrel_index: 0,
                     potential_targets: HashSet::default(),
                     active: false,
                     target_pos: None,
