@@ -1,7 +1,10 @@
-use crate::content::{ships::features::tracking::{RotatableFeature, TrackerFeature}, structures::block::{
-    BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
-    LayerKind, LayerVisual,
-}};
+use crate::content::{
+    ships::features::{shooting::ShooterFeature, tracking::{RotatableFeature, TrackerFeature}},
+    structures::block::{
+        BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
+        LayerKind, LayerVisual,
+    },
+};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -55,7 +58,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
     registry.register(
         BlockType::ThrusterSmall,
         BlockDefinition {
-            name: "Small Ion Thruster".into(),  
+            name: "Small Ion Thruster".into(),
             description: "Provides weak thrust.".into(),
             block_type: BlockType::ThrusterSmall,
             mass: 25.0,
@@ -206,6 +209,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                             fov: 360.0,
                         }),
                         LayerFeature::Rotatable(RotatableFeature { turn_speed: 2.0 }),
+                        LayerFeature::Shooter(ShooterFeature {
+                            fire_rate: 0.5,
+                            projectile: "lazer".into(),
+                        }),
                     ],
                 },
             ],

@@ -97,6 +97,16 @@ fn draw_tracker_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Trac
                     Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
                 )
                 .resolution(64);
+
+            gizmos.line_2d(
+                global_transform.translation().truncate(),
+                global_transform.translation().truncate()
+                    + (global_transform.to_scale_rotation_translation().1
+                        * Vec3::Y
+                        * tracker.range)
+                        .truncate(),
+                Color::srgb(0.5, 1.0, 1.0).with_alpha(0.3),
+            );
         }
     }
 }

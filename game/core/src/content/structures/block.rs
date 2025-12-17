@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     GRID_SIZE,
-    content::ships::features::tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
+    content::ships::features::{
+        shooting::{Shooter, ShooterFeature},
+        tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
+    },
 };
 
 /// Represents the type of a block.
@@ -164,6 +167,7 @@ impl LayerFeature {
                 commands.entity(entity).insert(Shooter {
                     fire_rate: f.fire_rate,
                     projectile: f.projectile.clone(),
+                    last_fire_time: 0.0,
                 });
             }
             LayerFeature::Recoil(_recoil_feature) => todo!(),
@@ -171,12 +175,6 @@ impl LayerFeature {
             LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub struct ShooterFeature {
-    pub fire_rate: f32,
-    pub projectile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
@@ -192,12 +190,6 @@ pub struct HeatEmitterFeature {
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct EnergyConsumerFeature {
     pub rate: f32,
-}
-
-#[derive(Component)]
-pub struct Shooter {
-    pub fire_rate: f32,
-    pub projectile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
