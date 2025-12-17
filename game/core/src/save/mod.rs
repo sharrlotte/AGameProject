@@ -1,0 +1,69 @@
+use directories::ProjectDirs;
+use std::{fs, io::Error, path::PathBuf};
+
+use crate::content::structure::grid::SavedShip;
+
+pub fn save_dir() -> PathBuf {
+    let project_dirs = ProjectDirs::from(
+        "com",           // qualifier
+        "somerandomdev", // organization
+        "agameproject",  // application
+    )
+    .expect("Failed to get project directory");
+
+    project_dirs.data_dir().to_path_buf()
+}
+
+pub fn load_saved_ships() -> Vec<SavedShip> {
+    let ships_dir = save_dir().join("ships");
+
+    let mut ships = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(ships_dir) {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.ends_with(".json") {
+                    let path = save_dir().join("ships").join(name);
+                    if let Ok(json) = fs::read_to_string(path) {
+                        if let Ok(ship) = serde_json::from_str::<SavedShip>(&json) {
+                            ships.push(ship);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return ships;
+}
+
+pub fn load_saved_ship_names() -> Vec<String> {
+    load_saved_ships()
+        .iter()
+        .map(|s| s.name.clone())
+        .collect::<Vec<_>>()
+}
+
+pub fn save_ship(data: &SavedShip) -> Result<(), Error> {
+    let ships_dir = save_dir().join("ships");
+    let filename = format!("ship_{}.json", data.name);
+    let path = ships_dir.join(&filename);
+
+    // Create ships directory if it doesn't exist
+    if !ships_dir.exists() {
+        if let Err(e) = fs::create_dir_all(&ships_dir) {
+            return Err(e);
+        }
+    }
+
+    match serde_json::to_string_pretty(&data) {
+        Ok(json) => {
+            if let Err(e) = fs::write(&path, json) {
+                return Err(e);
+            } else {
+                return Ok(());
+            }
+        }
+        Err(e) => return Err(e.into()),
+    }
+}

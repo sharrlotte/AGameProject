@@ -1,4 +1,7 @@
-use crate::content::structure::block::{BlockDefinition, BlockFeature, BlockShape, BlockType};
+use crate::content::structure::block::{
+    BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
+    LayerKind, LayerVisual, RotatableFeature, TrackerFeature,
+};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -34,7 +37,17 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 5,
             features: vec![],
-            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
+            layers: vec![BlockLayerDefinition {
+                id: "base".into(),
+                kind: LayerKind::Base,
+                visuals: vec![LayerVisual {
+                    sprite: "textures/blocks/surge-wall-large.png".into(),
+                    offset: Vec2::ZERO,
+                    z: 0.0,
+                    animated: false,
+                }],
+                features: vec![],
+            }],
         },
     );
 
@@ -51,7 +64,17 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 BlockFeature::Thruster { force: 100.0 },
                 BlockFeature::PowerConsumer { required: 10.0 },
             ],
-            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
+            layers: vec![BlockLayerDefinition {
+                id: "base".into(),
+                kind: LayerKind::Base,
+                visuals: vec![LayerVisual {
+                    sprite: "textures/blocks/surge-wall-large.png".into(),
+                    offset: Vec2::ZERO,
+                    z: 0.0,
+                    animated: false,
+                }],
+                features: vec![],
+            }],
         },
     );
 
@@ -65,7 +88,17 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 200,
             features: vec![BlockFeature::PowerProducer { output: 50.0 }],
-            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
+            layers: vec![BlockLayerDefinition {
+                id: "base".into(),
+                kind: LayerKind::Base,
+                visuals: vec![LayerVisual {
+                    sprite: "textures/blocks/surge-wall-large.png".into(),
+                    offset: Vec2::ZERO,
+                    z: 0.0,
+                    animated: false,
+                }],
+                features: vec![],
+            }],
         },
     );
 
@@ -79,7 +112,17 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            texture_paths: vec!["textures/blocks/surge-wall-large.png".into()],
+            layers: vec![BlockLayerDefinition {
+                id: "base".into(),
+                kind: LayerKind::Base,
+                visuals: vec![LayerVisual {
+                    sprite: "textures/blocks/surge-wall-large.png".into(),
+                    offset: Vec2::ZERO,
+                    z: 0.0,
+                    animated: false,
+                }],
+                features: vec![],
+            }],
         },
     );
 
@@ -93,9 +136,29 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::filled(3, 3),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            texture_paths: vec![
-                "textures/blocks/core-nucleus.png".into(),
-                "textures/blocks/core-nucleus-team.png".into(),
+            layers: vec![
+                BlockLayerDefinition {
+                    id: "base".into(),
+                    kind: LayerKind::Base,
+                    visuals: vec![LayerVisual {
+                        sprite: "textures/blocks/core-nucleus.png".into(),
+                        offset: Vec2::ZERO,
+                        z: 0.0,
+                        animated: false,
+                    }],
+                    features: vec![],
+                },
+                BlockLayerDefinition {
+                    id: "overlay".into(),
+                    kind: LayerKind::Decorative,
+                    visuals: vec![LayerVisual {
+                        sprite: "textures/blocks/core-nucleus-team.png".into(),
+                        offset: Vec2::ZERO,
+                        z: 0.1,
+                        animated: false,
+                    }],
+                    features: vec![],
+                },
             ],
         },
     );
@@ -110,9 +173,35 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::filled(1, 1),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            texture_paths: vec![
-                "textures/blocks/block-2.png".into(),
-                "textures/blocks/lancer.png".into(),
+            layers: vec![
+                BlockLayerDefinition {
+                    id: "base".into(),
+                    kind: LayerKind::Base,
+                    visuals: vec![LayerVisual {
+                        sprite: "textures/blocks/block-2.png".into(),
+                        offset: Vec2::ZERO,
+                        z: 0.0,
+                        animated: false,
+                    }],
+                    features: vec![],
+                },
+                BlockLayerDefinition {
+                    id: "head".into(),
+                    kind: LayerKind::Turret,
+                    visuals: vec![LayerVisual {
+                        sprite: "textures/blocks/lancer.png".into(),
+                        offset: Vec2::ZERO,
+                        z: 0.1,
+                        animated: false,
+                    }],
+                    features: vec![
+                        LayerFeature::Tracker(TrackerFeature {
+                            range: 400.0,
+                            fov: 360.0,
+                        }),
+                        LayerFeature::Rotatable(RotatableFeature { turn_speed: 2.0 }),
+                    ],
+                },
             ],
         },
     );

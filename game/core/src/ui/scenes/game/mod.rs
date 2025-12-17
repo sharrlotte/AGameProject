@@ -1,12 +1,12 @@
-use bevy::prelude::*;
 use crate::content::AppState;
+use bevy::prelude::*;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Game), setup_game)
-           .add_systems(OnExit(AppState::Game), cleanup_game);
+            .add_systems(OnExit(AppState::Game), cleanup_game);
     }
 }
 

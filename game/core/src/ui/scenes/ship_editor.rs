@@ -1,13 +1,14 @@
+use crate::content::structure::block::{LayerFeature, LayerKind};
 use crate::content::structure::grid::{SavedBlock, SavedShip};
 use crate::content::{self, AppState};
-use crate::data::save_dir;
+use crate::save::{load_saved_ship_names, load_saved_ships, save_ship};
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use content::structure::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
 };
 use content::structure::{grid::ShipGrid, registry::BlockRegistry};
-use std::fs;
 
 pub struct ShipEditorPlugin;
 
@@ -19,7 +20,11 @@ impl Plugin for ShipEditorPlugin {
             .add_message::<ShipSaved>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
-                (setup_editor_ui, refresh_ship_list.after(setup_editor_ui)),
+                (
+                    setup_editor_ui,
+                    refresh_ship_list.after(setup_editor_ui),
+                    load_initial_ship.after(refresh_ship_list),
+                ),
             )
             .add_systems(
                 Update,
@@ -36,12 +41,86 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_deletion,
                     update_block_properties_panel,
                     update_save_button_state,
+                    system_tracker_tracking,
+                    draw_tracker_ranges,
+                    handle_camera_controls,
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
             )
             .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor);
     }
+}
+
+fn draw_tracker_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Tracker)>) {
+    for (global_transform, tracker) in &query {
+        if tracker.range > 0.0 {
+            gizmos.circle_2d(
+                global_transform.translation().truncate(),
+                tracker.range,
+                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
+            );
+        }
+    }
+}
+
+fn handle_camera_controls(
+    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+) {
+    if let Ok((mut transform, mut projection)) = query.single_mut() {
+        // Zoom
+        for event in mouse_wheel_events.read() {
+            if let Projection::Orthographic(ortho) = &mut *projection {
+                let zoom_speed = 0.1;
+                ortho.scale -= event.y * zoom_speed * ortho.scale;
+                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+            }
+        }
+
+        // Pan
+        if mouse_button_input.pressed(MouseButton::Left) {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+
+            for event in mouse_motion_events.read() {
+                // Pan speed scales with zoom level for consistent feel
+                let pan_speed = scale * 0.5;
+                transform.translation.x -= event.delta.x * pan_speed;
+                transform.translation.y += event.delta.y * pan_speed;
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct BlockLayer {
+    pub kind: LayerKind,
+}
+
+#[derive(Component)]
+pub struct Rotatable {
+    pub speed: f32,
+}
+
+#[derive(Component)]
+pub struct Shooter {
+    pub fire_rate: f32,
+}
+
+#[derive(Component)]
+pub struct Tracker {
+    pub range: f32,
+}
+
+#[derive(Component)]
+pub struct Recoil {
+    pub strength: f32,
 }
 
 #[derive(Message)]
@@ -229,19 +308,22 @@ fn setup_editor_ui(
                                     ))
                                     .with_children(|btn| {
                                         // Block Icon/Sprite
-                                        if let Some(path) = def.texture_paths.first() {
-                                            btn.spawn((
-                                                ImageNode {
-                                                    image: asset_server.load(path),
-                                                    ..default()
-                                                },
-                                                Node {
-                                                    // Limit icon size to fit in the button
-                                                    width: Val::Px(40.0),
-                                                    height: Val::Px(40.0),
-                                                    ..default()
-                                                },
-                                            ));
+                                        // Use the first layer as icon
+                                        if let Some(layer) = def.layers.first() {
+                                            if let Some(visual) = layer.visuals.first() {
+                                                btn.spawn((
+                                                    ImageNode {
+                                                        image: asset_server.load(&visual.sprite),
+                                                        ..default()
+                                                    },
+                                                    Node {
+                                                        // Limit icon size to fit in the button
+                                                        width: Val::Px(40.0),
+                                                        height: Val::Px(40.0),
+                                                        ..default()
+                                                    },
+                                                ));
+                                            }
 
                                             // Add a small spacer
                                             btn.spawn(Node {
@@ -598,17 +680,19 @@ fn update_placement_preview(
                 PlacementPreview,
             ))
             .with_children(|parent| {
-                for (i, path) in def.texture_paths.iter().enumerate() {
-                    let texture_handle = asset_server.load(path);
-                    parent.spawn((
-                        Sprite {
-                            image: texture_handle,
-                            custom_size: Some(size_vec * grid_size - 2.0),
-                            color: tint,
-                            ..default()
-                        },
-                        Transform::from_translation(Vec3::new(0.0, 0.0, i as f32 * 0.1)),
-                    ));
+                for layer in &def.layers {
+                    for visual in &layer.visuals {
+                        let texture_handle = asset_server.load(&visual.sprite);
+                        parent.spawn((
+                            Sprite {
+                                image: texture_handle,
+                                custom_size: Some(size_vec * grid_size - 2.0),
+                                color: tint,
+                                ..default()
+                            },
+                            Transform::from_translation(visual.offset.extend(visual.z)),
+                        ));
+                    }
                 }
             });
     } else {
@@ -642,51 +726,14 @@ fn handle_placement(
             );
 
             if is_valid {
-                // Place block
-                let def = registry.get(&selected_type).unwrap();
-                let grid_size = 40.0;
-
-                let size_vec = def.shape.size.as_vec2();
-                let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-
-                let anchor_pos = Vec3::new(
-                    grid_pos.x as f32 * grid_size,
-                    grid_pos.y as f32 * grid_size,
-                    0.0,
+                spawn_placed_block(
+                    &mut commands,
+                    &mut editor_ship,
+                    &registry,
+                    &asset_server,
+                    selected_type,
+                    grid_pos,
                 );
-
-                let pos = anchor_pos + center_offset.extend(0.0);
-
-                let entity = commands
-                    .spawn((
-                        Transform::from_translation(pos),
-                        Visibility::Visible,
-                        Block {
-                            block_type: selected_type,
-                            rotation: 0,
-                        },
-                        GridPosition(grid_pos),
-                        PlacedBlock,
-                    ))
-                    .with_children(|parent| {
-                        for (i, path) in def.texture_paths.iter().enumerate() {
-                            let texture_handle = asset_server.load(path);
-                            parent.spawn((
-                                Sprite {
-                                    image: texture_handle,
-                                    custom_size: Some(size_vec * grid_size - 2.0),
-                                    ..default()
-                                },
-                                Transform::from_translation(Vec3::new(0.0, 0.0, i as f32 * 0.1)),
-                            ));
-                        }
-                    })
-                    .id();
-
-                for voxel in &def.shape.voxels {
-                    editor_ship.grid.insert(grid_pos + voxel.pos, entity);
-                }
-                info!("Placed block {:?} at {:?}", selected_type, grid_pos);
             } else {
                 info!("Cannot place block here!");
             }
@@ -704,23 +751,13 @@ fn handle_block_deletion(
     // Check abstracted input flag instead of raw mouse input
     if editor_state.delete_req {
         if let Some(grid_pos) = editor_state.hovered_grid_pos {
-            // Get the entity at the clicked position
-            if let Some(&entity) = editor_ship.grid.get(grid_pos) {
-                // Get the block info to find all occupied cells
-                if let Ok((block, grid_pos_comp)) = blocks_query.get(entity) {
-                    let anchor = grid_pos_comp.0;
-                    if let Some(def) = registry.get(&block.block_type) {
-                        // Remove all occupied cells from the grid
-                        for voxel in &def.shape.voxels {
-                            editor_ship.grid.remove(anchor + voxel.pos);
-                        }
-
-                        // Despawn the entity
-                        commands.entity(entity).despawn();
-                        info!("Deleted block at {:?}", grid_pos);
-                    }
-                }
-            }
+            remove_block_at(
+                &mut commands,
+                &mut editor_ship,
+                &registry,
+                &blocks_query,
+                grid_pos,
+            );
         }
     }
 }
@@ -808,28 +845,38 @@ fn handle_tab_switching(
     };
 }
 
+fn load_initial_ship(
+    mut commands: Commands,
+    mut editor_ship: ResMut<EditorShip>,
+    registry: Res<BlockRegistry>,
+    asset_server: Res<AssetServer>,
+    placed_blocks: Query<Entity, With<PlacedBlock>>,
+) {
+    let ship_names = load_saved_ship_names();
+
+    if ship_names.is_empty() {
+        info!("No ships available to load.");
+        return;
+    }
+
+    perform_load_ship(
+        &mut commands,
+        &mut editor_ship,
+        &registry,
+        &asset_server,
+        &placed_blocks,
+        &ship_names[0],
+    );
+
+    info!("Load initial ship: {}", &ship_names[0]);
+}
+
 fn refresh_ship_list(
     mut commands: Commands,
     mut available_ships: ResMut<AvailableShips>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    // 1. Scan directory
-    let ships_dir = save_dir().join("ships");
-    if !ships_dir.exists() {
-        fs::create_dir_all(&ships_dir).ok();
-    }
-
-    let mut new_names = Vec::new();
-    if let Ok(entries) = fs::read_dir(ships_dir) {
-        for entry in entries.flatten() {
-            if let Some(name) = entry.file_name().to_str() {
-                if name.ends_with(".json") {
-                    new_names.push(name.to_string());
-                }
-            }
-        }
-    }
-    available_ships.names = new_names;
+    available_ships.names = load_saved_ship_names();
 
     info!("Refreshed ship list: {:?}", available_ships.names);
 
@@ -915,51 +962,7 @@ fn handle_ship_saving(
 
     for interaction in &mut interaction_query {
         if *interaction == Interaction::Pressed {
-            // 1. Serialize
-            let mut saved_blocks = Vec::new();
-            // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
-            // We can iterate the query instead.
-            for (block, grid_pos) in &blocks_query {
-                saved_blocks.push(SavedBlock {
-                    pos: grid_pos.0,
-                    block_type: block.block_type,
-                    rotation: block.rotation,
-                });
-            }
-
-            let saved_ship = SavedShip {
-                name: "My Ship".to_string(),
-                blocks: saved_blocks,
-            };
-
-            // 2. Write to file
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-
-            let ships_dir = save_dir().join("ships");
-            let filename = format!("ship_{}.json", timestamp);
-            let path = ships_dir.join(&filename);
-
-            // Create ships directory if it doesn't exist
-            if !ships_dir.exists() {
-                if let Err(e) = fs::create_dir_all(&ships_dir) {
-                    error!("Failed to create ships directory: {}", e);
-                    return;
-                }
-            }
-
-            info!("Saving to {}", path.to_str().unwrap());
-
-            if let Ok(json) = serde_json::to_string_pretty(&saved_ship) {
-                if let Err(e) = fs::write(&path, json) {
-                    error!("Failed to save ship: {}", e);
-                } else {
-                    info!("Ship saved to {}", filename);
-                    ship_saved_event.write(ShipSaved);
-                }
-            }
+            perform_save_ship(&blocks_query, &mut ship_saved_event);
         }
     }
 }
@@ -977,74 +980,346 @@ fn handle_ship_loading(
 ) {
     for (interaction, load_btn) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
-            let path = save_dir().join("ships").join(&load_btn.0);
-            if let Ok(content) = fs::read_to_string(path) {
-                if let Ok(saved_ship) = serde_json::from_str::<SavedShip>(&content) {
-                    info!("Loading ship: {}", saved_ship.name);
+            perform_load_ship(
+                &mut commands,
+                &mut editor_ship,
+                &registry,
+                &asset_server,
+                &placed_blocks,
+                &load_btn.0,
+            );
+        }
+    }
+}
 
-                    // 1. Clear current ship
-                    editor_ship.grid = ShipGrid::new();
-                    for entity in &placed_blocks {
-                        commands.entity(entity).despawn();
+fn system_tracker_tracking(
+    editor_state: Res<EditorState>,
+    time: Res<Time>,
+    mut query: Query<(
+        &mut Transform,
+        &GlobalTransform,
+        &Tracker,
+        Option<&Rotatable>,
+    )>,
+) {
+    if let Some(target_pos) = editor_state.cursor_world_pos {
+        for (mut transform, global_transform, tracker, rotatable) in &mut query {
+            let current_pos = global_transform.translation().truncate();
+            let diff = target_pos - current_pos;
+            let dist_sq = diff.length_squared();
+
+            if dist_sq < 0.0001 {
+                continue;
+            }
+
+            if tracker.range > 0.0 && dist_sq > tracker.range * tracker.range {
+                continue;
+            }
+
+            // Atan2 returns angle in radians [-PI, PI] relative to X-axis
+            // Assuming sprites face UP (Y+), we need to subtract PI/2
+            let target_angle = diff.y.atan2(diff.x) - std::f32::consts::FRAC_PI_2;
+
+            // Get current global rotation around Z
+            let (_, current_rot, _) = global_transform.to_scale_rotation_translation();
+            let current_angle = current_rot.to_euler(EulerRot::XYZ).2;
+
+            let mut angle_error = target_angle - current_angle;
+
+            // Normalize angle_error to [-PI, PI]
+            while angle_error > std::f32::consts::PI {
+                angle_error -= 2.0 * std::f32::consts::PI;
+            }
+            while angle_error < -std::f32::consts::PI {
+                angle_error += 2.0 * std::f32::consts::PI;
+            }
+
+            // Determine max rotation this frame
+            let speed = if let Some(r) = rotatable {
+                r.speed
+            } else {
+                2.0 // Default slower speed
+            };
+
+            let max_rot = speed * time.delta_secs();
+
+            // Clamp rotation to max_rot, but don't overshoot
+            let rot_amount = angle_error.clamp(-max_rot, max_rot);
+
+            transform.rotate_z(rot_amount);
+        }
+    }
+}
+
+fn spawn_placed_block(
+    commands: &mut Commands,
+    editor_ship: &mut EditorShip,
+    registry: &BlockRegistry,
+    asset_server: &AssetServer,
+    block_type: BlockType,
+    grid_pos: IVec2,
+) {
+    let def = registry.get(&block_type).unwrap();
+    let grid_size = 40.0;
+
+    let size_vec = def.shape.size.as_vec2();
+    let center_offset = (size_vec - 1.0) * grid_size * 0.5;
+
+    let anchor_pos = Vec3::new(
+        grid_pos.x as f32 * grid_size,
+        grid_pos.y as f32 * grid_size,
+        0.0,
+    );
+
+    let pos = anchor_pos + center_offset.extend(0.0);
+
+    let entity = commands
+        .spawn((
+            Transform::from_translation(pos),
+            Visibility::Visible,
+            Block {
+                block_type,
+                rotation: 0,
+            },
+            GridPosition(grid_pos),
+            PlacedBlock,
+        ))
+        .id();
+
+    for layer in &def.layers {
+        let layer_entity = commands
+            .spawn((
+                BlockLayer {
+                    kind: layer.kind.clone(),
+                },
+                Transform::default(),
+                GlobalTransform::default(),
+                Visibility::Inherited,
+            ))
+            .id();
+
+        commands.entity(entity).add_child(layer_entity);
+
+        // Visuals
+        for visual in &layer.visuals {
+            let visual_entity = commands
+                .spawn((
+                    Sprite {
+                        image: asset_server.load(&visual.sprite),
+                        custom_size: Some(size_vec * grid_size - 2.0),
+                        ..default()
+                    },
+                    Transform::from_translation(visual.offset.extend(visual.z)),
+                ))
+                .id();
+
+            commands.entity(layer_entity).add_child(visual_entity);
+        }
+
+        // Features
+        for feature in &layer.features {
+            match feature {
+                LayerFeature::Rotatable(f) => {
+                    commands.entity(layer_entity).insert(Rotatable {
+                        speed: f.turn_speed,
+                    });
+                }
+                LayerFeature::Shooter(f) => {
+                    commands.entity(layer_entity).insert(Shooter {
+                        fire_rate: f.fire_rate,
+                    });
+                }
+                LayerFeature::Tracker(f) => {
+                    commands
+                        .entity(layer_entity)
+                        .insert(Tracker { range: f.range });
+                }
+                LayerFeature::Recoil(f) => {
+                    commands.entity(layer_entity).insert(Recoil {
+                        strength: f.strength,
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    for voxel in &def.shape.voxels {
+        editor_ship.grid.insert(grid_pos + voxel.pos, entity);
+    }
+
+    info!("Placed block {:?} at {:?}", block_type, grid_pos);
+}
+
+fn remove_block_at(
+    commands: &mut Commands,
+    editor_ship: &mut EditorShip,
+    registry: &BlockRegistry,
+    blocks_query: &Query<(&Block, &GridPosition)>,
+    grid_pos: IVec2,
+) {
+    if let Some(&entity) = editor_ship.grid.get(grid_pos) {
+        // Get the block info to find all occupied cells
+        if let Ok((block, grid_pos_comp)) = blocks_query.get(entity) {
+            let anchor = grid_pos_comp.0;
+            if let Some(def) = registry.get(&block.block_type) {
+                // Remove all occupied cells from the grid
+                for voxel in &def.shape.voxels {
+                    editor_ship.grid.remove(anchor + voxel.pos);
+                }
+
+                // Despawn the entity
+                commands.entity(entity).despawn();
+                info!("Deleted block at {:?}", grid_pos);
+            }
+        }
+    }
+}
+
+fn perform_save_ship(
+    blocks_query: &Query<(&Block, &GridPosition)>,
+    ship_saved_event: &mut MessageWriter<ShipSaved>,
+) {
+    // 1. Serialize
+    let mut saved_blocks = Vec::new();
+    // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
+    // We can iterate the query instead.
+    for (block, grid_pos) in blocks_query {
+        saved_blocks.push(SavedBlock {
+            pos: grid_pos.0,
+            block_type: block.block_type,
+            rotation: block.rotation,
+        });
+    }
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let saved_ship = SavedShip {
+        name: timestamp.to_string(),
+        blocks: saved_blocks,
+    };
+
+    if let Err(e) = save_ship(&saved_ship) {
+        error!("Fail to save ship: {:?}", e)
+    } else {
+        ship_saved_event.write(ShipSaved);
+        info!("Ship saved: {:?}", saved_ship);
+    }
+}
+
+fn perform_load_ship(
+    commands: &mut Commands,
+    editor_ship: &mut EditorShip,
+    registry: &BlockRegistry,
+    asset_server: &AssetServer,
+    placed_blocks: &Query<Entity, With<PlacedBlock>>,
+    ship_name: &str,
+) {
+    let ships = load_saved_ships();
+
+    if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.name == ship_name) {
+        info!("Loading ship: {}", ship_to_load.name);
+
+        // 1. Clear current ship
+        editor_ship.grid = ShipGrid::new();
+        for entity in placed_blocks {
+            commands.entity(entity).despawn();
+        }
+
+        // 2. Spawn new blocks
+        let grid_size = 40.0;
+        for saved_block in ship_to_load.blocks {
+            if let Some(def) = registry.get(&saved_block.block_type) {
+                let size_vec = def.shape.size.as_vec2();
+                let center_offset = (size_vec - 1.0) * grid_size * 0.5;
+                let anchor_pos = Vec3::new(
+                    saved_block.pos.x as f32 * grid_size,
+                    saved_block.pos.y as f32 * grid_size,
+                    0.0,
+                );
+                let pos = anchor_pos + center_offset.extend(0.0);
+
+                let entity = commands
+                    .spawn((
+                        Transform::from_translation(pos),
+                        Visibility::Visible,
+                        Block {
+                            block_type: saved_block.block_type,
+                            rotation: saved_block.rotation,
+                        },
+                        GridPosition(saved_block.pos),
+                        PlacedBlock,
+                    ))
+                    .id();
+
+                for layer in &def.layers {
+                    let layer_entity = commands
+                        .spawn((
+                            BlockLayer {
+                                kind: layer.kind.clone(),
+                            },
+                            Transform::default(),
+                            GlobalTransform::default(),
+                            Visibility::Inherited,
+                        ))
+                        .id();
+
+                    commands.entity(entity).add_child(layer_entity);
+
+                    // Visuals
+                    for visual in &layer.visuals {
+                        let visual = commands
+                            .spawn((
+                                Sprite {
+                                    image: asset_server.load(&visual.sprite),
+                                    custom_size: Some(size_vec * grid_size - 2.0),
+                                    ..default()
+                                },
+                                Transform::from_translation(visual.offset.extend(visual.z)),
+                            ))
+                            .id();
+
+                        commands.entity(layer_entity).add_child(visual);
                     }
 
-                    // 2. Spawn new blocks
-                    let grid_size = 40.0;
-                    for saved_block in saved_ship.blocks {
-                        if let Some(def) = registry.get(&saved_block.block_type) {
-                            let size_vec = def.shape.size.as_vec2();
-                            let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-                            let anchor_pos = Vec3::new(
-                                saved_block.pos.x as f32 * grid_size,
-                                saved_block.pos.y as f32 * grid_size,
-                                0.0,
-                            );
-                            let pos = anchor_pos + center_offset.extend(0.0);
-
-                            let entity = commands
-                                .spawn((
-                                    Transform::from_translation(pos),
-                                    Visibility::Visible,
-                                    Block {
-                                        block_type: saved_block.block_type,
-                                        rotation: saved_block.rotation,
-                                    },
-                                    GridPosition(saved_block.pos),
-                                    PlacedBlock,
-                                ))
-                                .with_children(|parent| {
-                                    if def.texture_paths.is_empty() {
-                                        parent.spawn((Sprite {
-                                            custom_size: Some(size_vec * grid_size - 2.0),
-                                            ..default()
-                                        },));
-                                    } else {
-                                        for (i, path) in def.texture_paths.iter().enumerate() {
-                                            parent.spawn((
-                                                Sprite {
-                                                    image: asset_server.load(path),
-                                                    custom_size: Some(size_vec * grid_size - 2.0),
-                                                    ..default()
-                                                },
-                                                Transform::from_translation(Vec3::new(
-                                                    0.0,
-                                                    0.0,
-                                                    i as f32 * 0.1,
-                                                )),
-                                            ));
-                                        }
-                                    }
-                                })
-                                .id();
-
-                            // Update grid
-                            for voxel in &def.shape.voxels {
-                                editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
+                    // Features
+                    for feature in &layer.features {
+                        match feature {
+                            LayerFeature::Rotatable(f) => {
+                                commands.entity(layer_entity).insert(Rotatable {
+                                    speed: f.turn_speed,
+                                });
                             }
+                            LayerFeature::Shooter(f) => {
+                                commands.entity(layer_entity).insert(Shooter {
+                                    fire_rate: f.fire_rate,
+                                });
+                            }
+                            LayerFeature::Tracker(f) => {
+                                commands
+                                    .entity(layer_entity)
+                                    .insert(Tracker { range: f.range });
+                            }
+                            LayerFeature::Recoil(f) => {
+                                commands.entity(layer_entity).insert(Recoil {
+                                    strength: f.strength,
+                                });
+                            }
+                            _ => {}
                         }
                     }
                 }
+
+                // Update grid
+                for voxel in &def.shape.voxels {
+                    editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
+                }
             }
         }
+    } else {
+        error!("Ship {} not found", ship_name);
     }
 }

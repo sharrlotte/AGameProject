@@ -109,6 +109,87 @@ pub enum BlockFeature {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub enum LayerKind {
+    Base,
+    Turret,
+    Engine,
+    Sensor,
+    Decorative,
+    // keep this SMALL
+}
+
+impl Default for LayerKind {
+    fn default() -> Self {
+        Self::Base
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct LayerVisual {
+    pub sprite: String,
+    pub offset: Vec2,
+    pub z: f32,
+    pub animated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+
+pub enum LayerFeature {
+    Rotatable(RotatableFeature),
+    Shooter(ShooterFeature),
+    Tracker(TrackerFeature),
+    Recoil(RecoilFeature),
+    HeatEmitter(HeatEmitterFeature),
+    EnergyConsumer(EnergyConsumerFeature),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct RotatableFeature {
+    pub turn_speed: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct ShooterFeature {
+    pub fire_rate: f32,
+    pub projectile: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct RecoilFeature {
+    pub strength: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct TrackerFeature {
+    pub range: f32,
+    pub fov: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct HeatEmitterFeature {
+    pub amount: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct EnergyConsumerFeature {
+    pub rate: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct BlockLayerDefinition {
+    pub id: String,
+
+    /// e.g. "base", "turret", "engine", "radar"
+    pub kind: LayerKind,
+
+    /// Visual parts for this layer
+    pub visuals: Vec<LayerVisual>,
+
+    /// Optional feature payloads (composable)
+    pub features: Vec<LayerFeature>,
+}
+
 /// A definition struct that holds the static data for a block type.
 /// This allows us to define blocks once and look them up later.
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
@@ -122,5 +203,5 @@ pub struct BlockDefinition {
     pub cost: u32,
     /// A list of features this block possesses.
     pub features: Vec<BlockFeature>,
-    pub texture_paths: Vec<String>,
+    pub layers: Vec<BlockLayerDefinition>,
 }
