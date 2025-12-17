@@ -6,10 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     GRID_SIZE,
     content::{
-        ships::features::{
-            shooting::{Shooter, ShooterFeature},
-            tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
-        },
         team::Team,
         turret::{AIFireController, PlayerFireController, TurretFeature, TurretTargeter},
     },
@@ -158,10 +154,7 @@ pub struct LayerVisual {
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 
 pub enum LayerFeature {
-    Rotatable(RotatableFeature),
-    Shooter(ShooterFeature),
     Turret(TurretFeature),
-    Tracker(TrackerFeature),
     Recoil(RecoilFeature),
     HeatEmitter(HeatEmitterFeature),
     EnergyConsumer(EnergyConsumerFeature),
@@ -170,25 +163,6 @@ pub enum LayerFeature {
 impl LayerFeature {
     pub fn render(&self, commands: &mut Commands, entity: Entity, team: Option<Team>) {
         match self {
-            LayerFeature::Rotatable(f) => {
-                commands.entity(entity).insert(Rotatable {
-                    speed: f.turn_speed,
-                });
-            }
-            LayerFeature::Tracker(f) => {
-                commands.entity(entity).insert(Tracker { range: f.range });
-            }
-            LayerFeature::Shooter(f) => {
-                let mut cmd = commands.entity(entity);
-                cmd.insert(Shooter {
-                    fire_rate: f.fire_rate,
-                    projectile: f.projectile.clone(),
-                    last_fire_time: 0.0,
-                });
-                if let Some(t) = team {
-                    cmd.insert(t);
-                }
-            }
             LayerFeature::Recoil(_recoil_feature) => todo!(),
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
             LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),

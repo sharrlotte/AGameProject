@@ -99,7 +99,6 @@ pub fn spawn_ship(
                 block_parent.spawn((
                     ShipBlockHitbox,
                     Collider::cuboid(size.x, size.y),
-                    Sensor,
                     CollisionGroups::new(team.get_hitbox_group(), Group::ALL),
                     Transform::default(),
                     ColliderMassProperties::Mass(0.0),
