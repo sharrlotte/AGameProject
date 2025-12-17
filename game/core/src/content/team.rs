@@ -46,4 +46,11 @@ impl Team {
         let my_hitbox = 1 << (16 + self.id);
         Group::from_bits_truncate(all_hitboxes & !my_hitbox)
     }
+
+    pub fn get_enemy_hitbox_filter(&self) -> Group {
+        // Hit all hitboxes EXCEPT our own team's hitbox.
+        let all_hitboxes = 0xFFFF0000; // Bits 16-31
+        let my_hitbox = 1 << (16 + self.id);
+        Group::from_bits_truncate(all_hitboxes & !my_hitbox)
+    }
 }

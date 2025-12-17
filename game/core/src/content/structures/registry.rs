@@ -1,12 +1,9 @@
 use crate::content::{
-    ships::features::{
-        shooting::ShooterFeature,
-        tracking::{RotatableFeature, TrackerFeature},
-    },
     structures::block::{
         BlockDefinition, BlockFeature, BlockGroup, BlockLayerDefinition, BlockShape, BlockType,
         LayerFeature, LayerKind, LayerVisual,
     },
+    turret::{TargetingStrategy, TurretFeature},
 };
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -215,17 +212,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                         z: 0.1,
                         animated: false,
                     }],
-                    features: vec![
-                        LayerFeature::Tracker(TrackerFeature {
-                            range: 1200.0,
-                            fov: 360.0,
-                        }),
-                        LayerFeature::Rotatable(RotatableFeature { turn_speed: 2.0 }),
-                        LayerFeature::Shooter(ShooterFeature {
-                            fire_rate: 0.5,
-                            projectile: "lazer".into(),
-                        }),
-                    ],
+                    features: vec![LayerFeature::Turret(TurretFeature {
+                        range: 2200.0,
+                        strategy: TargetingStrategy::Closest,
+                        turn_speed: 2.0,
+                    })],
                 },
             ],
         },

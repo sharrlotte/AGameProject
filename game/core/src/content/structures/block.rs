@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +11,7 @@ use crate::{
             tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
         },
         team::Team,
+        turret::{AIFireController, PlayerFireController, TurretFeature, TurretTargeter},
     },
 };
 
@@ -157,6 +160,7 @@ pub struct LayerVisual {
 pub enum LayerFeature {
     Rotatable(RotatableFeature),
     Shooter(ShooterFeature),
+    Turret(TurretFeature),
     Tracker(TrackerFeature),
     Recoil(RecoilFeature),
     HeatEmitter(HeatEmitterFeature),
@@ -188,6 +192,21 @@ impl LayerFeature {
             LayerFeature::Recoil(_recoil_feature) => todo!(),
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
             LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
+            LayerFeature::Turret(f) => {
+                commands.entity(entity).insert((TurretTargeter {
+                    strategy: f.strategy.clone(),
+                    range: f.range,
+                    turn_speed: f.turn_speed,
+                    target: None,
+                    potential_targets: HashSet::default(),
+                },));
+
+                if team.unwrap_or_default() == Team::default() {
+                    commands.entity(entity).insert(PlayerFireController);
+                } else {
+                    commands.entity(entity).insert(AIFireController);
+                }
+            }
         }
     }
 }

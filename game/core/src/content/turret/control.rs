@@ -1,19 +1,6 @@
 use bevy::prelude::*;
 
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct FireIntent {
-    pub active: bool,
-    pub target_pos: Vec2,
-}
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct PlayerFireController;
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct AIFireController;
+use crate::content::turret::{FireIntent, PlayerFireController};
 
 pub fn update_player_fire_controller(
     mut query: Query<(&mut FireIntent, &GlobalTransform), With<PlayerFireController>>,
@@ -26,7 +13,7 @@ pub fn update_player_fire_controller(
     if let Some(cursor_position) = window.cursor_position() {
         if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
             for (mut intent, _) in query.iter_mut() {
-                intent.target_pos = world_position;
+                intent.target_pos = Some(world_position);
                 intent.active = mouse_input.pressed(MouseButton::Left);
             }
         }
