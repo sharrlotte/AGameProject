@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::content::team::Team;
+use crate::content::{structures::ship::PlayerShip, team::Team};
 
 pub struct ShootingFeaturePlugin;
 
@@ -33,7 +33,7 @@ pub struct Bullet {
 
 pub fn handle_shooting(
     time: Res<Time>,
-    mut shooter_query: Query<(&GlobalTransform, &mut Shooter, Option<&Team>)>,
+    mut shooter_query: Query<(&GlobalTransform, &mut Shooter, Option<&Team>), With<PlayerShip>>,
     mut commands: Commands,
 ) {
     for (global_transform, mut shooter, team_opt) in &mut shooter_query {

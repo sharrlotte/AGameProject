@@ -27,6 +27,13 @@ pub enum BlockType {
     LazerTurret,
 }
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
+pub enum BlockGroup {
+    Core,
+    Base,
+    Turret,
+}
+
 /// Component attached to every block entity.
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct Block {
@@ -220,6 +227,7 @@ pub struct BlockDefinition {
     pub name: String,
     pub description: String,
     pub block_type: BlockType,
+    pub block_group: BlockGroup,
     pub mass: f32,
     pub max_health: f32,
     /// Replaced `size` with `shape` to support complex voxel structures

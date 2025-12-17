@@ -71,8 +71,8 @@ pub fn ship_movement_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut ExternalForce, &Transform), With<PlayerShip>>,
 ) {
-    let thrust_power = 80_000.0; // Needs tuning based on mass
-    let turn_speed = 1600_000.0; // Needs tuning
+    let thrust_power = 160_000.0; // Needs tuning based on mass
+    let turn_speed = 3_000_000.0; // Needs tuning
 
     for (mut ext_force, transform) in query.iter_mut() {
         let mut linear_force = Vec2::ZERO;

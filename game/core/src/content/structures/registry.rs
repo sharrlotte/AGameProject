@@ -1,8 +1,11 @@
 use crate::content::{
-    ships::features::{shooting::ShooterFeature, tracking::{RotatableFeature, TrackerFeature}},
+    ships::features::{
+        shooting::ShooterFeature,
+        tracking::{RotatableFeature, TrackerFeature},
+    },
     structures::block::{
-        BlockDefinition, BlockFeature, BlockLayerDefinition, BlockShape, BlockType, LayerFeature,
-        LayerKind, LayerVisual,
+        BlockDefinition, BlockFeature, BlockGroup, BlockLayerDefinition, BlockShape, BlockType,
+        LayerFeature, LayerKind, LayerVisual,
     },
 };
 use bevy::prelude::*;
@@ -36,6 +39,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Standard Hull".into(),
             description: "Basic structural block.".into(),
             block_type: BlockType::Hull,
+            block_group: BlockGroup::Base,
             mass: 10.0,
             max_health: 100.0,
             shape: BlockShape::default(),
@@ -61,6 +65,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Small Ion Thruster".into(),
             description: "Provides weak thrust.".into(),
             block_type: BlockType::ThrusterSmall,
+            block_group: BlockGroup::Base,
+
             mass: 25.0,
             max_health: 50.0,
             shape: BlockShape::default(),
@@ -89,6 +95,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Micro Fusion Reactor".into(),
             description: "Generates power.".into(),
             block_type: BlockType::ReactorSmall,
+            block_group: BlockGroup::Base,
+
             mass: 100.0,
             max_health: 80.0,
             shape: BlockShape::default(),
@@ -114,6 +122,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Command Cockpit".into(),
             description: "Pilot seat.".into(),
             block_type: BlockType::Cockpit,
+            block_group: BlockGroup::Base,
+
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::default(),
@@ -139,6 +149,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Core".into(),
             description: "Core".into(),
             block_type: BlockType::Core,
+            block_group: BlockGroup::Core,
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::filled(3, 3),
@@ -177,6 +188,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             name: "Lazer Turret".into(),
             description: "Core".into(),
             block_type: BlockType::LazerTurret,
+            block_group: BlockGroup::Turret,
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::filled(1, 1),
