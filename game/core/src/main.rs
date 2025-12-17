@@ -11,7 +11,7 @@ use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
-use crate::content::structures::ship::SavedShip;
+use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 
 fn main() {
     let mut app = App::new();
@@ -28,7 +28,7 @@ fn main() {
     .init_resource::<AppVar>()
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
-    .add_systems(Startup, setup_camera)
+    .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin));
 
     #[cfg(debug_assertions)]
@@ -53,4 +53,12 @@ pub enum AppState {
 #[derive(Resource, Default)]
 pub struct AppVar {
     pub current_ship: Option<SavedShip>,
+}
+
+fn load_current_ship(mut state: ResMut<AppVar>) {
+    let ships = load_saved_ships();
+
+    if let Some(ship) = ships.first() {
+        state.current_ship = Some(ship.clone());
+    }
 }
