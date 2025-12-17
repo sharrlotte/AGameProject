@@ -32,6 +32,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         BlockDefinition {
             name: "Standard Hull".into(),
             description: "Basic structural block.".into(),
+            block_type: BlockType::Hull,
             mass: 10.0,
             max_health: 100.0,
             shape: BlockShape::default(),
@@ -54,8 +55,9 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
     registry.register(
         BlockType::ThrusterSmall,
         BlockDefinition {
-            name: "Small Ion Thruster".into(),
+            name: "Small Ion Thruster".into(),  
             description: "Provides weak thrust.".into(),
+            block_type: BlockType::ThrusterSmall,
             mass: 25.0,
             max_health: 50.0,
             shape: BlockShape::default(),
@@ -83,6 +85,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         BlockDefinition {
             name: "Micro Fusion Reactor".into(),
             description: "Generates power.".into(),
+            block_type: BlockType::ReactorSmall,
             mass: 100.0,
             max_health: 80.0,
             shape: BlockShape::default(),
@@ -107,6 +110,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         BlockDefinition {
             name: "Command Cockpit".into(),
             description: "Pilot seat.".into(),
+            block_type: BlockType::Cockpit,
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::default(),
@@ -131,6 +135,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         BlockDefinition {
             name: "Core".into(),
             description: "Core".into(),
+            block_type: BlockType::Core,
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::filled(3, 3),
@@ -168,6 +173,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         BlockDefinition {
             name: "Lazer Turret".into(),
             description: "Core".into(),
+            block_type: BlockType::LazerTurret,
             mass: 50.0,
             max_health: 60.0,
             shape: BlockShape::filled(1, 1),

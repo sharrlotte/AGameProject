@@ -5,6 +5,7 @@ mod ui;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::window::WindowPlugin;
+use bevy_rapier2d::prelude::*;
 use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 
@@ -24,6 +25,8 @@ fn main() {
         }),
         ..Default::default()
     }))
+    .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+    .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<AppVar>()
     .init_state::<AppState>()
@@ -54,6 +57,8 @@ pub enum AppState {
 pub struct AppVar {
     pub current_ship: Option<SavedShip>,
 }
+
+pub const GRID_SIZE: f32 = 64.0;
 
 fn load_current_ship(mut state: ResMut<AppVar>) {
     let ships = load_saved_ships();

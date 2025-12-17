@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - "game/**"
-      - ".github/workflows/build-windows.yml"
   pull_request:
     paths:
       - "game/**"

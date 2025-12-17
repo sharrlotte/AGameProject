@@ -1,12 +1,12 @@
 use crate::content::ships::features::ShipFeature;
-use crate::content::structures::block::LayerKind;
+use crate::content::structures::block::PlacedBlock;
 use crate::content::structures::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
 };
 use crate::content::structures::ship::{SavedBlock, SavedShip};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
 use crate::save::{load_saved_ships, save_ship};
-use crate::{AppState, AppVar};
+use crate::{AppState, AppVar, GRID_SIZE};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -54,11 +54,6 @@ impl Plugin for ShipEditorPlugin {
     }
 }
 
-#[derive(Component)]
-pub struct BlockLayer {
-    pub _kind: LayerKind,
-}
-
 #[derive(Message)]
 struct ShipSavesChanged;
 
@@ -102,9 +97,6 @@ struct EditorUiRoot;
 
 #[derive(Component)]
 struct PlacementPreview;
-
-#[derive(Component)]
-struct PlacedBlock;
 
 #[derive(Component)]
 struct TabButton(EditorTab);
@@ -158,7 +150,6 @@ fn setup_editor_ui(
                     left_panel
                         .spawn(Node {
                             width: Val::Percent(100.0),
-                            height: Val::Px(40.0),
                             margin: UiRect::bottom(Val::Px(10.0)),
                             flex_direction: FlexDirection::Row,
                             justify_content: JustifyContent::SpaceBetween,
@@ -259,8 +250,6 @@ fn setup_editor_ui(
                                                     },
                                                     Node {
                                                         // Limit icon size to fit in the button
-                                                        width: Val::Px(40.0),
-                                                        height: Val::Px(40.0),
                                                         ..default()
                                                     },
                                                 ));
@@ -369,7 +358,6 @@ fn setup_editor_ui(
                             Button,
                             Node {
                                 width: Val::Percent(100.0),
-                                height: Val::Px(40.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(10.0)),
@@ -508,10 +496,8 @@ fn process_input(
 
         // Convert to world coordinates
         if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            // Grid size = 40.0 pixels
-            let grid_size = 40.0;
-            let grid_x = (world_pos.x / grid_size).round() as i32;
-            let grid_y = (world_pos.y / grid_size).round() as i32;
+            let grid_x = (world_pos.x / GRID_SIZE).round() as i32;
+            let grid_y = (world_pos.y / GRID_SIZE).round() as i32;
             editor_state.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
 
             // Process Actions (Abstraction)
@@ -537,27 +523,26 @@ fn process_input(
 
 /// Draws a visual grid around the center of the world
 fn draw_grid(mut gizmos: Gizmos) {
-    let grid_size = 40.0;
     let grid_lines = 50; // Number of lines in each direction from center
     let grid_color = Color::srgb(0.2, 0.2, 0.2);
-    let offset = grid_size / 2.0;
+    let offset = GRID_SIZE / 2.0;
 
     // Vertical lines
     for i in -grid_lines..=grid_lines {
-        let x = i as f32 * grid_size + offset;
+        let x = i as f32 * GRID_SIZE + offset;
         gizmos.line_2d(
-            Vec2::new(x, -(grid_lines as f32) * grid_size + offset),
-            Vec2::new(x, (grid_lines as f32) * grid_size + offset),
+            Vec2::new(x, -(grid_lines as f32) * GRID_SIZE + offset),
+            Vec2::new(x, (grid_lines as f32) * GRID_SIZE + offset),
             grid_color,
         );
     }
 
     // Horizontal lines
     for i in -grid_lines..=grid_lines {
-        let y = i as f32 * grid_size + offset;
+        let y = i as f32 * GRID_SIZE + offset;
         gizmos.line_2d(
-            Vec2::new(-(grid_lines as f32) * grid_size + offset, y),
-            Vec2::new((grid_lines as f32) * grid_size + offset, y),
+            Vec2::new(-(grid_lines as f32) * GRID_SIZE + offset, y),
+            Vec2::new((grid_lines as f32) * GRID_SIZE + offset, y),
             grid_color,
         );
     }
@@ -644,7 +629,6 @@ fn update_placement_preview(
         (editor_state.selected_block, editor_state.hovered_grid_pos)
     {
         let def = registry.get(&selected_type).unwrap();
-        let grid_size = 40.0;
 
         // Calculate anchor position to center the block on mouse
         let size = def.shape.size;
@@ -653,11 +637,11 @@ fn update_placement_preview(
 
         // Calculate center offset
         let size_vec = def.shape.size.as_vec2();
-        let center_offset = (size_vec - 1.0) * grid_size * 0.5;
+        let center_offset = (size_vec - 1.0) * GRID_SIZE * 0.5;
 
         let pos = Vec3::new(
-            grid_pos.x as f32 * grid_size,
-            grid_pos.y as f32 * grid_size,
+            grid_pos.x as f32 * GRID_SIZE,
+            grid_pos.y as f32 * GRID_SIZE,
             10.0,
         ) + center_offset.extend(0.0);
 
@@ -695,7 +679,7 @@ fn update_placement_preview(
                         parent.spawn((
                             Sprite {
                                 image: texture_handle,
-                                custom_size: Some(size_vec * grid_size - 2.0),
+                                custom_size: Some(size_vec * GRID_SIZE - 2.0),
                                 color: tint,
                                 ..default()
                             },
@@ -713,12 +697,12 @@ fn update_placement_preview(
 }
 
 fn handle_placement(
-    mut commands: Commands,
     editor_state: Res<EditorState>,
-    mut editor_ship: ResMut<EditorShip>,
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
     blocks_query: Query<(&Block, &GridPosition)>, // Added query
+    mut commands: Commands,
+    mut editor_ship: ResMut<EditorShip>,
     mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
@@ -907,7 +891,6 @@ fn refresh_ship_list(
                 parent
                     .spawn((Node {
                         width: Val::Percent(100.0),
-                        height: Val::Px(40.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
@@ -1002,71 +985,12 @@ fn spawn_placed_block(
     block_type: BlockType,
     grid_pos: IVec2,
 ) -> bool {
-    let def = registry.get(&block_type).unwrap();
-    let grid_size = 40.0;
+    if let Some(def) = registry.get(&block_type) {
+        let entity = def.render(commands, asset_server, grid_pos);
 
-    let size_vec = def.shape.size.as_vec2();
-    let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-
-    let anchor_pos = Vec3::new(
-        grid_pos.x as f32 * grid_size,
-        grid_pos.y as f32 * grid_size,
-        0.0,
-    );
-
-    let pos = anchor_pos + center_offset.extend(0.0);
-
-    let entity = commands
-        .spawn((
-            Transform::from_translation(pos),
-            Visibility::Visible,
-            Block {
-                block_type,
-                rotation: 0,
-            },
-            GridPosition(grid_pos),
-            PlacedBlock,
-        ))
-        .id();
-
-    for layer in &def.layers {
-        let layer_entity = commands
-            .spawn((
-                BlockLayer {
-                    _kind: layer.kind.clone(),
-                },
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Inherited,
-            ))
-            .id();
-
-        commands.entity(entity).add_child(layer_entity);
-
-        // Visuals
-        for visual in &layer.visuals {
-            let visual_entity = commands
-                .spawn((
-                    Sprite {
-                        image: asset_server.load(&visual.sprite),
-                        custom_size: Some(size_vec * grid_size - 2.0),
-                        ..default()
-                    },
-                    Transform::from_translation(visual.offset.extend(visual.z)),
-                ))
-                .id();
-
-            commands.entity(layer_entity).add_child(visual_entity);
+        for voxel in &def.shape.voxels {
+            editor_ship.grid.insert(grid_pos + voxel.pos, entity);
         }
-
-        // Features
-        for feature in &layer.features {
-            feature.apply(commands, layer_entity);
-        }
-    }
-
-    for voxel in &def.shape.voxels {
-        editor_ship.grid.insert(grid_pos + voxel.pos, entity);
     }
 
     info!("Placed block {:?} at {:?}", block_type, grid_pos);
@@ -1151,68 +1075,10 @@ fn perform_load_ship(
         }
 
         // 2. Spawn new blocks
-        let grid_size = 40.0;
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let size_vec = def.shape.size.as_vec2();
-                let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-                let anchor_pos = Vec3::new(
-                    saved_block.pos.x as f32 * grid_size,
-                    saved_block.pos.y as f32 * grid_size,
-                    0.0,
-                );
-                let pos = anchor_pos + center_offset.extend(0.0);
+                let entity = def.render(commands, asset_server, saved_block.pos);
 
-                let entity = commands
-                    .spawn((
-                        Transform::from_translation(pos),
-                        Visibility::Visible,
-                        Block {
-                            block_type: saved_block.block_type,
-                            rotation: saved_block.rotation,
-                        },
-                        GridPosition(saved_block.pos),
-                        PlacedBlock,
-                    ))
-                    .id();
-
-                for layer in &def.layers {
-                    let layer_entity = commands
-                        .spawn((
-                            BlockLayer {
-                                _kind: layer.kind.clone(),
-                            },
-                            Transform::default(),
-                            GlobalTransform::default(),
-                            Visibility::Inherited,
-                        ))
-                        .id();
-
-                    commands.entity(entity).add_child(layer_entity);
-
-                    // Visuals
-                    for visual in &layer.visuals {
-                        let visual = commands
-                            .spawn((
-                                Sprite {
-                                    image: asset_server.load(&visual.sprite),
-                                    custom_size: Some(size_vec * grid_size - 2.0),
-                                    ..default()
-                                },
-                                Transform::from_translation(visual.offset.extend(visual.z)),
-                            ))
-                            .id();
-
-                        commands.entity(layer_entity).add_child(visual);
-                    }
-
-                    // Features
-                    for feature in &layer.features {
-                        feature.apply(commands, layer_entity);
-                    }
-                }
-
-                // Update grid
                 for voxel in &def.shape.voxels {
                     editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
                 }

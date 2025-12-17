@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::content::ships::features::tracking::{
-    Rotatable, RotatableFeature, Tracker, TrackerFeature,
+use crate::{
+    GRID_SIZE,
+    content::ships::features::tracking::{Rotatable, RotatableFeature, Tracker, TrackerFeature},
 };
 
 /// Represents the type of a block.
@@ -149,7 +150,7 @@ pub enum LayerFeature {
 }
 
 impl LayerFeature {
-    pub fn apply(&self, commands: &mut Commands, entity: Entity) {
+    pub fn render(&self, commands: &mut Commands, entity: Entity) {
         match self {
             LayerFeature::Rotatable(f) => {
                 commands.entity(entity).insert(Rotatable {
@@ -219,6 +220,7 @@ pub struct BlockLayerDefinition {
 pub struct BlockDefinition {
     pub name: String,
     pub description: String,
+    pub block_type: BlockType,
     pub mass: f32,
     pub max_health: f32,
     /// Replaced `size` with `shape` to support complex voxel structures
@@ -227,4 +229,83 @@ pub struct BlockDefinition {
     /// A list of features this block possesses.
     pub features: Vec<BlockFeature>,
     pub layers: Vec<BlockLayerDefinition>,
+}
+
+#[derive(Component)]
+pub struct PlacedBlock;
+
+#[derive(Component)]
+pub struct BlockLayer {
+    pub _kind: LayerKind,
+}
+
+impl BlockDefinition {
+    pub fn render(
+        &self,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+        grid_pos: IVec2,
+    ) -> Entity {
+        let size_vec = self.shape.size.as_vec2();
+        let center_offset = (size_vec - 1.0) * GRID_SIZE * 0.5;
+
+        let anchor_pos = Vec3::new(
+            grid_pos.x as f32 * GRID_SIZE,
+            grid_pos.y as f32 * GRID_SIZE,
+            0.0,
+        );
+
+        let pos = anchor_pos + center_offset.extend(0.0);
+
+        let entity = commands
+            .spawn((
+                Transform::from_translation(pos),
+                Visibility::Visible,
+                Block {
+                    block_type: self.block_type,
+                    rotation: 0,
+                },
+                GridPosition(grid_pos),
+                PlacedBlock,
+            ))
+            .id();
+
+        for layer in &self.layers {
+            let layer_entity = commands
+                .spawn((
+                    BlockLayer {
+                        _kind: layer.kind.clone(),
+                    },
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Visibility::Inherited,
+                ))
+                .id();
+
+            commands.entity(entity).add_child(layer_entity);
+
+            // Visuals
+            for visual in &layer.visuals {
+                let visual_entity = commands
+                    .spawn((
+                        Sprite {
+                            image: asset_server.load(&visual.sprite),
+                            custom_size: Some(size_vec * GRID_SIZE - 2.0),
+                            ..default()
+                        },
+                        Transform::from_translation(visual.offset.extend(visual.z)),
+                    ))
+                    .id();
+
+                commands.entity(layer_entity).add_child(visual_entity);
+            }
+
+            // Features
+            for feature in &layer.features {
+                feature.render(commands, layer_entity);
+            }
+        }
+
+        return entity;
+    }
 }
