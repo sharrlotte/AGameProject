@@ -43,16 +43,12 @@ pub fn system_tracker_tracking(
     )>,
 ) {
     if let Some(target_pos) = state.cursor_world_pos {
-        for (mut transform, global_transform, tracker, rotatable) in &mut query {
+        for (mut transform, global_transform, _tracker, rotatable) in &mut query {
             let current_pos = global_transform.translation().truncate();
             let diff = target_pos - current_pos;
             let dist_sq = diff.length_squared();
 
             if dist_sq < 0.0001 {
-                continue;
-            }
-
-            if tracker.range > 0.0 && dist_sq > tracker.range * tracker.range {
                 continue;
             }
 
@@ -94,11 +90,13 @@ pub fn system_tracker_tracking(
 fn draw_tracker_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Tracker)>) {
     for (global_transform, tracker) in &query {
         if tracker.range > 0.0 {
-            gizmos.circle_2d(
-                global_transform.translation().truncate(),
-                tracker.range,
-                Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
-            );
+            gizmos
+                .circle_2d(
+                    global_transform.translation().truncate(),
+                    tracker.range,
+                    Color::srgb(0.0, 1.0, 1.0).with_alpha(0.3),
+                )
+                .resolution(64);
         }
     }
 }

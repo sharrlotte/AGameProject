@@ -12,6 +12,7 @@ use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
+use crate::content::ships::features::ShipFeature;
 use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 
 fn main() {
@@ -32,7 +33,7 @@ fn main() {
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
-    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin));
+    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin, ShipFeature));
 
     #[cfg(debug_assertions)]
     app.add_plugins(EguiPlugin::default());

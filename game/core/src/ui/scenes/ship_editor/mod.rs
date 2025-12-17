@@ -1,4 +1,3 @@
-use crate::content::ships::features::ShipFeature;
 use crate::content::structures::block::PlacedBlock;
 use crate::content::structures::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
@@ -45,12 +44,12 @@ impl Plugin for ShipEditorPlugin {
                     handle_camera_controls,
                     handle_deploy_button,
                     handle_deploy_button_click,
+                    handle_nav_buttons,
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
             )
-            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor)
-            .add_plugins(ShipFeature);
+            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor);
     }
 }
 
@@ -113,6 +112,12 @@ struct LoadShipButton(String);
 #[derive(Component)]
 struct DeployButton;
 
+#[derive(Component)]
+struct BackButton;
+
+#[derive(Component)]
+struct PlayButton;
+
 // --- Systems ---
 
 fn setup_editor_ui(
@@ -146,10 +151,38 @@ fn setup_editor_ui(
                     BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
                 ))
                 .with_children(|left_panel| {
+                    // --- Back Button ---
+                    left_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::bottom(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            BackButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Back to Home"),
+                                TextFont {
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
+
                     // --- Tab Header ---
                     left_panel
                         .spawn(Node {
                             width: Val::Percent(100.0),
+                            height: Val::Px(30.0),
                             margin: UiRect::bottom(Val::Px(10.0)),
                             flex_direction: FlexDirection::Row,
                             justify_content: JustifyContent::SpaceBetween,
@@ -240,27 +273,44 @@ fn setup_editor_ui(
                                     ))
                                     .with_children(|btn| {
                                         // Block Icon/Sprite
-                                        // Use the first layer as icon
-                                        if let Some(layer) = def.layers.first() {
-                                            if let Some(visual) = layer.visuals.first() {
-                                                btn.spawn((
-                                                    ImageNode {
-                                                        image: asset_server.load(&visual.sprite),
-                                                        ..default()
-                                                    },
-                                                    Node {
-                                                        // Limit icon size to fit in the button
-                                                        ..default()
-                                                    },
-                                                ));
-                                            }
+                                        // Create a container for the stacked layers
+                                        btn.spawn(Node {
+                                            width: Val::Px(40.0),
+                                            height: Val::Px(40.0),
+                                            flex_shrink: 0.0,
+                                            ..default()
+                                        })
+                                        .with_children(
+                                            |icon_parent| {
+                                                for layer in &def.layers {
+                                                    for visual in &layer.visuals {
+                                                        icon_parent.spawn((
+                                                            ImageNode {
+                                                                image: asset_server
+                                                                    .load(&visual.sprite),
+                                                                ..default()
+                                                            },
+                                                            Node {
+                                                                position_type:
+                                                                    PositionType::Absolute,
+                                                                width: Val::Percent(100.0),
+                                                                height: Val::Percent(100.0),
+                                                                ..default()
+                                                            },
+                                                            Transform::from_translation(
+                                                                visual.offset.extend(visual.z),
+                                                            ),
+                                                        ));
+                                                    }
+                                                }
+                                            },
+                                        );
 
-                                            // Add a small spacer
-                                            btn.spawn(Node {
-                                                width: Val::Px(12.0),
-                                                ..default()
-                                            });
-                                        }
+                                        // Add a small spacer
+                                        btn.spawn(Node {
+                                            width: Val::Px(12.0),
+                                            ..default()
+                                        });
 
                                         // Block Name
                                         btn.spawn((
@@ -358,6 +408,7 @@ fn setup_editor_ui(
                             Button,
                             Node {
                                 width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(10.0)),
@@ -370,6 +421,33 @@ fn setup_editor_ui(
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("Deploy"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
+
+                    // Play Button
+                    right_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::top(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.2, 0.8, 0.4)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            PlayButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Start Game"),
                                 TextFont {
                                     font_size: 16.0,
                                     ..default()
@@ -467,6 +545,48 @@ fn handle_deploy_button(
             *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
         } else {
             *bg_color = BackgroundColor(Color::srgb(0.2, 0.6, 1.0));
+        }
+    }
+}
+
+fn handle_nav_buttons(
+    mut interactions: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            Option<&BackButton>,
+            Option<&PlayButton>,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for (interaction, mut bg_color, back, play) in &mut interactions {
+        if back.is_none() && play.is_none() {
+            continue;
+        }
+
+        match *interaction {
+            Interaction::Pressed => {
+                if back.is_some() {
+                    next_state.set(AppState::Home);
+                } else if play.is_some() {
+                    next_state.set(AppState::Game);
+                }
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
+                if play.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.3, 0.9, 0.5));
+                }
+            }
+            Interaction::None => {
+                if back.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
+                } else if play.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.2, 0.8, 0.4));
+                }
+            }
         }
     }
 }
