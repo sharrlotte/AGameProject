@@ -40,6 +40,7 @@ pub struct Block {
     pub block_type: BlockType,
     /// The current rotation of the block in 90-degree increments (0=0deg, 1=90deg, 2=180deg, 3=270deg)
     pub rotation: u8,
+    pub def: BlockDefinition,
 }
 
 /// Represents a single voxel within a block's local grid.
@@ -265,22 +266,21 @@ impl BlockDefinition {
 
         let pos = anchor_pos + center_offset.extend(0.0);
 
-        let mut entity_cmd = commands.spawn((
-            Transform::from_translation(pos),
-            Visibility::Visible,
-            Block {
-                block_type: self.block_type,
-                rotation: 0,
-            },
-            GridPosition(grid_pos),
-            PlacedBlock,
-        ));
-
-        if let Some(t) = team {
-            entity_cmd.insert(t);
-        }
-
-        let entity = entity_cmd.id();
+        let entity = commands
+            .spawn((
+                Transform::from_translation(pos),
+                Visibility::Visible,
+                Block {
+                    block_type: self.block_type,
+                    rotation: 0,
+                    def: self.clone(),
+                },
+                GridPosition(grid_pos),
+                PlacedBlock,
+                self.block_group,
+                team.unwrap_or_default(),
+            ))
+            .id();
 
         for layer in &self.layers {
             let layer_entity = commands

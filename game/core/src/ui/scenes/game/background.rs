@@ -21,7 +21,7 @@ pub struct BackgroundConfig;
 
 fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load the single background image
-    let texture_handle = asset_server.load("textures/background/background1.png");
+    let texture_handle = asset_server.load("textures/background/background2.png");
 
     commands.insert_resource(BackgroundConfig);
 

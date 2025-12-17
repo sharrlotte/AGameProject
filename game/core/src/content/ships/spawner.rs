@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::GRID_SIZE;
 use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::{PlayerShip, SavedShip, ShipBlockHitbox};
+use crate::content::structures::ship::{PlayerShip, SavedShip, Ship, ShipBlockHitbox};
 use crate::content::team::Team;
 
 pub fn spawn_ship(
@@ -35,6 +35,10 @@ pub fn spawn_ship(
             angular_damping: 0.3,
         },
         team,
+        Ship {
+            name: ship_data.name.clone(),
+            center: ship_data.center,
+        },
     ));
 
     if is_player {
