@@ -26,7 +26,7 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
-    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController)>,
+    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController), With<AIFireController>>,
     mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
