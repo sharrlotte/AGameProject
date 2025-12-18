@@ -10,6 +10,9 @@ use crate::content::structures::block::BlockType;
 pub struct Ship {
     pub name: String,
     pub center: Vec2,
+    pub thrust_power: f32,
+    pub turn_speed: f32,
+    pub radar_range: f32,
 }
 
 /// A spatial grid that maps local coordinates to Block Entities.

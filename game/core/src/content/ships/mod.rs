@@ -31,16 +31,4 @@ impl Plugin for ShipPlugin {
 }
 
 #[derive(Component)]
-pub struct AIShipController;
-
-#[derive(Component)]
 pub struct PlayerShipController;
-
-fn cleanup_ships(
-    mut commands: Commands,
-    ships: Query<Entity, With<Ship>>,
-) {
-    for entity in &ships {
-        commands.entity(entity).despawn();
-    }
-}
