@@ -26,8 +26,8 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
-    turrets: Query<(Entity, &GlobalTransform, &TurretController, &Team)>,
-    blocks: Query<(Entity, &GlobalTransform, &Block)>,
+    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController, &Team)>,
+    mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
         match event {
@@ -45,10 +45,10 @@ pub fn update_turret_target(
                 };
 
                 // Add enemy to potential targets
-                if let Ok(((enemy, _))) = block
-                    && let Ok((_, _, mut turretc)) = turret
+                 if let Ok((enemy, _, _)) = block
+                    && let Ok((_, _, mut turretc, _)) = turret
                 {
-                    turretc.potential_targets.push(enemy);
+                    turretc.potential_targets.insert(enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
@@ -63,8 +63,8 @@ pub fn update_turret_target(
                     _ => continue,
                 };
 
-                if let Ok(((mut enemy, _))) = block
-                    && let Ok((_, _, mut turretc)) = turret
+                if let Ok((enemy, _, _)) = block
+                    && let Ok((_, _, mut turretc, _)) = turret
                 {
                     turretc.potential_targets.remove(&enemy);
                 }
@@ -74,8 +74,8 @@ pub fn update_turret_target(
 
     // 2. Select best target from potential_targets
     for (entity, transform, mut controller, team) in turrets.iter_mut() {
-        let turret_pos = ransform.translation().truncate();
-        
+        let turret_pos = transform.translation().truncate();
+
         let mut best_target: Option<Entity> = None;
         let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
 
@@ -114,10 +114,7 @@ pub fn update_turret_target(
         }
 
         if let Some(entity) = best_target {
-            if let Ok(target_pos) = blocks
-                .get(entity)
-                .map(|op| op.1.translation().truncate())
-            {
+            if let Ok(target_pos) = blocks.get(entity).map(|op| op.1.translation().truncate()) {
                 controller.target_pos = Some(target_pos);
                 controller.active = true;
             } else {
