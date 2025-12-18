@@ -8,9 +8,10 @@ pub mod types;
 use shoot::handle_turret_emission;
 use targeting::{update_player_fire_controller, update_turret_target};
 
+pub use types::*;
+
 use crate::AppState;
 use crate::content::turret::tracking::{draw_turret_ranges, system_turret_tracking};
-pub use types::*;
 
 pub struct TurretPlugin;
 

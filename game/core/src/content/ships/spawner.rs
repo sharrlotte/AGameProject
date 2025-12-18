@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::GRID_SIZE;
 use crate::content::ships::types::{AIShipBehavior, AIShipController, PlayerShipController};
 use crate::content::structures::block::{
     render_block_base, render_block_layer, render_block_layer_feature,
@@ -9,52 +10,6 @@ use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::{BlockData, Ship, ShipData};
 use crate::content::structures::types::{BelongsToShip, BlockGroup};
 use crate::content::team::Team;
-use crate::{AppVar, GRID_SIZE};
-
-pub fn spawn_player_ship(
-    mut commands: Commands,
-    vars: Res<AppVar>,
-    registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
-) {
-    let ship_data = if let Some(ship) = &vars.current_ship {
-        ship
-    } else {
-        warn!("No ship loaded in AppVar!");
-        return;
-    };
-
-    spawn_ship(
-        &mut commands,
-        &registry,
-        &assets,
-        ship_data,
-        Transform::from_translation(Vec3::ZERO),
-        Team::new(0),
-    );
-}
-
-pub fn spawn_enemy_ship(
-    mut commands: Commands,
-    vars: Res<AppVar>,
-    registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
-) {
-    let ship_data = if let Some(ship) = &vars.current_ship {
-        ship
-    } else {
-        return;
-    };
-
-    spawn_ship(
-        &mut commands,
-        &registry,
-        &assets,
-        ship_data,
-        Transform::from_translation(Vec3::new(500.0, 500.0, 0.0)),
-        Team::new(1), // Enemy
-    );
-}
 
 fn blocks_to_voxel_points(blocks: &[BlockData], registry: &BlockRegistry) -> Vec<Vec2> {
     let mut points = Vec::new();
@@ -141,7 +96,7 @@ pub fn spawn_ship(
         ExternalForce::default(),
         ExternalImpulse::default(),
         ReadMassProperties::default(),
-        Restitution::coefficient(0.8),
+        Restitution::coefficient(0.2),
         ColliderMassProperties::Density(1.0),
         Ccd::enabled(),
         GravityScale(0.0),

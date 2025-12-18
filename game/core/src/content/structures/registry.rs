@@ -207,13 +207,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                             animated: false,
                         }),
                         LayerFeature::Turret(TurretFeature {
-                            range: 2200.0,
+                            range: 20000.0,
                             strategy: TargetingStrategy::Closest,
                             turn_speed: 2.0,
                             barrels: vec![Vec2::new(0.0, 0.0)],
                             fire_all_at_once: false,
                             shooting_pattern: ShootPattern::Single {
-                                fire_rate: 0.55,
+                                fire_rate: 0.15,
                                 last_fired_at: 0.0,
                                 projectile: ShootingProjectile::Bullet {
                                     speed: 2000.0,

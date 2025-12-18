@@ -1,6 +1,7 @@
 mod content;
 mod save;
 mod ui;
+mod math;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;

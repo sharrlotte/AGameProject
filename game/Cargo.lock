@@ -1979,6 +1979,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_rapier2d",
  "directories",
+ "rand",
  "serde",
  "serde_json",
 ]

@@ -55,6 +55,7 @@ pub fn player_ship_controller(
 pub fn ai_ship_controller(
     mut query: Query<(
         &mut ExternalForce,
+        &Velocity,
         &Transform,
         &mut AIShipController,
         &Ship,
@@ -63,7 +64,7 @@ pub fn ai_ship_controller(
     ships: Query<(Entity, &Transform, &Ship, &Team)>,
     global_transforms: Query<&Transform>,
 ) {
-    for (mut force, transform, mut controller, ship, team) in query.iter_mut() {
+    for (mut force, velocity, transform, mut controller, ship, team) in query.iter_mut() {
         let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
         let turn_speed = ship.turn_speed * TURN_SPEED_FACTOR;
 
@@ -97,7 +98,14 @@ pub fn ai_ship_controller(
                     .map(|transform| transform.translation.truncate());
 
                 if let Ok(position) = position {
-                    move_to(transform, &mut force, position, thrust_power, turn_speed);
+                    chase(
+                        transform,
+                        velocity,
+                        &mut force,
+                        position,
+                        thrust_power,
+                        turn_speed,
+                    );
                 } else {
                     controller.behavior = controller.initial_behavior;
                 }
@@ -106,7 +114,14 @@ pub fn ai_ship_controller(
                 // Randomly move around
             }
             AIShipBehavior::Attack { target_pos } => {
-                move_to(transform, &mut force, target_pos, thrust_power, turn_speed);
+                chase(
+                    transform,
+                    velocity,
+                    &mut force,
+                    target_pos,
+                    thrust_power,
+                    turn_speed,
+                );
             }
             AIShipBehavior::Flee { from } => {
                 // Run away from the player
@@ -126,8 +141,9 @@ pub fn ai_ship_controller(
 
 const CLOSE_ENOUGH_DISTANCE: f32 = 1000.0;
 
-fn move_to(
+fn chase(
     transform: &Transform,
+    velocity: &Velocity,
     force: &mut ExternalForce,
     target_pos: Vec2,
     thrust_power: f32,
@@ -137,13 +153,19 @@ fn move_to(
     let angle = direction.y.atan2(direction.x) - PI / 2.0;
     let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
 
-    let percent = (angle_diff.abs() / (PI / 2.0)).clamp(0.25, 1.0);
+    let percent = (angle_diff.abs() / PI).clamp(0.25, 1.0);
+    let speed_percent = if velocity.linvel.length() > PI / 4.0 {
+        0.3
+    } else {
+        1.0
+    };
 
     let torque = if angle_diff > 0.0 {
-        turn_speed * percent
+        turn_speed
     } else {
-        -turn_speed * percent
-    };
+        -turn_speed
+    } * speed_percent
+        * percent;
 
     force.torque = torque;
 
@@ -151,10 +173,9 @@ fn move_to(
         if transform.translation.truncate().distance(target_pos) <= CLOSE_ENOUGH_DISTANCE {
             force.force = Vec2::ZERO;
             force.torque = 0.0;
-            return;
+        } else {
+            let linear_force = direction * thrust_power;
+            force.force = linear_force;
         }
-
-        let linear_force = direction * thrust_power;
-        force.force = linear_force;
     }
 }
