@@ -17,8 +17,7 @@ pub fn handle_bullet_collisions(
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
     mut healths: Query<(Entity, &mut Health, &mut Block, &BelongsToShip)>,
-    parents: Query<&ChildOf>,
-    ships: Query<&Ship>,
+    mut ships: Query<&mut Ship>,
     registry: Res<BlockRegistry>,
 ) {
     for event in collision_events.read() {
@@ -49,6 +48,10 @@ pub fn handle_bullet_collisions(
                     commands.entity(belongs.ship).insert(RebuildShipCollider);
                     commands.entity(health).despawn();
 
+                    if let Ok(mut ship) = ships.get_mut(belongs.ship) {
+                        ship.blocks.retain_mut(|f| f.id != block.id);
+                    }
+
                     let Some(def) = registry.get(&block.block_type) else {
                         continue;
                     };
@@ -57,13 +60,7 @@ pub fn handle_bullet_collisions(
                         continue;
                     }
 
-                    let Ok(parent) = parents.get(health) else {
-                        continue;
-                    };
-
-                    if ships.get(parent.0).is_ok() {
-                        commands.entity(parent.0).despawn();
-                    }
+                    commands.entity(belongs.ship).despawn();
                 }
 
                 if bulletc.piercing <= 0 {

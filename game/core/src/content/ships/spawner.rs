@@ -56,38 +56,53 @@ pub fn spawn_enemy_ship(
     );
 }
 
+fn blocks_to_voxel_points(blocks: &[BlockData], registry: &BlockRegistry) -> Vec<Vec2> {
+    let mut points = Vec::new();
+
+    for block in blocks {
+        let def = registry.get(&block.block_type).unwrap();
+        let size = def.shape.size;
+
+        // base grid position
+        let base_x = block.pos.x as f32;
+        let base_y = block.pos.y as f32;
+
+        // fill rectangle
+        for y in 0..size.y {
+            for x in 0..size.x {
+                let px = (base_x + x as f32) * GRID_SIZE;
+                let py = (base_y + y as f32) * GRID_SIZE;
+
+                points.push(Vec2::new(px, py));
+            }
+        }
+    }
+
+    points
+}
+
+pub fn build_ship_voxel_collider_2d(blocks: &[BlockData], registry: &BlockRegistry) -> Collider {
+    let points = blocks_to_voxel_points(blocks, registry);
+
+    return Collider::voxels_from_points(Vec2::new(GRID_SIZE, GRID_SIZE), &points);
+}
+
 pub struct ShipCalculatedStat {
     pub mass: f32,
     pub center: Vec2,
-    pub compound_shapes: Vec<(Vect, f32, Collider)>,
+    pub collider: Collider,
 }
 
-pub fn calculate_ship_stat(ship_data: &Vec<BlockData>, registry: &BlockRegistry) -> ShipCalculatedStat {
+pub fn calculate_ship_stat(
+    ship_data: &Vec<BlockData>,
+    registry: &BlockRegistry,
+) -> ShipCalculatedStat {
     let mut mass: f32 = 0.0;
     let mut center = Vec2::ZERO;
-    let mut compound_shapes = Vec::new();
 
     for block_data in ship_data {
         if let Some(def) = registry.get(&block_data.block_type) {
-            let size_vec = def.shape.size.as_vec2();
-            let center_offset = size_vec * GRID_SIZE * 0.5;
-
-            let anchor_pos = Vec2::new(
-                block_data.pos.x as f32 * GRID_SIZE,
-                block_data.pos.y as f32 * GRID_SIZE,
-            );
-
-            let block_pos = anchor_pos + center_offset;
-            let rotation_angle = block_data.rotation as f32 * std::f32::consts::FRAC_PI_2;
-            let size = size_vec * GRID_SIZE * 0.5;
-
             mass += def.mass;
-
-            compound_shapes.push((
-                Vect::new(block_pos.x, block_pos.y),
-                rotation_angle,
-                Collider::cuboid(size.x, size.y),
-            ));
 
             if def.block_group == BlockGroup::Core {
                 let size = def.shape.size.as_vec2();
@@ -100,7 +115,7 @@ pub fn calculate_ship_stat(ship_data: &Vec<BlockData>, registry: &BlockRegistry)
     return ShipCalculatedStat {
         mass,
         center: center,
-        compound_shapes,
+        collider: build_ship_voxel_collider_2d(&ship_data, registry),
     };
 }
 
@@ -115,7 +130,7 @@ pub fn spawn_ship(
     let ShipCalculatedStat {
         mass,
         center,
-        compound_shapes,
+        collider,
     } = calculate_ship_stat(&ship_data.blocks, registry);
 
     let mut ship_cmd = commands.spawn((
@@ -158,7 +173,14 @@ pub fn spawn_ship(
 
     for block_data in &ship_data.blocks {
         if let Some(def) = registry.get(&block_data.block_type) {
-            let base = render_block_base(commands, ship_entity, def, block_data.pos, team);
+            let base = render_block_base(
+                commands,
+                ship_entity,
+                def,
+                block_data.id,
+                block_data.pos,
+                team,
+            );
 
             for layer in &def.layers {
                 let layer_entity = render_block_layer(commands, base, layer);
@@ -174,15 +196,11 @@ pub fn spawn_ship(
         }
     }
 
-    if !compound_shapes.is_empty() {
-        commands.entity(ship_entity).insert((
-            Collider::compound(compound_shapes),
-            CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
-            ColliderMassProperties::Mass(mass),
-        ));
-    } else {
-        warn!("Ship has no blocks! Spawning dummy collider.");
-    }
+    commands.entity(ship_entity).insert((
+        collider,
+        CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
+        ColliderMassProperties::Mass(mass),
+    ));
 
     return ship_entity;
 }

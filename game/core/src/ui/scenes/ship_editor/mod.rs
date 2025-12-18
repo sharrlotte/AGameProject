@@ -1,5 +1,6 @@
 use crate::content::structures::block::{
-    get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_layer, render_block_layer_feature
+    get_block_half_size, get_block_size, get_block_transform, render_block_base,
+    render_block_layer, render_block_layer_feature,
 };
 use crate::content::structures::ship::{BlockData, Ship, ShipData};
 use crate::content::structures::types::{
@@ -528,15 +529,16 @@ fn handle_deploy_button_click(
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == Interaction::Pressed {
             // Deploy Logic
-            let mut saved_blocks = Vec::new();
-
-            for (block, grid_pos) in &blocks {
-                saved_blocks.push(BlockData {
+            let saved_blocks = blocks
+                .iter()
+                .enumerate()
+                .map(|(index, (block, grid_pos))| BlockData {
+                    id: index,
                     pos: grid_pos.0,
                     block_type: block.block_type,
                     rotation: block.rotation,
-                });
-            }
+                })
+                .collect::<Vec<BlockData>>();
 
             let ship_data = ShipData {
                 name: editor.name.clone(),
@@ -1120,7 +1122,7 @@ fn spawn_placed_block(
     grid_pos: IVec2,
 ) -> Entity {
     let team = Team::default();
-    let base = render_block_base(commands, base, block_def, grid_pos, team);
+    let base = render_block_base(commands, base, block_def, 0, grid_pos, team);
 
     for layer in &block_def.layers {
         let layer_entity = render_block_layer(commands, base, &layer);
@@ -1163,17 +1165,16 @@ fn perform_save_ship(
     blocks: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
-    let mut saved_blocks = Vec::new();
-    // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
-    // We can iterate the query instead.
-
-    for (block, grid_pos) in blocks {
-        saved_blocks.push(BlockData {
+    let saved_blocks = blocks
+        .iter()
+        .enumerate()
+        .map(|(index, (block, grid_pos))| BlockData {
+            id: index,
             pos: grid_pos.0,
             block_type: block.block_type,
             rotation: block.rotation,
-        });
-    }
+        })
+        .collect::<Vec<BlockData>>();
 
     let save_name: String = if name.is_empty() {
         "ship_0".to_string()

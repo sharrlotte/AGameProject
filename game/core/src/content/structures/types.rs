@@ -187,6 +187,7 @@ pub struct BlockDef {
 /// Component, Clone,  PartialEq attached to every block entity.
 #[derive(Component, Clone, PartialEq)]
 pub struct Block {
+    pub id: usize,
     pub rotation: u8,
     pub block_type: BlockType,
 }

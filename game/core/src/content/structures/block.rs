@@ -39,6 +39,7 @@ pub fn render_block_base(
     commands: &mut Commands,
     parent: Entity,
     def: &BlockDef,
+    id: usize,
     grid_pos: IVec2,
     team: Team,
 ) -> Entity {
@@ -58,6 +59,7 @@ pub fn render_block_base(
             CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
             ColliderMassProperties::Mass(0.0),
             Block {
+                id,
                 rotation: 0,
                 block_type: def.block_type,
             },

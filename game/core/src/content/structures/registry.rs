@@ -217,7 +217,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                                 last_fired_at: 0.0,
                                 projectile: ShootingProjectile::Bullet {
                                     speed: 2000.0,
-                                    damage: 10.0,
+                                    damage: 20.0,
                                     lifetime: 5.0,
                                     piercing: 0,
                                 },

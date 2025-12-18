@@ -77,16 +77,13 @@ fn check_rebuild_ship_collider(
     registry: Res<BlockRegistry>,
 ) {
     for (entity, ship) in &ships {
-        let ShipCalculatedStat {
-            mass,
-            compound_shapes,
-            ..
-        } = calculate_ship_stat(&ship.blocks, &registry);
+        let ShipCalculatedStat { mass, collider, .. } =
+            calculate_ship_stat(&ship.blocks, &registry);
 
-        commands.entity(entity).remove::<Collider>().insert((
-            Collider::compound(compound_shapes),
-            ColliderMassProperties::Mass(mass),
-        ));
+        commands
+            .entity(entity)
+            .remove::<Collider>()
+            .insert((collider, ColliderMassProperties::Mass(mass)));
 
         commands.entity(entity).remove::<RebuildShipCollider>();
 

@@ -47,6 +47,7 @@ impl ShipGrid {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct BlockData {
+    pub id: usize,
     pub pos: IVec2,
     pub block_type: BlockType,
     pub rotation: u8,
