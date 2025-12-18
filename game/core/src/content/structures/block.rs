@@ -161,37 +161,6 @@ pub enum LayerFeature {
     EnergyConsumer(EnergyConsumerFeature),
 }
 
-impl LayerFeature {
-    pub fn render(&self, commands: &mut Commands, entity: Entity, team: Option<Team>) {
-        match self {
-            LayerFeature::Recoil(_recoil_feature) => todo!(),
-            LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
-            LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
-            LayerFeature::Turret(f) => {
-                commands.entity(entity).insert((TurretController {
-                    strategy: f.strategy.clone(),
-                    range: f.range,
-                    turn_speed: f.turn_speed,
-                    fire_all_at_once: f.fire_all_at_once,
-                    barrels: f.barrels.clone(),
-                    shooting_pattern: f.shooting_pattern.clone(),
-                    // state
-                    current_barrel_index: 0,
-                    potential_targets: HashSet::default(),
-                    active: false,
-                    target_pos: None,
-                },));
-
-                if team.unwrap_or_default() == Team::default() {
-                    commands.entity(entity).insert(PlayerFireController);
-                } else {
-                    commands.entity(entity).insert(AIFireController);
-                }
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct RecoilFeature {
     pub strength: f32,
@@ -245,6 +214,37 @@ pub struct PlacedBlock;
 #[derive(Component)]
 pub struct BlockLayer {
     pub _kind: LayerKind,
+}
+
+impl LayerFeature {
+    pub fn render(&self, commands: &mut Commands, entity: Entity, team: Option<Team>) {
+        match self {
+            LayerFeature::Recoil(_recoil_feature) => todo!(),
+            LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
+            LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
+            LayerFeature::Turret(f) => {
+                commands.entity(entity).insert((TurretController {
+                    strategy: f.strategy.clone(),
+                    range: f.range,
+                    turn_speed: f.turn_speed,
+                    fire_all_at_once: f.fire_all_at_once,
+                    barrels: f.barrels.clone(),
+                    shooting_pattern: f.shooting_pattern.clone(),
+                    // state
+                    current_barrel_index: 0,
+                    potential_targets: HashSet::default(),
+                    active: false,
+                    target_pos: None,
+                },));
+
+                if team.unwrap_or_default() == Team::default() {
+                    commands.entity(entity).insert(PlayerFireController);
+                } else {
+                    commands.entity(entity).insert(AIFireController);
+                }
+            }
+        }
+    }
 }
 
 impl BlockDefinition {

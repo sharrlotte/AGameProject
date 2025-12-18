@@ -1,5 +1,5 @@
 use crate::content::{
-    structures::ship::Enemy,
+    structures::{block::Block, ship::Enemy},
     team::Team,
     turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
 };
@@ -16,95 +16,79 @@ pub fn update_player_fire_controller(
 
     if let Some(cursor_position) = window.cursor_position() {
         if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-            for (mut targeter, _) in query.iter_mut() {
-                targeter.target_pos = Some(world_position);
-                targeter.active = mouse_input.pressed(MouseButton::Left);
+            for (mut controller, _) in query.iter_mut() {
+                controller.target_pos = Some(world_position);
+                controller.active = mouse_input.pressed(MouseButton::Left);
             }
         }
     }
 }
 
 pub fn update_turret_target(
-    mut turret_query: Query<
-        (Entity, &GlobalTransform, &mut TurretController, &Team),
-        With<AIFireController>,
-    >,
     mut collision_events: MessageReader<CollisionEvent>,
-    sensors: Query<Entity, With<TurretController>>,
-    enemies: Query<Entity, With<Enemy>>,
-    global_transforms: Query<&GlobalTransform>,
+    turrets: Query<(Entity, &GlobalTransform, &TurretController, &Team)>,
+    blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
         match event {
             CollisionEvent::Started(e1, e2, _flags) => {
                 // Check if e1 or e2 is a DetectionRange sensor
-                let sensor_enemy = match (
-                    sensors.get(*e1).is_ok(),
-                    enemies.get(*e1).is_ok(),
-                    sensors.get(*e2).is_ok(),
-                    enemies.get(*e2).is_ok(),
+                let (turret, block) = match (
+                    turrets.contains(*e1),
+                    blocks.contains(*e1),
+                    turrets.contains(*e2),
+                    blocks.contains(*e2),
                 ) {
-                    (true, false, false, true) => Some((e1, e2)), // e1 = sensor, e2 = enemy
-                    (false, true, true, false) => Some((e2, e1)), // e2 = sensor, e1 = enemy
-                    _ => None,
+                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    _ => continue,
                 };
 
-                if let Some((sensor, enemy)) = sensor_enemy {
-                    // 👇 Now you know who is who
-                    println!("Sensor {:?} detected enemy {:?}", sensor, enemy);
-                    // Add enemy to potential targets
-                    if let Ok((_, _, mut targeter, _)) = turret_query.get_mut(*sensor) {
-                        targeter.potential_targets.insert(*enemy);
-                    }
+                // Add enemy to potential targets
+                if let Ok(((enemy, _))) = block
+                    && let Ok((_, _, mut turretc)) = turret
+                {
+                    turretc.potential_targets.push(enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
-                // Check if e1 or e2 is a DetectionRange sensor
-                let sensor_enemy = match (
-                    sensors.get(*e1).is_ok(),
-                    enemies.get(*e1).is_ok(),
-                    sensors.get(*e2).is_ok(),
-                    enemies.get(*e2).is_ok(),
+                let (turret, block) = match (
+                    turrets.contains(*e1),
+                    blocks.contains(*e1),
+                    turrets.contains(*e2),
+                    blocks.contains(*e2),
                 ) {
-                    (true, false, false, true) => Some((e1, e2)), // e1 = sensor, e2 = enemy
-                    (false, true, true, false) => Some((e2, e1)), // e2 = sensor, e1 = enemy
-                    _ => None,
+                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    _ => continue,
                 };
 
-                if let Some((sensor, enemy)) = sensor_enemy {
-                    // 👇 Now you know who is who
-                    println!("Sensor {:?} end detected enemy {:?}", sensor, enemy);
-                    // Add enemy to potential targets
-                    if let Ok((_, _, mut targeter, _)) = turret_query.get_mut(*sensor) {
-                        targeter.potential_targets.remove(enemy);
-                    }
+                if let Ok(((mut enemy, _))) = block
+                    && let Ok((_, _, mut turretc)) = turret
+                {
+                    turretc.potential_targets.remove(&enemy);
                 }
             }
         }
     }
 
     // 2. Select best target from potential_targets
-    for (_turret_entity, turret_transform, mut targeter, _turret_team) in turret_query.iter_mut() {
-        let turret_pos = turret_transform.translation().truncate();
+    for (entity, transform, mut controller, team) in turrets.iter_mut() {
+        let turret_pos = ransform.translation().truncate();
+        
         let mut best_target: Option<Entity> = None;
         let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
 
-        // Clean up invalid entities
-        targeter
-            .potential_targets
-            .retain(|e| global_transforms.contains(*e));
-
-        for &entity in targeter.potential_targets.iter() {
-            if let Ok(target_transform) = global_transforms.get(entity) {
+        for &entity in controller.potential_targets.iter() {
+            if let Ok((_, target_transform, _)) = blocks.get(entity) {
                 let target_pos_actual = target_transform.translation().truncate();
                 let dist_sq = turret_pos.distance_squared(target_pos_actual);
 
-                // Optional: Double check range (physics might be slightly loose or delayed)
-                if dist_sq > targeter.range * targeter.range {
+                if dist_sq > controller.range * controller.range {
                     continue;
                 }
 
-                match targeter.strategy {
+                match controller.strategy {
                     TargetingStrategy::Closest => {
                         if dist_sq < closest_dist_sq {
                             closest_dist_sq = dist_sq;
@@ -130,15 +114,15 @@ pub fn update_turret_target(
         }
 
         if let Some(entity) = best_target {
-            if let Ok(target_pos) = global_transforms
+            if let Ok(target_pos) = blocks
                 .get(entity)
-                .map(|op| op.translation().truncate())
+                .map(|op| op.1.translation().truncate())
             {
-                targeter.target_pos = Some(target_pos);
-                targeter.active = true;
+                controller.target_pos = Some(target_pos);
+                controller.active = true;
             } else {
-                targeter.target_pos = None;
-                targeter.active = false;
+                controller.target_pos = None;
+                controller.active = false;
             }
         }
     }

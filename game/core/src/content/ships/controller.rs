@@ -133,10 +133,10 @@ fn move_to(
     let direction = (target_pos - transform.translation.truncate()).normalize_or_zero();
     let angle = direction.y.atan2(direction.x) - PI / 2.0;
     let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
-    
+
     let percent = (angle_diff.abs() / (PI / 2.0)).clamp(0.25, 1.0);
 
-    let torque = if angle_diff > 0.0  {
+    let torque = if angle_diff > 0.0 {
         turn_speed * percent
     } else {
         -turn_speed * percent
