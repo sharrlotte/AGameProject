@@ -29,7 +29,20 @@ impl Plugin for ShipPlugin {
 }
 
 #[derive(Component)]
-pub struct AIShipController;
+pub struct PlayerShipController;
 
 #[derive(Component)]
-pub struct PlayerShipController;
+pub struct AIShipController {
+    behavior: AIShipBehavior,
+    initial_behavior: AIShipBehavior,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AIShipBehavior {
+    Idle,
+    Chase { target: Entity },
+    Wander,
+    Attack { target_pos: Vec2 },
+    Flee,
+    Patrol,
+}

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::content::ships::PlayerShipController;
+use crate::content::ships::{AIShipBehavior, AIShipController, PlayerShipController};
 use crate::content::structures::block::BlockGroup;
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::{SavedShip, Ship};
@@ -98,15 +98,23 @@ pub fn spawn_ship(
             linear_damping: 0.8,
             angular_damping: 0.8,
         },
-        team,
         Ship {
             name: ship_data.name.clone(),
             center: ship_center,
+            thrust_power: 1000.0,
+            turn_speed: 250.0,
+            radar_range: 3000.0,
         },
+        team,
     ));
 
     if is_player {
         ship_cmd.insert(PlayerShipController);
+    } else {
+        ship_cmd.insert(AIShipController {
+            behavior: AIShipBehavior::Idle,
+            initial_behavior: AIShipBehavior::Idle,
+        });
     }
 
     let ship_entity = ship_cmd.id();
