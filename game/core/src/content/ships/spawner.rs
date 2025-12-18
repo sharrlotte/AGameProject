@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::content::ships::{AIShipBehavior, AIShipController, PlayerShipController};
+use crate::content::ships::types::{AIShipBehavior, AIShipController, PlayerShipController};
 use crate::content::structures::block::BlockGroup;
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::{SavedShip, Ship};

@@ -11,7 +11,7 @@ use crate::{
     content::{
         structures::{components::Health, ship::ShipBlockHitbox},
         team::Team,
-        turret::{AIFireController, PlayerFireController, TurretController, TurretFeature},
+        turret::types::{AIFireController, PlayerFireController, TurretController, TurretFeature},
     },
 };
 

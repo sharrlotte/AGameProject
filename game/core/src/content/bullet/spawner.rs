@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
-use crate::content::bullet::Bullet;
+use crate::content::bullet::types::Bullet;
 use crate::content::team::Team;
-use crate::content::turret::ShootingProjectile;
+use crate::content::turret::types::ShootingProjectile;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
@@ -51,10 +51,7 @@ pub fn spawn_bullet(
                     },
                     RigidBody::Dynamic,
                     Collider::ball(5.0),
-                    CollisionGroups::new(
-                        team.get_bullet_group(),
-                        team.get_bullet_filter(),
-                    ),
+                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Velocity::linear(Vec2::from_angle(dir) * *speed),
                     GravityScale(0.0),

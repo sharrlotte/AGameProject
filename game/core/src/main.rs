@@ -19,6 +19,7 @@ use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
 use crate::content::ships::features::ShipFeature;
 use crate::content::turret::TurretPlugin;
+use crate::content::bullet::BulletPlugin;
 use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 
 fn main() {
@@ -46,6 +47,7 @@ fn main() {
         ShipEditorPlugin,
         ShipFeature,
         TurretPlugin,
+        BulletPlugin,
     ));
 
     #[cfg(debug_assertions)]

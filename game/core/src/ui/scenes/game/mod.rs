@@ -4,7 +4,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::AppState;
-use crate::content::bullet::Bullet;
+use crate::content::bullet::types::Bullet;
 use crate::content::ships::{PlayerShipController, ShipPlugin};
 use crate::content::structures::ship::Ship;
 use crate::ui::scenes::game::background::{BackgroundConfig, BackgroundImage, BackgroundPlugin};
@@ -22,7 +22,8 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(AppState::Home), cleanup_game_entities)
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom, update_fps, handle_pause_input).run_if(in_state(AppState::Game)),
+                (camera_follow, camera_zoom, update_fps, handle_pause_input)
+                    .run_if(in_state(AppState::Game)),
             )
             .add_plugins(ShipPlugin)
             .add_plugins(BackgroundPlugin);
@@ -39,7 +40,11 @@ fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
     }
 }
 
-fn setup_game(mut commands: Commands, mut initialized: ResMut<GameInitialized>, fps_query: Query<(), With<FpsText>>) {
+fn setup_game(
+    mut commands: Commands,
+    mut initialized: ResMut<GameInitialized>,
+    fps_query: Query<(), With<FpsText>>,
+) {
     if initialized.0 {
         // Only spawn FpsText if not exists
         if fps_query.is_empty() {

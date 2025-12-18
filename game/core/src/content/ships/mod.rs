@@ -4,12 +4,15 @@ pub mod controller;
 pub mod features;
 pub mod indicators;
 pub mod spawner;
+pub mod types;
 
 use crate::AppState;
 use crate::content::ships::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ships::indicators::IndicatorsPlugin;
 use crate::content::ships::spawner::{spawn_enemy_ship, spawn_player_ship};
 use crate::content::structures::ship::Ship;
+
+pub use types::*;
 
 pub struct ShipPlugin;
 
@@ -28,27 +31,6 @@ impl Plugin for ShipPlugin {
         .add_systems(OnEnter(AppState::Home), cleanup_ships)
         .add_plugins(IndicatorsPlugin);
     }
-}
-
-#[derive(Component)]
-pub struct PlayerShipController;
-
-#[derive(Component)]
-pub struct AIShipController {
-    pub behavior: AIShipBehavior,
-    pub initial_behavior: AIShipBehavior,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum AIShipBehavior {
-    Idle,
-    Wander,
-    Attack { target_pos: Vec2 },
-    Patrol { around_pos: Vec2 },
-    Chase { target: Entity },
-    Flee { from: Entity },
-    Guard { target: Entity },
-    Follow { target: Entity },
 }
 
 fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {

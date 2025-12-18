@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::{
-    ships::{AIShipBehavior, AIShipController, PlayerShipController},
+    ships::types::{AIShipBehavior, AIShipController, PlayerShipController},
     structures::ship::Ship,
     team::Team,
 };
@@ -61,6 +61,7 @@ pub fn ai_ship_controller(
         &Team,
     )>,
     ships: Query<(Entity, &Transform, &Ship, &Team)>,
+    global_transforms: Query<&Transform>,
 ) {
     for (mut force, transform, mut controller, ship, team) in query.iter_mut() {
         let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
@@ -71,29 +72,31 @@ pub fn ai_ship_controller(
             .filter(|(_, _, _, other_team)| other_team.id != team.id)
             .collect();
 
-        let in_range = enemy_ships.iter().any(|(_, enemy_transform, _, _)| {
-            enemy_transform
-                .translation
-                .truncate()
-                .distance(transform.translation.truncate())
-                <= ship.radar_range
-        });
+        let in_range: Vec<(Entity, &Transform, &Ship, &Team)> = enemy_ships
+            .into_iter()
+            .filter(|(_, enemy_transform, _, _)| {
+                enemy_transform
+                    .translation
+                    .truncate()
+                    .distance(transform.translation.truncate())
+                    <= ship.radar_range
+            })
+            .collect();
 
         match controller.behavior {
             AIShipBehavior::Idle => {
-                if in_range {
+                if !in_range.is_empty() {
                     controller.behavior = AIShipBehavior::Chase {
-                        target: enemy_ships[0].0,
+                        target: in_range[0].0,
                     };
                 }
             }
             AIShipBehavior::Chase { target } => {
-                let position = enemy_ships
-                    .iter()
-                    .find(|(entity, _, _, _)| *entity == target)
-                    .map(|(_, transform, _, _)| transform.translation.truncate());
+                let position = global_transforms
+                    .get(target)
+                    .map(|transform| transform.translation.truncate());
 
-                if let Some(position) = position {
+                if let Ok(position) = position {
                     move_to(transform, &mut force, position, thrust_power, turn_speed);
                 } else {
                     controller.behavior = controller.initial_behavior;
@@ -121,7 +124,7 @@ pub fn ai_ship_controller(
     }
 }
 
-const CLOSE_ENOUGH_DISTANCE: f32 = 3000.0;
+const CLOSE_ENOUGH_DISTANCE: f32 = 1000.0;
 
 fn move_to(
     transform: &Transform,

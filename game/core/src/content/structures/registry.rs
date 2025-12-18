@@ -3,7 +3,7 @@ use crate::content::{
         BlockDefinition, BlockFeature, BlockGroup, BlockLayerDefinition, BlockShape, BlockType,
         LayerFeature, LayerKind, LayerVisual,
     },
-    turret::{ShootPattern, ShootingProjectile, TargetingStrategy, TurretFeature},
+    turret::types::{ShootPattern, ShootingProjectile, TargetingStrategy, TurretFeature},
 };
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -225,7 +225,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                                 speed: 2000.0,
                                 damage: 10.0,
                                 lifetime: 5.0,
-                                piercing: 1,
+                                piercing: 0,
                             },
                         },
                     })],

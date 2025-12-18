@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::turret::TurretController;
+use crate::content::turret::types::TurretController;
 
 pub fn system_turret_tracking(
     time: Res<Time>,

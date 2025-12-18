@@ -1,7 +1,7 @@
 use crate::content::{
     structures::{block::Block, ship::Enemy},
     team::Team,
-    turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
+    turret::types::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
 };
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;

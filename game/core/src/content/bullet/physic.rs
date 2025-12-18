@@ -1,8 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent};
+use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 
 use crate::content::{
-    bullet::Bullet,
+    bullet::types::Bullet,
     structures::{
         block::{Block, BlockGroup},
         components::Health,
@@ -53,7 +53,8 @@ pub fn handle_bullet_collisions(
                         .entity(bullet)
                         .insert(Visibility::Hidden)
                         .remove::<Collider>()
-                        .remove::<ActiveEvents>();
+                        .remove::<ActiveEvents>()
+                        .remove::<RigidBody>();
                 } else {
                     bulletc.piercing -= 1;
                 }

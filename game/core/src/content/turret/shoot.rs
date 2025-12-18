@@ -1,6 +1,6 @@
 use crate::content::bullet::spawner::spawn_bullet;
 use crate::content::team::Team;
-use crate::content::turret::{ShootPattern, TurretController};
+use crate::content::turret::types::{ShootPattern, TurretController};
 use bevy::prelude::*;
 
 pub fn handle_turret_emission(
