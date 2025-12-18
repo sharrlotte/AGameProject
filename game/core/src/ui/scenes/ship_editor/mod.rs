@@ -78,6 +78,7 @@ struct EditorState {
     // Input Abstraction
     place_req: bool,
     delete_req: bool,
+    is_dragging: bool,
     // Drag detection for click-to-pan vs click-to-place
     drag_accumulator: f32,
     name: String,
@@ -624,6 +625,7 @@ fn process_input(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse: Res<ButtonInput<MouseButton>>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
     // touches: Res<Touches>, // For future mobile support
 ) {
     // Reset transient flags
@@ -640,19 +642,22 @@ fn process_input(
             return;
         }
 
-        // Process Actions (Abstraction)
         if mouse.just_pressed(MouseButton::Left) {
             editor.drag_accumulator = 0.0;
+            editor.is_dragging = false;
         }
 
-        if mouse.just_released(MouseButton::Left) {
-            if editor.drag_accumulator < 1.0 {
-                editor.place_req = true;
+        if mouse.pressed(MouseButton::Left) {
+            for event in mouse_motion_events.read() {
+                editor.drag_accumulator += event.delta.length();
+                if editor.drag_accumulator > 5.0 {
+                    editor.is_dragging = true;
+                }
             }
         }
 
-        if mouse.just_pressed(MouseButton::Right) {
-            editor.delete_req = true;
+        if mouse.just_released(MouseButton::Left) && !editor.is_dragging {
+            editor.place_req = true;
         }
 
         // Convert to world coordinates
@@ -697,6 +702,7 @@ fn handle_camera_controls(
                 let pan_speed = scale * 0.5;
                 transform.translation.x -= event.delta.x * pan_speed;
                 transform.translation.y += event.delta.y * pan_speed;
+
                 editor.drag_accumulator += event.delta.length();
             }
         }
