@@ -56,6 +56,7 @@ pub fn spawn_bullet(
                     Velocity::linear(Vec2::from_angle(dir) * *speed),
                     GravityScale(0.0),
                     ColliderMassProperties::Mass(0.01),
+                    Sensor,
                     *team,
                 ))
                 .id();
