@@ -1,7 +1,10 @@
-use crate::content::structures::block::render_block_definition;
-use crate::content::structures::ship::{SavedBlock, SavedShip, Ship};
+use crate::content::structures::block::{
+    render_block_base, render_block_layer, render_block_layer_feature,
+};
+use crate::content::structures::ship::{BlockData, Ship, ShipData};
 use crate::content::structures::types::{
-    Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition, PlacedBlock,
+    Block, BlockDef, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
+    LayerFeature, PlacedBlock,
 };
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
 use crate::content::team::Team;
@@ -21,10 +24,9 @@ impl Plugin for ShipEditorPlugin {
                 OnEnter(AppState::ShipEditor),
                 (
                     init_editor_resources,
-                    load_initial_ship,
-                    (setup_editor_ui, refresh_ship_list.after(setup_editor_ui))
-                        .chain()
-                        .after(init_editor_resources),
+                    setup_editor_ui.after(init_editor_resources),
+                    load_initial_ship.after(setup_editor_ui),
+                    refresh_ship_list.after(setup_editor_ui),
                 ),
             )
             .add_systems(
@@ -78,17 +80,10 @@ struct EditorState {
     delete_req: bool,
     // Drag detection for click-to-pan vs click-to-place
     drag_accumulator: f32,
-}
-
-#[derive(Resource, Default)]
-struct AvailableShips {
-    ships: Vec<SavedShip>,
-}
-
-#[derive(Resource, Default)]
-struct EditorShip {
     name: String,
     grid: ShipGrid,
+
+    ships: Vec<ShipData>,
 }
 
 #[derive(Component)]
@@ -118,18 +113,41 @@ struct BackButton;
 #[derive(Component)]
 struct PlayButton;
 
+#[derive(Component)]
+struct ShipBase;
+
 fn init_editor_resources(mut commands: Commands) {
-    commands.insert_resource(AvailableShips::default());
-    commands.insert_resource(EditorState::default());
-    commands.insert_resource(EditorShip::default());
+    commands.init_resource::<EditorState>();
 }
 
-fn setup_editor_ui(
+fn cleanup_ship_editor(
     mut commands: Commands,
-    registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
+    ui_root: Query<Entity, With<EditorUiRoot>>,
+    preview: Query<Entity, With<PlacementPreview>>,
+    placed_blocks: Query<Entity, With<PlacedBlock>>,
+    ships: Query<Entity, With<Ship>>,
 ) {
+    info!("Cleaning up Ship Editor Scene");
+    if let Some(e) = ui_root.iter().next() {
+        commands.entity(e).despawn();
+    }
+    for e in &preview {
+        commands.entity(e).despawn();
+    }
+    for e in &placed_blocks {
+        commands.entity(e).despawn();
+    }
+    for e in &ships {
+        commands.entity(e).despawn();
+    }
+
+    commands.remove_resource::<EditorState>();
+}
+
+fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets: Res<AssetServer>) {
     // Root Node (Full Screen)
+    commands.spawn((ShipBase, Visibility::Inherited, Transform::default()));
+
     commands
         .spawn((
             Node {
@@ -287,24 +305,31 @@ fn setup_editor_ui(
                                         .with_children(
                                             |icon_parent| {
                                                 for layer in &def.layers {
-                                                    for visual in &layer.visuals {
-                                                        icon_parent.spawn((
-                                                            ImageNode {
-                                                                image: asset_server
-                                                                    .load(&visual.sprite),
-                                                                ..default()
-                                                            },
-                                                            Node {
-                                                                position_type:
-                                                                    PositionType::Absolute,
-                                                                width: Val::Percent(100.0),
-                                                                height: Val::Percent(100.0),
-                                                                ..default()
-                                                            },
-                                                            Transform::from_translation(
-                                                                visual.offset.extend(visual.z),
-                                                            ),
-                                                        ));
+                                                    for feature in &layer.features {
+                                                        match feature {
+                                                            LayerFeature::Sprite(visual) => {
+                                                                icon_parent.spawn((
+                                                                    ImageNode {
+                                                                        image: assets
+                                                                            .load(&visual.sprite),
+                                                                        ..default()
+                                                                    },
+                                                                    Node {
+                                                                        position_type:
+                                                                            PositionType::Absolute,
+                                                                        width: Val::Percent(100.0),
+                                                                        height: Val::Percent(100.0),
+                                                                        ..default()
+                                                                    },
+                                                                    Transform::from_translation(
+                                                                        visual
+                                                                            .offset
+                                                                            .extend(visual.z),
+                                                                    ),
+                                                                ));
+                                                            }
+                                                            _ => {}
+                                                        }
                                                     }
                                                 }
                                             },
@@ -467,20 +492,20 @@ fn setup_editor_ui(
 struct BlockPropertiesText;
 
 fn handle_block_selection(
-    mut interaction_query: Query<
+    mut interaction: Query<
         (&Interaction, &BlockType, &mut BackgroundColor, &mut Node),
         (Changed<Interaction>, With<Button>),
     >,
-    mut editor_state: ResMut<EditorState>,
+    mut editor: ResMut<EditorState>,
 ) {
-    for (interaction, block_type, mut bg_color, mut _node) in &mut interaction_query {
+    for (interaction, block_type, mut bg_color, mut _node) in &mut interaction {
         match *interaction {
             Interaction::Pressed => {
                 // Toggle selection
-                if editor_state.selected_block == Some(*block_type) {
-                    editor_state.selected_block = None;
+                if editor.selected_block == Some(*block_type) {
+                    editor.selected_block = None;
                 } else {
-                    editor_state.selected_block = Some(*block_type);
+                    editor.selected_block = Some(*block_type);
                 }
             }
             Interaction::Hovered => {
@@ -488,7 +513,7 @@ fn handle_block_selection(
             }
             Interaction::None => {
                 // Highlight if selected
-                if editor_state.selected_block == Some(*block_type) {
+                if editor.selected_block == Some(*block_type) {
                     *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
                 } else {
                     *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.2).with_alpha(0.8));
@@ -501,29 +526,29 @@ fn handle_block_selection(
 fn handle_deploy_button_click(
     mut buttons: Query<(&Interaction, &mut BackgroundColor), With<DeployButton>>,
     mut app_var: ResMut<AppVar>,
-    editor_ship: Res<EditorShip>,
-    blocks_query: Query<(&Block, &GridPosition)>,
+    editor: Res<EditorState>,
+    blocks: Query<(&Block, &GridPosition)>,
 ) {
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == Interaction::Pressed {
             // Deploy Logic
             let mut saved_blocks = Vec::new();
 
-            for (block, grid_pos) in &blocks_query {
-                saved_blocks.push(SavedBlock {
+            for (block, grid_pos) in &blocks {
+                saved_blocks.push(BlockData {
                     pos: grid_pos.0,
                     block_type: block.block_type,
                     rotation: block.rotation,
                 });
             }
 
-            let saved_ship = SavedShip {
-                name: editor_ship.name.clone(),
+            let ship_data = ShipData {
+                name: editor.name.clone(),
                 blocks: saved_blocks,
             };
 
-            app_var.current_ship = Some(saved_ship);
-            info!("Deployed ship: {}", editor_ship.name);
+            app_var.current_ship = Some(ship_data);
+            info!("Deployed ship: {}", editor.name);
         }
 
         match interaction {
@@ -537,10 +562,10 @@ fn handle_deploy_button_click(
 fn handle_deploy_button(
     mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
     app_var: ResMut<AppVar>,
-    editor_ship: Res<EditorShip>,
+    editor: Res<EditorState>,
 ) {
     let is_deployed = if let Some(current) = &app_var.current_ship {
-        current.name == editor_ship.name
+        current.name == editor.name
     } else {
         false
     };
@@ -599,15 +624,15 @@ fn handle_nav_buttons(
 /// Abstract input processing system
 /// Converts raw inputs (Mouse, Touch) into high-level editor intents.
 fn process_input(
-    mut editor_state: ResMut<EditorState>,
+    mut editor: ResMut<EditorState>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse: Res<ButtonInput<MouseButton>>,
     // touches: Res<Touches>, // For future mobile support
 ) {
     // Reset transient flags
-    editor_state.place_req = false;
-    editor_state.delete_req = false;
+    editor.place_req = false;
+    editor.delete_req = false;
 
     // Use iter().next() instead of get_single() to avoid potential API issues and be safe
     if let Some(cursor_pos) = window.cursor_position() {
@@ -615,34 +640,35 @@ fn process_input(
         // Simplified check assuming fixed widths of 220px (left) and 250px (right)
         let width = window.width();
         if cursor_pos.x < 220.0 || cursor_pos.x > width - 250.0 {
-            editor_state.hovered_grid_pos = None;
+            editor.hovered_grid_pos = None;
             return;
         }
 
         // Convert to world coordinates
         if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            let grid_x = (world_pos.x / GRID_SIZE).round() as i32;
-            let grid_y = (world_pos.y / GRID_SIZE).round() as i32;
-            editor_state.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
+            let grid_x = ((world_pos.x - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
+            let grid_y = ((world_pos.y - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
+
+            editor.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
 
             // Process Actions (Abstraction)
             if mouse.just_pressed(MouseButton::Left) {
-                editor_state.drag_accumulator = 0.0;
+                editor.drag_accumulator = 0.0;
             }
             if mouse.just_released(MouseButton::Left) {
-                if editor_state.drag_accumulator < 5.0 {
-                    editor_state.place_req = true;
+                if editor.drag_accumulator < 10.0 {
+                    editor.place_req = true;
                 }
             }
             if mouse.just_pressed(MouseButton::Right) {
-                editor_state.delete_req = true;
+                editor.delete_req = true;
             }
 
             // TODO: Add Touch support here later
             // if touches.any_just_pressed() { ... }
         }
     } else {
-        editor_state.hovered_grid_pos = None;
+        editor.hovered_grid_pos = None;
     }
 }
 
@@ -650,24 +676,23 @@ fn process_input(
 fn draw_grid(mut gizmos: Gizmos) {
     let grid_lines = 50; // Number of lines in each direction from center
     let grid_color = Color::srgb(0.2, 0.2, 0.2);
-    let offset = GRID_SIZE / 2.0;
 
     // Vertical lines
     for i in -grid_lines..=grid_lines {
-        let x = i as f32 * GRID_SIZE + offset;
+        let x: f32 = i as f32 * GRID_SIZE;
         gizmos.line_2d(
-            Vec2::new(x, -(grid_lines as f32) * GRID_SIZE + offset),
-            Vec2::new(x, (grid_lines as f32) * GRID_SIZE + offset),
+            Vec2::new(x, -(grid_lines as f32) * GRID_SIZE),
+            Vec2::new(x, (grid_lines as f32) * GRID_SIZE),
             grid_color,
         );
     }
 
     // Horizontal lines
     for i in -grid_lines..=grid_lines {
-        let y = i as f32 * GRID_SIZE + offset;
+        let y = i as f32 * GRID_SIZE;
         gizmos.line_2d(
-            Vec2::new(-(grid_lines as f32) * GRID_SIZE + offset, y),
-            Vec2::new((grid_lines as f32) * GRID_SIZE + offset, y),
+            Vec2::new(-(grid_lines as f32) * GRID_SIZE, y),
+            Vec2::new((grid_lines as f32) * GRID_SIZE, y),
             grid_color,
         );
     }
@@ -679,7 +704,7 @@ fn check_placement_validity(
     block_type: BlockType,
     grid_pos: IVec2,
     _rotation: u8, // Unused for now
-    blocks_query: &Query<(&Block, &GridPosition)>,
+    blocks: &Query<(&Block, &GridPosition)>,
 ) -> bool {
     let def = registry.get(&block_type).unwrap();
 
@@ -716,7 +741,7 @@ fn check_placement_validity(
             let neighbor_pos = my_pos + dir;
             if let Some(&neighbor_entity) = grid.blocks.get(&neighbor_pos) {
                 // Found a neighbor. Check if faces match.
-                if let Ok((neighbor_block, neighbor_grid_pos)) = blocks_query.get(neighbor_entity) {
+                if let Ok((neighbor_block, neighbor_grid_pos)) = blocks.get(neighbor_entity) {
                     if let Some(neighbor_def) = registry.get(&neighbor_block.block_type) {
                         // Find which voxel of the neighbor is at neighbor_pos
                         let neighbor_local_pos = neighbor_pos - neighbor_grid_pos.0;
@@ -743,45 +768,33 @@ fn check_placement_validity(
 
 fn update_placement_preview(
     mut commands: Commands,
-    editor_state: Res<EditorState>,
-    editor_ship: Res<EditorShip>,
+    editor: Res<EditorState>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
-    preview_query: Query<Entity, With<PlacementPreview>>,
-    blocks_query: Query<(&Block, &GridPosition)>, // Added query
+    assets: Res<AssetServer>,
+    preview: Query<Entity, With<PlacementPreview>>,
+    blocks: Query<(&Block, &GridPosition)>, // Added query
 ) {
     if let (Some(selected_type), Some(mouse_grid_pos)) =
-        (editor_state.selected_block, editor_state.hovered_grid_pos)
+        (editor.selected_block, editor.hovered_grid_pos)
     {
         let def = registry.get(&selected_type).unwrap();
 
         // Calculate anchor position to center the block on mouse
         let size = def.shape.size;
-        let anchor_offset = (size - IVec2::ONE) / 2;
+        let anchor_offset = size / 2;
         let grid_pos = mouse_grid_pos - anchor_offset;
 
-        // Calculate center offset
-        let size_vec = def.shape.size.as_vec2();
-        let center_offset = size_vec * GRID_SIZE * 0.5;
-
         let pos = Vec3::new(
-            grid_pos.x as f32 * GRID_SIZE,
-            grid_pos.y as f32 * GRID_SIZE,
+            grid_pos.x as f32 * GRID_SIZE + GRID_SIZE / 2.0,
+            grid_pos.y as f32 * GRID_SIZE + GRID_SIZE / 2.0,
             10.0,
-        ) + center_offset.extend(0.0);
-
-        // Check validity
-        let is_valid = check_placement_validity(
-            &editor_ship.grid,
-            &registry,
-            selected_type,
-            grid_pos,
-            0,
-            &blocks_query,
         );
+        // Check validity
+        let is_valid =
+            check_placement_validity(&editor.grid, &registry, selected_type, grid_pos, 0, &blocks);
 
         // Despawn existing preview
-        for entity in &preview_query {
+        for entity in &preview {
             commands.entity(entity).despawn();
         }
 
@@ -797,105 +810,99 @@ fn update_placement_preview(
                 Visibility::Visible,
                 PlacementPreview,
             ))
-            .with_children(|parent| {
+            .with_children(|icon_parent| {
                 for layer in &def.layers {
-                    for visual in &layer.visuals {
-                        let texture_handle = asset_server.load(&visual.sprite);
-                        parent.spawn((
-                            Sprite {
-                                image: texture_handle,
-                                custom_size: Some(size_vec * GRID_SIZE - 2.0),
-                                color: tint,
-                                ..default()
-                            },
-                            Transform::from_translation(visual.offset.extend(visual.z)),
-                        ));
+                    for feature in &layer.features {
+                        match feature {
+                            LayerFeature::Sprite(visual) => {
+                                icon_parent.spawn((
+                                    Sprite {
+                                        image: assets.load(&visual.sprite),
+                                        color: tint,
+                                        ..default()
+                                    },
+                                    Transform::from_translation(visual.offset.extend(visual.z)),
+                                ));
+                            }
+                            _ => {}
+                        }
                     }
                 }
             });
     } else {
         // Hide preview if nothing selected or hovered
-        for entity in &preview_query {
+        for entity in &preview {
             commands.entity(entity).despawn();
         }
     }
 }
 
 fn handle_placement(
-    editor_state: Res<EditorState>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
-    blocks_query: Query<(&Block, &GridPosition)>, // Added query
+    assets: Res<AssetServer>,
+    blocks: Query<(&Block, &GridPosition)>, // Added query
     mut commands: Commands,
-    mut editor_ship: ResMut<EditorShip>,
+    mut editor: ResMut<EditorState>,
     mut events: MessageWriter<ShipSaveChanged>,
+    ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    // Check abstracted input flag instead of raw mouse input
-    if editor_state.place_req {
+    if editor.place_req {
         if let (Some(selected_type), Some(mouse_grid_pos)) =
-            (editor_state.selected_block, editor_state.hovered_grid_pos)
+            (editor.selected_block, editor.hovered_grid_pos)
         {
             let def = registry.get(&selected_type).unwrap();
             let size = def.shape.size;
-            let anchor_offset = (size - IVec2::ONE) / 2;
+            let anchor_offset = size / 2;
             let grid_pos = mouse_grid_pos - anchor_offset;
 
             let is_valid = check_placement_validity(
-                &editor_ship.grid,
+                &editor.grid,
                 &registry,
                 selected_type,
                 grid_pos,
                 0,
-                &blocks_query,
+                &blocks,
             );
 
-            if is_valid {
-                spawn_placed_block(
-                    &mut commands,
-                    &mut editor_ship,
-                    &registry,
-                    &asset_server,
-                    selected_type,
-                    grid_pos,
-                );
-                events.write(ShipSaveChanged);
-            } else {
-                info!("Cannot place block here!");
+            if !is_valid {
+                return;
             }
+
+            let base =
+                spawn_placed_block(&mut commands, &assets, ship_base.entity(), def, grid_pos);
+
+            for voxel in &def.shape.voxels {
+                editor.grid.insert(grid_pos + voxel.pos, base);
+            }
+
+            events.write(ShipSaveChanged);
         }
     }
 }
 
 fn handle_block_deletion(
     mut commands: Commands,
-    editor_state: Res<EditorState>,
-    mut editor_ship: ResMut<EditorShip>,
+    mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    blocks_query: Query<(&Block, &GridPosition)>,
+    blocks: Query<(&Block, &GridPosition)>,
     mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
-    if editor_state.delete_req {
-        if let Some(grid_pos) = editor_state.hovered_grid_pos {
-            remove_block_at(
-                &mut commands,
-                &mut editor_ship,
-                &registry,
-                &blocks_query,
-                grid_pos,
-            );
+    if editor.delete_req {
+        if let Some(grid_pos) = editor.hovered_grid_pos {
+            remove_block_at(&mut commands, &mut editor, &registry, &blocks, grid_pos);
             events.write(ShipSaveChanged);
         }
     }
 }
 
 fn update_block_properties_panel(
-    editor_state: Res<EditorState>,
+    editor: Res<EditorState>,
     registry: Res<BlockRegistry>,
-    mut text_query: Query<&mut Text, With<BlockPropertiesText>>,
+    mut text: Query<&mut Text, With<BlockPropertiesText>>,
 ) {
-    if let Some(mut text) = text_query.iter_mut().next() {
-        if let Some(block_type) = editor_state.selected_block {
+    if let Some(mut text) = text.iter_mut().next() {
+        if let Some(block_type) = editor.selected_block {
             if let Some(def) = registry.get(&block_type) {
                 **text = format!(
                     "Name: {}\nCost: {}\nMass: {}\nHP: {}\n\n{}",
@@ -908,50 +915,25 @@ fn update_block_properties_panel(
     }
 }
 
-fn cleanup_ship_editor(
-    mut commands: Commands,
-    ui_root: Query<Entity, With<EditorUiRoot>>,
-    preview: Query<Entity, With<PlacementPreview>>,
-    placed_blocks: Query<Entity, With<PlacedBlock>>,
-    ships: Query<Entity, With<Ship>>,
-) {
-    info!("Cleaning up Ship Editor Scene");
-    if let Some(e) = ui_root.iter().next() {
-        commands.entity(e).despawn();
-    }
-    for e in &preview {
-        commands.entity(e).despawn();
-    }
-    for e in &placed_blocks {
-        commands.entity(e).despawn();
-    }
-    for e in &ships {
-        commands.entity(e).despawn();
-    }
-
-    // Clear resources
-    // Note: AvailableShips, EditorState, EditorShip are not removed to allow reopening
-}
-
 fn handle_tab_switching(
-    mut interaction_query: Query<
+    mut interaction: Query<
         (&Interaction, &TabButton, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
-    mut editor_state: ResMut<EditorState>,
+    mut editor: ResMut<EditorState>,
     mut block_list: Single<&mut Node, (With<BlockListPanel>, Without<ShipListPanel>)>,
     mut ship_list: Single<&mut Node, (With<ShipListPanel>, Without<BlockListPanel>)>,
 ) {
-    for (interaction, tab_btn, mut bg_color) in &mut interaction_query {
+    for (interaction, tab_btn, mut bg_color) in &mut interaction {
         match *interaction {
             Interaction::Pressed => {
-                editor_state.active_tab = tab_btn.0;
+                editor.active_tab = tab_btn.0;
             }
             Interaction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
             }
             Interaction::None => {
-                if editor_state.active_tab == tab_btn.0 {
+                if editor.active_tab == tab_btn.0 {
                     *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
                 } else {
                     *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.2));
@@ -961,13 +943,13 @@ fn handle_tab_switching(
     }
 
     // Update Visibility
-    block_list.display = if editor_state.active_tab == EditorTab::Blocks {
+    block_list.display = if editor.active_tab == EditorTab::Blocks {
         Display::Flex
     } else {
         Display::None
     };
 
-    ship_list.display = if editor_state.active_tab == EditorTab::Ships {
+    ship_list.display = if editor.active_tab == EditorTab::Ships {
         Display::Flex
     } else {
         Display::None
@@ -976,10 +958,11 @@ fn handle_tab_switching(
 
 fn load_initial_ship(
     mut commands: Commands,
-    mut editor_ship: ResMut<EditorShip>,
+    mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
+    assets: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
+    ship_base: Single<Entity, With<ShipBase>>,
 ) {
     let ship_names = load_saved_ships();
 
@@ -988,21 +971,22 @@ fn load_initial_ship(
         return;
     }
 
-    perform_load_ship(
-        &mut commands,
-        &mut editor_ship,
-        &registry,
-        &asset_server,
-        &placed_blocks,
-        &ship_names[0].name,
-    );
+    let ship_name = &ship_names[0].name;
 
-    info!("Load initial ship: {}", &ship_names[0].name);
+    despawn_ship(&mut commands, &placed_blocks);
+    spawn_ship(
+        &mut commands,
+        &mut editor,
+        &registry,
+        &assets,
+        &ship_name,
+        ship_base.entity(),
+    );
 }
 
 fn refresh_ship_list(
     mut commands: Commands,
-    mut available_ships: ResMut<AvailableShips>,
+    mut available_ships: ResMut<EditorState>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
     available_ships.ships = load_saved_ships();
@@ -1059,15 +1043,15 @@ fn refresh_ship_list(
 }
 
 fn handle_ship_saving(
-    blocks_query: Query<(&Block, &GridPosition)>,
+    blocks: Query<(&Block, &GridPosition)>,
     mut ship_saved_event: MessageWriter<ShipSavesChanged>,
-    state: Res<EditorShip>,
+    state: Res<EditorState>,
 ) {
     // Re-validate before saving
     let mut has_core = false;
     let mut block_count = 0;
 
-    for (block, _) in &blocks_query {
+    for (block, _) in &blocks {
         block_count += 1;
         if block.block_type == BlockType::Core {
             has_core = true;
@@ -1078,70 +1062,69 @@ fn handle_ship_saving(
         return;
     }
 
-    perform_save_ship(state.name.clone(), &blocks_query, &mut ship_saved_event);
+    perform_save_ship(state.name.clone(), &blocks, &mut ship_saved_event);
 }
 
 fn handle_ship_loading(
     mut commands: Commands,
-    mut editor_ship: ResMut<EditorShip>,
+    mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
+    assets: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
-    mut interaction_query: Query<
-        (&Interaction, &LoadShipButton),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut interaction: Query<(&Interaction, &LoadShipButton), (Changed<Interaction>, With<Button>)>,
+    ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    for (interaction, load_btn) in &mut interaction_query {
+    for (interaction, load_btn) in &mut interaction {
         if *interaction == Interaction::Pressed {
-            perform_load_ship(
+            let ship_name = &load_btn.0;
+            despawn_ship(&mut commands, &placed_blocks);
+            spawn_ship(
                 &mut commands,
-                &mut editor_ship,
+                &mut editor,
                 &registry,
-                &asset_server,
-                &placed_blocks,
-                &load_btn.0,
+                &assets,
+                ship_name,
+                ship_base.entity(),
             );
         }
     }
 }
 fn spawn_placed_block(
     commands: &mut Commands,
-    editor_ship: &mut EditorShip,
-    registry: &BlockRegistry,
-    asset_server: &AssetServer,
-    block_type: BlockType,
+    assets: &AssetServer,
+    base: Entity,
+    block_def: &BlockDef,
     grid_pos: IVec2,
-) -> bool {
-    if let Some(def) = registry.get(&block_type) {
-        let entity =
-            render_block_definition(def, commands, asset_server, grid_pos, Team::default());
+) -> Entity {
+    let team = Team::default();
+    let base = render_block_base(commands, base, block_def, grid_pos, team);
 
-        for voxel in &def.shape.voxels {
-            editor_ship.grid.insert(grid_pos + voxel.pos, entity);
+    for layer in &block_def.layers {
+        let layer_entity = render_block_layer(commands, base, &layer);
+
+        for feature in &layer.features {
+            render_block_layer_feature(commands, layer_entity, assets, block_def, feature, team);
         }
     }
 
-    info!("Placed block {:?} at {:?}", block_type, grid_pos);
-
-    return true;
+    return base;
 }
 
 fn remove_block_at(
     commands: &mut Commands,
-    editor_ship: &mut EditorShip,
+    editor: &mut EditorState,
     registry: &BlockRegistry,
-    blocks_query: &Query<(&Block, &GridPosition)>,
+    blocks: &Query<(&Block, &GridPosition)>,
     grid_pos: IVec2,
 ) {
-    if let Some(&entity) = editor_ship.grid.get(grid_pos) {
+    if let Some(&entity) = editor.grid.get(grid_pos) {
         // Get the block info to find all occupied cells
-        if let Ok((block, grid_pos_comp)) = blocks_query.get(entity) {
+        if let Ok((block, grid_pos_comp)) = blocks.get(entity) {
             let anchor = grid_pos_comp.0;
             if let Some(def) = registry.get(&block.block_type) {
                 // Remove all occupied cells from the grid
                 for voxel in &def.shape.voxels {
-                    editor_ship.grid.remove(anchor + voxel.pos);
+                    editor.grid.remove(anchor + voxel.pos);
                 }
 
                 // Despawn the entity
@@ -1154,41 +1137,52 @@ fn remove_block_at(
 
 fn perform_save_ship(
     name: String,
-    blocks_query: &Query<(&Block, &GridPosition)>,
+    blocks: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let mut saved_blocks = Vec::new();
     // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
     // We can iterate the query instead.
 
-    for (block, grid_pos) in blocks_query {
-        saved_blocks.push(SavedBlock {
+    for (block, grid_pos) in blocks {
+        saved_blocks.push(BlockData {
             pos: grid_pos.0,
             block_type: block.block_type,
             rotation: block.rotation,
         });
     }
 
-    let saved_ship = SavedShip {
-        name,
+    let save_name: String = if name.is_empty() {
+        "ship_0".to_string()
+    } else {
+        name
+    };
+    let ship_data = ShipData {
+        name: save_name,
         blocks: saved_blocks,
     };
 
-    if let Err(e) = save_ship(&saved_ship) {
+    if let Err(e) = save_ship(&ship_data) {
         error!("Fail to save ship: {:?}", e)
     } else {
         ship_saved_event.write(ShipSavesChanged);
-        info!("Ship saved at: {}", saved_ship.name);
+        info!("Ship saved at: {}", ship_data.name);
     }
 }
 
-fn perform_load_ship(
+fn despawn_ship(commands: &mut Commands, placed_blocks: &Query<Entity, With<PlacedBlock>>) {
+    for entity in placed_blocks {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn spawn_ship(
     commands: &mut Commands,
-    editor_ship: &mut EditorShip,
+    editor: &mut EditorState,
     registry: &BlockRegistry,
-    asset_server: &AssetServer,
-    placed_blocks: &Query<Entity, With<PlacedBlock>>,
+    assets: &AssetServer,
     ship_name: &str,
+    ship_base: Entity,
 ) {
     let ships = load_saved_ships();
 
@@ -1196,26 +1190,17 @@ fn perform_load_ship(
         info!("Loading ship: {}", ship_to_load.name);
 
         // 1. Clear current ship
-        editor_ship.grid = ShipGrid::new();
-        editor_ship.name = ship_to_load.name;
-
-        for entity in placed_blocks {
-            commands.entity(entity).despawn();
-        }
+        editor.grid = ShipGrid::new();
+        editor.name = ship_to_load.name;
 
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let entity = render_block_definition(
-                    def,
-                    commands,
-                    asset_server,
-                    saved_block.pos,
-                    Team::default(),
-                );
+                let base =
+                    spawn_placed_block(commands, &assets, ship_base.entity(), def, saved_block.pos);
 
                 for voxel in &def.shape.voxels {
-                    editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
+                    editor.grid.insert(saved_block.pos + voxel.pos, base);
                 }
             }
         }
@@ -1229,7 +1214,7 @@ fn handle_camera_controls(
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut editor_state: ResMut<EditorState>,
+    mut editor: ResMut<EditorState>,
 ) {
     if let Ok((mut transform, mut projection)) = query.single_mut() {
         // Zoom
@@ -1254,7 +1239,7 @@ fn handle_camera_controls(
                 let pan_speed = scale * 0.5;
                 transform.translation.x -= event.delta.x * pan_speed;
                 transform.translation.y += event.delta.y * pan_speed;
-                editor_state.drag_accumulator += event.delta.length();
+                editor.drag_accumulator += event.delta.length();
             }
         }
     }

@@ -11,7 +11,11 @@ impl Default for Team {
         Self { id: 0 }
     }
 }
-
+impl Team {
+    pub fn is_player(&self) -> bool {
+        self.id == 0
+    }
+}
 // Collision Groups
 // Group 1: Hulls (Physical) - All ships collide with each other.
 // Group 16-31: Team Hitboxes (Sensors) - For detecting damage.

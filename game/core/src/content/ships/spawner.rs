@@ -2,24 +2,22 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ships::types::{AIShipBehavior, AIShipController, PlayerShipController};
-use crate::content::structures::block::render_block_definition;
+use crate::content::structures::block::{
+    render_block_base, render_block_layer, render_block_layer_feature,
+};
 use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::{SavedShip, Ship};
+use crate::content::structures::ship::{Ship, ShipData};
 use crate::content::structures::types::BlockGroup;
 use crate::content::team::Team;
 use crate::{AppVar, GRID_SIZE};
 
 pub fn spawn_player_ship(
     mut commands: Commands,
-    app_var: Res<AppVar>,
+    vars: Res<AppVar>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
-    query: Query<(), With<Ship>>,
+    assets: Res<AssetServer>,
 ) {
-    if !query.is_empty() {
-        return;
-    }
-    let ship_data = if let Some(ship) = &app_var.current_ship {
+    let ship_data = if let Some(ship) = &vars.current_ship {
         ship
     } else {
         warn!("No ship loaded in AppVar!");
@@ -29,50 +27,42 @@ pub fn spawn_player_ship(
     spawn_ship(
         &mut commands,
         &registry,
-        &asset_server,
+        &assets,
         ship_data,
         Transform::from_translation(Vec3::ZERO),
-        Team::new(0), // Ally
-        true,         // is_player
+        Team::new(0),
     );
 }
 
 pub fn spawn_enemy_ship(
     mut commands: Commands,
-    app_var: Res<AppVar>,
+    vars: Res<AppVar>,
     registry: Res<BlockRegistry>,
-    asset_server: Res<AssetServer>,
-    query: Query<(), With<Ship>>,
+    assets: Res<AssetServer>,
 ) {
-    if !query.is_empty() {
-        return;
-    }
-    let ship_data = if let Some(ship) = &app_var.current_ship {
+    let ship_data = if let Some(ship) = &vars.current_ship {
         ship
     } else {
         return;
     };
 
-    // Spawn an enemy at (500, 500)
     spawn_ship(
         &mut commands,
         &registry,
-        &asset_server,
+        &assets,
         ship_data,
         Transform::from_translation(Vec3::new(500.0, 500.0, 0.0)),
         Team::new(1), // Enemy
-        false,        // is_player
     );
 }
 
 pub fn spawn_ship(
     commands: &mut Commands,
     registry: &BlockRegistry,
-    asset_server: &AssetServer,
-    ship_data: &SavedShip,
+    assets: &AssetServer,
+    ship_data: &ShipData,
     transform: Transform,
     team: Team,
-    is_player: bool,
 ) -> Entity {
     let mut compound_shapes = Vec::new();
     let mut total_mass = 0.0;
@@ -117,7 +107,7 @@ pub fn spawn_ship(
         team,
     ));
 
-    if is_player {
+    if team.is_player() {
         ship_cmd.insert(PlayerShipController);
     } else {
         ship_cmd.insert(AIShipController {
@@ -150,9 +140,15 @@ pub fn spawn_ship(
 
             total_mass += def.mass;
 
-            let block = render_block_definition(def, commands, asset_server, saved_block.pos, team);
+            let base = render_block_base(commands, ship_entity, def, saved_block.pos, team);
 
-            commands.entity(ship_entity).add_child(block);
+            for layer in &def.layers {
+                let layer_entity = render_block_layer(commands, base, layer);
+
+                for feature in &layer.features {
+                    render_block_layer_feature(commands, layer_entity, assets, def, feature, team);
+                }
+            }
         }
     }
 
@@ -164,10 +160,7 @@ pub fn spawn_ship(
         ));
     } else {
         warn!("Ship has no blocks! Spawning dummy collider.");
-        commands.entity(ship_entity).insert((
-            Collider::ball(20.0),
-            CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
-        ));
     }
-    ship_entity
+
+    return ship_entity;
 }

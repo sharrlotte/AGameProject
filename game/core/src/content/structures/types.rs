@@ -126,14 +126,6 @@ impl Default for LayerKind {
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct LayerVisual {
-    pub sprite: String,
-    pub offset: Vec2,
-    pub z: f32,
-    pub animated: bool,
-}
-
-#[derive(Clone, PartialEq, Reflect)]
 pub struct RecoilFeature {
     pub strength: f32,
 }
@@ -149,7 +141,16 @@ pub struct EnergyConsumerFeature {
 }
 
 #[derive(Clone, PartialEq, Reflect)]
+pub struct SpriteFeature {
+       pub sprite: String,
+    pub offset: Vec2,
+    pub z: f32,
+    pub animated: bool,
+}
+
+#[derive(Clone, PartialEq, Reflect)]
 pub enum LayerFeature {
+    Sprite(SpriteFeature),
     Turret(TurretFeature),
     Recoil(RecoilFeature),
     HeatEmitter(HeatEmitterFeature),
@@ -157,12 +158,10 @@ pub enum LayerFeature {
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct BlockLayerDefinition {
+pub struct BlockLayerDef {
     pub id: String,
     /// e.g. "base", "turret", "engine", "radar"
     pub kind: LayerKind,
-    /// Visual parts for this layer
-    pub visuals: Vec<LayerVisual>,
     /// Optional feature payloads (composable)
     pub features: Vec<LayerFeature>,
 }
@@ -170,7 +169,7 @@ pub struct BlockLayerDefinition {
 /// A definition struct that holds the static data for a block type.
 /// This allows us to define blocks once and look them up later.
 #[derive(Clone, PartialEq, Reflect)]
-pub struct BlockDefinition {
+pub struct BlockDef {
     pub name: String,
     pub description: String,
     pub block_type: BlockType,
@@ -182,7 +181,7 @@ pub struct BlockDefinition {
     pub cost: u32,
     /// A list of features this block possesses.
     pub features: Vec<BlockFeature>,
-    pub layers: Vec<BlockLayerDefinition>,
+    pub layers: Vec<BlockLayerDef>,
 }
 
 /// Component, Clone,  PartialEq attached to every block entity.
@@ -197,5 +196,8 @@ pub struct PlacedBlock;
 
 #[derive(Component, Clone, PartialEq)]
 pub struct BlockLayer {
-    pub _kind: LayerKind,
+    pub kind: LayerKind,
 }
+
+#[derive(Component, Clone, PartialEq)]
+pub struct BelongsToShip(pub Entity);

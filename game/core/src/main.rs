@@ -20,7 +20,7 @@ use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ships::features::ShipFeature;
 use crate::content::turret::TurretPlugin;
-use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
+use crate::{content::structures::ship::ShipData, save::load_saved_ships};
 
 fn main() {
     let mut app = App::new();
@@ -92,7 +92,7 @@ pub enum AppState {
 
 #[derive(Resource, Default)]
 pub struct AppVar {
-    pub current_ship: Option<SavedShip>,
+    pub current_ship: Option<ShipData>,
 }
 
 pub const GRID_SIZE: f32 = 64.0;

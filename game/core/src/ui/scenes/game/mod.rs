@@ -18,8 +18,10 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameInitialized>()
             .add_systems(OnEnter(AppState::Game), setup_game)
-            .add_systems(OnExit(AppState::Game), cleanup_game)
-            .add_systems(OnEnter(AppState::Home), cleanup_game_entities)
+            .add_systems(
+                OnExit(AppState::Game),
+                (cleanup_game, cleanup_game_entities),
+            )
             .add_systems(
                 Update,
                 (camera_follow, camera_zoom, update_fps, handle_pause_input)

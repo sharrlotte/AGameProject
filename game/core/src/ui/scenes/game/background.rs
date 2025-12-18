@@ -19,13 +19,17 @@ pub struct BackgroundImage;
 #[derive(Resource)]
 pub struct BackgroundConfig;
 
-fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>, query: Query<(), With<BackgroundImage>>) {
+fn setup_background(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    query: Query<(), With<BackgroundImage>>,
+) {
     if !query.is_empty() {
         return;
     }
 
     // Load the single background image
-    let texture_handle = asset_server.load("textures/background/background1.png");
+    let texture_handle = assets.load("textures/background/background1.png");
 
     commands.insert_resource(BackgroundConfig);
 

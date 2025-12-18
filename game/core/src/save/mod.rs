@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{fs, io::Error, path::PathBuf};
 
-use crate::content::structures::ship::SavedShip;
+use crate::content::structures::ship::ShipData;
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
@@ -15,7 +15,7 @@ pub fn save_dir() -> PathBuf {
     project_dirs.data_dir().to_path_buf()
 }
 
-pub fn load_saved_ships() -> Vec<SavedShip> {
+pub fn load_saved_ships() -> Vec<ShipData> {
     let ships_dir = save_dir().join("ships");
 
     let mut ships = Vec::new();
@@ -26,7 +26,7 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
                 if name.ends_with(".json") {
                     let path = save_dir().join("ships").join(name);
                     if let Ok(json) = fs::read_to_string(path) {
-                        if let Ok(ship) = serde_json::from_str::<SavedShip>(&json) {
+                        if let Ok(ship) = serde_json::from_str::<ShipData>(&json) {
                             ships.push(ship);
                         }
                     }
@@ -36,7 +36,7 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
     }
 
     while ships.len() < 3 {
-        ships.push(SavedShip {
+        ships.push(ShipData {
             name: format!("ship_{}", ships.len()),
             blocks: Vec::new(),
         });
@@ -45,7 +45,7 @@ pub fn load_saved_ships() -> Vec<SavedShip> {
     return ships;
 }
 
-pub fn save_ship(data: &SavedShip) -> Result<(), Error> {
+pub fn save_ship(data: &ShipData) -> Result<(), Error> {
     let ships_dir = save_dir().join("ships");
     let filename = format!("ship_{}.json", data.name);
     let path = ships_dir.join(&filename);

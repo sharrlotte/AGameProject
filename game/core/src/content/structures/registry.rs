@@ -1,7 +1,7 @@
 use crate::content::{
     structures::types::{
-        BlockDefinition, BlockFeature, BlockGroup, BlockLayerDefinition, BlockShape, BlockType,
-        LayerFeature, LayerKind, LayerVisual,
+        BlockDef, BlockFeature, BlockGroup, BlockLayerDef, BlockShape, BlockType, LayerFeature,
+        LayerKind, SpriteFeature,
     },
     turret::types::{ShootPattern, ShootingProjectile, TargetingStrategy, TurretFeature},
 };
@@ -12,19 +12,19 @@ use std::collections::HashMap;
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
 pub struct BlockRegistry {
-    map: HashMap<BlockType, BlockDefinition>,
+    map: HashMap<BlockType, BlockDef>,
 }
 
 impl BlockRegistry {
-    pub fn register(&mut self, block_type: BlockType, def: BlockDefinition) {
+    pub fn register(&mut self, block_type: BlockType, def: BlockDef) {
         self.map.insert(block_type, def);
     }
 
-    pub fn get(&self, block_type: &BlockType) -> Option<&BlockDefinition> {
+    pub fn get(&self, block_type: &BlockType) -> Option<&BlockDef> {
         self.map.get(block_type)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &BlockDefinition)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &BlockDef)> {
         self.map.iter()
     }
 }
@@ -32,7 +32,7 @@ impl BlockRegistry {
 pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
     registry.register(
         BlockType::Hull,
-        BlockDefinition {
+        BlockDef {
             name: "Standard Hull".into(),
             description: "Basic structural block.".into(),
             block_type: BlockType::Hull,
@@ -42,23 +42,22 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 5,
             features: vec![],
-            layers: vec![BlockLayerDefinition {
+            layers: vec![BlockLayerDef {
                 id: "base".into(),
                 kind: LayerKind::Base,
-                visuals: vec![LayerVisual {
+                features: vec![LayerFeature::Sprite(SpriteFeature {
                     sprite: "textures/blocks/surge-wall-large.png".into(),
                     offset: Vec2::ZERO,
                     z: 0.0,
                     animated: false,
-                }],
-                features: vec![],
+                })],
             }],
         },
     );
 
     registry.register(
         BlockType::ThrusterSmall,
-        BlockDefinition {
+        BlockDef {
             name: "Small Ion Thruster".into(),
             description: "Provides weak thrust.".into(),
             block_type: BlockType::ThrusterSmall,
@@ -72,23 +71,22 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 BlockFeature::Thruster { force: 100.0 },
                 BlockFeature::PowerConsumer { required: 10.0 },
             ],
-            layers: vec![BlockLayerDefinition {
+            layers: vec![BlockLayerDef {
                 id: "base".into(),
                 kind: LayerKind::Base,
-                visuals: vec![LayerVisual {
+                features: vec![LayerFeature::Sprite(SpriteFeature {
                     sprite: "textures/blocks/surge-wall-large.png".into(),
                     offset: Vec2::ZERO,
                     z: 0.0,
                     animated: false,
-                }],
-                features: vec![],
+                })],
             }],
         },
     );
 
     registry.register(
         BlockType::ReactorSmall,
-        BlockDefinition {
+        BlockDef {
             name: "Micro Fusion Reactor".into(),
             description: "Generates power.".into(),
             block_type: BlockType::ReactorSmall,
@@ -99,23 +97,22 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 200,
             features: vec![BlockFeature::PowerProducer { output: 50.0 }],
-            layers: vec![BlockLayerDefinition {
+            layers: vec![BlockLayerDef {
                 id: "base".into(),
                 kind: LayerKind::Base,
-                visuals: vec![LayerVisual {
+                features: vec![LayerFeature::Sprite(SpriteFeature {
                     sprite: "textures/blocks/surge-wall-large.png".into(),
                     offset: Vec2::ZERO,
                     z: 0.0,
                     animated: false,
-                }],
-                features: vec![],
+                })],
             }],
         },
     );
 
     registry.register(
         BlockType::Cockpit,
-        BlockDefinition {
+        BlockDef {
             name: "Command Cockpit".into(),
             description: "Pilot seat.".into(),
             block_type: BlockType::Cockpit,
@@ -126,23 +123,22 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
-            layers: vec![BlockLayerDefinition {
+            layers: vec![BlockLayerDef {
                 id: "base".into(),
                 kind: LayerKind::Base,
-                visuals: vec![LayerVisual {
+                features: vec![LayerFeature::Sprite(SpriteFeature {
                     sprite: "textures/blocks/surge-wall-large.png".into(),
                     offset: Vec2::ZERO,
                     z: 0.0,
                     animated: false,
-                }],
-                features: vec![],
+                })],
             }],
         },
     );
 
     registry.register(
         BlockType::Core,
-        BlockDefinition {
+        BlockDef {
             name: "Core".into(),
             description: "Core".into(),
             block_type: BlockType::Core,
@@ -153,27 +149,25 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
             layers: vec![
-                BlockLayerDefinition {
+                BlockLayerDef {
                     id: "base".into(),
                     kind: LayerKind::Base,
-                    visuals: vec![LayerVisual {
+                    features: vec![LayerFeature::Sprite(SpriteFeature {
                         sprite: "textures/blocks/core-nucleus.png".into(),
                         offset: Vec2::ZERO,
                         z: 0.0,
                         animated: false,
-                    }],
-                    features: vec![],
+                    })],
                 },
-                BlockLayerDefinition {
+                BlockLayerDef {
                     id: "overlay".into(),
                     kind: LayerKind::Decorative,
-                    visuals: vec![LayerVisual {
+                    features: vec![LayerFeature::Sprite(SpriteFeature {
                         sprite: "textures/blocks/core-nucleus-team.png".into(),
                         offset: Vec2::ZERO,
                         z: 0.1,
                         animated: false,
-                    }],
-                    features: vec![],
+                    })],
                 },
             ],
         },
@@ -181,7 +175,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
 
     registry.register(
         BlockType::LazerTurret,
-        BlockDefinition {
+        BlockDef {
             name: "Lazer Turret".into(),
             description: "Core".into(),
             block_type: BlockType::LazerTurret,
@@ -192,43 +186,44 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
             layers: vec![
-                BlockLayerDefinition {
+                BlockLayerDef {
                     id: "base".into(),
                     kind: LayerKind::Base,
-                    visuals: vec![LayerVisual {
+                    features: vec![LayerFeature::Sprite(SpriteFeature {
                         sprite: "textures/blocks/block-2.png".into(),
                         offset: Vec2::ZERO,
                         z: 0.0,
                         animated: false,
-                    }],
-                    features: vec![],
+                    })],
                 },
-                BlockLayerDefinition {
+                BlockLayerDef {
                     id: "head".into(),
                     kind: LayerKind::Turret,
-                    visuals: vec![LayerVisual {
-                        sprite: "textures/blocks/lancer.png".into(),
-                        offset: Vec2::ZERO,
-                        z: 0.1,
-                        animated: false,
-                    }],
-                    features: vec![LayerFeature::Turret(TurretFeature {
-                        range: 2200.0,
-                        strategy: TargetingStrategy::Closest,
-                        turn_speed: 2.0,
-                        barrels: vec![Vec2::new(0.0, 0.0)],
-                        fire_all_at_once: false,
-                        shooting_pattern: ShootPattern::Single {
-                            fire_rate: 0.55,
-                            last_fired_at: 0.0,
-                            projectile: ShootingProjectile::Bullet {
-                                speed: 2000.0,
-                                damage: 10.0,
-                                lifetime: 5.0,
-                                piercing: 0,
+                    features: vec![
+                        LayerFeature::Sprite(SpriteFeature {
+                            sprite: "textures/blocks/lancer.png".into(),
+                            offset: Vec2::ZERO,
+                            z: 0.1,
+                            animated: false,
+                        }),
+                        LayerFeature::Turret(TurretFeature {
+                            range: 2200.0,
+                            strategy: TargetingStrategy::Closest,
+                            turn_speed: 2.0,
+                            barrels: vec![Vec2::new(0.0, 0.0)],
+                            fire_all_at_once: false,
+                            shooting_pattern: ShootPattern::Single {
+                                fire_rate: 0.55,
+                                last_fired_at: 0.0,
+                                projectile: ShootingProjectile::Bullet {
+                                    speed: 2000.0,
+                                    damage: 10.0,
+                                    lifetime: 5.0,
+                                    piercing: 0,
+                                },
                             },
-                        },
-                    })],
+                        }),
+                    ],
                 },
             ],
         },

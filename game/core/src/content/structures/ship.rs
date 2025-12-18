@@ -45,16 +45,16 @@ impl ShipGrid {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct SavedBlock {
+pub struct BlockData {
     pub pos: IVec2,
     pub block_type: BlockType,
     pub rotation: u8,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct SavedShip {
+pub struct ShipData {
     pub name: String,
-    pub blocks: Vec<SavedBlock>,
+    pub blocks: Vec<BlockData>,
 }
 
 #[derive(Component)]

@@ -41,7 +41,7 @@ fn draw_indicators(
             if let Ok(world_pos) =
                 camera.viewport_to_world_2d(camera_transform, clamped_viewport_pos)
             {
-                let color = if team.id == 0 {
+                let color = if team.is_player() {
                     Color::srgb(0.0, 1.1, 0.0) // Green
                 } else {
                     Color::srgb(1.1, 0.0, 0.0) // Red

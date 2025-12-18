@@ -14,26 +14,108 @@ use crate::{
     },
 };
 
-pub fn render_layer_feature(
-    feature: &LayerFeature,
+pub fn get_block_size(def: &BlockDef) -> Vec2 {
+    let size = def.shape.size.as_vec2();
+    return size * GRID_SIZE;
+}
+
+pub fn get_block_half_size(def: &BlockDef) -> Vec2 {
+    return get_block_size(def) * 0.5;
+}
+
+pub fn get_block_transform(grid_pos: IVec2, half_size: Vec2) -> Transform {
+    let anchor_pos = Vec3::new(
+        grid_pos.x as f32 * GRID_SIZE,
+        grid_pos.y as f32 * GRID_SIZE,
+        0.0,
+    );
+
+    let pos = anchor_pos + half_size.extend(0.0);
+
+    return Transform::from_translation(pos);
+}
+
+pub fn render_block_base(
     commands: &mut Commands,
-    entity: Entity,
+    parent: Entity,
+    def: &BlockDef,
+    grid_pos: IVec2,
+    team: Team,
+) -> Entity {
+    let half_size = get_block_half_size(def);
+    let transform = get_block_transform(grid_pos, half_size);
+
+    let child = commands
+        .spawn((
+            transform,
+            def.block_group,
+            team,
+            Visibility::Visible,
+            GridPosition(grid_pos),
+            PlacedBlock,
+            ShipBlockHitbox,
+            Collider::cuboid(half_size.x, half_size.y),
+            CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
+            ColliderMassProperties::Mass(0.0),
+            Block {
+                rotation: 0,
+                block_type: def.block_type,
+            },
+            Health {
+                health: def.health,
+                max_health: def.health,
+            },
+        ))
+        .id();
+
+    commands.entity(parent).add_child(child);
+
+    return child;
+}
+
+pub fn render_block_layer(
+    commands: &mut Commands,
+    parent: Entity,
+    layer: &BlockLayerDef,
+) -> Entity {
+    let child = commands
+        .spawn((
+            BlockLayer {
+                kind: layer.kind.clone(),
+            },
+            Transform::default(),
+            GlobalTransform::default(),
+            Visibility::Inherited,
+        ))
+        .id();
+
+    commands.entity(parent).add_child(child);
+
+    return child;
+}
+
+pub fn render_block_layer_feature(
+    commands: &mut Commands,
+    parent: Entity,
+    assets: &AssetServer,
+    def: &BlockDef,
+    feature: &LayerFeature,
     team: Team,
 ) {
-    if team.id == Team::default().id {
-        commands.entity(entity).insert(PlayerFireController);
+    if team.is_player() {
+        commands.entity(parent).insert(PlayerFireController);
     } else {
-        commands.entity(entity).insert(AIFireController);
+        commands.entity(parent).insert(AIFireController);
     }
 
-    commands.entity(entity).insert(team);
+    commands.entity(parent).insert(team);
 
     match feature {
         LayerFeature::Recoil(_recoil_feature) => todo!(),
         LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
         LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
         LayerFeature::Turret(f) => {
-            commands.entity(entity).insert((
+            commands.entity(parent).insert((
                 TurretController {
                     strategy: f.strategy.clone(),
                     range: f.range,
@@ -55,86 +137,16 @@ pub fn render_layer_feature(
                 ActiveEvents::COLLISION_EVENTS,
             ));
         }
-    }
-}
-
-pub fn render_block_definition(
-    def: &BlockDefinition,
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-    grid_pos: IVec2,
-    team: Team,
-) -> Entity {
-    let size_vec = def.shape.size.as_vec2();
-    let half_size = size_vec * GRID_SIZE * 0.5;
-
-    let anchor_pos = Vec3::new(
-        grid_pos.x as f32 * GRID_SIZE,
-        grid_pos.y as f32 * GRID_SIZE,
-        0.0,
-    );
-
-    let pos = anchor_pos + half_size.extend(0.0);
-
-    let entity = commands
-        .spawn((
-            Transform::from_translation(pos),
-            Visibility::Visible,
-            GridPosition(grid_pos),
-            PlacedBlock,
-            ShipBlockHitbox,
-            Collider::cuboid(half_size.x, half_size.y),
-            CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
-            ColliderMassProperties::Mass(0.0),
-            Block {
-                rotation: 0,
-                block_type: def.block_type,
-            },
-            Health {
-                health: def.health,
-                max_health: def.health,
-            },
-            def.block_group,
-            team,
-        ))
-        .id();
-
-    for layer in &def.layers {
-        let layer_entity = commands
-            .spawn((
-                BlockLayer {
-                    _kind: layer.kind.clone(),
+        LayerFeature::Sprite(f) => {
+            commands.entity(parent).insert((
+                Sprite {
+                    image: assets.load(&f.sprite),
+                    custom_size: Some(get_block_size(def)),
+                    color: Color::srgb(1.005, 1.005, 1.005),
+                    ..default()
                 },
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Inherited,
-            ))
-            .id();
-
-        commands.entity(entity).add_child(layer_entity);
-
-        // Visuals
-        for visual in &layer.visuals {
-            let visual_entity = commands
-                .spawn((
-                    Sprite {
-                        image: asset_server.load(&visual.sprite),
-                        custom_size: Some(size_vec * GRID_SIZE),
-                        color: Color::srgb(1.005, 1.005, 1.005),
-                        ..default()
-                    },
-                    Transform::from_translation(visual.offset.extend(visual.z)),
-                ))
-                .id();
-
-            commands.entity(layer_entity).add_child(visual_entity);
-        }
-
-        // Features
-        for feature in &layer.features {
-            render_layer_feature(feature, commands, layer_entity, team);
+                Transform::from_translation(f.offset.extend(f.z)),
+            ));
         }
     }
-
-    return entity;
 }
