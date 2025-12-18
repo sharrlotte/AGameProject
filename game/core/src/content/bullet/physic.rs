@@ -29,7 +29,6 @@ pub fn handle_bullet_collisions(
             let b2 = bullets.get(*e2);
 
             let Ok((bullet, _)) = b1.or(b2) else {
-                warn!("Missing bullet {} or {}", e1, e2);
                 continue;
             };
 
@@ -57,7 +56,6 @@ pub fn handle_bullet_collisions(
             } else if h2 {
                 *e2
             } else {
-                warn!("Missing health {} or {}", e1, e2);
                 continue;
             };
 
