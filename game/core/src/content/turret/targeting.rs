@@ -49,6 +49,7 @@ pub fn update_turret_target(
                     && let Ok((_, _, mut turretc, _)) = turret
                 {
                     turretc.potential_targets.insert(enemy);
+                    info!("Add enemy {}", enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
@@ -67,6 +68,7 @@ pub fn update_turret_target(
                     && let Ok((_, _, mut turretc, _)) = turret
                 {
                     turretc.potential_targets.remove(&enemy);
+                    info!("Remove enemy {}", enemy);
                 }
             }
         }
