@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 use shoot::handle_turret_emission;
 use targeting::{update_player_fire_controller, update_turret_target};
 
+use crate::AppState;
 use crate::content::{
     bullet::BulletPlugin,
     turret::tracking::{draw_turret_ranges, system_turret_tracking},
 };
-use crate::AppState;
 
 pub struct TurretPlugin;
 
@@ -28,14 +28,15 @@ impl Plugin for TurretPlugin {
                 Update,
                 (
                     update_player_fire_controller,
-                    update_turret_target,
                     handle_turret_emission,
                     system_turret_tracking,
                     draw_turret_ranges,
                 )
                     .run_if(in_state(AppState::Game)),
             )
-            .add_plugins(BulletPlugin);
+            .add_systems(FixedUpdate, update_turret_target)
+            .add_plugins(BulletPlugin)
+            .insert_resource(Time::<Fixed>::from_seconds(0.1));
     }
 }
 

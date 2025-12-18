@@ -115,7 +115,7 @@ pub fn ai_ship_controller(
     }
 }
 
-const CLOSE_ENOUGH_DISTANCE: f32 = 300.0;
+const CLOSE_ENOUGH_DISTANCE: f32 = 3000.0;
 
 fn move_to(
     transform: &Transform,
@@ -124,12 +124,6 @@ fn move_to(
     thrust_power: f32,
     turn_speed: f32,
 ) {
-    if transform.translation.truncate().distance(target_pos) <= CLOSE_ENOUGH_DISTANCE {
-        force.force = Vec2::ZERO;
-        force.torque = 0.0;
-        return;
-    }
-
     let direction = (target_pos - transform.translation.truncate()).normalize_or_zero();
     let angle = direction.y.atan2(direction.x) - PI / 2.0;
     let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
@@ -145,6 +139,12 @@ fn move_to(
     force.torque = torque;
 
     if angle_diff.abs() < PI / 2.0 {
+        if transform.translation.truncate().distance(target_pos) <= CLOSE_ENOUGH_DISTANCE {
+            force.force = Vec2::ZERO;
+            force.torque = 0.0;
+            return;
+        }
+
         let linear_force = direction * thrust_power;
         force.force = linear_force;
     }

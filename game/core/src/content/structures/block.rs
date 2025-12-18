@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups, Group, Sensor};
+use bevy_rapier2d::prelude::{
+    ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Group, Sensor,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -218,6 +220,14 @@ pub struct BlockLayer {
 
 impl LayerFeature {
     pub fn render(&self, commands: &mut Commands, entity: Entity, team: Team) {
+        if team.id == Team::default().id {
+            commands.entity(entity).insert(PlayerFireController);
+        } else {
+            commands.entity(entity).insert(AIFireController);
+        }
+
+        commands.entity(entity).insert(team);
+
         match self {
             LayerFeature::Recoil(_recoil_feature) => todo!(),
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
@@ -238,15 +248,11 @@ impl LayerFeature {
                         target_pos: None,
                     },
                     Collider::ball(f.range),
-                    CollisionGroups::new(team.get_hitbox_group(), team.get_enemy_hitbox_filter()),
+                    CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
                     Sensor,
+                    ColliderMassProperties::Mass(0.0),
+                    ActiveEvents::COLLISION_EVENTS,
                 ));
-
-                if team.id == Team::default().id {
-                    commands.entity(entity).insert(PlayerFireController);
-                } else {
-                    commands.entity(entity).insert(AIFireController);
-                }
             }
         }
     }
@@ -258,7 +264,7 @@ impl BlockDefinition {
         commands: &mut Commands,
         asset_server: &AssetServer,
         grid_pos: IVec2,
-        team: Option<Team>,
+        team: Team,
     ) -> Entity {
         let size_vec = self.shape.size.as_vec2();
         let half_size = size_vec * GRID_SIZE * 0.5;
@@ -279,7 +285,7 @@ impl BlockDefinition {
                 PlacedBlock,
                 ShipBlockHitbox,
                 Collider::cuboid(half_size.x, half_size.y),
-                CollisionGroups::new(team.unwrap_or_default().get_hitbox_group(), Group::ALL),
+                CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
                 ColliderMassProperties::Mass(0.0),
                 Block {
                     block_type: self.block_type,
@@ -291,7 +297,7 @@ impl BlockDefinition {
                     max_health: self.health,
                 },
                 self.block_group,
-                team.unwrap_or_default(),
+                team,
             ))
             .id();
 
@@ -328,7 +334,7 @@ impl BlockDefinition {
 
             // Features
             for feature in &layer.features {
-                feature.render(commands, layer_entity, team.unwrap_or_default());
+                feature.render(commands, layer_entity, team);
             }
         }
 

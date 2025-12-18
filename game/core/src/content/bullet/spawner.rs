@@ -9,15 +9,13 @@ use bevy_rapier2d::prelude::*;
 pub fn spawn_bullet(
     commands: &mut Commands,
     turret_transform: &GlobalTransform,
-    team: Option<&Team>,
+    team: &Team,
     barrel_pos: Vec2,
     range: f32,
     projectile: &ShootingProjectile,
 ) {
     let rotation: Quat = turret_transform.rotation();
     let dir = rotation.to_euler(EulerRot::XYZ).2 + PI / 2.0;
-
-    let team_comp = team.copied().unwrap_or_default();
 
     // Transform offset by turret rotation
     // We need the turret's current rotation from GlobalTransform
@@ -53,12 +51,15 @@ pub fn spawn_bullet(
                     },
                     RigidBody::Dynamic,
                     Collider::ball(5.0),
-                    CollisionGroups::new(Group::default(), team_comp.get_bullet_filter()),
+                    CollisionGroups::new(
+                        team.get_bullet_group(),
+                        team.get_bullet_filter(),
+                    ),
                     ActiveEvents::COLLISION_EVENTS,
                     Velocity::linear(Vec2::from_angle(dir) * *speed),
                     GravityScale(0.0),
                     ColliderMassProperties::Mass(0.01),
-                    team_comp,
+                    *team,
                 ))
                 .id();
 

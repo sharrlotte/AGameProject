@@ -26,7 +26,7 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
-    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController, &Team)>,
+    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController)>,
     mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
@@ -46,10 +46,9 @@ pub fn update_turret_target(
 
                 // Add enemy to potential targets
                  if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, mut turretc, _)) = turret
+                    && let Ok((_, _, mut turretc)) = turret
                 {
                     turretc.potential_targets.insert(enemy);
-                    info!("Add enemy {}", enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
@@ -65,17 +64,16 @@ pub fn update_turret_target(
                 };
 
                 if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, mut turretc, _)) = turret
+                    && let Ok((_, _, mut turretc)) = turret
                 {
                     turretc.potential_targets.remove(&enemy);
-                    info!("Remove enemy {}", enemy);
                 }
             }
         }
     }
 
     // 2. Select best target from potential_targets
-    for (entity, transform, mut controller, team) in turrets.iter_mut() {
+    for (entity, transform, mut controller) in turrets.iter_mut() {
         let turret_pos = transform.translation().truncate();
 
         let mut best_target: Option<Entity> = None;
