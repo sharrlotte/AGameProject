@@ -43,7 +43,6 @@ impl Plugin for ShipEditorPlugin {
                     handle_placement,
                     handle_block_deletion,
                     update_block_properties_panel,
-                    handle_camera_controls,
                     handle_deploy_button,
                     handle_deploy_button_click,
                     handle_nav_buttons,
@@ -623,14 +622,19 @@ fn handle_nav_buttons(
 fn process_input(
     mut editor: ResMut<EditorState>,
     window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
     mouse: Res<ButtonInput<MouseButton>>,
+    mut camera: Query<(&Camera, &GlobalTransform, &mut Transform, &mut Projection), With<Camera2d>>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     // touches: Res<Touches>, // For future mobile support
 ) {
     // Reset transient flags
     editor.place_req = false;
     editor.delete_req = false;
+
+    let Ok((camera, global_transform, mut transform, mut projection)) = camera.single_mut() else {
+        return;
+    };
 
     // Use iter().next() instead of get_single() to avoid potential API issues and be safe
     if let Some(cursor_pos) = window.cursor_position() {
@@ -648,9 +652,21 @@ fn process_input(
         }
 
         if mouse.pressed(MouseButton::Left) {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+
+            let pan_speed = scale * 0.5;
+
             for event in mouse_motion_events.read() {
+                transform.translation.x -= event.delta.x * pan_speed;
+                transform.translation.y += event.delta.y * pan_speed;
+
                 editor.drag_accumulator += event.delta.length();
-                if editor.drag_accumulator > 5.0 {
+
+                if editor.drag_accumulator > 10.0 {
                     editor.is_dragging = true;
                 }
             }
@@ -660,27 +676,6 @@ fn process_input(
             editor.place_req = true;
         }
 
-        // Convert to world coordinates
-        if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            let grid_x = ((world_pos.x - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
-            let grid_y = ((world_pos.y - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
-
-            editor.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
-        }
-    } else {
-        editor.hovered_grid_pos = None;
-    }
-}
-
-fn handle_camera_controls(
-    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
-    mut mouse_motion_events: MessageReader<MouseMotion>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut editor: ResMut<EditorState>,
-) {
-    if let Ok((mut transform, mut projection)) = query.single_mut() {
-        // Zoom
         for event in mouse_wheel_events.read() {
             if let Projection::Orthographic(ortho) = &mut *projection {
                 let zoom_speed = 0.1;
@@ -689,23 +684,15 @@ fn handle_camera_controls(
             }
         }
 
-        // Pan
-        if mouse_button_input.pressed(MouseButton::Left) {
-            let scale = if let Projection::Orthographic(ortho) = &*projection {
-                ortho.scale
-            } else {
-                1.0
-            };
+        // Convert to world coordinates
+        if let Ok(world_pos) = camera.viewport_to_world_2d(global_transform, cursor_pos) {
+            let grid_x = ((world_pos.x - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
+            let grid_y = ((world_pos.y - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
 
-            for event in mouse_motion_events.read() {
-                // Pan speed scales with zoom level for consistent feel
-                let pan_speed = scale * 0.5;
-                transform.translation.x -= event.delta.x * pan_speed;
-                transform.translation.y += event.delta.y * pan_speed;
-
-                editor.drag_accumulator += event.delta.length();
-            }
+            editor.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
         }
+    } else {
+        editor.hovered_grid_pos = None;
     }
 }
 
