@@ -32,3 +32,28 @@ impl Plugin for ShipPlugin {
 
 #[derive(Component)]
 pub struct PlayerShipController;
+
+#[derive(Component)]
+pub struct AIShipController {
+    pub behavior: AIShipBehavior,
+    pub initial_behavior: AIShipBehavior,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AIShipBehavior {
+    Idle,
+    Chase { target: Entity },
+    Wander,
+    Attack { target_pos: Vec2 },
+    Flee,
+    Patrol,
+}
+
+fn cleanup_ships(
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>,
+) {
+    for entity in &ships {
+        commands.entity(entity).despawn();
+    }
+}
