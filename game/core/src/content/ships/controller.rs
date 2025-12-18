@@ -105,11 +105,17 @@ pub fn ai_ship_controller(
             AIShipBehavior::Attack { target_pos } => {
                 move_to(transform, &mut force, target_pos, thrust_power, turn_speed);
             }
-            AIShipBehavior::Flee => {
+            AIShipBehavior::Flee { from } => {
                 // Run away from the player
             }
-            AIShipBehavior::Patrol => {
+            AIShipBehavior::Patrol { around_pos } => {
                 // Move between predefined points
+            }
+            AIShipBehavior::Guard { target } => {
+                // Guard the target
+            }
+            AIShipBehavior::Follow { target } => {
+                // Follow the target
             }
         }
     }

@@ -42,17 +42,16 @@ pub struct AIShipController {
 #[derive(Debug, Clone, Copy)]
 pub enum AIShipBehavior {
     Idle,
-    Chase { target: Entity },
     Wander,
     Attack { target_pos: Vec2 },
-    Flee,
-    Patrol,
+    Patrol { around_pos: Vec2 },
+    Chase { target: Entity },
+    Flee { from: Entity },
+    Guard { target: Entity },
+    Follow { target: Entity },
 }
 
-fn cleanup_ships(
-    mut commands: Commands,
-    ships: Query<Entity, With<Ship>>,
-) {
+fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
     for entity in &ships {
         commands.entity(entity).despawn();
     }
