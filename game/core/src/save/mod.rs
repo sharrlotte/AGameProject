@@ -47,7 +47,7 @@ pub fn load_saved_ships() -> Vec<ShipData> {
 
 pub fn save_ship(data: &ShipData) -> Result<(), Error> {
     let ships_dir = save_dir().join("ships");
-    let filename = format!("ship_{}.json", data.name);
+    let filename = format!("{}.json", data.name);
     let path = ships_dir.join(&filename);
 
     // Create ships directory if it doesn't exist
@@ -72,7 +72,7 @@ pub fn save_ship(data: &ShipData) -> Result<(), Error> {
 
 pub fn _delete_ship(name: &str) {
     let ships_dir = save_dir().join("ships");
-    let filename = format!("ship_{}.json", name);
+    let filename = format!("{}.json", name);
     let path = ships_dir.join(&filename);
 
     if path.exists() {

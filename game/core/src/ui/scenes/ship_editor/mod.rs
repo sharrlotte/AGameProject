@@ -1,5 +1,5 @@
 use crate::content::structures::block::{
-    render_block_base, render_block_layer, render_block_layer_feature,
+    get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_layer, render_block_layer_feature
 };
 use crate::content::structures::ship::{BlockData, Ship, ShipData};
 use crate::content::structures::types::{
@@ -649,6 +649,7 @@ fn process_input(
         if mouse.just_pressed(MouseButton::Left) {
             editor.drag_accumulator = 0.0;
             editor.is_dragging = false;
+            mouse_motion_events.clear();
         }
 
         if mouse.pressed(MouseButton::Left) {
@@ -666,7 +667,7 @@ fn process_input(
 
                 editor.drag_accumulator += event.delta.length();
 
-                if editor.drag_accumulator > 10.0 {
+                if editor.drag_accumulator > 4.0 {
                     editor.is_dragging = true;
                 }
             }
@@ -674,6 +675,10 @@ fn process_input(
 
         if mouse.just_released(MouseButton::Left) && !editor.is_dragging {
             editor.place_req = true;
+        }
+
+        if mouse.pressed(MouseButton::Right) {
+            editor.delete_req = true;
         }
 
         for event in mouse_wheel_events.read() {
@@ -808,11 +813,6 @@ fn update_placement_preview(
         let anchor_offset = size / 2;
         let grid_pos = mouse_grid_pos - anchor_offset;
 
-        let pos = Vec3::new(
-            grid_pos.x as f32 * GRID_SIZE + GRID_SIZE / 2.0,
-            grid_pos.y as f32 * GRID_SIZE + GRID_SIZE / 2.0,
-            10.0,
-        );
         // Check validity
         let is_valid =
             check_placement_validity(&editor.grid, &registry, selected_type, grid_pos, 0, &blocks);
@@ -823,17 +823,16 @@ fn update_placement_preview(
         }
 
         let tint = if is_valid {
-            Color::WHITE.with_alpha(0.8)
+            Color::WHITE.with_alpha(0.6)
         } else {
-            Color::srgb(1.0, 0.0, 0.0).with_alpha(0.8)
+            Color::srgb(1.05, 0.0, 0.0).with_alpha(0.8)
         };
 
+        let half_size = get_block_half_size(def);
+        let transform = get_block_transform(grid_pos, half_size);
+
         commands
-            .spawn((
-                Transform::from_translation(pos),
-                Visibility::Visible,
-                PlacementPreview,
-            ))
+            .spawn((transform, Visibility::Visible, PlacementPreview))
             .with_children(|icon_parent| {
                 for layer in &def.layers {
                     for feature in &layer.features {
@@ -842,6 +841,7 @@ fn update_placement_preview(
                                 icon_parent.spawn((
                                     Sprite {
                                         image: assets.load(&visual.sprite),
+                                        custom_size: Some(get_block_size(def)),
                                         color: tint,
                                         ..default()
                                     },
@@ -854,7 +854,6 @@ fn update_placement_preview(
                 }
             });
     } else {
-        // Hide preview if nothing selected or hovered
         for entity in &preview {
             commands.entity(entity).despawn();
         }

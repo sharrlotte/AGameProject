@@ -41,7 +41,7 @@ pub fn spawn_bullet(
                     },
                     Sprite {
                         color: Color::srgb(10.0, 0.0, 0.0),
-                        custom_size: Some(Vec2::new(2.0, 10.0)),
+                        custom_size: Some(Vec2::new(2.0, 50.0)),
                         ..default()
                     },
                     Transform {
