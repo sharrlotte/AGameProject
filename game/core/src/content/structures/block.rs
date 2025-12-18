@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups, Group};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     GRID_SIZE,
     content::{
-        structures::components::Health,
+        structures::{components::Health, ship::ShipBlockHitbox},
         team::Team,
         turret::{AIFireController, PlayerFireController, TurretFeature, TurretTargeter},
     },
@@ -255,7 +256,7 @@ impl BlockDefinition {
         team: Option<Team>,
     ) -> Entity {
         let size_vec = self.shape.size.as_vec2();
-        let center_offset = (size_vec - 1.0) * GRID_SIZE * 0.5;
+        let half_size = size_vec * GRID_SIZE * 0.5;
 
         let anchor_pos = Vec3::new(
             grid_pos.x as f32 * GRID_SIZE,
@@ -263,12 +264,18 @@ impl BlockDefinition {
             0.0,
         );
 
-        let pos = anchor_pos + center_offset.extend(0.0);
+        let pos = anchor_pos + half_size.extend(0.0);
 
         let entity = commands
             .spawn((
                 Transform::from_translation(pos),
                 Visibility::Visible,
+                GridPosition(grid_pos),
+                PlacedBlock,
+                ShipBlockHitbox,
+                Collider::cuboid(half_size.x, half_size.y),
+                CollisionGroups::new(team.unwrap_or_default().get_hitbox_group(), Group::ALL),
+                ColliderMassProperties::Mass(0.0),
                 Block {
                     block_type: self.block_type,
                     rotation: 0,
@@ -278,8 +285,6 @@ impl BlockDefinition {
                     health: self.health,
                     max_health: self.health,
                 },
-                GridPosition(grid_pos),
-                PlacedBlock,
                 self.block_group,
                 team.unwrap_or_default(),
             ))

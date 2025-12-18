@@ -758,7 +758,7 @@ fn update_placement_preview(
 
         // Calculate center offset
         let size_vec = def.shape.size.as_vec2();
-        let center_offset = (size_vec - 1.0) * GRID_SIZE * 0.5;
+        let center_offset = size_vec * GRID_SIZE * 0.5;
 
         let pos = Vec3::new(
             grid_pos.x as f32 * GRID_SIZE,

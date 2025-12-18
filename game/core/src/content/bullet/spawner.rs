@@ -15,7 +15,7 @@ pub fn spawn_bullet(
     projectile: &ShootingProjectile,
 ) {
     let rotation: Quat = turret_transform.rotation();
-    let dir =        rotation.to_euler(EulerRot::XYZ).2 + PI /2.0;
+    let dir = rotation.to_euler(EulerRot::XYZ).2 + PI / 2.0;
 
     let team_comp = team.copied().unwrap_or_default();
 
