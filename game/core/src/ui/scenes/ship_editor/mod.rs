@@ -1,6 +1,6 @@
 use crate::content::structures::block::PlacedBlock;
 use crate::content::structures::block::{
-    Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
+    Block, BlockType, GridPosition, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
 };
 use crate::content::structures::ship::{SavedBlock, SavedShip, Ship};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
@@ -20,11 +20,10 @@ impl Plugin for ShipEditorPlugin {
             .add_systems(
                 OnEnter(AppState::ShipEditor),
                 (
-                    setup_editor_ui,
-                    refresh_ship_list.after(setup_editor_ui),
-                    load_initial_ship.after(refresh_ship_list),
-                    init_available_ships,
                     init_editor_resources,
+                    (setup_editor_ui, refresh_ship_list.after(setup_editor_ui))
+                        .chain()
+                        .after(init_editor_resources),
                 ),
             )
             .add_systems(
@@ -118,13 +117,8 @@ struct BackButton;
 #[derive(Component)]
 struct PlayButton;
 
-// --- Systems ---
-
-fn init_available_ships(mut commands: Commands) {
-    commands.insert_resource(AvailableShips::default());
-}
-
 fn init_editor_resources(mut commands: Commands) {
+    commands.insert_resource(AvailableShips::default());
     commands.insert_resource(EditorState::default());
     commands.insert_resource(EditorShip::default());
 }
