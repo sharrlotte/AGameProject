@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups, Group};
+use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups, Group, Sensor};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -217,27 +217,32 @@ pub struct BlockLayer {
 }
 
 impl LayerFeature {
-    pub fn render(&self, commands: &mut Commands, entity: Entity, team: Option<Team>) {
+    pub fn render(&self, commands: &mut Commands, entity: Entity, team: Team) {
         match self {
             LayerFeature::Recoil(_recoil_feature) => todo!(),
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
             LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
             LayerFeature::Turret(f) => {
-                commands.entity(entity).insert((TurretController {
-                    strategy: f.strategy.clone(),
-                    range: f.range,
-                    turn_speed: f.turn_speed,
-                    fire_all_at_once: f.fire_all_at_once,
-                    barrels: f.barrels.clone(),
-                    shooting_pattern: f.shooting_pattern.clone(),
-                    // state
-                    current_barrel_index: 0,
-                    potential_targets: HashSet::default(),
-                    active: false,
-                    target_pos: None,
-                },));
+                commands.entity(entity).insert((
+                    TurretController {
+                        strategy: f.strategy.clone(),
+                        range: f.range,
+                        turn_speed: f.turn_speed,
+                        fire_all_at_once: f.fire_all_at_once,
+                        barrels: f.barrels.clone(),
+                        shooting_pattern: f.shooting_pattern.clone(),
+                        // state
+                        current_barrel_index: 0,
+                        potential_targets: HashSet::default(),
+                        active: false,
+                        target_pos: None,
+                    },
+                    Collider::ball(f.range),
+                    CollisionGroups::new(team.get_hitbox_group(), team.get_enemy_hitbox_filter()),
+                    Sensor,
+                ));
 
-                if team.unwrap_or_default() == Team::default() {
+                if team.id == Team::default().id {
                     commands.entity(entity).insert(PlayerFireController);
                 } else {
                     commands.entity(entity).insert(AIFireController);
@@ -323,7 +328,7 @@ impl BlockDefinition {
 
             // Features
             for feature in &layer.features {
-                feature.render(commands, layer_entity, team);
+                feature.render(commands, layer_entity, team.unwrap_or_default());
             }
         }
 

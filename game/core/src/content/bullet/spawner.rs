@@ -53,10 +53,10 @@ pub fn spawn_bullet(
                     },
                     RigidBody::Dynamic,
                     Collider::ball(5.0),
-                    Velocity::linear(Vec2::from_angle(dir) * *speed),
-                    ActiveEvents::COLLISION_EVENTS,
-                    GravityScale(0.0),
                     CollisionGroups::new(Group::default(), team_comp.get_bullet_filter()),
+                    ActiveEvents::COLLISION_EVENTS,
+                    Velocity::linear(Vec2::from_angle(dir) * *speed),
+                    GravityScale(0.0),
                     ColliderMassProperties::Mass(0.01),
                     team_comp,
                 ))
