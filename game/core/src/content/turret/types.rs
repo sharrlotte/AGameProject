@@ -14,7 +14,7 @@ pub enum ShootingProjectile {
         speed: f32,
         damage: f32,
         lifetime: f32,
-        piercing: u8,
+        piercing: i8,
     },
     Beam {
         range: f32,

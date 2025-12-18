@@ -123,7 +123,5 @@ fn check_rebuild_ship_collider(
             .insert((collider, ColliderMassProperties::Mass(mass)));
 
         commands.entity(entity).remove::<RebuildShipCollider>();
-
-        info!("Rebuild ship collider for entity {:?}", entity);
     }
 }
