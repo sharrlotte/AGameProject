@@ -166,7 +166,6 @@ pub fn handle_bullet_collisions(
 }
 
 fn handle_bullet(commands: &mut Commands, entity: Entity, bullet: &mut Bullet) {
-    info!("Bullet collided with something, piercing: {}", bullet.piercing);
     if bullet.piercing <= 0 {
         commands.entity(entity).despawn();
     } else {
