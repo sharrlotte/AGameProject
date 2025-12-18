@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 /// Component defining the base stats of any object (Ship or Block).
 #[derive(Component, Debug, Clone, Default, Serialize, Deserialize, Reflect)]
 pub struct Health {
-    pub current: f32,
-    pub max: f32,
+    pub health: f32,
+    pub max_health: f32,
 }
 
 #[derive(Component, Debug, Clone, Default, Serialize, Deserialize, Reflect)]

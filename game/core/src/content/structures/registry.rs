@@ -38,7 +38,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_type: BlockType::Hull,
             block_group: BlockGroup::Base,
             mass: 10.0,
-            max_health: 100.0,
+            health: 100.0,
             shape: BlockShape::default(),
             cost: 5,
             features: vec![],
@@ -65,7 +65,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_group: BlockGroup::Base,
 
             mass: 25.0,
-            max_health: 50.0,
+            health: 50.0,
             shape: BlockShape::default(),
             cost: 50,
             features: vec![
@@ -95,7 +95,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_group: BlockGroup::Base,
 
             mass: 100.0,
-            max_health: 80.0,
+            health: 80.0,
             shape: BlockShape::default(),
             cost: 200,
             features: vec![BlockFeature::PowerProducer { output: 50.0 }],
@@ -122,7 +122,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_group: BlockGroup::Base,
 
             mass: 50.0,
-            max_health: 60.0,
+            health: 60.0,
             shape: BlockShape::default(),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
@@ -148,7 +148,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_type: BlockType::Core,
             block_group: BlockGroup::Core,
             mass: 50.0,
-            max_health: 60.0,
+            health: 60.0,
             shape: BlockShape::filled(3, 3),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],
@@ -187,7 +187,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_type: BlockType::LazerTurret,
             block_group: BlockGroup::Turret,
             mass: 50.0,
-            max_health: 60.0,
+            health: 60.0,
             shape: BlockShape::filled(1, 1),
             cost: 150,
             features: vec![BlockFeature::PowerConsumer { required: 5.0 }],

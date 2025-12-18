@@ -29,6 +29,7 @@ fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite {
             image: texture_handle,
+            color: Color::srgb(1.005, 1.005, 1.005),
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, -100.0), // Behind everything

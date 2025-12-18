@@ -895,7 +895,7 @@ fn update_block_properties_panel(
             if let Some(def) = registry.get(&block_type) {
                 **text = format!(
                     "Name: {}\nCost: {}\nMass: {}\nHP: {}\n\n{}",
-                    def.name, def.cost, def.mass, def.max_health, def.description
+                    def.name, def.cost, def.mass, def.health, def.description
                 );
             }
         } else {

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     GRID_SIZE,
     content::{
+        structures::components::Health,
         team::Team,
         turret::{AIFireController, PlayerFireController, TurretFeature, TurretTargeter},
     },
@@ -37,7 +38,6 @@ pub enum BlockGroup {
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct Block {
     pub block_type: BlockType,
-    /// The current rotation of the block in 90-degree increments (0=0deg, 1=90deg, 2=180deg, 3=270deg)
     pub rotation: u8,
     pub def: BlockDefinition,
 }
@@ -229,7 +229,7 @@ pub struct BlockDefinition {
     pub block_type: BlockType,
     pub block_group: BlockGroup,
     pub mass: f32,
-    pub max_health: f32,
+    pub health: f32,
     /// Replaced `size` with `shape` to support complex voxel structures
     pub shape: BlockShape,
     pub cost: u32,
@@ -274,6 +274,10 @@ impl BlockDefinition {
                     rotation: 0,
                     def: self.clone(),
                 },
+                Health {
+                    health: self.health,
+                    max_health: self.health,
+                },
                 GridPosition(grid_pos),
                 PlacedBlock,
                 self.block_group,
@@ -302,6 +306,7 @@ impl BlockDefinition {
                         Sprite {
                             image: asset_server.load(&visual.sprite),
                             custom_size: Some(size_vec * GRID_SIZE),
+                            color: Color::srgb(1.005, 1.005, 1.005),
                             ..default()
                         },
                         Transform::from_translation(visual.offset.extend(visual.z)),

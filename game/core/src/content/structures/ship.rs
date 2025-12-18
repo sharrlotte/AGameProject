@@ -60,10 +60,8 @@ pub struct ShipBlockHitbox;
 #[derive(Component)]
 pub struct PlayerShip;
 
-
 #[derive(Component)]
 pub struct Enemy;
 
 #[derive(Component)]
 pub struct Ally;
-

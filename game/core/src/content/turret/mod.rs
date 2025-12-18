@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use shoot::handle_turret_emission;
 use targeting::{update_player_fire_controller, update_turret_target};
 
-use crate::content::turret::{
-    shoot::{handle_bullet_collisions, handle_despawn_bullet},
-    tracking::{draw_turret_ranges, system_turret_tracking},
+use crate::content::{
+    bullet::BulletPlugin,
+    turret::tracking::{draw_turret_ranges, system_turret_tracking},
 };
 
 pub struct TurretPlugin;
@@ -31,10 +31,9 @@ impl Plugin for TurretPlugin {
                     handle_turret_emission,
                     system_turret_tracking,
                     draw_turret_ranges,
-                    handle_bullet_collisions,
-                    handle_despawn_bullet,
                 ),
-            );
+            )
+            .add_plugins(BulletPlugin);
     }
 }
 

@@ -3,8 +3,13 @@ mod save;
 mod ui;
 
 use bevy::input::common_conditions::input_toggle_active;
-use bevy::prelude::*;
+use bevy::post_process::bloom::BloomCompositeMode;
 use bevy::window::{PresentMode, WindowPlugin};
+use bevy::{
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    post_process::bloom::Bloom,
+    prelude::*,
+};
 use bevy_rapier2d::prelude::*;
 use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
@@ -13,8 +18,8 @@ use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
 use crate::content::ships::features::ShipFeature;
-use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 use crate::content::turret::TurretPlugin;
+use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 
 fn main() {
     let mut app = App::new();
@@ -34,7 +39,13 @@ fn main() {
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
-    .add_plugins((HomePlugin, GamePlugin, ShipEditorPlugin, ShipFeature, TurretPlugin));
+    .add_plugins((
+        HomePlugin,
+        GamePlugin,
+        ShipEditorPlugin,
+        ShipFeature,
+        TurretPlugin,
+    ));
 
     #[cfg(debug_assertions)]
     {
@@ -48,7 +59,23 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    commands.spawn((
+        Camera2d,
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
+            ..default()
+        },
+        Tonemapping::TonyMcMapface,
+        Bloom {
+            intensity: 0.3,
+            low_frequency_boost: 0.5,
+            low_frequency_boost_curvature: 0.5,
+            high_pass_frequency: 1.0,
+            composite_mode: BloomCompositeMode::Additive,
+            ..default()
+        },
+        DebandDither::Enabled,
+    ));
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]

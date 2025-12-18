@@ -15,10 +15,10 @@ impl Plugin for IndicatorsPlugin {
 fn draw_indicators(
     mut gizmos: Gizmos,
     ships: Query<(&GlobalTransform, &Team, &Ship)>,
-    camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera: Single<(&Camera, &GlobalTransform, &Projection), With<Camera2d>>,
     window: Single<&Window>,
 ) {
-    let (camera, camera_transform) = *camera;
+    let (camera, camera_transform, projection) = *camera;
     let window_size = Vec2::new(window.width(), window.height());
 
     for (ship_transform, team, ship) in &ships {
@@ -26,6 +26,11 @@ fn draw_indicators(
 
         // Project to screen to check visibility and clamp
         if let Ok(viewport_pos) = camera.world_to_viewport(camera_transform, ship_pos) {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
             let margin = 30.0;
             let clamped_x = viewport_pos.x.clamp(margin, window_size.x - margin);
             let clamped_y = viewport_pos.y.clamp(margin, window_size.y - margin);
@@ -37,17 +42,17 @@ fn draw_indicators(
                 camera.viewport_to_world_2d(camera_transform, clamped_viewport_pos)
             {
                 let color = if team.id == 0 {
-                    Color::srgb(0.0, 1.0, 0.0) // Green
+                    Color::srgb(0.0, 1.1, 0.0) // Green
                 } else {
-                    Color::srgb(1.0, 0.0, 0.0) // Red
+                    Color::srgb(1.1, 0.0, 0.0) // Red
                 };
 
                 // Triangle pointing toward the target
-                let size = 30.0 * 1.5; // 1.5 times bigger
+                let size = 30.0 * scale; // 1.5 times bigger
 
                 let diff = ship_pos.truncate() - world_pos;
                 // Only draw if we are somewhat far from the target (avoid drawing on top)
-                let angle: f32 = if diff.length_squared() > 1.0 {
+                let angle: f32 = if diff.length_squared() > 0.5 {
                     diff.y.atan2(diff.x)
                 } else {
                     -PI / 2.0
