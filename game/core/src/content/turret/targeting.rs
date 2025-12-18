@@ -1,13 +1,13 @@
 use crate::content::{
     structures::ship::Enemy,
     team::Team,
-    turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretTargeter},
+    turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
 };
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 pub fn update_player_fire_controller(
-    mut query: Query<(&mut TurretTargeter, &GlobalTransform), With<PlayerFireController>>,
+    mut query: Query<(&mut TurretController, &GlobalTransform), With<PlayerFireController>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -26,11 +26,11 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut turret_query: Query<
-        (Entity, &GlobalTransform, &mut TurretTargeter, &Team),
+        (Entity, &GlobalTransform, &mut TurretController, &Team),
         With<AIFireController>,
     >,
     mut collision_events: MessageReader<CollisionEvent>,
-    sensors: Query<Entity, With<TurretTargeter>>,
+    sensors: Query<Entity, With<TurretController>>,
     enemies: Query<Entity, With<Enemy>>,
     global_transforms: Query<&GlobalTransform>,
 ) {

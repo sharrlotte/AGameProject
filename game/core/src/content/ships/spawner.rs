@@ -1,11 +1,60 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::GRID_SIZE;
+use crate::content::ships::PlayerShipController;
 use crate::content::structures::block::BlockGroup;
 use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::{PlayerShip, SavedShip, Ship};
+use crate::content::structures::ship::{SavedShip, Ship};
 use crate::content::team::Team;
+use crate::{AppVar, GRID_SIZE};
+
+pub fn spawn_player_ship(
+    mut commands: Commands,
+    app_var: Res<AppVar>,
+    registry: Res<BlockRegistry>,
+    asset_server: Res<AssetServer>,
+) {
+    let ship_data = if let Some(ship) = &app_var.current_ship {
+        ship
+    } else {
+        warn!("No ship loaded in AppVar!");
+        return;
+    };
+
+    spawn_ship(
+        &mut commands,
+        &registry,
+        &asset_server,
+        ship_data,
+        Transform::from_translation(Vec3::ZERO),
+        Team::new(0), // Ally
+        true,         // is_player
+    );
+}
+
+pub fn spawn_enemy_ship(
+    mut commands: Commands,
+    app_var: Res<AppVar>,
+    registry: Res<BlockRegistry>,
+    asset_server: Res<AssetServer>,
+) {
+    let ship_data = if let Some(ship) = &app_var.current_ship {
+        ship
+    } else {
+        return;
+    };
+
+    // Spawn an enemy at (500, 500)
+    spawn_ship(
+        &mut commands,
+        &registry,
+        &asset_server,
+        ship_data,
+        Transform::from_translation(Vec3::new(500.0, 500.0, 0.0)),
+        Team::new(1), // Enemy
+        false,        // is_player
+    );
+}
 
 pub fn spawn_ship(
     commands: &mut Commands,
@@ -57,7 +106,7 @@ pub fn spawn_ship(
     ));
 
     if is_player {
-        ship_cmd.insert(PlayerShip);
+        ship_cmd.insert(PlayerShipController);
     }
 
     let ship_entity = ship_cmd.id();
@@ -103,6 +152,5 @@ pub fn spawn_ship(
             CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
         ));
     }
-
     ship_entity
 }

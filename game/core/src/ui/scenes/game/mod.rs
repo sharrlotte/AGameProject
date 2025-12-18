@@ -1,13 +1,12 @@
 mod background;
-mod indicators;
-mod ship;
 
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-use crate::content::structures::ship::{PlayerShip, Ship};
+use crate::AppState;
+use crate::content::ships::{PlayerShipController, ShipPlugin};
+use crate::content::structures::ship::Ship;
 use crate::ui::scenes::game::background::BackgroundPlugin;
-use crate::{AppState, ui::scenes::game::ship::ShipPlugin};
 
 pub struct GamePlugin;
 
@@ -62,8 +61,8 @@ fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
 }
 
 fn camera_follow(
-    player: Single<(&Transform, &Ship), (With<PlayerShip>, Without<Camera2d>)>,
-    mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShip>)>,
+    player: Single<(&Transform, &Ship), (With<PlayerShipController>, Without<Camera2d>)>,
+    mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShipController>)>,
     time: Res<Time>,
 ) {
     let (ship_transform, ship) = *player;

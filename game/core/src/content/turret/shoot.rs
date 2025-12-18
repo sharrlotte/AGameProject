@@ -1,19 +1,19 @@
 use crate::content::bullet::spawner::spawn_bullet;
 use crate::content::team::Team;
-use crate::content::turret::{ShootPattern, TurretTargeter};
+use crate::content::turret::{ShootPattern, TurretController};
 use bevy::prelude::*;
 
 pub fn handle_turret_emission(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(&GlobalTransform, &mut TurretTargeter, Option<&Team>)>,
+    mut query: Query<(&GlobalTransform, &mut TurretController, Option<&Team>)>,
 ) {
     for (transform, mut targeter, team) in query.iter_mut() {
         if !targeter.active {
             continue;
         }
 
-        let TurretTargeter {
+        let TurretController {
             shooting_pattern,
             barrels,
             range,

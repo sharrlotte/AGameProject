@@ -9,7 +9,7 @@ use crate::{
     content::{
         structures::{components::Health, ship::ShipBlockHitbox},
         team::Team,
-        turret::{AIFireController, PlayerFireController, TurretFeature, TurretTargeter},
+        turret::{AIFireController, PlayerFireController, TurretController, TurretFeature},
     },
 };
 
@@ -168,7 +168,7 @@ impl LayerFeature {
             LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
             LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
             LayerFeature::Turret(f) => {
-                commands.entity(entity).insert((TurretTargeter {
+                commands.entity(entity).insert((TurretController {
                     strategy: f.strategy.clone(),
                     range: f.range,
                     turn_speed: f.turn_speed,

@@ -22,7 +22,7 @@ impl Plugin for TurretPlugin {
         app.register_type::<PlayerFireController>()
             .register_type::<AIFireController>()
             .register_type::<ShootPattern>()
-            .register_type::<TurretTargeter>()
+            .register_type::<TurretController>()
             .add_systems(
                 Update,
                 (
@@ -79,7 +79,7 @@ pub enum ShootPattern {
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
-pub struct TurretTargeter {
+pub struct TurretController {
     pub strategy: TargetingStrategy,
     pub range: f32,
     pub turn_speed: f32,
