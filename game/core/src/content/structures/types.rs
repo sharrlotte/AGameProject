@@ -142,7 +142,7 @@ pub struct EnergyConsumerFeature {
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct SpriteFeature {
-       pub sprite: String,
+    pub sprite: String,
     pub offset: Vec2,
     pub z: f32,
     pub animated: bool,
@@ -200,4 +200,6 @@ pub struct BlockLayer {
 }
 
 #[derive(Component, Clone, PartialEq)]
-pub struct BelongsToShip(pub Entity);
+pub struct BelongsToShip {
+    pub ship: Entity,
+}

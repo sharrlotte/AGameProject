@@ -19,7 +19,8 @@ fn draw_indicators(
     window: Single<&Window>,
 ) {
     let (camera, camera_transform, projection) = *camera;
-    let window_size = Vec2::new(window.width(), window.height());
+    // max(32) prevent crash when window size is too small, idk how
+    let window_size = Vec2::new(window.width().max(32.0), window.height().max(32.0));
 
     for (ship_transform, team, ship) in &ships {
         let ship_pos = ship_transform.transform_point(ship.center.extend(0.0));

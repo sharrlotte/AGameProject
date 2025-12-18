@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups};
 
 pub mod controller;
 pub mod features;
@@ -8,9 +9,12 @@ pub mod types;
 
 use crate::content::ships::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ships::indicators::IndicatorsPlugin;
-use crate::content::ships::spawner::{spawn_enemy_ship, spawn_player_ship};
+use crate::content::ships::spawner::{
+    ShipCalculatedStat, calculate_ship_stat, spawn_enemy_ship, spawn_player_ship,
+};
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::Ship;
+use crate::content::team::Team;
 use crate::{AppState, AppVar};
 
 pub use types::*;
@@ -25,7 +29,11 @@ impl Plugin for ShipPlugin {
         )
         .add_systems(
             Update,
-            (player_ship_controller, ai_ship_controller)
+            (
+                player_ship_controller,
+                ai_ship_controller,
+                check_rebuild_ship_collider,
+            )
                 .chain()
                 .run_if(in_state(AppState::Game)),
         )
@@ -61,5 +69,29 @@ fn check_enemy_ship(
 fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
     for entity in &ships {
         commands.entity(entity).despawn();
+    }
+}
+
+fn check_rebuild_ship_collider(
+    mut commands: Commands,
+    ships: Query<(Entity, &Ship, &Team), With<RebuildShipCollider>>,
+    registry: Res<BlockRegistry>,
+) {
+    for (entity, ship, team) in &ships {
+        let ShipCalculatedStat {
+            mass,
+            compound_shapes,
+            ..
+        } = calculate_ship_stat(&ship.blocks, &registry);
+
+        commands.entity(entity).insert((
+            Collider::compound(compound_shapes),
+            CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
+            ColliderMassProperties::Mass(mass),
+        ));
+
+        commands.entity(entity).remove::<RebuildShipCollider>();
+
+        info!("Rebuild ship collider for entity {:?}", entity);
     }
 }

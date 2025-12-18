@@ -20,3 +20,6 @@ pub enum AIShipBehavior {
     Guard { target: Entity },
     Follow { target: Entity },
 }
+
+#[derive(Component)]
+pub struct RebuildShipCollider;

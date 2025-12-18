@@ -2,17 +2,19 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 
 use crate::content::{
-    bullet::types::Bullet,
-    structures::{
-        components::Health, registry::BlockRegistry, ship::Ship, types::{Block, BlockGroup}
-    },
+    bullet::types::Bullet, ships::RebuildShipCollider, structures::{
+        components::Health,
+        registry::BlockRegistry,
+        ship::Ship,
+        types::{BelongsToShip, Block, BlockGroup},
+    }
 };
 
 pub fn handle_bullet_collisions(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
-    mut healths: Query<(Entity, &mut Health, &mut Block)>,
+    mut healths: Query<(Entity, &mut Health, &mut Block, &BelongsToShip)>,
     parents: Query<&ChildOf>,
     ships: Query<&Ship>,
     registry: Res<BlockRegistry>,
@@ -27,13 +29,20 @@ pub fn handle_bullet_collisions(
             ) {
                 (true, _, _, true) => (bullets.get_mut(*e1), healths.get_mut(*e2)),
                 (_, true, true, _) => (bullets.get_mut(*e2), healths.get_mut(*e1)),
-                _ => continue,
+                _ => {
+                    warn!(
+                        "Bullet {} and Health {} collided, but something is missing",
+                        e1, e2
+                    );
+                    continue;
+                }
             };
 
-            if let (Ok((bullet, mut bulletc)), Ok((health, mut healthc, block))) =
+            if let (Ok((bullet, mut bulletc)), Ok((health, mut healthc, block, belongs))) =
                 (bullet_entity, health_entity)
             {
                 healthc.health -= bulletc.damage;
+                commands.entity(belongs.ship).insert(RebuildShipCollider);
 
                 if healthc.health <= 0.0 {
                     commands.entity(health).despawn();

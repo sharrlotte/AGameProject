@@ -6,8 +6,8 @@ use crate::content::structures::block::{
     render_block_base, render_block_layer, render_block_layer_feature,
 };
 use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::{Ship, ShipData};
-use crate::content::structures::types::BlockGroup;
+use crate::content::structures::ship::{BlockData, Ship, ShipData};
+use crate::content::structures::types::{BelongsToShip, BlockGroup};
 use crate::content::team::Team;
 use crate::{AppVar, GRID_SIZE};
 
@@ -56,6 +56,54 @@ pub fn spawn_enemy_ship(
     );
 }
 
+pub struct ShipCalculatedStat {
+    pub mass: f32,
+    pub center: Vec2,
+    pub compound_shapes: Vec<(Vect, f32, Collider)>,
+}
+
+pub fn calculate_ship_stat(ship_data: &Vec<BlockData>, registry: &BlockRegistry) -> ShipCalculatedStat {
+    let mut mass: f32 = 0.0;
+    let mut center = Vec2::ZERO;
+    let mut compound_shapes = Vec::new();
+
+    for block_data in ship_data {
+        if let Some(def) = registry.get(&block_data.block_type) {
+            let size_vec = def.shape.size.as_vec2();
+            let center_offset = size_vec * GRID_SIZE * 0.5;
+
+            let anchor_pos = Vec2::new(
+                block_data.pos.x as f32 * GRID_SIZE,
+                block_data.pos.y as f32 * GRID_SIZE,
+            );
+
+            let block_pos = anchor_pos + center_offset;
+            let rotation_angle = block_data.rotation as f32 * std::f32::consts::FRAC_PI_2;
+            let size = size_vec * GRID_SIZE * 0.5;
+
+            mass += def.mass;
+
+            compound_shapes.push((
+                Vect::new(block_pos.x, block_pos.y),
+                rotation_angle,
+                Collider::cuboid(size.x, size.y),
+            ));
+
+            if def.block_group == BlockGroup::Core {
+                let size = def.shape.size.as_vec2();
+                let offset = size * GRID_SIZE * 0.5;
+                center = block_data.pos.as_vec2() * GRID_SIZE + offset;
+            }
+        }
+    }
+
+    return ShipCalculatedStat {
+        mass,
+        center: center,
+        compound_shapes,
+    };
+}
+
 pub fn spawn_ship(
     commands: &mut Commands,
     registry: &BlockRegistry,
@@ -64,22 +112,11 @@ pub fn spawn_ship(
     transform: Transform,
     team: Team,
 ) -> Entity {
-    let mut compound_shapes = Vec::new();
-    let mut total_mass = 0.0;
-
-    // Recalculate center based on Core block to fix legacy saves
-    let mut ship_center = Vec2::ZERO;
-
-    for saved_block in &ship_data.blocks {
-        if let Some(def) = registry.get(&saved_block.block_type) {
-            if def.block_group == BlockGroup::Core {
-                let size = def.shape.size.as_vec2();
-                let offset = size * GRID_SIZE * 0.5;
-                ship_center = saved_block.pos.as_vec2() * GRID_SIZE + offset;
-                break;
-            }
-        }
-    }
+    let ShipCalculatedStat {
+        mass,
+        center,
+        compound_shapes,
+    } = calculate_ship_stat(&ship_data.blocks, registry);
 
     let mut ship_cmd = commands.spawn((
         transform,
@@ -99,7 +136,8 @@ pub fn spawn_ship(
         },
         Ship {
             name: ship_data.name.clone(),
-            center: ship_center,
+            blocks: ship_data.blocks.clone(),
+            center,
             thrust_power: 1000.0,
             turn_speed: 250.0,
             radar_range: 3000.0,
@@ -118,29 +156,9 @@ pub fn spawn_ship(
 
     let ship_entity = ship_cmd.id();
 
-    for saved_block in &ship_data.blocks {
-        if let Some(def) = registry.get(&saved_block.block_type) {
-            let size_vec = def.shape.size.as_vec2();
-            let center_offset = size_vec * GRID_SIZE * 0.5;
-
-            let anchor_pos = Vec2::new(
-                saved_block.pos.x as f32 * GRID_SIZE,
-                saved_block.pos.y as f32 * GRID_SIZE,
-            );
-
-            let block_pos = anchor_pos + center_offset;
-            let rotation_angle = saved_block.rotation as f32 * std::f32::consts::FRAC_PI_2;
-            let size = size_vec * GRID_SIZE * 0.5;
-
-            compound_shapes.push((
-                Vect::new(block_pos.x, block_pos.y),
-                rotation_angle,
-                Collider::cuboid(size.x, size.y),
-            ));
-
-            total_mass += def.mass;
-
-            let base = render_block_base(commands, ship_entity, def, saved_block.pos, team);
+    for block_data in &ship_data.blocks {
+        if let Some(def) = registry.get(&block_data.block_type) {
+            let base = render_block_base(commands, ship_entity, def, block_data.pos, team);
 
             for layer in &def.layers {
                 let layer_entity = render_block_layer(commands, base, layer);
@@ -148,6 +166,10 @@ pub fn spawn_ship(
                 for feature in &layer.features {
                     render_block_layer_feature(commands, layer_entity, assets, def, feature, team);
                 }
+
+                commands
+                    .entity(layer_entity)
+                    .insert(BelongsToShip { ship: ship_entity });
             }
         }
     }
@@ -156,7 +178,7 @@ pub fn spawn_ship(
         commands.entity(ship_entity).insert((
             Collider::compound(compound_shapes),
             CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
-            ColliderMassProperties::Mass(total_mass),
+            ColliderMassProperties::Mass(mass),
         ));
     } else {
         warn!("Ship has no blocks! Spawning dummy collider.");

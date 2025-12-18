@@ -13,6 +13,7 @@ pub struct Ship {
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub radar_range: f32,
+    pub blocks: Vec<BlockData>,
 }
 
 /// A spatial grid that maps local coordinates to Block Entities.
@@ -44,7 +45,7 @@ impl ShipGrid {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct BlockData {
     pub pos: IVec2,
     pub block_type: BlockType,
