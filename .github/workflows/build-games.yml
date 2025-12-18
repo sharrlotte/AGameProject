@@ -41,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bevy-windows-exe
-          path: game/core/target/release/*.exe
+          path: game/target/release/*.exe
