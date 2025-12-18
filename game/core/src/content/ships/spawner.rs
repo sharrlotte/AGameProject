@@ -168,7 +168,7 @@ pub fn spawn_ship(
                 }
 
                 commands
-                    .entity(layer_entity)
+                    .entity(base)
                     .insert(BelongsToShip { ship: ship_entity });
             }
         }
