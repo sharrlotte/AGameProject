@@ -46,8 +46,8 @@ pub fn spawn_ship(
         Ccd::enabled(),
         GravityScale(0.0),
         Damping {
-            linear_damping: 0.3,
-            angular_damping: 0.3,
+            linear_damping: 0.8,
+            angular_damping: 0.8,
         },
         team,
         Ship {

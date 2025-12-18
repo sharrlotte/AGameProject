@@ -36,13 +36,16 @@ pub fn handle_bullet_collisions(
             {
                 healthc.health -= bulletc.damage;
 
-                info!(
-                    "Health {} reduced by {} to {}",
-                    health, bulletc.damage, healthc.health
-                );
-
                 if healthc.health <= 0.0 {
                     commands.entity(health).despawn();
+
+                    if block.def.block_group == BlockGroup::Core {
+                        if let Ok(parent) = parents.get(health) {
+                            if let Ok(_ship) = ships.get(parent.0) {
+                                commands.entity(parent.0).despawn();
+                            }
+                        }
+                    }
                 }
 
                 if bulletc.piercing <= 0 {
@@ -53,15 +56,6 @@ pub fn handle_bullet_collisions(
                         .remove::<ActiveEvents>();
                 } else {
                     bulletc.piercing -= 1;
-                }
-
-                if block.def.block_group == BlockGroup::Core {
-                    if let Ok(parent) = parents.get(health) {
-                        if let Ok(ship) = ships.get(parent.0) {
-                            info!("Ship {} destroyed", ship.name);
-                            commands.entity(parent.0).despawn();
-                        }
-                    }
                 }
             }
         }
