@@ -4,19 +4,25 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::AppState;
+use crate::content::bullet::Bullet;
 use crate::content::ships::{PlayerShipController, ShipPlugin};
 use crate::content::structures::ship::Ship;
-use crate::ui::scenes::game::background::BackgroundPlugin;
+use crate::ui::scenes::game::background::{BackgroundConfig, BackgroundImage, BackgroundPlugin};
+
+#[derive(Resource, Default)]
+struct GameInitialized(bool);
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Game), setup_game)
+        app.init_resource::<GameInitialized>()
+            .add_systems(OnEnter(AppState::Game), setup_game)
             .add_systems(OnExit(AppState::Game), cleanup_game)
+            .add_systems(OnEnter(AppState::Home), cleanup_game_entities)
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom, update_fps).run_if(in_state(AppState::Game)),
+                (camera_follow, camera_zoom, update_fps, handle_pause_input).run_if(in_state(AppState::Game)),
             )
             .add_plugins(ShipPlugin)
             .add_plugins(BackgroundPlugin);
@@ -33,7 +39,30 @@ fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
     }
 }
 
-fn setup_game(mut commands: Commands) {
+fn setup_game(mut commands: Commands, mut initialized: ResMut<GameInitialized>, fps_query: Query<(), With<FpsText>>) {
+    if initialized.0 {
+        // Only spawn FpsText if not exists
+        if fps_query.is_empty() {
+            commands.spawn((
+                Text::new("FPS: N/A"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(10.0),
+                    left: Val::Px(10.0),
+                    ..default()
+                },
+                FpsText,
+            ));
+        }
+        return;
+    }
+    initialized.0 = true;
+
     info!("Setting up Game Scene");
 
     commands.spawn((
@@ -54,10 +83,31 @@ fn setup_game(mut commands: Commands) {
 }
 
 fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
-    info!("Cleaning up Game Scene");
+    info!("Cleaning up Game Scene UI");
     for entity in &query {
         commands.entity(entity).despawn();
     }
+}
+
+fn cleanup_game_entities(
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>,
+    bullets: Query<Entity, With<Bullet>>,
+    backgrounds: Query<Entity, With<BackgroundImage>>,
+    mut initialized: ResMut<GameInitialized>,
+) {
+    info!("Cleaning up Game Entities");
+    initialized.0 = false;
+    for entity in &ships {
+        commands.entity(entity).despawn();
+    }
+    for entity in &bullets {
+        commands.entity(entity).despawn();
+    }
+    for entity in &backgrounds {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<BackgroundConfig>();
 }
 
 fn camera_follow(
@@ -93,5 +143,15 @@ fn camera_zoom(
                 ortho.scale = ortho.scale.clamp(0.1, 5.0);
             }
         }
+    }
+}
+
+fn handle_pause_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        info!("Pausing game");
+        next_state.set(AppState::Pause);
     }
 }

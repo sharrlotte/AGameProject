@@ -13,7 +13,11 @@ pub fn spawn_player_ship(
     app_var: Res<AppVar>,
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
+    query: Query<(), With<Ship>>,
 ) {
+    if !query.is_empty() {
+        return;
+    }
     let ship_data = if let Some(ship) = &app_var.current_ship {
         ship
     } else {
@@ -37,7 +41,11 @@ pub fn spawn_enemy_ship(
     app_var: Res<AppVar>,
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
+    query: Query<(), With<Ship>>,
 ) {
+    if !query.is_empty() {
+        return;
+    }
     let ship_data = if let Some(ship) = &app_var.current_ship {
         ship
     } else {

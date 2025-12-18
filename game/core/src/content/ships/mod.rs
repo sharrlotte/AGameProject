@@ -9,6 +9,7 @@ use crate::AppState;
 use crate::content::ships::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ships::indicators::IndicatorsPlugin;
 use crate::content::ships::spawner::{spawn_enemy_ship, spawn_player_ship};
+use crate::content::structures::ship::Ship;
 
 pub struct ShipPlugin;
 
@@ -24,6 +25,7 @@ impl Plugin for ShipPlugin {
                 .chain()
                 .run_if(in_state(AppState::Game)),
         )
+        .add_systems(OnEnter(AppState::Home), cleanup_ships)
         .add_plugins(IndicatorsPlugin);
     }
 }
@@ -33,3 +35,12 @@ pub struct AIShipController;
 
 #[derive(Component)]
 pub struct PlayerShipController;
+
+fn cleanup_ships(
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>,
+) {
+    for entity in &ships {
+        commands.entity(entity).despawn();
+    }
+}

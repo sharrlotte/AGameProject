@@ -9,7 +9,7 @@ impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Game), setup_background)
             .add_systems(Update, update_background.run_if(in_state(AppState::Game)))
-            .add_systems(OnExit(AppState::Game), cleanup_background);
+            .add_systems(OnEnter(AppState::Home), cleanup_background);
     }
 }
 
@@ -19,7 +19,11 @@ pub struct BackgroundImage;
 #[derive(Resource)]
 pub struct BackgroundConfig;
 
-fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>, query: Query<(), With<BackgroundImage>>) {
+    if !query.is_empty() {
+        return;
+    }
+
     // Load the single background image
     let texture_handle = asset_server.load("textures/background/background1.png");
 

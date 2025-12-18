@@ -12,7 +12,7 @@ use bevy::{
 };
 use bevy_rapier2d::prelude::*;
 use content::structures::registry::{BlockRegistry, register_default_blocks};
-use ui::{GamePlugin, HomePlugin, ShipEditorPlugin};
+use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
@@ -42,6 +42,7 @@ fn main() {
     .add_plugins((
         HomePlugin,
         GamePlugin,
+        PausePlugin,
         ShipEditorPlugin,
         ShipFeature,
         TurretPlugin,
@@ -84,6 +85,7 @@ pub enum AppState {
     Home,
     Game,
     ShipEditor,
+    Pause,
 }
 
 #[derive(Resource, Default)]
