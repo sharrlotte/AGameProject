@@ -2,7 +2,7 @@ use crate::content::structures::block::PlacedBlock;
 use crate::content::structures::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
 };
-use crate::content::structures::ship::{SavedBlock, SavedShip};
+use crate::content::structures::ship::{SavedBlock, SavedShip, Ship};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
 use crate::save::{load_saved_ships, save_ship};
 use crate::{AppState, AppVar, GRID_SIZE};
@@ -14,10 +14,7 @@ pub struct ShipEditorPlugin;
 
 impl Plugin for ShipEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EditorState>()
-            .init_resource::<EditorShip>()
-            .init_resource::<AvailableShips>()
-            .add_message::<ShipSavesChanged>()
+        app.add_message::<ShipSavesChanged>()
             .add_message::<ShipSaveChanged>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
@@ -25,6 +22,8 @@ impl Plugin for ShipEditorPlugin {
                     setup_editor_ui,
                     refresh_ship_list.after(setup_editor_ui),
                     load_initial_ship.after(refresh_ship_list),
+                    init_available_ships,
+                    init_editor_resources,
                 ),
             )
             .add_systems(
@@ -119,6 +118,15 @@ struct BackButton;
 struct PlayButton;
 
 // --- Systems ---
+
+fn init_available_ships(mut commands: Commands) {
+    commands.insert_resource(AvailableShips::default());
+}
+
+fn init_editor_resources(mut commands: Commands) {
+    commands.insert_resource(EditorState::default());
+    commands.insert_resource(EditorShip::default());
+}
 
 fn setup_editor_ui(
     mut commands: Commands,
@@ -909,6 +917,7 @@ fn cleanup_ship_editor(
     ui_root: Query<Entity, With<EditorUiRoot>>,
     preview: Query<Entity, With<PlacementPreview>>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
+    ships: Query<Entity, With<Ship>>,
 ) {
     info!("Cleaning up Ship Editor Scene");
     if let Some(e) = ui_root.iter().next() {
@@ -920,10 +929,12 @@ fn cleanup_ship_editor(
     for e in &placed_blocks {
         commands.entity(e).despawn();
     }
+    for e in &ships {
+        commands.entity(e).despawn();
+    }
 
     // Clear resources
-    commands.remove_resource::<EditorState>();
-    commands.remove_resource::<EditorShip>();
+    // Note: AvailableShips, EditorState, EditorShip are not removed to allow reopening
 }
 
 fn handle_tab_switching(
