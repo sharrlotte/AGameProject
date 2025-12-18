@@ -1,15 +1,14 @@
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub enum TargetingStrategy {
     Closest,
     MostHP,
     EnemyBullet,
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub enum ShootingProjectile {
     Bullet {
         speed: f32,
@@ -24,7 +23,7 @@ pub enum ShootingProjectile {
     },
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub enum ShootPattern {
     Single {
         fire_rate: f32,
@@ -60,7 +59,7 @@ pub struct TurretController {
     pub current_barrel_index: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TurretFeature {
     pub strategy: TargetingStrategy,
     pub range: f32,

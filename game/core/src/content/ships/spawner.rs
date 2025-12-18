@@ -2,9 +2,10 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ships::types::{AIShipBehavior, AIShipController, PlayerShipController};
-use crate::content::structures::block::BlockGroup;
+use crate::content::structures::block::render_block_definition;
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::{SavedShip, Ship};
+use crate::content::structures::types::BlockGroup;
 use crate::content::team::Team;
 use crate::{AppVar, GRID_SIZE};
 
@@ -149,7 +150,7 @@ pub fn spawn_ship(
 
             total_mass += def.mass;
 
-            let block = def.render(commands, asset_server, saved_block.pos, team);
+            let block = render_block_definition(def, commands, asset_server, saved_block.pos, team);
 
             commands.entity(ship_entity).add_child(block);
         }

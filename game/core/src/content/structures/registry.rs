@@ -1,5 +1,5 @@
 use crate::content::{
-    structures::block::{
+    structures::types::{
         BlockDefinition, BlockFeature, BlockGroup, BlockLayerDefinition, BlockShape, BlockType,
         LayerFeature, LayerKind, LayerVisual,
     },

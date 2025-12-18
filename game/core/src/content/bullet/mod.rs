@@ -6,7 +6,6 @@ use bevy::prelude::*;
 
 use crate::AppState;
 use crate::content::bullet::physic::{handle_bullet_collisions, handle_despawn_bullet};
-
 pub use types::*;
 
 pub struct BulletPlugin;

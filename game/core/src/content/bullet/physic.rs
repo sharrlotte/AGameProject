@@ -4,9 +4,7 @@ use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 use crate::content::{
     bullet::types::Bullet,
     structures::{
-        block::{Block, BlockGroup},
-        components::Health,
-        ship::Ship,
+        components::Health, registry::BlockRegistry, ship::Ship, types::{Block, BlockGroup}
     },
 };
 
@@ -17,6 +15,7 @@ pub fn handle_bullet_collisions(
     mut healths: Query<(Entity, &mut Health, &mut Block)>,
     parents: Query<&ChildOf>,
     ships: Query<&Ship>,
+    registry: Res<BlockRegistry>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -39,12 +38,20 @@ pub fn handle_bullet_collisions(
                 if healthc.health <= 0.0 {
                     commands.entity(health).despawn();
 
-                    if block.def.block_group == BlockGroup::Core {
-                        if let Ok(parent) = parents.get(health) {
-                            if let Ok(_ship) = ships.get(parent.0) {
-                                commands.entity(parent.0).despawn();
-                            }
-                        }
+                    let Some(def) = registry.get(&block.block_type) else {
+                        continue;
+                    };
+
+                    if def.block_group != BlockGroup::Core {
+                        continue;
+                    }
+
+                    let Ok(parent) = parents.get(health) else {
+                        continue;
+                    };
+
+                    if ships.get(parent.0).is_ok() {
+                        commands.entity(parent.0).despawn();
                     }
                 }
 

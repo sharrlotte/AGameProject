@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::content::structures::block::BlockType;
+use crate::content::structures::types::BlockType;
 
 /// The main component for a spaceship entity.
 /// It acts as the root for all attached blocks.
@@ -59,9 +59,3 @@ pub struct SavedShip {
 
 #[derive(Component)]
 pub struct ShipBlockHitbox;
-
-#[derive(Component)]
-pub struct Enemy;
-
-#[derive(Component)]
-pub struct Ally;

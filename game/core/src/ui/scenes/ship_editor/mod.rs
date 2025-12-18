@@ -1,8 +1,8 @@
-use crate::content::structures::block::PlacedBlock;
-use crate::content::structures::block::{
-    Block, BlockType, GridPosition, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
-};
+use crate::content::structures::block::render_block_definition;
 use crate::content::structures::ship::{SavedBlock, SavedShip, Ship};
+use crate::content::structures::types::{
+    Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition, PlacedBlock,
+};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
 use crate::content::team::Team;
 use crate::save::{load_saved_ships, save_ship};
@@ -21,6 +21,7 @@ impl Plugin for ShipEditorPlugin {
                 OnEnter(AppState::ShipEditor),
                 (
                     init_editor_resources,
+                    load_initial_ship,
                     (setup_editor_ui, refresh_ship_list.after(setup_editor_ui))
                         .chain()
                         .after(init_editor_resources),
@@ -60,7 +61,7 @@ struct ShipSaveChanged;
 
 // --- Resources ---
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Eq, Default, Clone, Copy, PartialEq, Debug)]
 enum EditorTab {
     #[default]
     Blocks,
@@ -1113,7 +1114,8 @@ fn spawn_placed_block(
     grid_pos: IVec2,
 ) -> bool {
     if let Some(def) = registry.get(&block_type) {
-        let entity = def.render(commands, asset_server, grid_pos, Team::default());
+        let entity =
+            render_block_definition(def, commands, asset_server, grid_pos, Team::default());
 
         for voxel in &def.shape.voxels {
             editor_ship.grid.insert(grid_pos + voxel.pos, entity);
@@ -1155,7 +1157,6 @@ fn perform_save_ship(
     blocks_query: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
-    // 1. Serialize
     let mut saved_blocks = Vec::new();
     // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
     // We can iterate the query instead.
@@ -1205,7 +1206,13 @@ fn perform_load_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let entity = def.render(commands, asset_server, saved_block.pos, Team::default());
+                let entity = render_block_definition(
+                    def,
+                    commands,
+                    asset_server,
+                    saved_block.pos,
+                    Team::default(),
+                );
 
                 for voxel in &def.shape.voxels {
                     editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);

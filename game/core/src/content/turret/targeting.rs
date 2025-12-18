@@ -1,6 +1,5 @@
 use crate::content::{
-    structures::{block::Block, ship::Enemy},
-    team::Team,
+    structures::types::Block,
     turret::types::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
 };
 use bevy::prelude::*;
@@ -45,7 +44,7 @@ pub fn update_turret_target(
                 };
 
                 // Add enemy to potential targets
-                 if let Ok((enemy, _, _)) = block
+                if let Ok((enemy, _, _)) = block
                     && let Ok((_, _, mut turretc)) = turret
                 {
                     turretc.potential_targets.insert(enemy);
@@ -73,7 +72,7 @@ pub fn update_turret_target(
     }
 
     // 2. Select best target from potential_targets
-    for (entity, transform, mut controller) in turrets.iter_mut() {
+    for (_, transform, mut controller) in turrets.iter_mut() {
         let turret_pos = transform.translation().truncate();
 
         let mut best_target: Option<Entity> = None;

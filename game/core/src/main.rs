@@ -17,9 +17,9 @@ use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
+use crate::content::bullet::BulletPlugin;
 use crate::content::ships::features::ShipFeature;
 use crate::content::turret::TurretPlugin;
-use crate::content::bullet::BulletPlugin;
 use crate::{content::structures::ship::SavedShip, save::load_saved_ships};
 
 fn main() {
@@ -81,7 +81,7 @@ fn setup_camera(mut commands: Commands) {
     ));
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
 pub enum AppState {
     #[default]
     Home,
