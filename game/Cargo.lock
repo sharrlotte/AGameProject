@@ -345,6 +345,7 @@ dependencies = [
  "bevy_log",
  "bevy_math",
  "bevy_mesh",
+ "bevy_pbr",
  "bevy_platform",
  "bevy_reflect",
  "bevy_render",
@@ -792,11 +793,13 @@ dependencies = [
  "bevy_log",
  "bevy_math",
  "bevy_mesh",
+ "bevy_picking",
  "bevy_platform",
  "bevy_post_process",
  "bevy_ptr",
  "bevy_reflect",
  "bevy_render",
+ "bevy_scene",
  "bevy_shader",
  "bevy_sprite",
  "bevy_sprite_render",
@@ -914,6 +917,42 @@ name = "bevy_mikktspace"
 version = "0.17.0-dev"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef8e4b7e61dfe7719bb03c884dc270cd46a82efb40f93e9933b990c5c190c59"
+
+[[package]]
+name = "bevy_pbr"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c514b950cda849aa64e9b076a235913577370275125a34a478758505a19d776"
+dependencies = [
+ "bevy_app",
+ "bevy_asset",
+ "bevy_camera",
+ "bevy_color",
+ "bevy_core_pipeline",
+ "bevy_derive",
+ "bevy_diagnostic",
+ "bevy_ecs",
+ "bevy_image",
+ "bevy_light",
+ "bevy_math",
+ "bevy_mesh",
+ "bevy_platform",
+ "bevy_reflect",
+ "bevy_render",
+ "bevy_shader",
+ "bevy_transform",
+ "bevy_utils",
+ "bitflags 2.10.0",
+ "bytemuck",
+ "derive_more",
+ "fixedbitset",
+ "nonmax",
+ "offset-allocator",
+ "smallvec",
+ "static_assertions",
+ "thiserror 2.0.17",
+ "tracing",
+]
 
 [[package]]
 name = "bevy_picking"
@@ -1109,6 +1148,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "bevy_scene"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fcf6efd31fdd1e05724c95900bb1055716c8e3633b05fa731ee75db4241c17d"
+dependencies = [
+ "bevy_app",
+ "bevy_asset",
+ "bevy_camera",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_platform",
+ "bevy_reflect",
+ "bevy_transform",
+ "bevy_utils",
+ "derive_more",
+ "serde",
+ "thiserror 2.0.17",
+ "uuid",
 ]
 
 [[package]]
@@ -1436,6 +1496,7 @@ version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 dependencies = [
+ "bytemuck",
  "serde_core",
 ]
 
@@ -2712,6 +2773,8 @@ checksum = "0ad4bb2b565bca0645f4d68c5c9af97fba094e9791da685bf83cb5f3ce74acf2"
 dependencies = [
  "equivalent",
  "hashbrown 0.16.1",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
