@@ -4,6 +4,7 @@ use crate::content::structures::block::{
 };
 use crate::content::structures::ship::{SavedBlock, SavedShip, Ship};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
+use crate::content::team::Team;
 use crate::save::{load_saved_ships, save_ship};
 use crate::{AppState, AppVar, GRID_SIZE};
 
@@ -1118,7 +1119,7 @@ fn spawn_placed_block(
     grid_pos: IVec2,
 ) -> bool {
     if let Some(def) = registry.get(&block_type) {
-        let entity = def.render(commands, asset_server, grid_pos, None);
+        let entity = def.render(commands, asset_server, grid_pos, Team::default());
 
         for voxel in &def.shape.voxels {
             editor_ship.grid.insert(grid_pos + voxel.pos, entity);
@@ -1210,7 +1211,7 @@ fn perform_load_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let entity = def.render(commands, asset_server, saved_block.pos, None);
+                let entity = def.render(commands, asset_server, saved_block.pos, Team::default());
 
                 for voxel in &def.shape.voxels {
                     editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);

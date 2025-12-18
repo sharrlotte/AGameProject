@@ -6,7 +6,7 @@ use bevy::prelude::*;
 pub fn handle_turret_emission(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(&GlobalTransform, &mut TurretController, Option<&Team>)>,
+    mut query: Query<(&GlobalTransform, &mut TurretController, &Team)>,
 ) {
     for (transform, mut targeter, team) in query.iter_mut() {
         if !targeter.active {

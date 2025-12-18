@@ -149,7 +149,7 @@ pub fn spawn_ship(
 
             total_mass += def.mass;
 
-            let block = def.render(commands, asset_server, saved_block.pos, Some(team));
+            let block = def.render(commands, asset_server, saved_block.pos, team);
 
             commands.entity(ship_entity).add_child(block);
         }

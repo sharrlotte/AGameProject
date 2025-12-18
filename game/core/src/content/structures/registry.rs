@@ -219,11 +219,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                         barrels: vec![Vec2::new(0.0, 0.0)],
                         fire_all_at_once: false,
                         shooting_pattern: ShootPattern::Single {
-                            fire_rate: 0.15,
+                            fire_rate: 0.55,
                             last_fired_at: 0.0,
                             projectile: ShootingProjectile::Bullet {
                                 speed: 2000.0,
-                                damage: 100.0,
+                                damage: 10.0,
                                 lifetime: 5.0,
                                 piercing: 1,
                             },
