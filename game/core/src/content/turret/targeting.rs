@@ -16,7 +16,7 @@ pub fn update_player_fire_controller(
     if let Some(cursor_position) = window.cursor_position() {
         if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
             for (mut controller, _) in query.iter_mut() {
-                controller.target_pos = Some(world_position);
+                controller.shoot_at = Some(world_position);
                 controller.active = mouse_input.pressed(MouseButton::Left);
             }
         }
@@ -113,13 +113,11 @@ pub fn update_turret_target(
         }
 
         if let Some(entity) = best_target {
-            if let Ok(target_pos) = blocks.get(entity).map(|op| op.1.translation().truncate()) {
-                controller.target_pos = Some(target_pos);
-                controller.active = true;
-            } else {
-                controller.target_pos = None;
-                controller.active = false;
-            }
+            controller.target = Some(entity);
+            controller.active = true;
+        } else {
+            controller.target = None;
+            controller.active = false;
         }
     }
 }

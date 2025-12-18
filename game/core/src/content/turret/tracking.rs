@@ -5,11 +5,21 @@ use crate::content::turret::types::TurretController;
 pub fn system_turret_tracking(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &GlobalTransform, &TurretController)>,
+    transforms: Query<&GlobalTransform>,
 ) {
     for (mut transform, global_transform, targeter) in &mut query {
-        if let Some(target_pos) = targeter.target_pos {
+        let mut target_pos: Option<Vec2> = None;
+        if let Some(shoot_at) = targeter.shoot_at {
+            target_pos = Some(shoot_at);
+        } else if let Some(target) = targeter.target {
+            if let Ok(pos) = transforms.get(target) {
+                target_pos = Some(pos.translation().truncate());
+            }
+        }
+
+        if let Some(shoot_at_pos) = target_pos {
             let current_pos = global_transform.translation().truncate();
-            let diff = target_pos - current_pos;
+            let diff = shoot_at_pos - current_pos;
             let dist_sq = diff.length_squared();
 
             if dist_sq < 0.0001 {

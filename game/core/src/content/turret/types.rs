@@ -55,7 +55,8 @@ pub struct TurretController {
     pub potential_targets: HashSet<Entity>,
 
     pub active: bool,
-    pub target_pos: Option<Vec2>,
+    pub target: Option<Entity>,
+    pub shoot_at: Option<Vec2>,
     pub current_barrel_index: usize,
 }
 
