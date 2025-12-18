@@ -7,5 +7,5 @@ pub struct Bullet {
     pub damage: f32,
     pub range: f32,
     pub shooted_at: Vec2,
-    pub piercing: u8,
+    pub piercing: i8,
 }
