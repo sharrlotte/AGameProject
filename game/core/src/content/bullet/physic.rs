@@ -2,12 +2,14 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 
 use crate::content::{
-    bullet::types::Bullet, ships::RebuildShipCollider, structures::{
+    bullet::types::Bullet,
+    ships::RebuildShipCollider,
+    structures::{
         components::Health,
         registry::BlockRegistry,
         ship::Ship,
         types::{BelongsToShip, Block, BlockGroup},
-    }
+    },
 };
 
 pub fn handle_bullet_collisions(
@@ -42,9 +44,9 @@ pub fn handle_bullet_collisions(
                 (bullet_entity, health_entity)
             {
                 healthc.health -= bulletc.damage;
-                commands.entity(belongs.ship).insert(RebuildShipCollider);
 
                 if healthc.health <= 0.0 {
+                    commands.entity(belongs.ship).insert(RebuildShipCollider);
                     commands.entity(health).despawn();
 
                     let Some(def) = registry.get(&block.block_type) else {

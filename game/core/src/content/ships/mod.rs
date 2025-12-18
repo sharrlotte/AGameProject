@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Collider, ColliderMassProperties, CollisionGroups};
+use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 
 pub mod controller;
 pub mod features;
@@ -14,7 +14,6 @@ use crate::content::ships::spawner::{
 };
 use crate::content::structures::registry::BlockRegistry;
 use crate::content::structures::ship::Ship;
-use crate::content::team::Team;
 use crate::{AppState, AppVar};
 
 pub use types::*;
@@ -74,19 +73,18 @@ fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
 
 fn check_rebuild_ship_collider(
     mut commands: Commands,
-    ships: Query<(Entity, &Ship, &Team), With<RebuildShipCollider>>,
+    ships: Query<(Entity, &Ship), With<RebuildShipCollider>>,
     registry: Res<BlockRegistry>,
 ) {
-    for (entity, ship, team) in &ships {
+    for (entity, ship) in &ships {
         let ShipCalculatedStat {
             mass,
             compound_shapes,
             ..
         } = calculate_ship_stat(&ship.blocks, &registry);
 
-        commands.entity(entity).insert((
+        commands.entity(entity).remove::<Collider>().insert((
             Collider::compound(compound_shapes),
-            CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
             ColliderMassProperties::Mass(mass),
         ));
 
