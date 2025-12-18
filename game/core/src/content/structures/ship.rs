@@ -9,6 +9,10 @@ use crate::content::structures::block::BlockType;
 #[derive(Component, Debug, Default, Reflect)]
 pub struct Ship {
     pub name: String,
+    pub center: Vec2,
+    pub thrust_power: f32,
+    pub turn_speed: f32,
+    pub radar_range: f32,
 }
 
 /// A spatial grid that maps local coordinates to Block Entities.
@@ -52,3 +56,12 @@ pub struct SavedShip {
     pub name: String,
     pub blocks: Vec<SavedBlock>,
 }
+
+#[derive(Component)]
+pub struct ShipBlockHitbox;
+
+#[derive(Component)]
+pub struct Enemy;
+
+#[derive(Component)]
+pub struct Ally;

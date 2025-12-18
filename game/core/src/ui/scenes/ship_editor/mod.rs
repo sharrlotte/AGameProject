@@ -1,12 +1,12 @@
-use crate::AppState;
-use crate::content::ships::features::ShipFeature;
-use crate::content::structures::block::LayerKind;
+use crate::content::structures::block::PlacedBlock;
 use crate::content::structures::block::{
     Block, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
 };
 use crate::content::structures::ship::{SavedBlock, SavedShip};
 use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
-use crate::save::{delete_ship, load_saved_ships, save_ship};
+use crate::save::{load_saved_ships, save_ship};
+use crate::{AppState, AppVar, GRID_SIZE};
+
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -18,6 +18,7 @@ impl Plugin for ShipEditorPlugin {
             .init_resource::<EditorShip>()
             .init_resource::<AvailableShips>()
             .add_message::<ShipSavesChanged>()
+            .add_message::<ShipSaveChanged>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
                 (
@@ -32,8 +33,7 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_selection,
                     handle_tab_switching,
                     handle_ship_loading,
-                    handle_ship_saving,
-                    handle_ship_deletion,
+                    handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                     process_input, // Replaced handle_grid_input
                     draw_grid,     // New system
@@ -41,24 +41,23 @@ impl Plugin for ShipEditorPlugin {
                     handle_placement,
                     handle_block_deletion,
                     update_block_properties_panel,
-                    update_save_button_state,
                     handle_camera_controls,
+                    handle_deploy_button,
+                    handle_deploy_button_click,
+                    handle_nav_buttons,
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
             )
-            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor)
-            .add_plugins(ShipFeature);
+            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor);
     }
-}
-
-#[derive(Component)]
-pub struct BlockLayer {
-    pub _kind: LayerKind,
 }
 
 #[derive(Message)]
 struct ShipSavesChanged;
+
+#[derive(Message)]
+struct ShipSaveChanged;
 
 // --- Resources ---
 
@@ -77,6 +76,8 @@ struct EditorState {
     // Input Abstraction
     place_req: bool,
     delete_req: bool,
+    // Drag detection for click-to-pan vs click-to-place
+    drag_accumulator: f32,
 }
 
 #[derive(Resource, Default)]
@@ -86,6 +87,7 @@ struct AvailableShips {
 
 #[derive(Resource, Default)]
 struct EditorShip {
+    name: String,
     grid: ShipGrid,
 }
 
@@ -94,9 +96,6 @@ struct EditorUiRoot;
 
 #[derive(Component)]
 struct PlacementPreview;
-
-#[derive(Component)]
-struct PlacedBlock;
 
 #[derive(Component)]
 struct TabButton(EditorTab);
@@ -108,13 +107,16 @@ struct BlockListPanel;
 struct ShipListPanel;
 
 #[derive(Component)]
-struct SaveButton;
-
-#[derive(Component)]
 struct LoadShipButton(String);
 
 #[derive(Component)]
-struct DeleteShipButton(String);
+struct DeployButton;
+
+#[derive(Component)]
+struct BackButton;
+
+#[derive(Component)]
+struct PlayButton;
 
 // --- Systems ---
 
@@ -149,11 +151,38 @@ fn setup_editor_ui(
                     BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
                 ))
                 .with_children(|left_panel| {
+                    // --- Back Button ---
+                    left_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::bottom(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            BackButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Back to Home"),
+                                TextFont {
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
+
                     // --- Tab Header ---
                     left_panel
                         .spawn(Node {
                             width: Val::Percent(100.0),
-                            height: Val::Px(40.0),
+                            height: Val::Px(30.0),
                             margin: UiRect::bottom(Val::Px(10.0)),
                             flex_direction: FlexDirection::Row,
                             justify_content: JustifyContent::SpaceBetween,
@@ -244,29 +273,44 @@ fn setup_editor_ui(
                                     ))
                                     .with_children(|btn| {
                                         // Block Icon/Sprite
-                                        // Use the first layer as icon
-                                        if let Some(layer) = def.layers.first() {
-                                            if let Some(visual) = layer.visuals.first() {
-                                                btn.spawn((
-                                                    ImageNode {
-                                                        image: asset_server.load(&visual.sprite),
-                                                        ..default()
-                                                    },
-                                                    Node {
-                                                        // Limit icon size to fit in the button
-                                                        width: Val::Px(40.0),
-                                                        height: Val::Px(40.0),
-                                                        ..default()
-                                                    },
-                                                ));
-                                            }
+                                        // Create a container for the stacked layers
+                                        btn.spawn(Node {
+                                            width: Val::Px(40.0),
+                                            height: Val::Px(40.0),
+                                            flex_shrink: 0.0,
+                                            ..default()
+                                        })
+                                        .with_children(
+                                            |icon_parent| {
+                                                for layer in &def.layers {
+                                                    for visual in &layer.visuals {
+                                                        icon_parent.spawn((
+                                                            ImageNode {
+                                                                image: asset_server
+                                                                    .load(&visual.sprite),
+                                                                ..default()
+                                                            },
+                                                            Node {
+                                                                position_type:
+                                                                    PositionType::Absolute,
+                                                                width: Val::Percent(100.0),
+                                                                height: Val::Percent(100.0),
+                                                                ..default()
+                                                            },
+                                                            Transform::from_translation(
+                                                                visual.offset.extend(visual.z),
+                                                            ),
+                                                        ));
+                                                    }
+                                                }
+                                            },
+                                        );
 
-                                            // Add a small spacer
-                                            btn.spawn(Node {
-                                                width: Val::Px(12.0),
-                                                ..default()
-                                            });
-                                        }
+                                        // Add a small spacer
+                                        btn.spawn(Node {
+                                            width: Val::Px(12.0),
+                                            ..default()
+                                        });
 
                                         // Block Name
                                         btn.spawn((
@@ -338,33 +382,6 @@ fn setup_editor_ui(
                         BlockPropertiesText,
                     ));
 
-                    // Save Button
-                    right_panel
-                        .spawn((
-                            Button,
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(40.0),
-                                margin: UiRect::top(Val::Px(20.0)),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.6, 0.2)),
-                            BorderRadius::all(Val::Px(5.0)),
-                            SaveButton,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Save Ship"),
-                                TextFont {
-                                    font_size: 16.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
-
                     // Instructions
                     right_panel.spawn((
                         Text::new("\n\nLeft Click: Place\nRight Click: Delete"),
@@ -378,6 +395,66 @@ fn setup_editor_ui(
                             ..default()
                         },
                     ));
+
+                    // Spacer
+                    right_panel.spawn(Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    });
+
+                    // Deploy Button
+                    right_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::top(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.2, 0.6, 1.0)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            DeployButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Deploy"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
+
+                    // Play Button
+                    right_panel
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::top(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.2, 0.8, 0.4)),
+                            BorderRadius::all(Val::Px(6.0)),
+                            PlayButton,
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("Start Game"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                        });
                 });
         });
 }
@@ -417,6 +494,104 @@ fn handle_block_selection(
     }
 }
 
+fn handle_deploy_button_click(
+    mut buttons: Query<(&Interaction, &mut BackgroundColor), With<DeployButton>>,
+    mut app_var: ResMut<AppVar>,
+    editor_ship: Res<EditorShip>,
+    blocks_query: Query<(&Block, &GridPosition)>,
+) {
+    for (interaction, mut bg_color) in &mut buttons {
+        if *interaction == Interaction::Pressed {
+            // Deploy Logic
+            let mut saved_blocks = Vec::new();
+
+            for (block, grid_pos) in &blocks_query {
+                saved_blocks.push(SavedBlock {
+                    pos: grid_pos.0,
+                    block_type: block.block_type,
+                    rotation: block.rotation,
+                });
+            }
+
+            let saved_ship = SavedShip {
+                name: editor_ship.name.clone(),
+                blocks: saved_blocks,
+            };
+
+            app_var.current_ship = Some(saved_ship);
+            info!("Deployed ship: {}", editor_ship.name);
+        }
+
+        match interaction {
+            Interaction::Pressed => *bg_color = BackgroundColor(Color::srgb(0.1, 0.4, 0.8)),
+            Interaction::Hovered => *bg_color = BackgroundColor(Color::srgb(0.3, 0.7, 1.0)),
+            _def => {}
+        }
+    }
+}
+
+fn handle_deploy_button(
+    mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
+    app_var: ResMut<AppVar>,
+    editor_ship: Res<EditorShip>,
+) {
+    let is_deployed = if let Some(current) = &app_var.current_ship {
+        current.name == editor_ship.name
+    } else {
+        false
+    };
+
+    for mut bg_color in &mut buttons {
+        if is_deployed {
+            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+        } else {
+            *bg_color = BackgroundColor(Color::srgb(0.2, 0.6, 1.0));
+        }
+    }
+}
+
+fn handle_nav_buttons(
+    mut interactions: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            Option<&BackButton>,
+            Option<&PlayButton>,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for (interaction, mut bg_color, back, play) in &mut interactions {
+        if back.is_none() && play.is_none() {
+            continue;
+        }
+
+        match *interaction {
+            Interaction::Pressed => {
+                if back.is_some() {
+                    next_state.set(AppState::Home);
+                } else if play.is_some() {
+                    next_state.set(AppState::Game);
+                }
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
+                if play.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.3, 0.9, 0.5));
+                }
+            }
+            Interaction::None => {
+                if back.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
+                } else if play.is_some() {
+                    *bg_color = BackgroundColor(Color::srgb(0.2, 0.8, 0.4));
+                }
+            }
+        }
+    }
+}
+
 /// Abstract input processing system
 /// Converts raw inputs (Mouse, Touch) into high-level editor intents.
 fn process_input(
@@ -442,15 +617,18 @@ fn process_input(
 
         // Convert to world coordinates
         if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            // Grid size = 40.0 pixels
-            let grid_size = 40.0;
-            let grid_x = (world_pos.x / grid_size).round() as i32;
-            let grid_y = (world_pos.y / grid_size).round() as i32;
+            let grid_x = (world_pos.x / GRID_SIZE).round() as i32;
+            let grid_y = (world_pos.y / GRID_SIZE).round() as i32;
             editor_state.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
 
             // Process Actions (Abstraction)
             if mouse.just_pressed(MouseButton::Left) {
-                editor_state.place_req = true;
+                editor_state.drag_accumulator = 0.0;
+            }
+            if mouse.just_released(MouseButton::Left) {
+                if editor_state.drag_accumulator < 5.0 {
+                    editor_state.place_req = true;
+                }
             }
             if mouse.just_pressed(MouseButton::Right) {
                 editor_state.delete_req = true;
@@ -466,27 +644,26 @@ fn process_input(
 
 /// Draws a visual grid around the center of the world
 fn draw_grid(mut gizmos: Gizmos) {
-    let grid_size = 40.0;
     let grid_lines = 50; // Number of lines in each direction from center
     let grid_color = Color::srgb(0.2, 0.2, 0.2);
-    let offset = grid_size / 2.0;
+    let offset = GRID_SIZE / 2.0;
 
     // Vertical lines
     for i in -grid_lines..=grid_lines {
-        let x = i as f32 * grid_size + offset;
+        let x = i as f32 * GRID_SIZE + offset;
         gizmos.line_2d(
-            Vec2::new(x, -(grid_lines as f32) * grid_size + offset),
-            Vec2::new(x, (grid_lines as f32) * grid_size + offset),
+            Vec2::new(x, -(grid_lines as f32) * GRID_SIZE + offset),
+            Vec2::new(x, (grid_lines as f32) * GRID_SIZE + offset),
             grid_color,
         );
     }
 
     // Horizontal lines
     for i in -grid_lines..=grid_lines {
-        let y = i as f32 * grid_size + offset;
+        let y = i as f32 * GRID_SIZE + offset;
         gizmos.line_2d(
-            Vec2::new(-(grid_lines as f32) * grid_size + offset, y),
-            Vec2::new((grid_lines as f32) * grid_size + offset, y),
+            Vec2::new(-(grid_lines as f32) * GRID_SIZE + offset, y),
+            Vec2::new((grid_lines as f32) * GRID_SIZE + offset, y),
             grid_color,
         );
     }
@@ -569,19 +746,23 @@ fn update_placement_preview(
     preview_query: Query<Entity, With<PlacementPreview>>,
     blocks_query: Query<(&Block, &GridPosition)>, // Added query
 ) {
-    if let (Some(selected_type), Some(grid_pos)) =
+    if let (Some(selected_type), Some(mouse_grid_pos)) =
         (editor_state.selected_block, editor_state.hovered_grid_pos)
     {
         let def = registry.get(&selected_type).unwrap();
-        let grid_size = 40.0;
+
+        // Calculate anchor position to center the block on mouse
+        let size = def.shape.size;
+        let anchor_offset = (size - IVec2::ONE) / 2;
+        let grid_pos = mouse_grid_pos - anchor_offset;
 
         // Calculate center offset
         let size_vec = def.shape.size.as_vec2();
-        let center_offset = (size_vec - 1.0) * grid_size * 0.5;
+        let center_offset = size_vec * GRID_SIZE * 0.5;
 
         let pos = Vec3::new(
-            grid_pos.x as f32 * grid_size,
-            grid_pos.y as f32 * grid_size,
+            grid_pos.x as f32 * GRID_SIZE,
+            grid_pos.y as f32 * GRID_SIZE,
             10.0,
         ) + center_offset.extend(0.0);
 
@@ -619,7 +800,7 @@ fn update_placement_preview(
                         parent.spawn((
                             Sprite {
                                 image: texture_handle,
-                                custom_size: Some(size_vec * grid_size - 2.0),
+                                custom_size: Some(size_vec * GRID_SIZE - 2.0),
                                 color: tint,
                                 ..default()
                             },
@@ -637,18 +818,24 @@ fn update_placement_preview(
 }
 
 fn handle_placement(
-    mut commands: Commands,
     editor_state: Res<EditorState>,
-    mut editor_ship: ResMut<EditorShip>,
     registry: Res<BlockRegistry>,
     asset_server: Res<AssetServer>,
     blocks_query: Query<(&Block, &GridPosition)>, // Added query
+    mut commands: Commands,
+    mut editor_ship: ResMut<EditorShip>,
+    mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
     if editor_state.place_req {
-        if let (Some(selected_type), Some(grid_pos)) =
+        if let (Some(selected_type), Some(mouse_grid_pos)) =
             (editor_state.selected_block, editor_state.hovered_grid_pos)
         {
+            let def = registry.get(&selected_type).unwrap();
+            let size = def.shape.size;
+            let anchor_offset = (size - IVec2::ONE) / 2;
+            let grid_pos = mouse_grid_pos - anchor_offset;
+
             let is_valid = check_placement_validity(
                 &editor_ship.grid,
                 &registry,
@@ -667,6 +854,7 @@ fn handle_placement(
                     selected_type,
                     grid_pos,
                 );
+                events.write(ShipSaveChanged);
             } else {
                 info!("Cannot place block here!");
             }
@@ -680,6 +868,7 @@ fn handle_block_deletion(
     mut editor_ship: ResMut<EditorShip>,
     registry: Res<BlockRegistry>,
     blocks_query: Query<(&Block, &GridPosition)>,
+    mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
     if editor_state.delete_req {
@@ -691,6 +880,7 @@ fn handle_block_deletion(
                 &blocks_query,
                 grid_pos,
             );
+            events.write(ShipSaveChanged);
         }
     }
 }
@@ -705,7 +895,7 @@ fn update_block_properties_panel(
             if let Some(def) = registry.get(&block_type) {
                 **text = format!(
                     "Name: {}\nCost: {}\nMass: {}\nHP: {}\n\n{}",
-                    def.name, def.cost, def.mass, def.max_health, def.description
+                    def.name, def.cost, def.mass, def.health, def.description
                 );
             }
         } else {
@@ -822,7 +1012,6 @@ fn refresh_ship_list(
                 parent
                     .spawn((Node {
                         width: Val::Percent(100.0),
-                        height: Val::Px(40.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
@@ -857,100 +1046,34 @@ fn refresh_ship_list(
                                 TextColor(Color::WHITE),
                             ));
                         });
-
-                        // Delete Button
-                        row.spawn((
-                            Button,
-                            Node {
-                                width: Val::Px(40.0),
-                                height: Val::Percent(100.0),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderRadius::all(Val::Px(4.0)),
-                            BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
-                            DeleteShipButton(ship.name.clone()),
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("X"),
-                                TextFont {
-                                    font_size: 14.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
                     });
             }
         });
 }
 
-fn update_save_button_state(
-    mut save_btn: Single<(&mut BackgroundColor, &mut Interaction), With<SaveButton>>,
-    blocks_query: Query<&Block>,
-) {
-    let mut has_core = false;
-    let mut block_count = 0;
-
-    for block in &blocks_query {
-        block_count += 1;
-        if block.block_type == BlockType::Core {
-            has_core = true;
-        }
-    }
-
-    // Must have core and at least one other block (total > 1)
-    let can_save = has_core && block_count > 1;
-
-    if can_save {
-        *save_btn.0 = BackgroundColor(Color::srgb(0.2, 0.6, 0.2));
-    } else {
-        *save_btn.0 = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)); // Disabled grey
-    }
-}
-
 fn handle_ship_saving(
-    mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<SaveButton>)>,
     blocks_query: Query<(&Block, &GridPosition)>,
     mut ship_saved_event: MessageWriter<ShipSavesChanged>,
+    state: Res<EditorShip>,
 ) {
     // Re-validate before saving
     let mut has_core = false;
     let mut block_count = 0;
+
     for (block, _) in &blocks_query {
         block_count += 1;
         if block.block_type == BlockType::Core {
             has_core = true;
         }
     }
+
     if !has_core || block_count <= 1 {
         return;
     }
 
-    for interaction in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            perform_save_ship(&blocks_query, &mut ship_saved_event);
-        }
-    }
+    perform_save_ship(state.name.clone(), &blocks_query, &mut ship_saved_event);
 }
 
-fn handle_ship_deletion(
-    mut interaction_query: Query<
-        (&Interaction, &DeleteShipButton),
-        (Changed<Interaction>, With<Button>),
-    >,
-    mut ship_saved_event: MessageWriter<ShipSavesChanged>,
-) {
-    for (interaction, delete_btn) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            delete_ship(&delete_btn.0);
-            ship_saved_event.write(ShipSavesChanged);
-        }
-    }
-}
 fn handle_ship_loading(
     mut commands: Commands,
     mut editor_ship: ResMut<EditorShip>,
@@ -982,75 +1105,18 @@ fn spawn_placed_block(
     asset_server: &AssetServer,
     block_type: BlockType,
     grid_pos: IVec2,
-) {
-    let def = registry.get(&block_type).unwrap();
-    let grid_size = 40.0;
+) -> bool {
+    if let Some(def) = registry.get(&block_type) {
+        let entity = def.render(commands, asset_server, grid_pos, None);
 
-    let size_vec = def.shape.size.as_vec2();
-    let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-
-    let anchor_pos = Vec3::new(
-        grid_pos.x as f32 * grid_size,
-        grid_pos.y as f32 * grid_size,
-        0.0,
-    );
-
-    let pos = anchor_pos + center_offset.extend(0.0);
-
-    let entity = commands
-        .spawn((
-            Transform::from_translation(pos),
-            Visibility::Visible,
-            Block {
-                block_type,
-                rotation: 0,
-            },
-            GridPosition(grid_pos),
-            PlacedBlock,
-        ))
-        .id();
-
-    for layer in &def.layers {
-        let layer_entity = commands
-            .spawn((
-                BlockLayer {
-                    _kind: layer.kind.clone(),
-                },
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Inherited,
-            ))
-            .id();
-
-        commands.entity(entity).add_child(layer_entity);
-
-        // Visuals
-        for visual in &layer.visuals {
-            let visual_entity = commands
-                .spawn((
-                    Sprite {
-                        image: asset_server.load(&visual.sprite),
-                        custom_size: Some(size_vec * grid_size - 2.0),
-                        ..default()
-                    },
-                    Transform::from_translation(visual.offset.extend(visual.z)),
-                ))
-                .id();
-
-            commands.entity(layer_entity).add_child(visual_entity);
+        for voxel in &def.shape.voxels {
+            editor_ship.grid.insert(grid_pos + voxel.pos, entity);
         }
-
-        // Features
-        for feature in &layer.features {
-            feature.apply(commands, layer_entity);
-        }
-    }
-
-    for voxel in &def.shape.voxels {
-        editor_ship.grid.insert(grid_pos + voxel.pos, entity);
     }
 
     info!("Placed block {:?} at {:?}", block_type, grid_pos);
+
+    return true;
 }
 
 fn remove_block_at(
@@ -1079,6 +1145,7 @@ fn remove_block_at(
 }
 
 fn perform_save_ship(
+    name: String,
     blocks_query: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
@@ -1086,6 +1153,7 @@ fn perform_save_ship(
     let mut saved_blocks = Vec::new();
     // We need to iterate over unique blocks. The grid contains entity refs for every voxel.
     // We can iterate the query instead.
+
     for (block, grid_pos) in blocks_query {
         saved_blocks.push(SavedBlock {
             pos: grid_pos.0,
@@ -1094,13 +1162,8 @@ fn perform_save_ship(
         });
     }
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
     let saved_ship = SavedShip {
-        name: timestamp.to_string(),
+        name,
         blocks: saved_blocks,
     };
 
@@ -1127,73 +1190,17 @@ fn perform_load_ship(
 
         // 1. Clear current ship
         editor_ship.grid = ShipGrid::new();
+        editor_ship.name = ship_to_load.name;
+
         for entity in placed_blocks {
             commands.entity(entity).despawn();
         }
 
         // 2. Spawn new blocks
-        let grid_size = 40.0;
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let size_vec = def.shape.size.as_vec2();
-                let center_offset = (size_vec - 1.0) * grid_size * 0.5;
-                let anchor_pos = Vec3::new(
-                    saved_block.pos.x as f32 * grid_size,
-                    saved_block.pos.y as f32 * grid_size,
-                    0.0,
-                );
-                let pos = anchor_pos + center_offset.extend(0.0);
+                let entity = def.render(commands, asset_server, saved_block.pos, None);
 
-                let entity = commands
-                    .spawn((
-                        Transform::from_translation(pos),
-                        Visibility::Visible,
-                        Block {
-                            block_type: saved_block.block_type,
-                            rotation: saved_block.rotation,
-                        },
-                        GridPosition(saved_block.pos),
-                        PlacedBlock,
-                    ))
-                    .id();
-
-                for layer in &def.layers {
-                    let layer_entity = commands
-                        .spawn((
-                            BlockLayer {
-                                _kind: layer.kind.clone(),
-                            },
-                            Transform::default(),
-                            GlobalTransform::default(),
-                            Visibility::Inherited,
-                        ))
-                        .id();
-
-                    commands.entity(entity).add_child(layer_entity);
-
-                    // Visuals
-                    for visual in &layer.visuals {
-                        let visual = commands
-                            .spawn((
-                                Sprite {
-                                    image: asset_server.load(&visual.sprite),
-                                    custom_size: Some(size_vec * grid_size - 2.0),
-                                    ..default()
-                                },
-                                Transform::from_translation(visual.offset.extend(visual.z)),
-                            ))
-                            .id();
-
-                        commands.entity(layer_entity).add_child(visual);
-                    }
-
-                    // Features
-                    for feature in &layer.features {
-                        feature.apply(commands, layer_entity);
-                    }
-                }
-
-                // Update grid
                 for voxel in &def.shape.voxels {
                     editor_ship.grid.insert(saved_block.pos + voxel.pos, entity);
                 }
@@ -1204,12 +1211,12 @@ fn perform_load_ship(
     }
 }
 
-
 fn handle_camera_controls(
     mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut editor_state: ResMut<EditorState>,
 ) {
     if let Ok((mut transform, mut projection)) = query.single_mut() {
         // Zoom
@@ -1234,6 +1241,7 @@ fn handle_camera_controls(
                 let pan_speed = scale * 0.5;
                 transform.translation.x -= event.delta.x * pan_speed;
                 transform.translation.y += event.delta.y * pan_speed;
+                editor_state.drag_accumulator += event.delta.length();
             }
         }
     }

@@ -1,5 +1,3 @@
-pub mod tracking;
-
 use bevy::{
     app::{App, Plugin, Update},
     camera::{Camera, Camera2d},
@@ -13,15 +11,12 @@ use bevy::{
     window::{PrimaryWindow, Window},
 };
 
-use crate::content::ships::features::tracking::TrackingFeaturePlugin;
-
 pub struct ShipFeature;
 
 impl Plugin for ShipFeature {
     fn build(&self, app: &mut App) {
         app.init_resource::<FeatureState>()
-            .add_systems(Update, process_input)
-            .add_plugins(TrackingFeaturePlugin);
+            .add_systems(Update, process_input);
     }
 }
 
