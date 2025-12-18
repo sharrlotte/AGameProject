@@ -319,13 +319,9 @@ fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets:
                                                                             PositionType::Absolute,
                                                                         width: Val::Percent(100.0),
                                                                         height: Val::Percent(100.0),
+
                                                                         ..default()
                                                                     },
-                                                                    Transform::from_translation(
-                                                                        visual
-                                                                            .offset
-                                                                            .extend(visual.z),
-                                                                    ),
                                                                 ));
                                                             }
                                                             _ => {}
@@ -644,31 +640,66 @@ fn process_input(
             return;
         }
 
+        // Process Actions (Abstraction)
+        if mouse.just_pressed(MouseButton::Left) {
+            editor.drag_accumulator = 0.0;
+        }
+
+        if mouse.just_released(MouseButton::Left) {
+            if editor.drag_accumulator < 1.0 {
+                editor.place_req = true;
+            }
+        }
+
+        if mouse.just_pressed(MouseButton::Right) {
+            editor.delete_req = true;
+        }
+
         // Convert to world coordinates
         if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
             let grid_x = ((world_pos.x - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
             let grid_y = ((world_pos.y - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
 
             editor.hovered_grid_pos = Some(IVec2::new(grid_x, grid_y));
-
-            // Process Actions (Abstraction)
-            if mouse.just_pressed(MouseButton::Left) {
-                editor.drag_accumulator = 0.0;
-            }
-            if mouse.just_released(MouseButton::Left) {
-                if editor.drag_accumulator < 10.0 {
-                    editor.place_req = true;
-                }
-            }
-            if mouse.just_pressed(MouseButton::Right) {
-                editor.delete_req = true;
-            }
-
-            // TODO: Add Touch support here later
-            // if touches.any_just_pressed() { ... }
         }
     } else {
         editor.hovered_grid_pos = None;
+    }
+}
+
+fn handle_camera_controls(
+    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut editor: ResMut<EditorState>,
+) {
+    if let Ok((mut transform, mut projection)) = query.single_mut() {
+        // Zoom
+        for event in mouse_wheel_events.read() {
+            if let Projection::Orthographic(ortho) = &mut *projection {
+                let zoom_speed = 0.1;
+                ortho.scale -= event.y * zoom_speed * ortho.scale;
+                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+            }
+        }
+
+        // Pan
+        if mouse_button_input.pressed(MouseButton::Left) {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+
+            for event in mouse_motion_events.read() {
+                // Pan speed scales with zoom level for consistent feel
+                let pan_speed = scale * 0.5;
+                transform.translation.x -= event.delta.x * pan_speed;
+                transform.translation.y += event.delta.y * pan_speed;
+                editor.drag_accumulator += event.delta.length();
+            }
+        }
     }
 }
 
@@ -1206,41 +1237,5 @@ fn spawn_ship(
         }
     } else {
         error!("Ship {} not found", ship_name);
-    }
-}
-
-fn handle_camera_controls(
-    mut query: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
-    mut mouse_motion_events: MessageReader<MouseMotion>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut editor: ResMut<EditorState>,
-) {
-    if let Ok((mut transform, mut projection)) = query.single_mut() {
-        // Zoom
-        for event in mouse_wheel_events.read() {
-            if let Projection::Orthographic(ortho) = &mut *projection {
-                let zoom_speed = 0.1;
-                ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(0.1, 5.0);
-            }
-        }
-
-        // Pan
-        if mouse_button_input.pressed(MouseButton::Left) {
-            let scale = if let Projection::Orthographic(ortho) = &*projection {
-                ortho.scale
-            } else {
-                1.0
-            };
-
-            for event in mouse_motion_events.read() {
-                // Pan speed scales with zoom level for consistent feel
-                let pan_speed = scale * 0.5;
-                transform.translation.x -= event.delta.x * pan_speed;
-                transform.translation.y += event.delta.y * pan_speed;
-                editor.drag_accumulator += event.delta.length();
-            }
-        }
     }
 }
