@@ -1,15 +1,18 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 
-use crate::content::{
-    bullet::types::Bullet,
-    ships::RebuildShipCollider,
-    structures::{
-        components::Health,
-        registry::BlockRegistry,
-        ship::Ship,
-        types::{BelongsToShip, Block, BlockGroup},
+use crate::{
+    content::{
+        bullet::types::Bullet,
+        ships::RebuildShipCollider,
+        structures::{
+            components::Health,
+            registry::BlockRegistry,
+            ship::Ship,
+            types::{BelongsToShip, Block, BlockGroup},
+        },
     },
+    utils::death::Death,
 };
 
 pub fn handle_bullet_collisions(
@@ -22,56 +25,70 @@ pub fn handle_bullet_collisions(
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
-            let (bullet_entity, health_entity) = match (
-                bullets.contains(*e1),
-                healths.contains(*e1),
-                bullets.contains(*e2),
-                healths.contains(*e2),
-            ) {
-                (true, _, _, true) => (bullets.get_mut(*e1), healths.get_mut(*e2)),
-                (_, true, true, _) => (bullets.get_mut(*e2), healths.get_mut(*e1)),
-                _ => {
-                    warn!(
-                        "Bullet {} and Health {} collided, but something is missing",
-                        e1, e2
-                    );
-                    continue;
-                }
+            let b1 = bullets.get(*e1);
+            let b2 = bullets.get(*e2);
+
+            let Ok((bullet, _)) = b1.or(b2) else {
+                warn!("Missing bullet {} or {}", e1, e2);
+                continue;
             };
 
-            if let (Ok((bullet, mut bulletc)), Ok((health, mut healthc, block, belongs))) =
-                (bullet_entity, health_entity)
-            {
-                healthc.health -= bulletc.damage;
+            let Ok((_, mut bulletc)) = bullets.get_mut(bullet) else {
+                warn!("Missing bullet {} or {}, idk how", e1, e2);
+                continue;
+            };
 
-                if healthc.health <= 0.0 {
-                    commands.entity(belongs.ship).insert(RebuildShipCollider);
-                    commands.entity(health).despawn();
+            if bulletc.piercing <= 0 {
+                commands
+                    .entity(bullet)
+                    .insert(Visibility::Hidden)
+                    .remove::<Collider>()
+                    .remove::<ActiveEvents>()
+                    .remove::<RigidBody>();
+            } else {
+                bulletc.piercing -= 1;
+            }
 
-                    if let Ok(mut ship) = ships.get_mut(belongs.ship) {
-                        ship.blocks.retain_mut(|f| f.id != block.id);
-                    }
+            let h1 = healths.contains(*e1);
+            let h2 = healths.contains(*e2);
 
-                    let Some(def) = registry.get(&block.block_type) else {
-                        continue;
-                    };
+            let health = if h1 {
+                *e1
+            } else if h2 {
+                *e2
+            } else {
+                warn!("Missing health {} or {}", e1, e2);
+                continue;
+            };
 
-                    if def.block_group != BlockGroup::Core {
-                        continue;
-                    }
+            let Ok((_, mut healthc, block, belong)) = healths.get_mut(health) else {
+                warn!("Missing health {} or {}, idk how", e1, e2);
+                continue;
+            };
 
-                    commands.entity(belongs.ship).despawn();
+            healthc.health -= bulletc.damage;
+
+            if healthc.health <= 0.0 {
+                commands.entity(health).insert(Death);
+
+                if ships.contains(belong.ship) {
+                    commands.entity(belong.ship).insert(RebuildShipCollider);
                 }
 
-                if bulletc.piercing <= 0 {
-                    commands
-                        .entity(bullet)
-                        .insert(Visibility::Hidden)
-                        .remove::<Collider>()
-                        .remove::<ActiveEvents>()
-                        .remove::<RigidBody>();
-                } else {
-                    bulletc.piercing -= 1;
+                if let Ok(mut ship) = ships.get_mut(belong.ship) {
+                    ship.blocks.retain_mut(|f| f.id != block.id);
+                }
+
+                let Some(def) = registry.get(&block.block_type) else {
+                    continue;
+                };
+
+                if def.block_group != BlockGroup::Core {
+                    continue;
+                }
+
+                if ships.contains(belong.ship) {
+                    commands.entity(belong.ship).insert(Death);
                 }
             }
         }
@@ -87,12 +104,12 @@ pub fn handle_despawn_bullet(
         bullet.timer.tick(time.delta());
 
         if bullet.timer.is_finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).insert(Death);
             continue;
         }
 
         if bullet.range < (bullet.shooted_at - global_transform.translation().truncate()).length() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).insert(Death);
             continue;
         }
     }

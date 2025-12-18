@@ -1,7 +1,14 @@
 mod content;
+mod math;
 mod save;
 mod ui;
-mod math;
+mod utils;
+
+use crate::content::bullet::BulletPlugin;
+use crate::content::ships::features::ShipFeature;
+use crate::content::turret::TurretPlugin;
+use crate::utils::death::DeathPlugin;
+use crate::{content::structures::ship::ShipData, save::load_saved_ships};
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;
@@ -17,12 +24,6 @@ use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
-
-use crate::content::bullet::BulletPlugin;
-use crate::content::ships::features::ShipFeature;
-use crate::content::turret::TurretPlugin;
-use crate::{content::structures::ship::ShipData, save::load_saved_ships};
-
 fn main() {
     let mut app = App::new();
 
@@ -49,6 +50,7 @@ fn main() {
         ShipFeature,
         TurretPlugin,
         BulletPlugin,
+        DeathPlugin,
     ));
 
     #[cfg(debug_assertions)]
