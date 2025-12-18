@@ -14,6 +14,7 @@ use crate::content::{
     bullet::BulletPlugin,
     turret::tracking::{draw_turret_ranges, system_turret_tracking},
 };
+use crate::AppState;
 
 pub struct TurretPlugin;
 
@@ -31,7 +32,8 @@ impl Plugin for TurretPlugin {
                     handle_turret_emission,
                     system_turret_tracking,
                     draw_turret_ranges,
-                ),
+                )
+                    .run_if(in_state(AppState::Game)),
             )
             .add_plugins(BulletPlugin);
     }
