@@ -8,6 +8,7 @@ use crate::content::bullet::BulletPlugin;
 use crate::content::ships::features::ShipFeature;
 use crate::content::turret::TurretPlugin;
 use crate::utils::death::DeathPlugin;
+use crate::utils::id_gen::AppId;
 use crate::{content::structures::ship::ShipData, save::load_saved_ships};
 
 use bevy::input::common_conditions::input_toggle_active;
@@ -39,6 +40,7 @@ fn main() {
     .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<AppVar>()
+    .init_resource::<AppId>()
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
