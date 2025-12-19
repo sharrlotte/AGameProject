@@ -9,13 +9,15 @@ pub mod indicators;
 pub mod spawner;
 
 use crate::content::block::registry::BlockRegistry;
-use crate::content::ship::base::{AIShipController, PlayerShipController, RebuildShipCollider, Ship};
+use crate::content::ship::base::{
+    AIShipController, PlayerShipController, RebuildShipCollider, Ship,
+};
 use crate::content::ship::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::spawner::{ShipCalculatedStat, calculate_ship_stat, spawn_ship};
 use crate::content::team::Team;
 use crate::math::random_vec2_step;
-use crate::save::load_saved_ships;
+use crate::save::load_saved_schematics;
 use crate::{AppState, AppVar};
 
 pub struct ShipPlugin;
@@ -96,7 +98,7 @@ fn check_enemy_ship(
         let missing = ENEMIES - ships.iter().len();
         let mut rng = rand::rng();
         for _ in 0..missing {
-            let data = load_saved_ships();
+            let data = load_saved_schematics();
             let Some(ship_data) = data.choose(&mut rng) else {
                 continue;
             };

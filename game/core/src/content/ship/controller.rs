@@ -3,7 +3,10 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::content::{ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship}, team::Team};
+use crate::content::{
+    ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship},
+    team::Team,
+};
 
 const THRUST_POWER_FACTOR: f32 = 160.0;
 const TURN_SPEED_FACTOR: f32 = 12000.0;
@@ -50,17 +53,17 @@ pub fn player_ship_controller(
 
 pub fn ai_ship_controller(
     mut query: Query<(
+        &mut AIShipController,
         &mut ExternalForce,
         &Velocity,
         &Transform,
-        &mut AIShipController,
         &Ship,
         &Team,
     )>,
     ships: Query<(Entity, &Transform, &Ship, &Team)>,
     global_transforms: Query<&Transform>,
 ) {
-    for (mut force, velocity, transform, mut controller, ship, team) in query.iter_mut() {
+    for (mut controller, mut force, velocity, transform, ship, team) in query.iter_mut() {
         let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
         let turn_speed = ship.turn_speed * TURN_SPEED_FACTOR;
 

@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{fs, io::Error, path::PathBuf};
 
-use crate::content::{block::base::BlockType, ship::base::{BlockData, ShipData}};
+use crate::content::{
+    block::base::BlockType,
+    ship::base::{BlockData, ShipData},
+};
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
@@ -15,19 +18,19 @@ pub fn save_dir() -> PathBuf {
     project_dirs.data_dir().to_path_buf()
 }
 
-pub fn load_saved_ships() -> Vec<ShipData> {
-    let ships_dir = save_dir().join("ships");
+pub fn load_saved_schematics() -> Vec<ShipData> {
+    let schematics_dir = save_dir().join("schematics");
 
-    let mut ships = Vec::new();
+    let mut schematics = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(ships_dir) {
+    if let Ok(entries) = fs::read_dir(schematics_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
                 if name.ends_with(".json") {
-                    let path = save_dir().join("ships").join(name);
+                    let path = save_dir().join("schematics").join(name);
                     if let Ok(json) = fs::read_to_string(path) {
                         if let Ok(ship) = serde_json::from_str::<ShipData>(&json) {
-                            ships.push(ship);
+                            schematics.push(ship);
                         }
                     }
                 }
@@ -35,15 +38,15 @@ pub fn load_saved_ships() -> Vec<ShipData> {
         }
     }
 
-    while ships.len() < 3 {
-        ships.push(ShipData {
-            id: ships.len(),
-            name: format!("ship_{}", ships.len()),
+    while schematics.len() < 3 {
+        schematics.push(ShipData {
+            id: schematics.len(),
+            name: format!("ship_{}", schematics.len()),
             blocks: Vec::new(),
         });
     }
 
-    for ship in &mut ships {
+    for ship in &mut schematics {
         if ship.blocks.len() <= 2 {
             ship.blocks.clear();
             ship.blocks.push(BlockData {
@@ -61,17 +64,17 @@ pub fn load_saved_ships() -> Vec<ShipData> {
         }
     }
 
-    return ships;
+    return schematics;
 }
 
-pub fn save_ship(data: &ShipData) -> Result<(), Error> {
-    let ships_dir = save_dir().join("ships");
+pub fn save_schematic(data: &ShipData) -> Result<(), Error> {
+    let schematics_dir = save_dir().join("schematics");
     let filename = format!("{}.json", data.name);
-    let path = ships_dir.join(&filename);
+    let path = schematics_dir.join(&filename);
 
-    // Create ships directory if it doesn't exist
-    if !ships_dir.exists() {
-        if let Err(e) = fs::create_dir_all(&ships_dir) {
+    // Create schematics directory if it doesn't exist
+    if !schematics_dir.exists() {
+        if let Err(e) = fs::create_dir_all(&schematics_dir) {
             return Err(e);
         }
     }
@@ -86,17 +89,5 @@ pub fn save_ship(data: &ShipData) -> Result<(), Error> {
             }
         }
         Err(e) => return Err(e.into()),
-    }
-}
-
-pub fn _delete_ship(name: &str) {
-    let ships_dir = save_dir().join("ships");
-    let filename = format!("{}.json", name);
-    let path = ships_dir.join(&filename);
-
-    if path.exists() {
-        if let Err(e) = fs::remove_file(&path) {
-            eprintln!("Failed to delete ship: {}", e);
-        }
     }
 }

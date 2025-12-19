@@ -5,11 +5,12 @@ use crate::content::block::base::{
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::renderer::{
-    get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_component,
+    get_block_half_size, get_block_size, get_block_transform, render_block_base,
+    render_block_component,
 };
 use crate::content::ship::base::{BlockData, Ship, ShipData, ShipGrid};
 use crate::content::team::Team;
-use crate::save::{load_saved_ships, save_ship};
+use crate::save::{load_saved_schematics, save_schematic};
 use crate::{AppState, AppVar, GRID_SIZE};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
@@ -990,7 +991,7 @@ fn load_initial_ship(
     placed_blocks: Query<Entity, With<PlacedBlock>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    let ship_names = load_saved_ships();
+    let ship_names = load_saved_schematics();
 
     if ship_names.is_empty() {
         info!("No ships available to load.");
@@ -1015,7 +1016,7 @@ fn refresh_ship_list(
     mut available_ships: ResMut<EditorState>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    available_ships.ships = load_saved_ships();
+    available_ships.ships = load_saved_schematics();
 
     info!("Refreshed ship list: {:?}", available_ships.ships.len());
 
@@ -1088,7 +1089,7 @@ fn handle_ship_saving(
         return;
     }
 
-    perform_save_ship(0, state.name.clone(), &blocks, &mut ship_saved_event);
+    perform_save_schematic(0, state.name.clone(), &blocks, &mut ship_saved_event);
 }
 
 fn handle_ship_loading(
@@ -1159,7 +1160,7 @@ fn remove_block_at(
     }
 }
 
-fn perform_save_ship(
+fn perform_save_schematic(
     id: usize,
     name: String,
     blocks: &Query<(&Block, &GridPosition)>,
@@ -1188,7 +1189,7 @@ fn perform_save_ship(
         blocks: saved_blocks,
     };
 
-    if let Err(e) = save_ship(&ship_data) {
+    if let Err(e) = save_schematic(&ship_data) {
         error!("Fail to save ship: {:?}", e)
     } else {
         ship_saved_event.write(ShipSavesChanged);
@@ -1210,7 +1211,7 @@ fn spawn_ship(
     ship_name: &str,
     ship_base: Entity,
 ) {
-    let ships = load_saved_ships();
+    let ships = load_saved_schematics();
 
     if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.name == ship_name) {
         info!("Loading ship: {}", ship_to_load.name);

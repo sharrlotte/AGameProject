@@ -11,7 +11,7 @@ use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
 use crate::content::ship::base::ShipData;
 use crate::content::turret::TurretPlugin;
-use crate::save::load_saved_ships;
+use crate::save::load_saved_schematics;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;
@@ -104,7 +104,7 @@ pub struct AppVar {
 pub const GRID_SIZE: f32 = 64.0;
 
 fn load_current_ship(mut state: ResMut<AppVar>) {
-    let ships = load_saved_ships();
+    let ships = load_saved_schematics();
 
     if let Some(ship) = ships.first() {
         state.current_ship = Some(ship.clone());
