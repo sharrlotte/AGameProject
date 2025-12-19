@@ -1,12 +1,12 @@
+pub mod base;
 pub mod physic;
 pub mod spawner;
-pub mod types;
 
 use bevy::prelude::*;
 
 use crate::AppState;
+use crate::content::bullet::base::Bullet;
 use crate::content::bullet::physic::{handle_bullet_collisions, handle_despawn_bullet};
-pub use types::*;
 
 pub struct BulletPlugin;
 

@@ -2,10 +2,7 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{fs, io::Error, path::PathBuf};
 
-use crate::content::structures::{
-    ship::{BlockData, ShipData},
-    types::BlockType,
-};
+use crate::content::{block::base::BlockType, ship::base::{BlockData, ShipData}};
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
@@ -40,6 +37,7 @@ pub fn load_saved_ships() -> Vec<ShipData> {
 
     while ships.len() < 3 {
         ships.push(ShipData {
+            id: ships.len(),
             name: format!("ship_{}", ships.len()),
             blocks: Vec::new(),
         });

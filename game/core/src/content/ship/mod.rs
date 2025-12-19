@@ -1,43 +1,60 @@
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 use rand::seq::IndexedRandom;
 
+pub mod base;
 pub mod controller;
-pub mod features;
 pub mod indicators;
 pub mod spawner;
-pub mod types;
 
-use crate::content::ships::controller::{ai_ship_controller, player_ship_controller};
-use crate::content::ships::indicators::IndicatorsPlugin;
-use crate::content::ships::spawner::{ShipCalculatedStat, calculate_ship_stat, spawn_ship};
-use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::Ship;
+use crate::content::block::registry::BlockRegistry;
+use crate::content::ship::base::{AIShipController, PlayerShipController, RebuildShipCollider, Ship};
+use crate::content::ship::controller::{ai_ship_controller, player_ship_controller};
+use crate::content::ship::indicators::IndicatorsPlugin;
+use crate::content::ship::spawner::{ShipCalculatedStat, calculate_ship_stat, spawn_ship};
 use crate::content::team::Team;
 use crate::math::random_vec2_step;
 use crate::save::load_saved_ships;
 use crate::{AppState, AppVar};
 
-pub use types::*;
-
 pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                player_ship_controller,
-                ai_ship_controller,
-                check_rebuild_ship_collider,
-                check_player_ship,
-                check_enemy_ship,
+        app.init_resource::<ComponentState>()
+            .add_systems(
+                Update,
+                (
+                    player_ship_controller,
+                    ai_ship_controller,
+                    check_rebuild_ship_collider,
+                    check_player_ship,
+                    check_enemy_ship,
+                    process_input,
+                )
+                    .chain()
+                    .run_if(in_state(AppState::Game)),
             )
-                .chain()
-                .run_if(in_state(AppState::Game)),
-        )
-        .add_systems(OnEnter(AppState::Home), cleanup_ships)
-        .add_plugins(IndicatorsPlugin);
+            .add_systems(OnEnter(AppState::Home), cleanup_ships)
+            .add_plugins(IndicatorsPlugin);
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct ComponentState {
+    cursor_world_pos: Option<Vec2>,
+}
+
+fn process_input(
+    mut state: ResMut<ComponentState>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
+) {
+    if let Some(cursor_pos) = window.cursor_position() {
+        if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
+            state.cursor_world_pos = Some(world_pos);
+        }
     }
 }
 

@@ -2,12 +2,11 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::content::structures::types::BlockType;
+use crate::content::block::base::BlockType;
 
-/// The main component for a spaceship entity.
-/// It acts as the root for all attached blocks.
 #[derive(Component, Debug, Default, Reflect)]
 pub struct Ship {
+    pub id: usize,
     pub name: String,
     pub center: Vec2,
     pub thrust_power: f32,
@@ -16,8 +15,30 @@ pub struct Ship {
     pub blocks: Vec<BlockData>,
 }
 
-/// A spatial grid that maps local coordinates to Block Entities.
-/// This allows for O(1) adjacency checks and easy validation.
+#[derive(Component)]
+pub struct PlayerShipController;
+
+#[derive(Component)]
+pub struct AIShipController {
+    pub behavior: AIShipBehavior,
+    pub initial_behavior: AIShipBehavior,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AIShipBehavior {
+    Idle,
+    Wander,
+    Attack { target_pos: Vec2 },
+    Patrol { around_pos: Vec2 },
+    Chase { target: Entity },
+    Flee { from: Entity },
+    Guard { target: Entity },
+    Follow { target: Entity },
+}
+
+#[derive(Component)]
+pub struct RebuildShipCollider;
+
 #[derive(Component, Debug, Default, Reflect)]
 pub struct ShipGrid {
     /// Maps (x, y) -> Entity ID
@@ -55,9 +76,7 @@ pub struct BlockData {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ShipData {
+    pub id: usize,
     pub name: String,
     pub blocks: Vec<BlockData>,
 }
-
-#[derive(Component)]
-pub struct ShipBlockHitbox;

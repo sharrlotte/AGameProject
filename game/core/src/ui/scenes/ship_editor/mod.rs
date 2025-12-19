@@ -1,13 +1,13 @@
-use crate::content::structures::block::{
-    get_block_half_size, get_block_size, get_block_transform, render_block_base,
-    render_block_layer, render_block_layer_feature,
+use crate::components::id_gen::IdGen;
+use crate::content::block::base::{
+    Block, BlockComponent, BlockDef, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
+    GridPosition,
 };
-use crate::content::structures::ship::{BlockData, Ship, ShipData};
-use crate::content::structures::types::{
-    Block, BlockDef, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP, GridPosition,
-    LayerFeature, PlacedBlock,
+use crate::content::block::registry::BlockRegistry;
+use crate::content::block::renderer::{
+    get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_component,
 };
-use crate::content::structures::{registry::BlockRegistry, ship::ShipGrid};
+use crate::content::ship::base::{BlockData, Ship, ShipData, ShipGrid};
 use crate::content::team::Team;
 use crate::save::{load_saved_ships, save_ship};
 use crate::{AppState, AppVar, GRID_SIZE};
@@ -116,6 +116,9 @@ struct PlayButton;
 
 #[derive(Component)]
 struct ShipBase;
+
+#[derive(Component)]
+struct PlacedBlock;
 
 fn init_editor_resources(mut commands: Commands) {
     commands.init_resource::<EditorState>();
@@ -305,28 +308,26 @@ fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets:
                                         })
                                         .with_children(
                                             |icon_parent| {
-                                                for layer in &def.layers {
-                                                    for feature in &layer.features {
-                                                        match feature {
-                                                            LayerFeature::Sprite(visual) => {
-                                                                icon_parent.spawn((
-                                                                    ImageNode {
-                                                                        image: assets
-                                                                            .load(&visual.sprite),
-                                                                        ..default()
-                                                                    },
-                                                                    Node {
-                                                                        position_type:
-                                                                            PositionType::Absolute,
-                                                                        width: Val::Percent(100.0),
-                                                                        height: Val::Percent(100.0),
+                                                for component in &def.components {
+                                                    match component {
+                                                        BlockComponent::Sprite(visual) => {
+                                                            icon_parent.spawn((
+                                                                ImageNode {
+                                                                    image: assets
+                                                                        .load(&visual.sprite),
+                                                                    ..default()
+                                                                },
+                                                                Node {
+                                                                    position_type:
+                                                                        PositionType::Absolute,
+                                                                    width: Val::Percent(100.0),
+                                                                    height: Val::Percent(100.0),
 
-                                                                        ..default()
-                                                                    },
-                                                                ));
-                                                            }
-                                                            _ => {}
+                                                                    ..default()
+                                                                },
+                                                            ));
                                                         }
+                                                        _ => {}
                                                     }
                                                 }
                                             },
@@ -525,6 +526,7 @@ fn handle_deploy_button_click(
     mut app_var: ResMut<AppVar>,
     editor: Res<EditorState>,
     blocks: Query<(&Block, &GridPosition)>,
+    generator: ResMut<IdGen>,
 ) {
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == Interaction::Pressed {
@@ -541,6 +543,7 @@ fn handle_deploy_button_click(
                 .collect::<Vec<BlockData>>();
 
             let ship_data = ShipData {
+                id: generator.next(),
                 name: editor.name.clone(),
                 blocks: saved_blocks,
             };
@@ -836,22 +839,20 @@ fn update_placement_preview(
         commands
             .spawn((transform, Visibility::Visible, PlacementPreview))
             .with_children(|icon_parent| {
-                for layer in &def.layers {
-                    for feature in &layer.features {
-                        match feature {
-                            LayerFeature::Sprite(visual) => {
-                                icon_parent.spawn((
-                                    Sprite {
-                                        image: assets.load(&visual.sprite),
-                                        custom_size: Some(get_block_size(def)),
-                                        color: tint,
-                                        ..default()
-                                    },
-                                    Transform::from_translation(visual.offset.extend(visual.z)),
-                                ));
-                            }
-                            _ => {}
+                for component in &def.components {
+                    match component {
+                        BlockComponent::Sprite(visual) => {
+                            icon_parent.spawn((
+                                Sprite {
+                                    image: assets.load(&visual.sprite),
+                                    custom_size: Some(get_block_size(def)),
+                                    color: tint,
+                                    ..default()
+                                },
+                                Transform::from_translation(visual.offset.extend(visual.z)),
+                            ));
                         }
+                        _ => {}
                     }
                 }
             });
@@ -1087,7 +1088,7 @@ fn handle_ship_saving(
         return;
     }
 
-    perform_save_ship(state.name.clone(), &blocks, &mut ship_saved_event);
+    perform_save_ship(0, state.name.clone(), &blocks, &mut ship_saved_event);
 }
 
 fn handle_ship_loading(
@@ -1124,12 +1125,10 @@ fn spawn_placed_block(
     let team = Team::default();
     let base = render_block_base(commands, base, block_def, 0, grid_pos, team);
 
-    for layer in &block_def.layers {
-        let layer_entity = render_block_layer(commands, base, &layer);
+    commands.entity(base).insert(PlacedBlock);
 
-        for feature in &layer.features {
-            render_block_layer_feature(commands, layer_entity, assets, block_def, feature, team);
-        }
+    for component in &block_def.components {
+        render_block_component(commands, base, assets, block_def, component, team);
     }
 
     return base;
@@ -1161,6 +1160,7 @@ fn remove_block_at(
 }
 
 fn perform_save_ship(
+    id: usize,
     name: String,
     blocks: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
@@ -1181,7 +1181,9 @@ fn perform_save_ship(
     } else {
         name
     };
+
     let ship_data = ShipData {
+        id,
         name: save_name,
         blocks: saved_blocks,
     };

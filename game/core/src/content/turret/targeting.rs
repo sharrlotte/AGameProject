@@ -1,12 +1,13 @@
-use crate::content::{
-    structures::types::Block,
-    turret::types::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
-};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::content::{
+    block::base::{Block, TargetingStrategy},
+    turret::base::{AIFireController, PlayerFireController, Turret},
+};
+
 pub fn update_player_fire_controller(
-    mut query: Query<(&mut TurretController, &GlobalTransform), With<PlayerFireController>>,
+    mut query: Query<(&mut Turret, &GlobalTransform), With<PlayerFireController>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -25,7 +26,7 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
-    mut turrets: Query<(Entity, &GlobalTransform, &mut TurretController), With<AIFireController>>,
+    mut turrets: Query<(Entity, &GlobalTransform, &mut Turret), With<AIFireController>>,
     mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {

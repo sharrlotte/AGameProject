@@ -2,13 +2,12 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::GRID_SIZE;
-use crate::content::ships::types::{AIShipBehavior, AIShipController, PlayerShipController};
-use crate::content::structures::block::{
-    render_block_base, render_block_layer, render_block_layer_feature,
+use crate::content::block::base::{BelongsToShip, BlockGroup};
+use crate::content::block::registry::BlockRegistry;
+use crate::content::block::renderer::{render_block_base, render_block_component};
+use crate::content::ship::base::{
+    AIShipBehavior, AIShipController, BlockData, PlayerShipController, Ship, ShipData,
 };
-use crate::content::structures::registry::BlockRegistry;
-use crate::content::structures::ship::{BlockData, Ship, ShipData};
-use crate::content::structures::types::{BelongsToShip, BlockGroup};
 use crate::content::team::Team;
 
 fn blocks_to_voxel_points(blocks: &[BlockData], registry: &BlockRegistry) -> Vec<Vec2> {
@@ -90,6 +89,7 @@ pub fn spawn_ship(
 
     let mut ship_cmd = commands.spawn((
         transform,
+        team,
         Visibility::Visible,
         RigidBody::Dynamic,
         Velocity::zero(),
@@ -97,14 +97,15 @@ pub fn spawn_ship(
         ExternalImpulse::default(),
         ReadMassProperties::default(),
         Restitution::coefficient(0.2),
-        ColliderMassProperties::Density(1.0),
         Ccd::enabled(),
+        ColliderMassProperties::Density(1.0),
         GravityScale(0.0),
         Damping {
             linear_damping: 0.8,
             angular_damping: 0.8,
         },
         Ship {
+            id: ship_data.id,
             name: ship_data.name.clone(),
             blocks: ship_data.blocks.clone(),
             center,
@@ -112,7 +113,6 @@ pub fn spawn_ship(
             turn_speed: 250.0,
             radar_range: 3000.0,
         },
-        team,
     ));
 
     if team.is_player() {
@@ -124,38 +124,24 @@ pub fn spawn_ship(
         });
     }
 
-    let ship_entity = ship_cmd.id();
+    let ship = ship_cmd.id();
 
     for block_data in &ship_data.blocks {
         if let Some(def) = registry.get(&block_data.block_type) {
-            let base = render_block_base(
-                commands,
-                ship_entity,
-                def,
-                block_data.id,
-                block_data.pos,
-                team,
-            );
+            let base = render_block_base(commands, ship, def, block_data.id, block_data.pos, team);
 
-            for layer in &def.layers {
-                let layer_entity = render_block_layer(commands, base, layer);
-
-                for feature in &layer.features {
-                    render_block_layer_feature(commands, layer_entity, assets, def, feature, team);
-                }
-
-                commands
-                    .entity(base)
-                    .insert(BelongsToShip { ship: ship_entity });
+            for component in &def.components {
+                render_block_component(commands, base, assets, def, component, team);
+                commands.entity(base).insert(BelongsToShip { ship });
             }
         }
     }
 
-    commands.entity(ship_entity).insert((
+    commands.entity(ship).insert((
         collider,
         CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
         ColliderMassProperties::Mass(mass),
     ));
 
-    return ship_entity;
+    return ship;
 }

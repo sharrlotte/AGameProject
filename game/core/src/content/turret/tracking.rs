@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use crate::content::turret::types::TurretController;
+use crate::content::turret::base::Turret;
 
 pub fn system_turret_tracking(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &GlobalTransform, &TurretController)>,
+    mut query: Query<(&mut Transform, &GlobalTransform, &Turret)>,
     transforms: Query<&GlobalTransform>,
 ) {
     for (mut transform, global_transform, targeter) in &mut query {
@@ -54,7 +54,7 @@ pub fn system_turret_tracking(
     }
 }
 
-pub fn draw_turret_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &TurretController)>) {
+pub fn draw_turret_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Turret)>) {
     for (global_transform, tracker) in &query {
         if tracker.range > 0.0 {
             gizmos

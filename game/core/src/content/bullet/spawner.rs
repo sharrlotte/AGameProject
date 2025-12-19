@@ -1,8 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::content::bullet::types::Bullet;
-use crate::content::team::Team;
-use crate::content::turret::types::ShootingProjectile;
+use crate::content::{block::base::ShootingProjectile, bullet::base::Bullet, team::Team};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 

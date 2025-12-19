@@ -8,9 +8,8 @@ use bevy_rapier2d::prelude::{
 use crate::{
     GRID_SIZE,
     content::{
-        structures::{components::Health, ship::ShipBlockHitbox, types::*},
-        team::Team,
-        turret::types::{AIFireController, PlayerFireController, TurretController},
+        block::base::{Block, BlockComponent, BlockDef, GridPosition, Health},
+        team::Team, turret::base::{AIFireController, PlayerFireController, Turret},
     },
 };
 
@@ -23,12 +22,8 @@ pub fn get_block_half_size(def: &BlockDef) -> Vec2 {
     return get_block_size(def) * 0.5;
 }
 
-pub fn get_block_transform(grid_pos: IVec2, half_size: Vec2) -> Transform {
-    let anchor_pos = Vec3::new(
-        grid_pos.x as f32 * GRID_SIZE,
-        grid_pos.y as f32 * GRID_SIZE,
-        0.0,
-    );
+pub fn get_block_transform(pos: IVec2, half_size: Vec2) -> Transform {
+    let anchor_pos = Vec3::new(pos.x as f32 * GRID_SIZE, pos.y as f32 * GRID_SIZE, 0.0);
 
     let pos = anchor_pos + half_size.extend(0.0);
 
@@ -40,11 +35,11 @@ pub fn render_block_base(
     parent: Entity,
     def: &BlockDef,
     id: usize,
-    grid_pos: IVec2,
+    pos: IVec2,
     team: Team,
 ) -> Entity {
     let half_size = get_block_half_size(def);
-    let transform = get_block_transform(grid_pos, half_size);
+    let transform = get_block_transform(pos, half_size);
 
     let child = commands
         .spawn((
@@ -52,9 +47,7 @@ pub fn render_block_base(
             def.block_group,
             team,
             Visibility::Visible,
-            GridPosition(grid_pos),
-            PlacedBlock,
-            ShipBlockHitbox,
+            GridPosition(pos),
             Collider::cuboid(half_size.x, half_size.y),
             CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
             ColliderMassProperties::Mass(0.0),
@@ -75,16 +68,16 @@ pub fn render_block_base(
     return child;
 }
 
-pub fn render_block_layer(
+pub fn render_block_component(
     commands: &mut Commands,
     parent: Entity,
-    layer: &BlockLayerDef,
-) -> Entity {
+    assets: &AssetServer,
+    def: &BlockDef,
+    component: &BlockComponent,
+    team: Team,
+) {
     let child = commands
         .spawn((
-            BlockLayer {
-                kind: layer.kind.clone(),
-            },
             Transform::default(),
             GlobalTransform::default(),
             Visibility::Inherited,
@@ -92,33 +85,21 @@ pub fn render_block_layer(
         .id();
 
     commands.entity(parent).add_child(child);
+    commands.entity(child).insert(team);
 
-    return child;
-}
+    match component {
+        BlockComponent::Recoil(_recoil_component) => todo!(),
+        BlockComponent::HeatEmitter(_heat_emitter_component) => todo!(),
+        BlockComponent::EnergyConsumer(_energy_consumer_component) => todo!(),
+        BlockComponent::Turret(f) => {
+            if team.is_player() {
+                commands.entity(child).insert(PlayerFireController);
+            } else {
+                commands.entity(child).insert(AIFireController);
+            }
 
-pub fn render_block_layer_feature(
-    commands: &mut Commands,
-    parent: Entity,
-    assets: &AssetServer,
-    def: &BlockDef,
-    feature: &LayerFeature,
-    team: Team,
-) {
-    if team.is_player() {
-        commands.entity(parent).insert(PlayerFireController);
-    } else {
-        commands.entity(parent).insert(AIFireController);
-    }
-
-    commands.entity(parent).insert(team);
-
-    match feature {
-        LayerFeature::Recoil(_recoil_feature) => todo!(),
-        LayerFeature::HeatEmitter(_heat_emitter_feature) => todo!(),
-        LayerFeature::EnergyConsumer(_energy_consumer_feature) => todo!(),
-        LayerFeature::Turret(f) => {
-            commands.entity(parent).insert((
-                TurretController {
+            commands.entity(child).insert((
+                Turret {
                     strategy: f.strategy.clone(),
                     range: f.range,
                     turn_speed: f.turn_speed,
@@ -132,15 +113,15 @@ pub fn render_block_layer_feature(
                     target: None,
                     shoot_at: None,
                 },
+                Sensor,
                 Collider::ball(f.range),
                 CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
-                Sensor,
                 ColliderMassProperties::Mass(0.0),
                 ActiveEvents::COLLISION_EVENTS,
             ));
         }
-        LayerFeature::Sprite(f) => {
-            commands.entity(parent).insert((
+        BlockComponent::Sprite(f) => {
+            commands.entity(child).insert((
                 Sprite {
                     image: assets.load(&f.sprite),
                     custom_size: Some(get_block_size(def)),

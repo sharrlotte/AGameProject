@@ -3,11 +3,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::content::{
-    ships::types::{AIShipBehavior, AIShipController, PlayerShipController},
-    structures::ship::Ship,
-    team::Team,
-};
+use crate::content::{ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship}, team::Team};
 
 const THRUST_POWER_FACTOR: f32 = 160.0;
 const TURN_SPEED_FACTOR: f32 = 12000.0;

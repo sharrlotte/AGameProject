@@ -4,9 +4,8 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::AppState;
-use crate::content::bullet::types::Bullet;
-use crate::content::ships::{PlayerShipController, ShipPlugin};
-use crate::content::structures::ship::Ship;
+use crate::content::bullet::base::Bullet;
+use crate::content::ship::base::{PlayerShipController, Ship};
 use crate::ui::scenes::game::background::{BackgroundConfig, BackgroundImage, BackgroundPlugin};
 
 #[derive(Resource, Default)]
@@ -27,7 +26,6 @@ impl Plugin for GamePlugin {
                 (camera_follow, camera_zoom, update_fps, handle_pause_input)
                     .run_if(in_state(AppState::Game)),
             )
-            .add_plugins(ShipPlugin)
             .add_plugins(BackgroundPlugin);
     }
 }

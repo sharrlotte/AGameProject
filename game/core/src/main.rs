@@ -1,15 +1,17 @@
+mod components;
 mod content;
 mod math;
 mod save;
 mod ui;
-mod utils;
 
+use crate::components::death::DeathPlugin;
+use crate::components::id_gen::IdGen;
+use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
-use crate::content::ships::features::ShipFeature;
+use crate::content::ship::ShipPlugin;
+use crate::content::ship::base::ShipData;
 use crate::content::turret::TurretPlugin;
-use crate::utils::death::DeathPlugin;
-use crate::utils::id_gen::AppId;
-use crate::{content::structures::ship::ShipData, save::load_saved_ships};
+use crate::save::load_saved_ships;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;
@@ -20,7 +22,6 @@ use bevy::{
     prelude::*,
 };
 use bevy_rapier2d::prelude::*;
-use content::structures::registry::{BlockRegistry, register_default_blocks};
 use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
@@ -40,7 +41,7 @@ fn main() {
     .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<AppVar>()
-    .init_resource::<AppId>()
+    .init_resource::<IdGen>()
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
@@ -49,7 +50,7 @@ fn main() {
         GamePlugin,
         PausePlugin,
         ShipEditorPlugin,
-        ShipFeature,
+        ShipPlugin,
         TurretPlugin,
         BulletPlugin,
         DeathPlugin,

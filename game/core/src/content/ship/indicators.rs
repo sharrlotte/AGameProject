@@ -1,7 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::content::structures::ship::Ship;
-use crate::content::team::Team;
+use crate::content::{ship::base::Ship, team::Team};
 use bevy::prelude::*;
 
 pub struct IndicatorsPlugin;

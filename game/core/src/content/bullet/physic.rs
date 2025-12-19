@@ -2,17 +2,15 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
 
 use crate::{
+    components::death::Death,
     content::{
-        bullet::types::Bullet,
-        ships::RebuildShipCollider,
-        structures::{
-            components::Health,
+        block::{
+            base::{BelongsToShip, Block, BlockGroup, Health},
             registry::BlockRegistry,
-            ship::Ship,
-            types::{BelongsToShip, Block, BlockGroup},
         },
+        bullet::base::Bullet,
+        ship::base::{RebuildShipCollider, Ship},
     },
-    utils::death::Death,
 };
 
 pub fn handle_bullet_collisions(

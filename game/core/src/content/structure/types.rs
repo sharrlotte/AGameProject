@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::content::turret::types::TurretFeature;
+use crate::content::turret::types::TurretComponent;
 
 /// Represents the type of a block.
 /// This acts as a key to look up static properties (Mass, Health, etc.) in the BlockRegistry.
@@ -89,10 +89,10 @@ impl Default for BlockShape {
 #[derive(Component, Clone, PartialEq)]
 pub struct GridPosition(pub IVec2);
 
-/// Enum representing distinct features/behaviors a block can have.
+/// Enum representing distinct components/behaviors a block can have.
 /// This allows us to extend block functionality without growing the base struct.
 #[derive(Clone, PartialEq, Reflect)]
-pub enum BlockFeature {
+pub enum BlockComponent {
     /// Provides thrust force.
     Thruster { force: f32 },
     /// Generates power.
@@ -126,22 +126,22 @@ impl Default for LayerKind {
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct RecoilFeature {
+pub struct RecoilComponent {
     pub strength: f32,
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct HeatEmitterFeature {
+pub struct HeatEmitterComponent {
     pub amount: f32,
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct EnergyConsumerFeature {
+pub struct EnergyConsumerComponent {
     pub rate: f32,
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct SpriteFeature {
+pub struct SpriteComponent {
     pub sprite: String,
     pub offset: Vec2,
     pub z: f32,
@@ -149,21 +149,21 @@ pub struct SpriteFeature {
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub enum LayerFeature {
-    Sprite(SpriteFeature),
-    Turret(TurretFeature),
-    Recoil(RecoilFeature),
-    HeatEmitter(HeatEmitterFeature),
-    EnergyConsumer(EnergyConsumerFeature),
+pub enum BlockComponent {
+    Sprite(SpriteComponent),
+    Turret(TurretComponent),
+    Recoil(RecoilComponent),
+    HeatEmitter(HeatEmitterComponent),
+    EnergyConsumer(EnergyConsumerComponent),
 }
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct BlockLayerDef {
+pub struct BlockComponent {
     pub id: String,
     /// e.g. "base", "turret", "engine", "radar"
     pub kind: LayerKind,
-    /// Optional feature payloads (composable)
-    pub features: Vec<LayerFeature>,
+    /// Optional component payloads (composable)
+    pub components: Vec<BlockComponent>,
 }
 
 /// A definition struct that holds the static data for a block type.
@@ -179,9 +179,9 @@ pub struct BlockDef {
     /// Replaced `size` with `shape` to support complex voxel structures
     pub shape: BlockShape,
     pub cost: u32,
-    /// A list of features this block possesses.
-    pub features: Vec<BlockFeature>,
-    pub layers: Vec<BlockLayerDef>,
+    /// A list of components this block possesses.
+    pub components: Vec<BlockComponent>,
+    pub layers: Vec<BlockComponent>,
 }
 
 /// Component, Clone,  PartialEq attached to every block entity.
