@@ -1,20 +1,23 @@
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use std::collections::HashMap;
 
-use crate::{
-    content::block::base::BlockType,
-    world::base::{BlockData, ShipData},
-};
+use crate::
+    world::base::BlockData
+;
 
 #[derive(Component, Debug, Default)]
 pub struct Ship {
-    pub id: usize,
+    pub id: Uuid,
     pub center: Vec2,
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub radar_range: f32,
     pub blocks: Vec<BlockData>,
+}
+
+pub struct ShipState {
+
 }
 
 #[derive(Component)]

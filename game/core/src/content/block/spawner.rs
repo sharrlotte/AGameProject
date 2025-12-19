@@ -4,13 +4,14 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{
     ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Sensor,
 };
+use uuid::Uuid;
 
 use crate::{
     GRID_SIZE,
     content::{
-        block::base::{Block, BlockComponent, BlockDef, GridPosition, Health},
+        block::base::{Block, BlockComponent, BlockDef, GridPosition, Health, ShootPattern},
         team::Team,
-        turret::base::{AIFireController, PlayerFireController, Turret},
+        turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
     },
 };
 
@@ -39,7 +40,7 @@ pub fn render_block_base(
     commands: &mut Commands,
     parent: Entity,
     def: &BlockDef,
-    id: usize,
+    id: Uuid,
     position: IVec2,
     team: Team,
 ) -> Entity {
@@ -111,18 +112,26 @@ pub fn render_block_component(
                     fire_all_at_once: f.fire_all_at_once,
                     barrels: f.barrels.clone(),
                     shooting_pattern: f.shooting_pattern.clone(),
-                    // state
-                    current_barrel_index: 0,
+                },
+                TurretState {
                     potential_targets: HashSet::default(),
                     active: false,
                     target: None,
                     shoot_at: None,
                 },
+                f.shooting_pattern.clone(),
+                ShootPattern::new(&f.shooting_pattern),
                 Sensor,
                 Collider::ball(f.range),
                 CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
                 ColliderMassProperties::Mass(0.0),
                 ActiveEvents::COLLISION_EVENTS,
+                Sprite {
+                    image: assets.load(&f.sprite),
+                    custom_size: Some(get_block_size(def)),
+                    color: Color::srgb(1.005, 1.005, 1.005),
+                    ..default()
+                },
             ));
         }
         BlockComponent::Sprite(f) => {

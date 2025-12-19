@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub const FACE_RIGHT: u8 = 0b0001; // +X
 pub const FACE_LEFT: u8 = 0b0010; // -X
@@ -118,6 +119,10 @@ pub struct TurretComponent {
     pub barrels: Vec<Vec2>,
     pub fire_all_at_once: bool,
     pub shooting_pattern: ShootPattern,
+    pub sprite: String,
+    pub offset: Vec2,
+    pub z: f32,
+    pub animated: bool,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
@@ -142,20 +147,43 @@ pub enum ShootingProjectile {
     },
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub enum ShootPattern {
     Single {
         fire_rate: f32,
-        last_fired_at: f32,
         projectile: ShootingProjectile,
     },
     Burst {
         count: u32,
         delay: f32,
+        projectile: ShootingProjectile,
+    },
+    Continuous,
+}
+
+impl ShootPattern {
+    pub fn new(&self) -> ShootPatternState {
+        match self {
+            ShootPattern::Single { .. } => ShootPatternState::Single { last_fired_at: 0.0 },
+            ShootPattern::Burst { .. } => ShootPatternState::Burst {
+                current_shot: 0,
+                burst_timer: 0.0,
+                is_bursting: false,
+            },
+            ShootPattern::Continuous => ShootPatternState::Continuous,
+        }
+    }
+}
+
+#[derive(Component, Debug, Reflect, Serialize, Deserialize)]
+pub enum ShootPatternState {
+    Single {
+        last_fired_at: f32,
+    },
+    Burst {
         current_shot: u32,
         burst_timer: f32,
         is_bursting: bool,
-        projectile: ShootingProjectile,
     },
     Continuous,
 }
@@ -176,7 +204,7 @@ pub struct BlockDef {
 
 #[derive(Component, Clone, PartialEq)]
 pub struct Block {
-    pub id: usize,
+    pub id: Uuid,
     pub rotation: u8,
     pub block_type: BlockType,
 }

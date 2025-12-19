@@ -1,4 +1,3 @@
-use crate::components::id_gen::IdGen;
 use crate::content::block::base::{
     Block, BlockComponent, BlockDef, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
     GridPosition,
@@ -16,21 +15,23 @@ use crate::{AppState, AppVar, GRID_SIZE};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use uuid::Uuid;
 pub struct ShipEditorPlugin;
 
 impl Plugin for ShipEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ShipSavesChanged>()
             .add_message::<ShipSaveChanged>()
+            .init_resource::<EditorState>()
             .add_systems(
                 OnEnter(AppState::ShipEditor),
                 (
-                    init_editor_resources,
-                    setup_editor_ui.after(init_editor_resources),
+                    setup_editor_ui,
                     load_initial_ship.after(setup_editor_ui),
-                    refresh_ship_list.after(setup_editor_ui),
+                    refresh_ship_list.after(load_initial_ship),
                 ),
             )
+            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor)
             .add_systems(
                 Update,
                 (
@@ -51,8 +52,7 @@ impl Plugin for ShipEditorPlugin {
                 )
                     .chain()
                     .run_if(in_state(AppState::ShipEditor)),
-            )
-            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor);
+            );
     }
 }
 
@@ -82,7 +82,7 @@ struct EditorState {
     is_dragging: bool,
     // Drag detection for click-to-pan vs click-to-place
     drag_accumulator: f32,
-    name: String,
+    filename: String,
     grid: ShipGrid,
     ships: Vec<SchematicData>,
 }
@@ -103,7 +103,9 @@ struct BlockListPanel;
 struct ShipListPanel;
 
 #[derive(Component)]
-struct LoadShipButton(String);
+struct LoadShipButton {
+    filename: String,
+}
 
 #[derive(Component)]
 struct DeployButton;
@@ -120,32 +122,33 @@ struct ShipBase;
 #[derive(Component)]
 struct PlacedBlock;
 
-fn init_editor_resources(mut commands: Commands) {
-    commands.init_resource::<EditorState>();
-}
-
 fn cleanup_ship_editor(
     mut commands: Commands,
     ui_root: Query<Entity, With<EditorUiRoot>>,
     preview: Query<Entity, With<PlacementPreview>>,
-    placed_blocks: Query<Entity, With<PlacedBlock>>,
+    blocks: Query<Entity, With<PlacedBlock>>,
     ships: Query<Entity, With<Ship>>,
+    ship_bases: Query<Entity, With<ShipBase>>,
 ) {
-    info!("Cleaning up Ship Editor Scene");
     if let Some(e) = ui_root.iter().next() {
         commands.entity(e).despawn();
     }
+
     for e in &preview {
         commands.entity(e).despawn();
     }
-    for e in &placed_blocks {
+
+    for e in &blocks {
         commands.entity(e).despawn();
     }
+
     for e in &ships {
         commands.entity(e).despawn();
     }
 
-    commands.remove_resource::<EditorState>();
+    for e in &ship_bases {
+        commands.entity(e).despawn();
+    }
 }
 
 fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets: Res<AssetServer>) {
@@ -311,6 +314,23 @@ fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets:
                                                 for component in &def.components {
                                                     match component {
                                                         BlockComponent::Sprite(visual) => {
+                                                            icon_parent.spawn((
+                                                                ImageNode {
+                                                                    image: assets
+                                                                        .load(&visual.sprite),
+                                                                    ..default()
+                                                                },
+                                                                Node {
+                                                                    position_type:
+                                                                        PositionType::Absolute,
+                                                                    width: Val::Percent(100.0),
+                                                                    height: Val::Percent(100.0),
+
+                                                                    ..default()
+                                                                },
+                                                            ));
+                                                        }
+                                                        BlockComponent::Turret(visual) => {
                                                             icon_parent.spawn((
                                                                 ImageNode {
                                                                     image: assets
@@ -526,16 +546,14 @@ fn handle_deploy_button_click(
     mut app_var: ResMut<AppVar>,
     editor: Res<EditorState>,
     blocks: Query<(&Block, &GridPosition)>,
-    generator: ResMut<IdGen>,
 ) {
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == Interaction::Pressed {
             // Deploy Logic
             let saved_blocks = blocks
                 .iter()
-                .enumerate()
-                .map(|(index, (block, grid_position))| SchematicBlockData {
-                    id: index,
+                .map(|(block, grid_position)| SchematicBlockData {
+                    id: Uuid::now_v7(),
                     position: grid_position.0,
                     block_type: block.block_type,
                     rotation: block.rotation,
@@ -543,13 +561,14 @@ fn handle_deploy_button_click(
                 .collect::<Vec<SchematicBlockData>>();
 
             let ship_data = SchematicData {
-                id: generator.next(),
-                name: editor.name.clone(),
+                id: Uuid::now_v7(),
+                name: editor.filename.clone(),
+                filename: editor.filename.clone(),
                 blocks: saved_blocks,
             };
 
             app_var.current_ship = Some(ship_data);
-            info!("Deployed ship: {}", editor.name);
+            info!("Deployed ship: {}", editor.filename);
         }
 
         match interaction {
@@ -566,7 +585,7 @@ fn handle_deploy_button(
     editor: Res<EditorState>,
 ) {
     let is_deployed = if let Some(current) = &app_var.current_ship {
-        current.name == editor.name
+        current.filename == editor.filename
     } else {
         false
     };
@@ -858,6 +877,17 @@ fn update_placement_preview(
                                 Transform::from_translation(visual.offset.extend(visual.z)),
                             ));
                         }
+                        BlockComponent::Turret(visual) => {
+                            icon_parent.spawn((
+                                Sprite {
+                                    image: assets.load(&visual.sprite),
+                                    custom_size: Some(get_block_size(def)),
+                                    color: tint,
+                                    ..default()
+                                },
+                                Transform::from_translation(visual.offset.extend(visual.z)),
+                            ));
+                        }
                         _ => {}
                     }
                 }
@@ -1007,6 +1037,7 @@ fn load_initial_ship(
     placed_blocks: Query<Entity, With<PlacedBlock>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
+    info!("Loading initial ship...");
     let ship_names = load_saved_schematics();
 
     if ship_names.is_empty() {
@@ -1014,7 +1045,7 @@ fn load_initial_ship(
         return;
     }
 
-    let ship_name = &ship_names[0].name;
+    let filename = &ship_names[0].filename;
 
     despawn_ship(&mut commands, &placed_blocks);
     spawn_ship(
@@ -1022,7 +1053,7 @@ fn load_initial_ship(
         &mut editor,
         &registry,
         &assets,
-        &ship_name,
+        &filename,
         ship_base.entity(),
     );
 }
@@ -1068,7 +1099,9 @@ fn refresh_ship_list(
                             },
                             BorderRadius::all(Val::Px(4.0)),
                             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                            LoadShipButton(ship.name.clone()),
+                            LoadShipButton {
+                                filename: ship.filename.clone(),
+                            },
                         ))
                         .with_children(|btn| {
                             btn.spawn((
@@ -1105,7 +1138,13 @@ fn handle_ship_saving(
         return;
     }
 
-    perform_save_schematic(0, state.name.clone(), &blocks, &mut ship_saved_event);
+    perform_save_schematic(
+        Uuid::now_v7(),
+        state.filename.clone(),
+        state.filename.clone(),
+        &blocks,
+        &mut ship_saved_event,
+    );
 }
 
 fn handle_ship_loading(
@@ -1119,14 +1158,13 @@ fn handle_ship_loading(
 ) {
     for (interaction, load_btn) in &mut interaction {
         if *interaction == Interaction::Pressed {
-            let ship_name = &load_btn.0;
             despawn_ship(&mut commands, &placed_blocks);
             spawn_ship(
                 &mut commands,
                 &mut editor,
                 &registry,
                 &assets,
-                ship_name,
+                &load_btn.filename,
                 ship_base.entity(),
             );
         }
@@ -1140,7 +1178,14 @@ fn spawn_placed_block(
     grid_position: IVec2,
 ) -> Entity {
     let team = Team::default();
-    let base = render_block_base(commands, base, block_def, 0, grid_position, team);
+    let base = render_block_base(
+        commands,
+        base,
+        block_def,
+        Uuid::now_v7(),
+        grid_position,
+        team,
+    );
 
     commands.entity(base).insert(PlacedBlock);
 
@@ -1177,16 +1222,16 @@ fn remove_block_at(
 }
 
 fn perform_save_schematic(
-    id: usize,
+    id: Uuid,
     name: String,
+    filename: String,
     blocks: &Query<(&Block, &GridPosition)>,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let saved_blocks = blocks
         .iter()
-        .enumerate()
-        .map(|(index, (block, grid_position))| SchematicBlockData {
-            id: index,
+        .map(|(block, grid_position)| SchematicBlockData {
+            id: Uuid::now_v7(),
             position: grid_position.0,
             block_type: block.block_type,
             rotation: block.rotation,
@@ -1201,6 +1246,7 @@ fn perform_save_schematic(
 
     let ship_data = SchematicData {
         id,
+        filename,
         name: save_name,
         blocks: saved_blocks,
     };
@@ -1224,17 +1270,22 @@ fn spawn_ship(
     editor: &mut EditorState,
     registry: &BlockRegistry,
     assets: &AssetServer,
-    ship_name: &str,
+    filename: &str,
     ship_base: Entity,
 ) {
     let ships = load_saved_schematics();
 
-    if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.name == ship_name) {
+    if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.filename == filename) {
         info!("Loading ship: {}", ship_to_load.name);
 
         // 1. Clear current ship
         editor.grid = ShipGrid::new();
-        editor.name = ship_to_load.name;
+        editor.filename = ship_to_load.name;
+
+        if ship_to_load.blocks.is_empty() {
+            warn!("Ship {} is empty", editor.filename);
+            return;
+        }
 
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
@@ -1248,11 +1299,13 @@ fn spawn_ship(
                 );
 
                 for voxel in &def.shape.voxels {
-                    editor.grid.insert(saved_block.position + voxel.position, base);
+                    editor
+                        .grid
+                        .insert(saved_block.position + voxel.position, base);
                 }
             }
         }
     } else {
-        error!("Ship {} not found", ship_name);
+        error!("Ship {} not found", filename);
     }
 }

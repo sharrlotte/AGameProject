@@ -3,11 +3,11 @@ use bevy_rapier2d::prelude::*;
 
 use crate::content::{
     block::base::{Block, TargetingStrategy},
-    turret::base::{AIFireController, PlayerFireController, Turret},
+    turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
 };
 
 pub fn update_player_fire_controller(
-    mut query: Query<(&mut Turret, &GlobalTransform), With<PlayerFireController>>,
+    mut query: Query<(&mut TurretState, &GlobalTransform), With<PlayerFireController>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -26,7 +26,10 @@ pub fn update_player_fire_controller(
 
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
-    mut turrets: Query<(Entity, &GlobalTransform, &mut Turret), With<AIFireController>>,
+    mut turrets: Query<
+        (Entity, &GlobalTransform, &Turret, &mut TurretState),
+        With<AIFireController>,
+    >,
     mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
@@ -46,9 +49,9 @@ pub fn update_turret_target(
 
                 // Add enemy to potential targets
                 if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, mut turretc)) = turret
+                    && let Ok((_, _, _, mut state)) = turret
                 {
-                    turretc.potential_targets.insert(enemy);
+                    state.potential_targets.insert(enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
@@ -64,31 +67,31 @@ pub fn update_turret_target(
                 };
 
                 if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, mut turretc)) = turret
+                    && let Ok((_, _, _, mut state)) = turret
                 {
-                    turretc.potential_targets.remove(&enemy);
+                    state.potential_targets.remove(&enemy);
                 }
             }
         }
     }
 
     // 2. Select best target from potential_targets
-    for (_, transform, mut controller) in turrets.iter_mut() {
+    for (_, transform, turret, mut state) in turrets.iter_mut() {
         let turret_position = transform.translation().truncate();
 
         let mut best_target: Option<Entity> = None;
         let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
 
-        for &entity in controller.potential_targets.iter() {
+        for &entity in state.potential_targets.iter() {
             if let Ok((_, target_transform, _)) = blocks.get(entity) {
                 let target_pos_actual = target_transform.translation().truncate();
                 let dist_sq = turret_position.distance_squared(target_pos_actual);
 
-                if dist_sq > controller.range * controller.range {
+                if dist_sq > turret.range * turret.range {
                     continue;
                 }
 
-                match controller.strategy {
+                match turret.strategy {
                     TargetingStrategy::Closest => {
                         if dist_sq < closest_dist_sq {
                             closest_dist_sq = dist_sq;
@@ -114,11 +117,11 @@ pub fn update_turret_target(
         }
 
         if let Some(entity) = best_target {
-            controller.target = Some(entity);
-            controller.active = true;
+            state.target = Some(entity);
+            state.active = true;
         } else {
-            controller.target = None;
-            controller.active = false;
+            state.target = None;
+            state.active = false;
         }
     }
 }

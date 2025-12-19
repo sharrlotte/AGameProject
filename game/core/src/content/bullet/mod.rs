@@ -1,6 +1,5 @@
 pub mod base;
 pub mod physic;
-pub mod spawner;
 
 use bevy::prelude::*;
 

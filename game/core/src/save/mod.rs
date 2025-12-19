@@ -1,7 +1,13 @@
 use bevy::prelude::*;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Error, path::PathBuf};
+use std::{
+    fs,
+    io::Error,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
+use uuid::Uuid;
 
 use crate::{
     content::block::base::BlockType,
@@ -30,7 +36,8 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
                 if name.ends_with(".json") {
                     let path = save_dir().join("schematics").join(name);
                     if let Ok(json) = fs::read_to_string(path) {
-                        if let Ok(ship) = serde_json::from_str::<SchematicData>(&json) {
+                        if let Ok(mut ship) = serde_json::from_str::<SchematicData>(&json) {
+                            ship.filename = name.to_string().replace(".json", "");
                             schematics.push(ship);
                         }
                     }
@@ -40,8 +47,15 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
     }
 
     while schematics.len() < 3 {
+        let timetamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+            .to_string();
+
         schematics.push(SchematicData {
-            id: schematics.len(),
+            id: Uuid::now_v7(),
+            filename: timetamp,
             name: format!("ship_{}", schematics.len()),
             blocks: Vec::new(),
         });
@@ -51,13 +65,13 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
         if ship.blocks.len() <= 2 {
             ship.blocks.clear();
             ship.blocks.push(SchematicBlockData {
-                id: 0,
+                id: Uuid::now_v7(),
                 block_type: BlockType::Core,
                 position: IVec2::new(0, 0),
                 rotation: 0,
             });
             ship.blocks.push(SchematicBlockData {
-                id: 1,
+                id: Uuid::now_v7(),
                 block_type: BlockType::LazerTurret,
                 position: IVec2::new(1, 3),
                 rotation: 0,
@@ -70,7 +84,7 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
 
 pub fn save_schematic(data: &SchematicData) -> Result<(), Error> {
     let schematics_dir = save_dir().join("schematics");
-    let filename = format!("{}.json", data.name);
+    let filename = format!("{}.json", data.filename);
     let path = schematics_dir.join(&filename);
 
     // Create schematics directory if it doesn't exist
@@ -95,7 +109,7 @@ pub fn save_schematic(data: &SchematicData) -> Result<(), Error> {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct SchematicBlockData {
-    pub id: usize,
+    pub id: Uuid,
     pub position: IVec2,
     pub block_type: BlockType,
     pub rotation: u8,
@@ -103,7 +117,8 @@ pub struct SchematicBlockData {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SchematicData {
-    pub id: usize,
+    pub id: Uuid,
+    pub filename: String,
     pub name: String,
     pub blocks: Vec<SchematicBlockData>,
 }
@@ -128,5 +143,3 @@ impl SchematicData {
         }
     }
 }
-
-pub fn save_map() {}

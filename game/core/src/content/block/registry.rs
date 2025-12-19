@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::content::block::base::{
-    BlockComponent, BlockDef, BlockGroup, BlockShape, BlockType, ShootPattern, ShootingProjectile, SpriteComponent, TargetingStrategy, TurretComponent
+    BlockComponent, BlockDef, BlockGroup, BlockShape, BlockType, ShootPattern, ShootingProjectile,
+    SpriteComponent, TargetingStrategy, TurretComponent,
 };
 
 #[derive(Resource, Default, Reflect)]
@@ -155,21 +156,18 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                     z: 0.0,
                     animated: false,
                 }),
-                BlockComponent::Sprite(SpriteComponent {
-                    sprite: "textures/blocks/lancer.png".into(),
-                    offset: Vec2::ZERO,
-                    z: 0.1,
-                    animated: false,
-                }),
                 BlockComponent::Turret(TurretComponent {
                     range: 20000.0,
                     turn_speed: 2.0,
                     barrels: vec![Vec2::new(0.0, 0.0)],
                     fire_all_at_once: false,
                     strategy: TargetingStrategy::Closest,
+                    sprite: "textures/blocks/lancer.png".into(),
+                    offset: Vec2::ZERO,
+                    z: 0.1,
+                    animated: false,
                     shooting_pattern: ShootPattern::Single {
                         fire_rate: 0.15,
-                        last_fired_at: 0.0,
                         projectile: ShootingProjectile::Bullet {
                             speed: 2000.0,
                             damage: 20.0,

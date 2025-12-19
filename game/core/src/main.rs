@@ -6,7 +6,6 @@ mod ui;
 mod world;
 
 use crate::components::death::DeathPlugin;
-use crate::components::id_gen::IdGen;
 use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
@@ -41,7 +40,6 @@ fn main() {
     .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<AppVar>()
-    .init_resource::<IdGen>()
     .init_state::<AppState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))

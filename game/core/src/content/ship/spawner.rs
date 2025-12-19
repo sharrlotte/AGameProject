@@ -129,7 +129,7 @@ pub fn spawn_ship(
             let base = render_block_base(commands, ship, def, block_data.id, block_data.position, team);
 
             for component in &def.components {
-                render_block_component(commands, base, assets, def, component, team);
+                render_block_component( commands, base, assets, def, component, team);
                 commands.entity(base).insert(BelongsToShip { ship });
             }
         }
