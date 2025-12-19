@@ -112,12 +112,12 @@ pub fn ai_ship_controller(
             AIShipBehavior::Wander => {
                 // Randomly move around
             }
-            AIShipBehavior::Attack { target_pos } => {
+            AIShipBehavior::Attack { target_position } => {
                 chase(
                     transform,
                     velocity,
                     &mut force,
-                    target_pos,
+                    target_position,
                     thrust_power,
                     turn_speed,
                 );
@@ -125,7 +125,7 @@ pub fn ai_ship_controller(
             AIShipBehavior::Flee { from } => {
                 // Run away from the player
             }
-            AIShipBehavior::Patrol { around_pos } => {
+            AIShipBehavior::Patrol { around_position } => {
                 // Move between predefined points
             }
             AIShipBehavior::Guard { target } => {
@@ -144,11 +144,11 @@ fn chase(
     transform: &Transform,
     velocity: &Velocity,
     force: &mut ExternalForce,
-    target_pos: Vec2,
+    target_position: Vec2,
     thrust_power: f32,
     turn_speed: f32,
 ) {
-    let direction = (target_pos - transform.translation.truncate()).normalize_or_zero();
+    let direction = (target_position - transform.translation.truncate()).normalize_or_zero();
     let angle = direction.y.atan2(direction.x) - PI / 2.0;
     let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
 
@@ -169,7 +169,7 @@ fn chase(
     force.torque = torque;
 
     if angle_diff.abs() < PI / 2.0 {
-        if transform.translation.truncate().distance(target_pos) <= CLOSE_ENOUGH_DISTANCE {
+        if transform.translation.truncate().distance(target_position) <= CLOSE_ENOUGH_DISTANCE {
             force.force = Vec2::ZERO;
             force.torque = 0.0;
         } else {

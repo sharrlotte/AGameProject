@@ -45,7 +45,7 @@ impl Plugin for ShipPlugin {
 
 #[derive(Resource, Default)]
 pub struct ComponentState {
-    cursor_world_pos: Option<Vec2>,
+    cursor_world_position: Option<Vec2>,
 }
 
 fn process_input(
@@ -53,9 +53,9 @@ fn process_input(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
 ) {
-    if let Some(cursor_pos) = window.cursor_position() {
-        if let Ok(world_pos) = camera.0.viewport_to_world_2d(camera.1, cursor_pos) {
-            state.cursor_world_pos = Some(world_pos);
+    if let Some(cursor_position) = window.cursor_position() {
+        if let Ok(world_position) = camera.0.viewport_to_world_2d(camera.1, cursor_position) {
+            state.cursor_world_position = Some(world_position);
         }
     }
 }
@@ -68,7 +68,7 @@ fn check_player_ship(
     assets: Res<AssetServer>,
 ) {
     if ships.iter().len() == 0 {
-        let ship_data = if let Some(ship) = &vars.current_ship {
+        let ship = if let Some(ship) = &vars.current_ship {
             ship
         } else {
             warn!("No ship loaded in AppVar!");
@@ -79,7 +79,7 @@ fn check_player_ship(
             &mut commands,
             &registry,
             &assets,
-            ship_data,
+            &ship.to_ship_data(),
             Transform::from_translation(Vec3::ZERO),
             Team::new(0),
         );
@@ -94,30 +94,33 @@ fn check_enemy_ship(
     registry: Res<BlockRegistry>,
     assets: Res<AssetServer>,
 ) {
-    if ships.iter().len() <= ENEMIES {
-        let missing = ENEMIES - ships.iter().len();
-        let mut rng = rand::rng();
-        for _ in 0..missing {
-            let data = load_saved_schematics();
-            let Some(ship_data) = data.choose(&mut rng) else {
-                continue;
-            };
+    if ships.iter().len() > ENEMIES {
+        return;
+    }
 
-            let pos = random_vec2_step(
-                Vec2::new(-5000.0, -5000.0),
-                Vec2::new(5000.0, 5000.0),
-                500.0,
-            );
+    let missing = ENEMIES - ships.iter().len();
+    let mut rng = rand::rng();
 
-            spawn_ship(
-                &mut commands,
-                &registry,
-                &assets,
-                ship_data,
-                Transform::from_translation(pos.extend(0.0)),
-                Team::new(1), // Enemy
-            );
-        }
+    for _ in 0..missing {
+        let data = load_saved_schematics();
+        let Some(ship) = data.choose(&mut rng) else {
+            continue;
+        };
+
+        let position = random_vec2_step(
+            Vec2::new(-5000.0, -5000.0),
+            Vec2::new(5000.0, 5000.0),
+            500.0,
+        );
+
+        spawn_ship(
+            &mut commands,
+            &registry,
+            &assets,
+            &ship.to_ship_data(),
+            Transform::from_translation(position.extend(0.0)),
+            Team::new(1), // Enemy
+        );
     }
 }
 

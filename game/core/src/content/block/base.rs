@@ -29,14 +29,14 @@ pub enum BlockGroup {
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockVoxel {
-    pub pos: IVec2,
+    pub position: IVec2,
     pub connectable_faces: u8,
 }
 
 impl Default for BlockVoxel {
     fn default() -> Self {
         Self {
-            pos: IVec2::ZERO,
+            position: IVec2::ZERO,
             connectable_faces: FACE_ALL,
         }
     }
@@ -54,7 +54,7 @@ impl BlockShape {
         for y in 0..height {
             for x in 0..width {
                 voxels.push(BlockVoxel {
-                    pos: IVec2::new(x, y),
+                    position: IVec2::new(x, y),
                     connectable_faces: FACE_ALL,
                 });
             }

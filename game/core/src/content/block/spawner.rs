@@ -9,7 +9,8 @@ use crate::{
     GRID_SIZE,
     content::{
         block::base::{Block, BlockComponent, BlockDef, GridPosition, Health},
-        team::Team, turret::base::{AIFireController, PlayerFireController, Turret},
+        team::Team,
+        turret::base::{AIFireController, PlayerFireController, Turret},
     },
 };
 
@@ -22,12 +23,16 @@ pub fn get_block_half_size(def: &BlockDef) -> Vec2 {
     return get_block_size(def) * 0.5;
 }
 
-pub fn get_block_transform(pos: IVec2, half_size: Vec2) -> Transform {
-    let anchor_pos = Vec3::new(pos.x as f32 * GRID_SIZE, pos.y as f32 * GRID_SIZE, 0.0);
+pub fn get_block_transform(position: IVec2, half_size: Vec2) -> Transform {
+    let anchor_position = Vec3::new(
+        position.x as f32 * GRID_SIZE,
+        position.y as f32 * GRID_SIZE,
+        0.0,
+    );
 
-    let pos = anchor_pos + half_size.extend(0.0);
+    let position = anchor_position + half_size.extend(0.0);
 
-    return Transform::from_translation(pos);
+    return Transform::from_translation(position);
 }
 
 pub fn render_block_base(
@@ -35,11 +40,11 @@ pub fn render_block_base(
     parent: Entity,
     def: &BlockDef,
     id: usize,
-    pos: IVec2,
+    position: IVec2,
     team: Team,
 ) -> Entity {
     let half_size = get_block_half_size(def);
-    let transform = get_block_transform(pos, half_size);
+    let transform = get_block_transform(position, half_size);
 
     let child = commands
         .spawn((
@@ -47,7 +52,7 @@ pub fn render_block_base(
             def.block_group,
             team,
             Visibility::Visible,
-            GridPosition(pos),
+            GridPosition(position),
             Collider::cuboid(half_size.x, half_size.y),
             CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
             ColliderMassProperties::Mass(0.0),

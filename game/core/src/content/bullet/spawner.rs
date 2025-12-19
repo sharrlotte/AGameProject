@@ -8,7 +8,7 @@ pub fn spawn_bullet(
     commands: &mut Commands,
     turret_transform: &GlobalTransform,
     team: &Team,
-    barrel_pos: Vec2,
+    barrel_position: Vec2,
     range: f32,
     projectile: &ShootingProjectile,
 ) {
@@ -18,8 +18,8 @@ pub fn spawn_bullet(
     // Transform offset by turret rotation
     // We need the turret's current rotation from GlobalTransform
     let (_, turret_rot, _) = turret_transform.to_scale_rotation_translation();
-    let world_offset = turret_rot * barrel_pos.extend(0.0);
-    let spawn_pos = turret_transform.translation() + world_offset;
+    let world_offset = turret_rot * barrel_position.extend(0.0);
+    let spawn_position = turret_transform.translation() + world_offset;
 
     match &projectile {
         ShootingProjectile::Bullet {
@@ -32,7 +32,7 @@ pub fn spawn_bullet(
                 .spawn((
                     Bullet {
                         timer: Timer::from_seconds(*lifetime, TimerMode::Once),
-                        shooted_at: spawn_pos.truncate(),
+                        shooted_at: spawn_position.truncate(),
                         range,
                         damage: *damage,
                         piercing: *piercing,
@@ -43,7 +43,7 @@ pub fn spawn_bullet(
                         ..default()
                     },
                     Transform {
-                        translation: spawn_pos,
+                        translation: spawn_position,
                         rotation,
                         ..default()
                     },

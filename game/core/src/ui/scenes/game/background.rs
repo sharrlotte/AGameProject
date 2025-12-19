@@ -60,10 +60,10 @@ fn update_background(
 ) {
     let (mut transform, sprite) = bg_transform.into_inner();
     let (camera_transform, _projection) = *camera_query;
-    let camera_pos = camera_transform.translation.truncate();
+    let camera_position = camera_transform.translation.truncate();
 
     let parallax_factor = 0.95;
-    let target_pos = camera_pos * parallax_factor;
+    let target_position = camera_position * parallax_factor;
     let mut base_scale = 2.0; // Default fallback
 
     if let Some(image) = images.get(&sprite.image) {
@@ -92,8 +92,8 @@ fn update_background(
         }
     }
 
-    transform.translation.x = target_pos.x;
-    transform.translation.y = target_pos.y;
+    transform.translation.x = target_position.x;
+    transform.translation.y = target_position.y;
     transform.translation.z = -100.0;
 
     transform.scale = Vec3::new(base_scale, base_scale, 1.0);

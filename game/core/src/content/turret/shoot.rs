@@ -28,12 +28,12 @@ pub fn handle_turret_emission(
                 projectile,
             } => {
                 if time.elapsed_secs() - *last_fired_at >= *fire_rate {
-                    for barrel_pos in barrels.iter_mut() {
+                    for barrel_position in barrels.iter_mut() {
                         spawn_bullet(
                             &mut commands,
                             transform,
                             team,
-                            *barrel_pos,
+                            *barrel_position,
                             *range,
                             &projectile,
                         );

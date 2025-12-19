@@ -130,10 +130,10 @@ fn camera_follow(
 
     // Smooth follow
     let smooth_speed = 5.0;
-    let new_pos = current.lerp(target, time.delta_secs() * smooth_speed);
+    let new_position = current.lerp(target, time.delta_secs() * smooth_speed);
 
-    camera_transform.translation.x = new_pos.x;
-    camera_transform.translation.y = new_pos.y;
+    camera_transform.translation.x = new_position.x;
+    camera_transform.translation.y = new_position.y;
 }
 
 fn camera_zoom(

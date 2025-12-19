@@ -1,3 +1,3 @@
 pub mod registry;
-pub mod renderer;
+pub mod spawner;
 pub mod base;

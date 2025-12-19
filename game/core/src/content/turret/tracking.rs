@@ -8,18 +8,18 @@ pub fn system_turret_tracking(
     transforms: Query<&GlobalTransform>,
 ) {
     for (mut transform, global_transform, targeter) in &mut query {
-        let mut target_pos: Option<Vec2> = None;
+        let mut target_position: Option<Vec2> = None;
         if let Some(shoot_at) = targeter.shoot_at {
-            target_pos = Some(shoot_at);
+            target_position = Some(shoot_at);
         } else if let Some(target) = targeter.target {
-            if let Ok(pos) = transforms.get(target) {
-                target_pos = Some(pos.translation().truncate());
+            if let Ok(position) = transforms.get(target) {
+                target_position = Some(position.translation().truncate());
             }
         }
 
-        if let Some(shoot_at_pos) = target_pos {
-            let current_pos = global_transform.translation().truncate();
-            let diff = shoot_at_pos - current_pos;
+        if let Some(shoot_at_position) = target_position {
+            let current_position = global_transform.translation().truncate();
+            let diff = shoot_at_position - current_position;
             let dist_sq = diff.length_squared();
 
             if dist_sq < 0.0001 {

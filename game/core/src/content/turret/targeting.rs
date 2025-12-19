@@ -74,7 +74,7 @@ pub fn update_turret_target(
 
     // 2. Select best target from potential_targets
     for (_, transform, mut controller) in turrets.iter_mut() {
-        let turret_pos = transform.translation().truncate();
+        let turret_position = transform.translation().truncate();
 
         let mut best_target: Option<Entity> = None;
         let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
@@ -82,7 +82,7 @@ pub fn update_turret_target(
         for &entity in controller.potential_targets.iter() {
             if let Ok((_, target_transform, _)) = blocks.get(entity) {
                 let target_pos_actual = target_transform.translation().truncate();
-                let dist_sq = turret_pos.distance_squared(target_pos_actual);
+                let dist_sq = turret_position.distance_squared(target_pos_actual);
 
                 if dist_sq > controller.range * controller.range {
                     continue;

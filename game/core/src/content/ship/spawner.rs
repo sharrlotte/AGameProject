@@ -4,11 +4,10 @@ use bevy_rapier2d::prelude::*;
 use crate::GRID_SIZE;
 use crate::content::block::base::{BelongsToShip, BlockGroup};
 use crate::content::block::registry::BlockRegistry;
-use crate::content::block::renderer::{render_block_base, render_block_component};
-use crate::content::ship::base::{
-    AIShipBehavior, AIShipController, BlockData, PlayerShipController, Ship, ShipData,
-};
+use crate::content::block::spawner::{render_block_base, render_block_component};
+use crate::content::ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship};
 use crate::content::team::Team;
+use crate::world::base::{BlockData, ShipData};
 
 fn blocks_to_voxel_points(blocks: &[BlockData], registry: &BlockRegistry) -> Vec<Vec2> {
     let mut points = Vec::new();
@@ -18,8 +17,8 @@ fn blocks_to_voxel_points(blocks: &[BlockData], registry: &BlockRegistry) -> Vec
         let size = def.shape.size;
 
         // base grid position
-        let base_x = block.pos.x as f32;
-        let base_y = block.pos.y as f32;
+        let base_x = block.position.x as f32;
+        let base_y = block.position.y as f32;
 
         // fill rectangle
         for y in 0..size.y {
@@ -48,20 +47,20 @@ pub struct ShipCalculatedStat {
 }
 
 pub fn calculate_ship_stat(
-    ship_data: &Vec<BlockData>,
+    blocks: &Vec<BlockData>,
     registry: &BlockRegistry,
 ) -> ShipCalculatedStat {
     let mut mass: f32 = 0.0;
     let mut center = Vec2::ZERO;
 
-    for block_data in ship_data {
-        if let Some(def) = registry.get(&block_data.block_type) {
+    for block in blocks {
+        if let Some(def) = registry.get(&block.block_type) {
             mass += def.mass;
 
             if def.block_group == BlockGroup::Core {
                 let size = def.shape.size.as_vec2();
                 let offset = size * GRID_SIZE * 0.5;
-                center = block_data.pos.as_vec2() * GRID_SIZE + offset;
+                center = block.position.as_vec2() * GRID_SIZE + offset;
             }
         }
     }
@@ -69,7 +68,7 @@ pub fn calculate_ship_stat(
     return ShipCalculatedStat {
         mass,
         center: center,
-        collider: build_ship_voxel_collider_2d(&ship_data, registry),
+        collider: build_ship_voxel_collider_2d(&blocks, registry),
     };
 }
 
@@ -106,7 +105,6 @@ pub fn spawn_ship(
         },
         Ship {
             id: ship_data.id,
-            name: ship_data.name.clone(),
             blocks: ship_data.blocks.clone(),
             center,
             thrust_power: 1000.0,
@@ -128,7 +126,7 @@ pub fn spawn_ship(
 
     for block_data in &ship_data.blocks {
         if let Some(def) = registry.get(&block_data.block_type) {
-            let base = render_block_base(commands, ship, def, block_data.id, block_data.pos, team);
+            let base = render_block_base(commands, ship, def, block_data.id, block_data.position, team);
 
             for component in &def.components {
                 render_block_component(commands, base, assets, def, component, team);

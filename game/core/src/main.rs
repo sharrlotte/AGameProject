@@ -3,15 +3,15 @@ mod content;
 mod math;
 mod save;
 mod ui;
+mod world;
 
 use crate::components::death::DeathPlugin;
 use crate::components::id_gen::IdGen;
 use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
-use crate::content::ship::base::ShipData;
 use crate::content::turret::TurretPlugin;
-use crate::save::load_saved_schematics;
+use crate::save::{SchematicData, load_saved_schematics};
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;
@@ -98,7 +98,7 @@ pub enum AppState {
 
 #[derive(Resource, Default)]
 pub struct AppVar {
-    pub current_ship: Option<ShipData>,
+    pub current_ship: Option<SchematicData>,
 }
 
 pub const GRID_SIZE: f32 = 64.0;

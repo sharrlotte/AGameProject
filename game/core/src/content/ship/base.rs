@@ -2,12 +2,14 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::content::block::base::BlockType;
+use crate::{
+    content::block::base::BlockType,
+    world::base::{BlockData, ShipData},
+};
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default)]
 pub struct Ship {
     pub id: usize,
-    pub name: String,
     pub center: Vec2,
     pub thrust_power: f32,
     pub turn_speed: f32,
@@ -28,8 +30,8 @@ pub struct AIShipController {
 pub enum AIShipBehavior {
     Idle,
     Wander,
-    Attack { target_pos: Vec2 },
-    Patrol { around_pos: Vec2 },
+    Attack { target_position: Vec2 },
+    Patrol { around_position: Vec2 },
     Chase { target: Entity },
     Flee { from: Entity },
     Guard { target: Entity },
@@ -53,30 +55,15 @@ impl ShipGrid {
         }
     }
 
-    pub fn insert(&mut self, pos: IVec2, entity: Entity) {
-        self.blocks.insert(pos, entity);
+    pub fn insert(&mut self, position: IVec2, entity: Entity) {
+        self.blocks.insert(position, entity);
     }
 
-    pub fn get(&self, pos: IVec2) -> Option<&Entity> {
-        self.blocks.get(&pos)
+    pub fn get(&self, position: IVec2) -> Option<&Entity> {
+        self.blocks.get(&position)
     }
 
-    pub fn remove(&mut self, pos: IVec2) -> Option<Entity> {
-        self.blocks.remove(&pos)
+    pub fn remove(&mut self, position: IVec2) -> Option<Entity> {
+        self.blocks.remove(&position)
     }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
-pub struct BlockData {
-    pub id: usize,
-    pub pos: IVec2,
-    pub block_type: BlockType,
-    pub rotation: u8,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ShipData {
-    pub id: usize,
-    pub name: String,
-    pub blocks: Vec<BlockData>,
 }

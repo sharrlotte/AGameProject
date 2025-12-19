@@ -22,24 +22,24 @@ fn draw_indicators(
     let window_size = Vec2::new(window.width().max(32.0), window.height().max(32.0));
 
     for (ship_transform, team, ship) in &ships {
-        let ship_pos = ship_transform.transform_point(ship.center.extend(0.0));
+        let ship_position = ship_transform.transform_point(ship.center.extend(0.0));
 
         // Project to screen to check visibility and clamp
-        if let Ok(viewport_pos) = camera.world_to_viewport(camera_transform, ship_pos) {
+        if let Ok(viewport_position) = camera.world_to_viewport(camera_transform, ship_position) {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale
             } else {
                 1.0
             };
             let margin = 30.0;
-            let clamped_x = viewport_pos.x.clamp(margin, window_size.x - margin);
-            let clamped_y = viewport_pos.y.clamp(margin, window_size.y - margin);
+            let clamped_x = viewport_position.x.clamp(margin, window_size.x - margin);
+            let clamped_y = viewport_position.y.clamp(margin, window_size.y - margin);
 
-            let clamped_viewport_pos = Vec2::new(clamped_x, clamped_y);
+            let clamped_viewport_position = Vec2::new(clamped_x, clamped_y);
 
             // Convert back to world space for drawing Gizmos
-            if let Ok(world_pos) =
-                camera.viewport_to_world_2d(camera_transform, clamped_viewport_pos)
+            if let Ok(world_position) =
+                camera.viewport_to_world_2d(camera_transform, clamped_viewport_position)
             {
                 let color = if team.is_player() {
                     Color::srgb(0.0, 1.1, 0.0) // Green
@@ -49,7 +49,7 @@ fn draw_indicators(
 
                 let size = 45.0 * scale.sqrt();
 
-                let diff = ship_pos.truncate() - world_pos;
+                let diff = ship_position.truncate() - world_position;
                 // Only draw if we are somewhat far from the target (avoid drawing on top)
                 let angle: f32 = if diff.length_squared() > 0.5 {
                     diff.y.atan2(diff.x)
@@ -66,7 +66,7 @@ fn draw_indicators(
 
                 // Rotate and Translate
                 let transform_point =
-                    |p: Vec2| -> Vec2 { world_pos + (rotation * p.extend(0.0)).truncate() };
+                    |p: Vec2| -> Vec2 { world_position + (rotation * p.extend(0.0)).truncate() };
 
                 let v1 = transform_point(p1);
                 let v2 = transform_point(p2);
