@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -14,7 +15,7 @@ pub struct Ship {
     pub blocks: Vec<BlockData>,
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect,Clone, Serialize, Deserialize)]
 pub struct ShipState;
 
 #[derive(Component)]

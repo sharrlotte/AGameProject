@@ -14,6 +14,11 @@ pub struct BlockRegistry {
 
 impl BlockRegistry {
     fn register(&mut self, block_type: BlockType, def: BlockDef) {
+        if self.map.contains_key(&block_type) {
+            warn!("Block type {:#?} is already registered.", block_type);
+            return;
+        }
+
         self.map.insert(block_type, def);
     }
 
@@ -157,6 +162,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                     animated: false,
                 }),
                 BlockComponent::Turret(TurretComponent {
+                    component_id: "lazer_turret".into(),
                     range: 20000.0,
                     turn_speed: 2.0,
                     barrels: vec![Vec2::new(0.0, 0.0)],

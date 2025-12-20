@@ -9,7 +9,10 @@ use uuid::Uuid;
 use crate::{
     GRID_SIZE,
     content::{
-        block::base::{Block, BlockComponent, BlockDef, BlockState, GridPosition, Health, ShootPattern},
+        block::base::{
+            Block, BlockComponent, BlockDef, BlockState, GridPosition, Health, ShipIdComponent,
+            ShootPattern,
+        },
         team::Team,
         turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
     },
@@ -38,7 +41,7 @@ pub fn get_block_transform(position: IVec2, half_size: Vec2) -> Transform {
 
 pub fn render_block_base(
     commands: &mut Commands,
-    parent: Entity,
+    ship: Entity,
     def: &BlockDef,
     id: Uuid,
     position: IVec2,
@@ -61,6 +64,7 @@ pub fn render_block_base(
                 id,
                 rotation: 0,
                 block_type: def.block_type,
+                position,
             },
             BlockState {
                 block_type: def.block_type,
@@ -69,10 +73,11 @@ pub fn render_block_base(
                 health: def.health,
                 max_health: def.health,
             },
+            ShipIdComponent { ship },
         ))
         .id();
 
-    commands.entity(parent).add_child(child);
+    commands.entity(ship).add_child(child);
 
     return child;
 }
@@ -84,12 +89,13 @@ pub fn render_block_component(
     def: &BlockDef,
     component: &BlockComponent,
     team: Team,
-) -> Entity{
+) -> Entity {
     let child = commands
         .spawn((
             Transform::default(),
             GlobalTransform::default(),
             Visibility::Inherited,
+            component.clone(),
         ))
         .id();
 
@@ -149,7 +155,7 @@ pub fn render_block_component(
                 Transform::from_translation(f.offset.extend(f.z)),
             ));
         }
-    }
+    };
 
     return child;
 }

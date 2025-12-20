@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
     fs,
     path::PathBuf,
@@ -12,11 +12,17 @@ use uuid::Uuid;
 
 use crate::{
     content::{
-        block::base::{BlockState, BlockType, Health, ShootPatternState},
+        block::{
+            base::{Block, BlockState, BlockType, Health, ShootPatternState},
+            registry::BlockRegistry,
+            spawner::render_block_base,
+        },
         ship::base::ShipState,
+        team::Team,
         turret::base::TurretState,
     },
     save::base::{LoadWorldEvent, SaveWorldEvent, SchematicBlockData, SchematicData},
+    world::base::{BlockData, ShipData},
 };
 
 pub fn save_dir() -> PathBuf {
@@ -113,17 +119,10 @@ pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Save {
-    ships: Vec<ShipSave>,
-    blocks: Vec<BlockSave>,
-    turrets: Vec<TurretSave>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ShipSave {
     id: Uuid,
-    translation: Vec3,
-    rotation: Quat,
+    state: ShipState,
+    team: Team,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -131,25 +130,41 @@ pub struct BlockSave {
     id: Uuid,
     parent: Uuid,
     block_type: BlockType,
-    translation: Vec3,
-    rotation: Quat,
-    health: Health,
+    position: IVec2,
+    rotation: u8,
+    state: BlockState,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TurretSave {
     id: Uuid,
     parent: Uuid,
-    translation: Vec3,
-    rotation: Quat,
     state: TurretState,
-    shoot_pattern: ShootPatternState,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Saveable<T: Component + Clone> {
+    parent: Uuid,
+    component: T,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Save {
+    ships: Vec<ShipSave>,
+    blocks: Vec<BlockSave>,
+    turrets: Vec<TurretSave>,
+    transforms: Vec<Saveable<Transform>>,
+    healths: Vec<Saveable<Health>>,
+    shoot_patterns: Vec<Saveable<ShootPatternState>>,
 }
 
 pub fn handle_save_world_event(
-    ship_query: Query<(Entity, &ShipState, &Transform)>,
-    block_query: Query<(Entity, &BlockState, &Transform, &Health)>,
-    turret_query: Query<(Entity, &TurretState, &Transform, &ShootPatternState)>,
+    transform_query: Query<(Entity, &Transform)>,
+    ship_query: Query<(Entity, &ShipState, &Team)>,
+    block_query: Query<(Entity, &Block, &BlockState)>,
+    turret_query: Query<(Entity, &TurretState)>,
+    health_query: Query<(Entity, &Health)>,
+    shoot_pattern_query: Query<(Entity, &ShootPatternState)>,
     parents: Query<(Entity, &ChildOf)>,
     mut events: MessageReader<SaveWorldEvent>,
 ) {
@@ -181,13 +196,28 @@ pub fn handle_save_world_event(
         return id;
     };
 
+    fn clone_query<T: Component + Clone>(
+        ids: &HashMap<Entity, Uuid>,
+        query: &Query<(Entity, &T)>,
+    ) -> Vec<Saveable<T>> {
+        return query
+            .iter()
+            .map(|(entity, component)| {
+                return Saveable::<T> {
+                    parent: ids.get(&entity).expect("Entity is not registered").clone(),
+                    component: component.clone(),
+                };
+            })
+            .collect();
+    }
+
     for event in events.read() {
         let ships = ship_query
             .iter()
-            .map(|(entity, state, transform)| ShipSave {
+            .map(|(entity, state, team)| ShipSave {
                 id: get_id(&mut ids, entity),
-                translation: transform.translation,
-                rotation: transform.rotation,
+                state: state.clone(),
+                team: team.clone(),
             })
             .collect::<Vec<_>>();
 
@@ -195,13 +225,13 @@ pub fn handle_save_world_event(
 
         let blocks = block_query
             .iter()
-            .map(|(entity, state, transform, health)| BlockSave {
+            .map(|(entity, block, state)| BlockSave {
                 id: get_id(&mut ids, entity),
                 parent: get_parent(&ids, entity),
-                translation: transform.translation,
-                rotation: transform.rotation,
-                block_type: state.block_type,
-                health: health.clone(),
+                block_type: block.block_type,
+                position: block.position,
+                rotation: block.rotation,
+                state: state.clone(),
             })
             .collect::<Vec<_>>();
 
@@ -209,13 +239,10 @@ pub fn handle_save_world_event(
 
         let turrets = turret_query
             .iter()
-            .map(|(entity, state, transform, shoot_pattern)| TurretSave {
+            .map(|(entity, state)| TurretSave {
                 id: get_id(&mut ids, entity),
                 parent: get_parent(&ids, entity),
-                translation: transform.translation,
-                rotation: transform.rotation,
                 state: state.clone(),
-                shoot_pattern: shoot_pattern.clone(),
             })
             .collect::<Vec<_>>();
 
@@ -227,6 +254,9 @@ pub fn handle_save_world_event(
             ships,
             blocks,
             turrets,
+            transforms: clone_query(&ids, &transform_query),
+            healths: clone_query(&ids, &health_query),
+            shoot_patterns: clone_query(&ids, &shoot_pattern_query),
         };
 
         if let Err(e) = write_world_save(&path, save) {
@@ -246,9 +276,30 @@ fn write_world_save(path: &PathBuf, save: Save) -> Result<(), Box<dyn Error>> {
     return Ok(());
 }
 
-pub fn handle_load_world_event(mut commands: Commands, mut events: MessageReader<LoadWorldEvent>) {
+fn spawn_components<T: Component + Clone>(
+    commands: &mut Commands,
+    ids: &HashMap<Uuid, Entity>,
+    components: Vec<Saveable<T>>,
+) {
+    for data in components {
+        let Some(entity) = ids.get(&data.parent) else {
+            error!("Failed to get entity: {:?}", data.parent);
+            continue;
+        };
+
+        commands.entity(*entity).insert(data.component);
+    }
+}
+
+pub fn handle_load_world_event(
+    mut commands: Commands,
+    mut events: MessageReader<LoadWorldEvent>,
+    registry: Res<BlockRegistry>,
+    assets: Res<AssetServer>,
+) {
     for event in events.read() {
         let path = event.path.clone();
+        let mut ids: HashMap<Uuid, Entity> = HashMap::new();
 
         let data_string = match fs::read_to_string(&path) {
             Ok(data) => data,
@@ -270,10 +321,71 @@ pub fn handle_load_world_event(mut commands: Commands, mut events: MessageReader
             ships,
             blocks,
             turrets,
+            healths,
+            shoot_patterns,
+            transforms,
         } = save;
 
         info!("loading {} ships", ships.len());
         info!("loading {} blocks", blocks.len());
         info!("loading {} turrets", turrets.len());
+
+        for ship_data in ships {
+            let blocks = blocks
+                .iter()
+                .filter(|b| b.parent == ship_data.id)
+                .map(|b| BlockData {
+                    id: b.id,
+                    position: b.position,
+                    block_type: b.block_type,
+                    rotation: b.rotation,
+                })
+                .collect::<Vec<_>>();
+
+            let data = ShipData {
+                id: ship_data.id,
+                blocks,
+            };
+
+            let ship = data.spawn(&mut commands, &registry, &assets, ship_data.team);
+
+            ids.insert(ship_data.id, ship);
+
+            for block_data in &data.blocks {
+                let Some(def) = registry.get(&block_data.block_type) else {
+                    error!("Failed to get block def: {:?}", block_data.block_type);
+                    continue;
+                };
+
+                let block = render_block_base(
+                    &mut commands,
+                    ship,
+                    def,
+                    block_data.id,
+                    block_data.position,
+                    ship_data.team,
+                );
+
+                ids.insert(block_data.id, block);
+            }
+        }
+
+        for turret_data in turrets {
+            let Some(parent) = ids.get(&turret_data.parent) else {
+                error!("Failed to get parent block: {:?}", turret_data.parent);
+                continue;
+            };
+
+            commands.entity(*parent).insert(TurretState {
+                potential_targets: HashSet::new(),
+                active: turret_data.state.active,
+                target: turret_data.state.target,
+                shoot_at: turret_data.state.shoot_at,
+            });
+        }
+
+        spawn_components(&mut commands, &ids, transforms);
+        spawn_components(&mut commands, &ids, healths);
+        spawn_components(&mut commands, &ids, shoot_patterns);
     }
 }

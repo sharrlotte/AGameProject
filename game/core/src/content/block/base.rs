@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::content::turret::base::TurretState;
+
 pub const FACE_RIGHT: u8 = 0b0001; // +X
 pub const FACE_LEFT: u8 = 0b0010; // -X
 pub const FACE_UP: u8 = 0b0100; // +Y
@@ -79,7 +81,7 @@ impl Default for BlockShape {
 #[derive(Component, Clone, PartialEq)]
 pub struct GridPosition(pub IVec2);
 
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Component, Clone, PartialEq, Reflect)]
 pub enum BlockComponent {
     Sprite(SpriteComponent),
     Turret(TurretComponent),
@@ -113,6 +115,7 @@ pub struct SpriteComponent {
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TurretComponent {
+    pub component_id: String,
     pub strategy: TargetingStrategy,
     pub range: f32,
     pub turn_speed: f32,
@@ -206,10 +209,11 @@ pub struct BlockDef {
 pub struct Block {
     pub id: Uuid,
     pub rotation: u8,
+    pub position: IVec2,
     pub block_type: BlockType,
 }
 
-#[derive(Component, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockState {
     pub block_type: BlockType,
 }

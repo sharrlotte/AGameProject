@@ -1,12 +1,6 @@
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
-use rand::seq::IndexedRandom;
-
 pub mod base;
 pub mod controller;
 pub mod indicators;
-pub mod spawner;
 
 use crate::content::block::registry::BlockRegistry;
 use crate::content::ship::base::{
@@ -14,11 +8,15 @@ use crate::content::ship::base::{
 };
 use crate::content::ship::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ship::indicators::IndicatorsPlugin;
-use crate::content::ship::spawner::{ShipCalculatedStat, calculate_ship_stat, spawn_ship};
 use crate::content::team::Team;
 use crate::math::random_vec2_step;
 use crate::save::io::load_saved_schematics;
+use crate::world::base::{ShipCalculatedStat, calculate_ship_stat};
 use crate::{AppState, AppVar};
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
+use rand::seq::IndexedRandom;
 
 pub struct ShipPlugin;
 
@@ -75,14 +73,9 @@ fn check_player_ship(
             return;
         };
 
-        spawn_ship(
-            &mut commands,
-            &registry,
-            &assets,
-            &ship.to_ship_data(),
-            Transform::from_translation(Vec3::ZERO),
-            Team::new(0),
-        );
+        &ship
+            .to_ship_data()
+            .spawn(&mut commands, &registry, &assets, Team::new(0));
     }
 }
 
@@ -102,8 +95,8 @@ fn check_enemy_ship(
     let mut rng = rand::rng();
 
     for _ in 0..missing {
-        let data = load_saved_schematics();
-        let Some(ship) = data.choose(&mut rng) else {
+        let schematics = load_saved_schematics();
+        let Some(schematic) = schematics.choose(&mut rng) else {
             continue;
         };
 
@@ -113,14 +106,13 @@ fn check_enemy_ship(
             500.0,
         );
 
-        spawn_ship(
-            &mut commands,
-            &registry,
-            &assets,
-            &ship.to_ship_data(),
-            Transform::from_translation(position.extend(0.0)),
-            Team::new(1), // Enemy
-        );
+        let ship = schematic
+            .to_ship_data()
+            .spawn(&mut commands, &registry, &assets, Team::new(1));
+
+        commands
+            .entity(ship)
+            .insert(Transform::from_translation(position.extend(0.0)));
     }
 }
 

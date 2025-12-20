@@ -29,8 +29,6 @@ impl SchematicData {
     pub fn to_ship_data(&self) -> ShipData {
         ShipData {
             id: self.id,
-            position: Vec2::new(0.0, 0.0),
-            rotation: 0,
             blocks: self
                 .blocks
                 .clone()

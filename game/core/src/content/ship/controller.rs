@@ -9,7 +9,7 @@ use crate::content::{
 };
 
 const THRUST_POWER_FACTOR: f32 = 160.0;
-const TURN_SPEED_FACTOR: f32 = 12000.0;
+const TURN_SPEED_FACTOR: f32 = 6000.0;
 
 pub fn player_ship_controller(
     keyboard_input: Res<ButtonInput<KeyCode>>,
