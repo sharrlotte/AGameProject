@@ -19,6 +19,10 @@ pub enum BlockType {
     Cockpit,
     Core,
     LazerTurret,
+
+    // Real
+    BlockScrap,
+    BlockSteel,
 }
 
 #[derive(Component, Clone, PartialEq, Reflect, Copy)]

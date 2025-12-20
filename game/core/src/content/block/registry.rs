@@ -40,7 +40,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_type: BlockType::Hull,
             block_group: BlockGroup::Base,
             mass: 10.0,
-            health: 10000.0,
+            health: 100.0,
             shape: BlockShape::default(),
             cost: 5,
             components: vec![BlockComponent::Sprite(SpriteComponent {
@@ -59,7 +59,6 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             description: "Provides weak thrust.".into(),
             block_type: BlockType::ThrusterSmall,
             block_group: BlockGroup::Base,
-
             mass: 25.0,
             health: 5000.0,
             shape: BlockShape::default(),
@@ -81,7 +80,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             block_type: BlockType::ReactorSmall,
             block_group: BlockGroup::Base,
 
-            mass: 100.0,
+            mass: 1.0,
             health: 800.0,
             shape: BlockShape::default(),
             cost: 200,
@@ -101,8 +100,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             description: "Pilot seat.".into(),
             block_type: BlockType::Cockpit,
             block_group: BlockGroup::Base,
-
-            mass: 50.0,
+            mass: 5.0,
             health: 600.0,
             shape: BlockShape::default(),
             cost: 150,
@@ -150,7 +148,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             description: "Core".into(),
             block_type: BlockType::LazerTurret,
             block_group: BlockGroup::Turret,
-            mass: 50.0,
+            mass: 15.0,
             health: 600.0,
             shape: BlockShape::filled(1, 1),
             cost: 150,
@@ -183,6 +181,46 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                     },
                 }),
             ],
+        },
+    );
+
+    registry.register(
+        BlockType::BlockScrap,
+        BlockDef {
+            name: "Scrap Block".into(),
+            description: "Scrap block.".into(),
+            block_type: BlockType::BlockScrap,
+            block_group: BlockGroup::Base,
+            mass: 1.0,
+            health: 800.0,
+            shape: BlockShape::default(),
+            cost: 200,
+            components: vec![BlockComponent::Sprite(SpriteComponent {
+                sprite: "textures/blocks/block-scrap.png".into(),
+                offset: Vec2::ZERO,
+                z: 0.0,
+                animated: false,
+            })],
+        },
+    );
+
+    registry.register(
+        BlockType::BlockSteel,
+        BlockDef {
+            name: "Steel Block".into(),
+            description: "Steel block.".into(),
+            block_type: BlockType::BlockSteel,
+            block_group: BlockGroup::Base,
+            mass: 2.0,
+            health: 1600.0,
+            shape: BlockShape::default(),
+            cost: 200,
+            components: vec![BlockComponent::Sprite(SpriteComponent {
+                sprite: "textures/blocks/block-steel.png".into(),
+                offset: Vec2::ZERO,
+                z: 0.0,
+                animated: false,
+            })],
         },
     );
 }
