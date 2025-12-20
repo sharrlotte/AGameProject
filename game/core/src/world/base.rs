@@ -135,6 +135,7 @@ impl ShipData {
                 radar_range: 3000.0,
             },
             ShipState {},
+            team,
         ));
 
         if team.is_player() {
