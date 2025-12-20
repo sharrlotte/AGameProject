@@ -126,9 +126,10 @@ fn camera_follow(
         .truncate();
 
     let current = camera_transform.translation.truncate();
+    let distance = current.distance(target);
 
-    // Smooth follow
-    let smooth_speed = 5.0;
+
+    let smooth_speed = if distance > 30.0 { 5.0 } else { 1.0 };
     let new_position = current.lerp(target, time.delta_secs() * smooth_speed);
 
     camera_transform.translation.x = new_position.x;
