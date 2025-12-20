@@ -16,7 +16,7 @@ use crate::{
         ship::base::ShipState,
         turret::base::TurretState,
     },
-    save::base::{SaveWorldEvent, SchematicBlockData, SchematicData},
+    save::base::{LoadWorldEvent, SaveWorldEvent, SchematicBlockData, SchematicData},
 };
 
 pub fn save_dir() -> PathBuf {
@@ -220,7 +220,7 @@ pub fn handle_save_world_event(
             .collect::<Vec<_>>();
 
         info!("saving {} turrets", turrets.len());
-        
+
         let path = event.path.clone();
 
         let save = Save {
@@ -244,4 +244,36 @@ fn write_world_save(path: &PathBuf, save: Save) -> Result<(), Box<dyn Error>> {
 
     fs::write(&path, json)?;
     return Ok(());
+}
+
+pub fn handle_load_world_event(mut commands: Commands, mut events: MessageReader<LoadWorldEvent>) {
+    for event in events.read() {
+        let path = event.path.clone();
+
+        let data_string = match fs::read_to_string(&path) {
+            Ok(data) => data,
+            Err(error) => {
+                error!("Failed to read world save: {:?} {:?}", path, error);
+                continue;
+            }
+        };
+
+        let save = match serde_json::from_str::<Save>(&data_string) {
+            Ok(save) => save,
+            Err(error) => {
+                error!("Failed to parse world save: {:?} {:?}", path, error);
+                continue;
+            }
+        };
+
+        let Save {
+            ships,
+            blocks,
+            turrets,
+        } = save;
+
+        info!("loading {} ships", ships.len());
+        info!("loading {} blocks", blocks.len());
+        info!("loading {} turrets", turrets.len());
+    }
 }

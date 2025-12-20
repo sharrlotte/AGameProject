@@ -18,7 +18,7 @@ pub struct Turret {
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 pub struct TurretState {
     #[reflect(ignore)]
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub potential_targets: HashSet<Entity>,
 
     pub active: bool,

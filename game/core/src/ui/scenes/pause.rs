@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     AppState, GameState,
-    save::{base::SaveWorldEvent, io::save_dir},
+    save::{base::{LoadWorldEvent, SaveWorldEvent}, io::save_dir},
 };
 
 pub struct PausePlugin;
@@ -141,6 +141,32 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         TextColor(Color::WHITE),
                     ));
                 });
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    PauseButton::Load,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Load"),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
 
             // Home Button
             parent
@@ -208,7 +234,8 @@ fn handle_pause_buttons(
     mut app_state: ResMut<NextState<AppState>>,
     mut game_state: ResMut<NextState<GameState>>,
     mut exit: MessageWriter<AppExit>,
-    mut events: MessageWriter<SaveWorldEvent>,
+    mut save_events: MessageWriter<SaveWorldEvent>,
+    mut load_events: MessageWriter<LoadWorldEvent>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
@@ -216,27 +243,22 @@ fn handle_pause_buttons(
                 *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
                 match button_type {
                     PauseButton::Resume => {
-                        info!("Resume button clicked");
                         game_state.set(GameState::Playing);
                     }
                     PauseButton::Home => {
-                        info!("Home button clicked");
                         app_state.set(AppState::Home);
                     }
                     PauseButton::Exit => {
-                        info!("Exit button clicked");
                         exit.write(AppExit::Success);
                     }
                     PauseButton::Save => {
-                        info!("Save button clicked");
-
-                        events.write(SaveWorldEvent {
-                            path: save_dir().join("save").join("test.json"),
+                        save_events.write(SaveWorldEvent {
+                            path: save_dir().join("saves").join("test.json"),
                         });
                     }
                     PauseButton::Load => {
-                        events.write(SaveWorldEvent {
-                            path: save_dir().join("save").join("test.json"),
+                        load_events.write(LoadWorldEvent {
+                            path: save_dir().join("saves").join("test.json"),
                         });
                     }
                 }
