@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::turret::base::{Turret, TurretState};
+use crate::content::turret::base::{PlayerFireController, Turret, TurretState};
 
 pub fn system_turret_tracking(
     time: Res<Time>,
@@ -54,8 +54,8 @@ pub fn system_turret_tracking(
     }
 }
 
-pub fn draw_turret_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Turret)>) {
-    for (global_transform, tracker) in &query {
+pub fn draw_turret_ranges(mut gizmos: Gizmos, query: Query<(&GlobalTransform, &Turret, &PlayerFireController)>) {
+    for (global_transform, tracker, _) in &query {
         if tracker.range > 0.0 {
             gizmos
                 .circle_2d(

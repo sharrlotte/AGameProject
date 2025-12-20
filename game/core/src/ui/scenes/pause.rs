@@ -1,10 +1,11 @@
-use std::path::PathBuf;
-
 use bevy::prelude::*;
 
 use crate::{
     AppState, GameState,
-    save::{base::{LoadWorldEvent, SaveWorldEvent}, io::save_dir},
+    save::{
+        base::{LoadWorldEvent, SaveWorldEvent},
+        io::save_dir,
+    },
 };
 
 pub struct PausePlugin;

@@ -175,7 +175,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                     shooting_pattern: ShootPattern::Single {
                         fire_rate: 0.15,
                         projectile: ShootingProjectile::Bullet {
-                            speed: 2000.0,
+                            speed: 6000.0,
                             damage: 20.0,
                             lifetime: 5.0,
                             piercing: 0,

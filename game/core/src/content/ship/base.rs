@@ -15,7 +15,7 @@ pub struct Ship {
     pub blocks: Vec<BlockData>,
 }
 
-#[derive(Component, Debug, Default, Reflect,Clone, Serialize, Deserialize)]
+#[derive(Component, Debug, Default, Reflect, Clone, Serialize, Deserialize)]
 pub struct ShipState;
 
 #[derive(Component)]

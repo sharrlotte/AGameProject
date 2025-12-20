@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::content::turret::base::TurretState;
-
 pub const FACE_RIGHT: u8 = 0b0001; // +X
 pub const FACE_LEFT: u8 = 0b0010; // -X
 pub const FACE_UP: u8 = 0b0100; // +Y
@@ -214,6 +212,7 @@ pub struct Block {
 }
 
 #[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
+
 pub struct BlockState {
     pub block_type: BlockType,
 }

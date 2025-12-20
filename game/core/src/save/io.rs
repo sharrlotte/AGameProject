@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    fmt::Debug,
     fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -142,19 +143,19 @@ pub struct TurretSave {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Saveable<T: Component + Clone> {
+pub struct ParentWrapper<T: Component + Clone> {
     parent: Uuid,
     component: T,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Save {
+pub struct SaveData {
     ships: Vec<ShipSave>,
     blocks: Vec<BlockSave>,
     turrets: Vec<TurretSave>,
-    transforms: Vec<Saveable<Transform>>,
-    healths: Vec<Saveable<Health>>,
-    shoot_patterns: Vec<Saveable<ShootPatternState>>,
+    transforms: Vec<ParentWrapper<Transform>>,
+    healths: Vec<ParentWrapper<Health>>,
+    shoot_patterns: Vec<ParentWrapper<ShootPatternState>>,
 }
 
 pub fn handle_save_world_event(
@@ -195,19 +196,25 @@ pub fn handle_save_world_event(
         return id;
     };
 
-    fn clone_query<T: Component + Clone>(
+    fn clone_query<T: Component + Debug + Clone>(
         ids: &HashMap<Entity, Uuid>,
         query: &Query<(Entity, &T)>,
-    ) -> Vec<Saveable<T>> {
-        return query
-            .iter()
-            .map(|(entity, component)| {
-                return Saveable::<T> {
-                    parent: ids.get(&entity).expect("Entity is not registered").clone(),
-                    component: component.clone(),
-                };
-            })
-            .collect();
+    ) -> Vec<ParentWrapper<T>> {
+        let mut result: Vec<ParentWrapper<T>> = Vec::new();
+
+        for (entity, component) in query.iter() {
+            let Some(&parent) = ids.get(&entity) else {
+                warn!("Entity {} has no parent", entity);
+                continue;
+            };
+
+            result.push(ParentWrapper::<T> {
+                parent,
+                component: component.clone(),
+            });
+        }
+
+        return result;
     }
 
     for event in events.read() {
@@ -249,7 +256,7 @@ pub fn handle_save_world_event(
 
         let path = event.path.clone();
 
-        let save = Save {
+        let save = SaveData {
             ships,
             blocks,
             turrets,
@@ -264,7 +271,7 @@ pub fn handle_save_world_event(
     }
 }
 
-fn write_world_save(path: &PathBuf, save: Save) -> Result<(), Box<dyn Error>> {
+fn write_world_save(path: &PathBuf, save: SaveData) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -278,7 +285,7 @@ fn write_world_save(path: &PathBuf, save: Save) -> Result<(), Box<dyn Error>> {
 fn spawn_components<T: Component + Clone>(
     commands: &mut Commands,
     ids: &HashMap<Uuid, Entity>,
-    components: Vec<Saveable<T>>,
+    components: Vec<ParentWrapper<T>>,
 ) {
     for data in components {
         let Some(entity) = ids.get(&data.parent) else {
@@ -308,7 +315,7 @@ pub fn handle_load_world_event(
             }
         };
 
-        let save = match serde_json::from_str::<Save>(&data_string) {
+        let save = match serde_json::from_str::<SaveData>(&data_string) {
             Ok(save) => save,
             Err(error) => {
                 error!("Failed to parse world save: {:?} {:?}", path, error);
@@ -316,7 +323,7 @@ pub fn handle_load_world_event(
             }
         };
 
-        let Save {
+        let SaveData {
             ships,
             blocks,
             turrets,

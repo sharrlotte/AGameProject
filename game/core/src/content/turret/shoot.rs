@@ -51,7 +51,10 @@ pub fn handle_turret_emission(
                 }
             }
             _ => {
-                warn!("Unknown shoot pattern {:?} {:?}", shoot_pattern, shoot_pattern_state);
+                warn!(
+                    "Unknown shoot pattern {:?} {:?}",
+                    shoot_pattern, shoot_pattern_state
+                );
             }
         }
     }
@@ -104,8 +107,12 @@ pub fn spawn_bullet(
                     ActiveEvents::COLLISION_EVENTS,
                     Velocity::linear(Vec2::from_angle(dir) * *speed),
                     GravityScale(0.0),
-                    ColliderMassProperties::Mass(0.01),
+                    ColliderMassProperties::Mass(0.001),
                     Sensor,
+                    Damping {
+                        linear_damping: 0.1,
+                        angular_damping: 0.1,
+                    },
                     *team,
                 ))
                 .id();
