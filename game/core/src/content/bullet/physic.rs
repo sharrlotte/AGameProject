@@ -5,7 +5,7 @@ use crate::{
     components::death::Death,
     content::{
         block::{
-            base::{BelongsToShip, Block, BlockGroup, Health},
+            base::{Block, BlockGroup, Health, ShipIdComponent},
             registry::BlockRegistry,
         },
         bullet::base::Bullet,
@@ -17,7 +17,7 @@ pub fn handle_bullet_collisions(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
-    mut healths: Query<(Entity, &mut Health, &mut Block, &BelongsToShip)>,
+    mut healths: Query<(Entity, &mut Health, &mut Block, &ShipIdComponent)>,
     mut ships: Query<&mut Ship>,
     registry: Res<BlockRegistry>,
 ) {

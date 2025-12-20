@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::save::io::Save;
-
 pub const FACE_RIGHT: u8 = 0b0001; // +X
 pub const FACE_LEFT: u8 = 0b0010; // -X
 pub const FACE_UP: u8 = 0b0100; // +Y
@@ -177,10 +175,7 @@ impl ShootPattern {
     }
 }
 
-#[derive(Component, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component)]
-#[require(Save)]
-
+#[derive(Component, Debug, Reflect, Clone, Serialize, Deserialize)]
 pub enum ShootPatternState {
     Single {
         last_fired_at: f32,
@@ -215,11 +210,16 @@ pub struct Block {
 }
 
 #[derive(Component, Clone, PartialEq)]
-pub struct BelongsToShip {
+pub struct BlockState {
+    pub block_type: BlockType,
+}
+
+#[derive(Component, Clone, PartialEq)]
+pub struct ShipIdComponent {
     pub ship: Entity,
 }
 
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]
 pub struct Health {
     pub health: f32,
     pub max_health: f32,

@@ -2,10 +2,12 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::GRID_SIZE;
-use crate::content::block::base::{BelongsToShip, BlockGroup};
+use crate::content::block::base::{BlockGroup, ShipIdComponent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::spawner::{render_block_base, render_block_component};
-use crate::content::ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship};
+use crate::content::ship::base::{
+    AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState,
+};
 use crate::content::team::Team;
 use crate::world::base::{BlockData, ShipData};
 
@@ -111,6 +113,7 @@ pub fn spawn_ship(
             turn_speed: 250.0,
             radar_range: 3000.0,
         },
+        ShipState {},
     ));
 
     if team.is_player() {
@@ -126,12 +129,22 @@ pub fn spawn_ship(
 
     for block_data in &ship_data.blocks {
         if let Some(def) = registry.get(&block_data.block_type) {
-            let base = render_block_base(commands, ship, def, block_data.id, block_data.position, team);
+            let base = render_block_base(
+                commands,
+                ship,
+                def,
+                block_data.id,
+                block_data.position,
+                team,
+            );
 
             for component in &def.components {
-                render_block_component( commands, base, assets, def, component, team);
-                commands.entity(base).insert(BelongsToShip { ship });
+                let component =
+                    render_block_component(commands, base, assets, def, component, team);
+                commands.entity(component).insert(ShipIdComponent { ship });
             }
+
+            commands.entity(base).insert(ShipIdComponent { ship });
         }
     }
 

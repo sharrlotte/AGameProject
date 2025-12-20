@@ -6,7 +6,7 @@ use bevy::{
     },
 };
 
-use crate::save::{base::SaveWorldEvent, io::save_world};
+use crate::save::{base::SaveWorldEvent, io::handle_save_world_event};
 
 pub mod base;
 pub mod io;
@@ -17,18 +17,7 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<SaveWorldEvent>().add_systems(
             Update,
-            save_world_system.run_if(on_message::<SaveWorldEvent>),
+            handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
         );
-    }
-}
-
-fn save_world_system(world: &mut World) {
-    match save_world(world, &"Test.ron".to_string()) {
-        Ok(_) => {
-            println!("Save world success");
-        }
-        Err(e) => {
-            println!("Save world failed: {:?}", e);
-        }
     }
 }

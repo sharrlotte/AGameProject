@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -44,7 +46,12 @@ impl SchematicData {
     }
 }
 
-#[derive(Message, Event)]
+#[derive(Message)]
 pub struct SaveWorldEvent {
-    pub name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Message)]
+pub struct LoadWorldEvent {
+    pub path: PathBuf,
 }

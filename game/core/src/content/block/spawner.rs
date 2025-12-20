@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     GRID_SIZE,
     content::{
-        block::base::{Block, BlockComponent, BlockDef, GridPosition, Health, ShootPattern},
+        block::base::{Block, BlockComponent, BlockDef, BlockState, GridPosition, Health, ShootPattern},
         team::Team,
         turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
     },
@@ -62,6 +62,9 @@ pub fn render_block_base(
                 rotation: 0,
                 block_type: def.block_type,
             },
+            BlockState {
+                block_type: def.block_type,
+            },
             Health {
                 health: def.health,
                 max_health: def.health,
@@ -81,7 +84,7 @@ pub fn render_block_component(
     def: &BlockDef,
     component: &BlockComponent,
     team: Team,
-) {
+) -> Entity{
     let child = commands
         .spawn((
             Transform::default(),
@@ -147,4 +150,6 @@ pub fn render_block_component(
             ));
         }
     }
+
+    return child;
 }

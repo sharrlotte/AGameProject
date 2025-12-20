@@ -1,6 +1,11 @@
+use std::path::PathBuf;
+
 use bevy::prelude::*;
 
-use crate::{AppState, GameState, save::base::SaveWorldEvent};
+use crate::{
+    AppState, GameState,
+    save::{base::SaveWorldEvent, io::save_dir},
+};
 
 pub struct PausePlugin;
 
@@ -25,6 +30,7 @@ enum PauseButton {
     Resume,
     Home,
     Save,
+    Load,
     Exit,
 }
 
@@ -225,7 +231,12 @@ fn handle_pause_buttons(
                         info!("Save button clicked");
 
                         events.write(SaveWorldEvent {
-                            name: "test".to_string(),
+                            path: save_dir().join("save").join("test.json"),
+                        });
+                    }
+                    PauseButton::Load => {
+                        events.write(SaveWorldEvent {
+                            path: save_dir().join("save").join("test.json"),
                         });
                     }
                 }

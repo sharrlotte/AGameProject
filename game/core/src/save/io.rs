@@ -1,7 +1,9 @@
-use bevy::{asset::ron, platform::collections::HashSet, prelude::*};
+use bevy::prelude::*;
 use directories::ProjectDirs;
+use serde::{Deserialize, Serialize};
 use std::{
-    any::TypeId,
+    collections::HashMap,
+    error::Error,
     fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -10,11 +12,11 @@ use uuid::Uuid;
 
 use crate::{
     content::{
-        block::base::{BlockType, ShootPatternState},
+        block::base::{BlockState, BlockType, Health, ShootPatternState},
         ship::base::ShipState,
         turret::base::TurretState,
     },
-    save::base::{SchematicBlockData, SchematicData},
+    save::base::{SaveWorldEvent, SchematicBlockData, SchematicData},
 };
 
 pub fn save_dir() -> PathBuf {
@@ -110,67 +112,136 @@ pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
     }
 }
 
-pub type SaveResult = Result<Saved, SaveError>;
-
-#[derive(Component, Default, Debug, Clone)]
-pub struct Save;
-
-#[derive(Event)]
-pub struct Saved {
-    pub scene: DynamicScene,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Save {
+    ships: Vec<ShipSave>,
+    blocks: Vec<BlockSave>,
+    turrets: Vec<TurretSave>,
 }
 
-impl Saved {
-    pub fn entities(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.scene.entities.iter().map(|de| de.entity)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShipSave {
+    id: Uuid,
+    translation: Vec3,
+    rotation: Quat,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BlockSave {
+    id: Uuid,
+    parent: Uuid,
+    block_type: BlockType,
+    translation: Vec3,
+    rotation: Quat,
+    health: Health,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TurretSave {
+    id: Uuid,
+    parent: Uuid,
+    translation: Vec3,
+    rotation: Quat,
+    state: TurretState,
+    shoot_pattern: ShootPatternState,
+}
+
+pub fn handle_save_world_event(
+    ship_query: Query<(Entity, &ShipState, &Transform)>,
+    block_query: Query<(Entity, &BlockState, &Transform, &Health)>,
+    turret_query: Query<(Entity, &TurretState, &Transform, &ShootPatternState)>,
+    parents: Query<(Entity, &ChildOf)>,
+    mut events: MessageReader<SaveWorldEvent>,
+) {
+    let mut ids: HashMap<Entity, Uuid> = HashMap::new();
+
+    let get_parent = |ids: &HashMap<Entity, Uuid>, entity: Entity| -> Uuid {
+        let parent_id = &parents
+            .get(entity)
+            .expect(format!("Entity has no parent: {:?}", entity).as_str())
+            .1
+            .parent();
+
+        return *ids.get(parent_id).expect(
+            format!(
+                "Parent is not in child: {}, parent: {}, ids: {:?}",
+                entity, parent_id, ids
+            )
+            .as_str(),
+        );
+    };
+
+    let get_id = |ids: &mut HashMap<Entity, Uuid>, entity: Entity| -> Uuid {
+        if ids.contains_key(&entity) {
+            panic!("Entity {} already has an id", entity);
+        }
+
+        let id = Uuid::now_v7();
+        ids.insert(entity, id);
+        return id;
+    };
+
+    for event in events.read() {
+        let ships = ship_query
+            .iter()
+            .map(|(entity, state, transform)| ShipSave {
+                id: get_id(&mut ids, entity),
+                translation: transform.translation,
+                rotation: transform.rotation,
+            })
+            .collect::<Vec<_>>();
+
+        info!("saving {} ships", ships.len());
+
+        let blocks = block_query
+            .iter()
+            .map(|(entity, state, transform, health)| BlockSave {
+                id: get_id(&mut ids, entity),
+                parent: get_parent(&ids, entity),
+                translation: transform.translation,
+                rotation: transform.rotation,
+                block_type: state.block_type,
+                health: health.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        info!("saving {} blocks", blocks.len());
+
+        let turrets = turret_query
+            .iter()
+            .map(|(entity, state, transform, shoot_pattern)| TurretSave {
+                id: get_id(&mut ids, entity),
+                parent: get_parent(&ids, entity),
+                translation: transform.translation,
+                rotation: transform.rotation,
+                state: state.clone(),
+                shoot_pattern: shoot_pattern.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        info!("saving {} turrets", turrets.len());
+        
+        let path = event.path.clone();
+
+        let save = Save {
+            ships,
+            blocks,
+            turrets,
+        };
+
+        if let Err(e) = write_world_save(&path, save) {
+            error!("Failed to write world save: {:?}", e);
+        }
     }
 }
 
-#[derive(Debug)]
-pub enum SaveError {
-    Ron(ron::Error),
-    Io(std::io::Error),
-}
-
-impl From<ron::Error> for SaveError {
-    fn from(e: ron::Error) -> Self {
-        Self::Ron(e)
-    }
-}
-
-impl From<std::io::Error> for SaveError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
-    }
-}
-
-pub fn save_world(world: &mut World, name: &String) -> SaveResult {
-    let path = save_dir().join("saves").join(name);
-
-    let entities: Vec<_> = world
-        .query_filtered::<Entity, With<Save>>()
-        .iter(world)
-        .collect();
-
-    info!("saving {} entities", entities.len());
-
-    let scene = DynamicSceneBuilder::from_world(world)
-        .with_component_filter(SceneFilter::Allowlist(HashSet::from([
-            TypeId::of::<ShipState>(),
-            TypeId::of::<TurretState>(),
-            TypeId::of::<ShootPatternState>(),
-        ])))
-        .extract_entities(entities.iter().copied())
-        .build();
-
+fn write_world_save(path: &PathBuf, save: Save) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
-    let type_registry = world.resource::<AppTypeRegistry>().read();
-    let data = scene.serialize(&type_registry)?;
-    std::fs::write(&path, data.as_bytes())?;
-    debug!("saved into file: {path:?}");
+    let json = serde_json::to_string_pretty(&save)?;
 
-    return Ok(Saved { scene });
+    fs::write(&path, json)?;
+    return Ok(());
 }
