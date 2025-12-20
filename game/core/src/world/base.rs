@@ -123,8 +123,8 @@ impl ShipData {
             ColliderMassProperties::Density(1.0),
             GravityScale(0.0),
             Damping {
-                linear_damping: 0.9,
-                angular_damping: 0.99,
+                linear_damping: 0.4,
+                angular_damping: 0.5,
             },
             Ship {
                 id: self.id,

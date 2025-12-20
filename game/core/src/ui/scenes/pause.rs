@@ -251,9 +251,11 @@ fn handle_pause_buttons(
                         game_state.set(GameState::Playing);
                     }
                     PauseButton::Home => {
+                        game_state.set(GameState::Playing);
                         app_state.set(AppState::Home);
                     }
                     PauseButton::Exit => {
+                        game_state.set(GameState::Playing);
                         exit.write(AppExit::Success);
                     }
                     PauseButton::Save => {
@@ -262,6 +264,8 @@ fn handle_pause_buttons(
                         });
                     }
                     PauseButton::Load => {
+                        game_state.set(GameState::Playing);
+                        
                         for entity in &bullets {
                             commands.entity(entity).despawn();
                         }

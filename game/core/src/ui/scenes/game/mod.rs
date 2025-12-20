@@ -115,11 +115,15 @@ fn cleanup_game_entities(
 }
 
 fn camera_follow(
-    player: Single<(&Transform, &Ship), (With<PlayerShipController>, Without<Camera2d>)>,
+    player_query: Query<(&Transform, &Ship), (With<PlayerShipController>, Without<Camera2d>)>,
     mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShipController>)>,
     time: Res<Time>,
 ) {
-    let (ship_transform, ship) = *player;
+    if player_query.is_empty() {
+        return;
+    }
+
+    let (ship_transform, ship) = player_query.single().unwrap();
 
     let target = ship_transform
         .transform_point(ship.center.extend(0.0))
@@ -127,7 +131,6 @@ fn camera_follow(
 
     let current = camera_transform.translation.truncate();
     let distance = current.distance(target);
-
 
     let smooth_speed = if distance > 30.0 { 5.0 } else { 1.0 };
     let new_position = current.lerp(target, time.delta_secs() * smooth_speed);
