@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     AppState, GameState,
+    content::{bullet::base::Bullet, ship::base::Ship},
     save::{
         base::{LoadWorldEvent, SaveWorldEvent},
         io::save_dir,
@@ -237,6 +238,9 @@ fn handle_pause_buttons(
     mut exit: MessageWriter<AppExit>,
     mut save_events: MessageWriter<SaveWorldEvent>,
     mut load_events: MessageWriter<LoadWorldEvent>,
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>,
+    bullets: Query<Entity, With<Bullet>>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
@@ -258,6 +262,14 @@ fn handle_pause_buttons(
                         });
                     }
                     PauseButton::Load => {
+                        for entity in &bullets {
+                            commands.entity(entity).despawn();
+                        }
+
+                        for entity in &ships {
+                            commands.entity(entity).despawn();
+                        }
+
                         load_events.write(LoadWorldEvent {
                             path: save_dir().join("saves").join("test.json"),
                         });
