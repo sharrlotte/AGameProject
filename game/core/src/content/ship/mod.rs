@@ -73,12 +73,18 @@ fn check_player_ship(
             return;
         };
 
+        let position = random_vec2_step(
+            Vec2::new(-5000.0, -5000.0),
+            Vec2::new(5000.0, 5000.0),
+            500.0,
+        );
+
         ship.to_ship_data().spawn(
             &mut commands,
             &registry,
             &assets,
             Team::new(0),
-            Transform::from_translation(Vec3::default()),
+            Transform::from_translation(position.extend(0.0)),
         );
     }
 }
