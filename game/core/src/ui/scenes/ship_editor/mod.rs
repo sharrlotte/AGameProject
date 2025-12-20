@@ -3,14 +3,12 @@ use crate::content::block::base::{
     GridPosition,
 };
 use crate::content::block::registry::BlockRegistry;
-use crate::content::block::spawner::{
-    get_block_half_size, get_block_size, get_block_transform, render_block_base,
-    render_block_component,
-};
+
 use crate::content::ship::base::{Ship, ShipGrid};
 use crate::content::team::Team;
 use crate::save::base::{SchematicBlockData, SchematicData};
 use crate::save::io::{load_saved_schematics, save_schematic};
+use crate::world::base::{get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_component};
 use crate::{AppState, AppVar, GRID_SIZE};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};

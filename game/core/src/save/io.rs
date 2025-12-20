@@ -15,14 +15,13 @@ use crate::{
         block::{
             base::{Block, BlockState, BlockType, Health, ShootPatternState},
             registry::BlockRegistry,
-            spawner::render_block_base,
         },
         ship::base::ShipState,
         team::Team,
         turret::base::TurretState,
     },
     save::base::{LoadWorldEvent, SaveWorldEvent, SchematicBlockData, SchematicData},
-    world::base::{BlockData, ShipData},
+    world::base::{BlockData, ShipData, render_block_base},
 };
 
 pub fn save_dir() -> PathBuf {

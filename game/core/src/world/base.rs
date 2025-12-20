@@ -1,13 +1,8 @@
-use bevy::{
-    asset::AssetServer,
-    camera::visibility::Visibility,
-    ecs::{entity::Entity, system::Commands},
-    math::{IVec2, Vec2},
-};
-use bevy_rapier2d::prelude::{
-    Ccd, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce,
-    ExternalImpulse, GravityScale, ReadMassProperties, Restitution, RigidBody, Velocity,
-};
+use std::collections::HashSet;
+
+use bevy::prelude::*;
+use bevy_rapier2d::prelude::*;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,12 +10,11 @@ use crate::{
     GRID_SIZE,
     content::{
         block::{
-            base::{BlockGroup, BlockType, ShipIdComponent},
+            base::{Block, BlockComponent, BlockDef, BlockGroup, BlockState, BlockType, GridPosition, Health, ShipIdComponent, ShootPattern},
             registry::BlockRegistry,
-            spawner::{render_block_base, render_block_component},
         },
         ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState},
-        team::Team,
+        team::Team, turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
     },
 };
 
@@ -116,6 +110,7 @@ impl ShipData {
         } = calculate_ship_stat(&self.blocks, registry);
 
         let mut ship_cmd = commands.spawn((
+            Transform::from_translation(center.extend(0.0)),
             Visibility::Visible,
             RigidBody::Dynamic,
             Velocity::zero(),
@@ -179,4 +174,146 @@ impl ShipData {
 
         return ship;
     }
+}
+
+pub fn get_block_size(def: &BlockDef) -> Vec2 {
+    let size = def.shape.size.as_vec2();
+    return size * GRID_SIZE;
+}
+
+pub fn get_block_half_size(def: &BlockDef) -> Vec2 {
+    return get_block_size(def) * 0.5;
+}
+
+pub fn get_block_transform(position: IVec2, half_size: Vec2) -> Transform {
+    let anchor_position = Vec3::new(
+        position.x as f32 * GRID_SIZE,
+        position.y as f32 * GRID_SIZE,
+        0.0,
+    );
+
+    let position = anchor_position + half_size.extend(0.0);
+
+    return Transform::from_translation(position);
+}
+
+pub fn render_block_base(
+    commands: &mut Commands,
+    ship: Entity,
+    def: &BlockDef,
+    id: Uuid,
+    position: IVec2,
+    team: Team,
+) -> Entity {
+    let half_size = get_block_half_size(def);
+    let transform = get_block_transform(position, half_size);
+
+    let child = commands
+        .spawn((
+            transform,
+            def.block_group,
+            team,
+            Visibility::Visible,
+            GridPosition(position),
+            Collider::cuboid(half_size.x, half_size.y),
+            CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
+            ColliderMassProperties::Mass(0.0),
+            Block {
+                id,
+                rotation: 0,
+                block_type: def.block_type,
+                position,
+            },
+            BlockState {
+                block_type: def.block_type,
+            },
+            Health {
+                health: def.health,
+                max_health: def.health,
+            },
+            ShipIdComponent { ship },
+        ))
+        .id();
+
+    commands.entity(ship).add_child(child);
+
+    return child;
+}
+
+pub fn render_block_component(
+    commands: &mut Commands,
+    parent: Entity,
+    assets: &AssetServer,
+    def: &BlockDef,
+    component: &BlockComponent,
+    team: Team,
+) -> Entity {
+    let child = commands
+        .spawn((
+            Transform::default(),
+            GlobalTransform::default(),
+            Visibility::Inherited,
+            component.clone(),
+        ))
+        .id();
+
+    commands.entity(parent).add_child(child);
+    commands.entity(child).insert(team);
+
+    match component {
+        BlockComponent::Recoil(_recoil_component) => todo!(),
+        BlockComponent::HeatEmitter(_heat_emitter_component) => todo!(),
+        BlockComponent::EnergyConsumer(_energy_consumer_component) => todo!(),
+        BlockComponent::Turret(f) => {
+            if team.is_player() {
+                commands.entity(child).insert(PlayerFireController);
+            } else {
+                commands.entity(child).insert(AIFireController);
+            }
+
+            commands.entity(child).insert((
+                Turret {
+                    strategy: f.strategy.clone(),
+                    range: f.range,
+                    turn_speed: f.turn_speed,
+                    fire_all_at_once: f.fire_all_at_once,
+                    barrels: f.barrels.clone(),
+                    shooting_pattern: f.shooting_pattern.clone(),
+                },
+                TurretState {
+                    potential_targets: HashSet::default(),
+                    active: false,
+                    target: None,
+                    shoot_at: None,
+                },
+                f.shooting_pattern.clone(),
+                ShootPattern::new(&f.shooting_pattern),
+                Sensor,
+                Collider::ball(f.range),
+                CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
+                ColliderMassProperties::Mass(0.0),
+                ActiveEvents::COLLISION_EVENTS,
+                Sprite {
+                    image: assets.load(&f.sprite),
+                    custom_size: Some(get_block_size(def)),
+                    color: Color::srgb(1.005, 1.005, 1.005),
+                    ..default()
+                },
+                Transform::from_translation(f.offset.extend(f.z)),
+            ));
+        }
+        BlockComponent::Sprite(f) => {
+            commands.entity(child).insert((
+                Sprite {
+                    image: assets.load(&f.sprite),
+                    custom_size: Some(get_block_size(def)),
+                    color: Color::srgb(1.005, 1.005, 1.005),
+                    ..default()
+                },
+                Transform::from_translation(f.offset.extend(f.z)),
+            ));
+        }
+    };
+
+    return child;
 }

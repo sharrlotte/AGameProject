@@ -73,7 +73,7 @@ fn check_player_ship(
             return;
         };
 
-        &ship
+        ship
             .to_ship_data()
             .spawn(&mut commands, &registry, &assets, Team::new(0));
     }
