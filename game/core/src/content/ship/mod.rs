@@ -73,9 +73,13 @@ fn check_player_ship(
             return;
         };
 
-        ship
-            .to_ship_data()
-            .spawn(&mut commands, &registry, &assets, Team::new(0));
+        ship.to_ship_data().spawn(
+            &mut commands,
+            &registry,
+            &assets,
+            Team::new(0),
+            Transform::from_translation(Vec3::default()),
+        );
     }
 }
 
@@ -106,13 +110,13 @@ fn check_enemy_ship(
             500.0,
         );
 
-        let ship = schematic
-            .to_ship_data()
-            .spawn(&mut commands, &registry, &assets, Team::new(1));
-
-        commands
-            .entity(ship)
-            .insert(Transform::from_translation(position.extend(0.0)));
+        schematic.to_ship_data().spawn(
+            &mut commands,
+            &registry,
+            &assets,
+            Team::new(1),
+            Transform::from_translation(position.extend(0.0)),
+        );
     }
 }
 

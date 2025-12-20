@@ -346,7 +346,13 @@ pub fn handle_load_world_event(
                 blocks,
             };
 
-            let ship = data.spawn(&mut commands, &registry, &assets, ship_data.team);
+            let ship = data.spawn(
+                &mut commands,
+                &registry,
+                &assets,
+                ship_data.team,
+                Transform::default(),
+            );
 
             ids.insert(ship_data.id, ship);
 

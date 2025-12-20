@@ -102,6 +102,7 @@ impl ShipData {
         registry: &BlockRegistry,
         assets: &AssetServer,
         team: Team,
+        transform: Transform,
     ) -> Entity {
         let ShipCalculatedStat {
             mass,
@@ -110,7 +111,7 @@ impl ShipData {
         } = calculate_ship_stat(&self.blocks, registry);
 
         let mut ship_cmd = commands.spawn((
-            Transform::from_translation(center.extend(0.0)),
+            transform,
             Visibility::Visible,
             RigidBody::Dynamic,
             Velocity::zero(),
