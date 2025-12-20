@@ -3,7 +3,7 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    error::Error,
+    warn::Error,
     fmt::Debug,
     fs,
     path::PathBuf,
@@ -266,7 +266,7 @@ pub fn handle_save_world_event(
         };
 
         if let Err(e) = write_world_save(&path, save) {
-            error!("Failed to write world save: {:?}", e);
+            warn!("Failed to write world save: {:?}", e);
         }
     }
 }
@@ -289,7 +289,7 @@ fn spawn_components<T: Component + Clone>(
 ) {
     for data in components {
         let Some(entity) = ids.get(&data.parent) else {
-            error!("Failed to get entity: {:?}", data.parent);
+            warn!("Failed to get entity: {:?}", data.parent);
             continue;
         };
 
@@ -309,16 +309,16 @@ pub fn handle_load_world_event(
 
         let data_string = match fs::read_to_string(&path) {
             Ok(data) => data,
-            Err(error) => {
-                error!("Failed to read world save: {:?} {:?}", path, error);
+            Err(warn) => {
+                warn!("Failed to read world save: {:?} {:?}", path, warn);
                 continue;
             }
         };
 
         let save = match serde_json::from_str::<SaveData>(&data_string) {
             Ok(save) => save,
-            Err(error) => {
-                error!("Failed to parse world save: {:?} {:?}", path, error);
+            Err(warn) => {
+                warn!("Failed to parse world save: {:?} {:?}", path, warn);
                 continue;
             }
         };
@@ -365,7 +365,7 @@ pub fn handle_load_world_event(
 
             for block_data in &data.blocks {
                 let Some(def) = registry.get(&block_data.block_type) else {
-                    error!("Failed to get block def: {:?}", block_data.block_type);
+                    warn!("Failed to get block def: {:?}", block_data.block_type);
                     continue;
                 };
 
@@ -384,7 +384,7 @@ pub fn handle_load_world_event(
 
         for turret_data in turrets {
             let Some(parent) = ids.get(&turret_data.parent) else {
-                error!("Failed to get parent block: {:?}", turret_data.parent);
+                warn!("Failed to get parent block: {:?}", turret_data.parent);
                 continue;
             };
 
