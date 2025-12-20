@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use uuid::Uuid;
 use std::collections::HashMap;
 
-use crate::
-    world::base::BlockData
+use crate::{save::base::Savable, 
+    world::base::BlockData}
 ;
 
 #[derive(Component, Debug, Default)]
@@ -17,8 +17,14 @@ pub struct Ship {
 }
 
 pub struct ShipState {
-
+    pub position: Vec2,
+    pub rotation: f32,
+    pub velocity: Vec2,
+    pub angular_velocity: f32,
 }
+
+impl Savable for ShipState {}
+
 
 #[derive(Component)]
 pub struct PlayerShipController;

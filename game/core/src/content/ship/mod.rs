@@ -17,7 +17,7 @@ use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::spawner::{ShipCalculatedStat, calculate_ship_stat, spawn_ship};
 use crate::content::team::Team;
 use crate::math::random_vec2_step;
-use crate::save::load_saved_schematics;
+use crate::save::io::load_saved_schematics;
 use crate::{AppState, AppVar};
 
 pub struct ShipPlugin;

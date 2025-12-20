@@ -9,7 +9,8 @@ use crate::content::block::spawner::{
 };
 use crate::content::ship::base::{Ship, ShipGrid};
 use crate::content::team::Team;
-use crate::save::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic};
+use crate::save::base::{SchematicBlockData, SchematicData};
+use crate::save::io::{load_saved_schematics, save_schematic};
 use crate::{AppState, AppVar, GRID_SIZE};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};

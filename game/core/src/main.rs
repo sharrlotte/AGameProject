@@ -10,7 +10,8 @@ use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
 use crate::content::turret::TurretPlugin;
-use crate::save::{SchematicData, load_saved_schematics};
+use crate::save::base::SchematicData;
+use crate::save::io::load_saved_schematics;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::post_process::bloom::BloomCompositeMode;

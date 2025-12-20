@@ -1,0 +1,52 @@
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{
+    content::block::base::BlockType,
+    world::base::{BlockData, ShipData},
+};
+
+#[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
+pub struct SchematicBlockData {
+    pub id: Uuid,
+    pub position: IVec2,
+    pub block_type: BlockType,
+    pub rotation: u8,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SchematicData {
+    pub id: Uuid,
+    pub filename: String,
+    pub name: String,
+    pub blocks: Vec<SchematicBlockData>,
+}
+
+impl SchematicData {
+    pub fn to_ship_data(&self) -> ShipData {
+        ShipData {
+            id: self.id,
+            position: Vec2::new(0.0, 0.0),
+            rotation: 0,
+            blocks: self
+                .blocks
+                .clone()
+                .into_iter()
+                .map(|b| BlockData {
+                    id: b.id,
+                    position: b.position,
+                    block_type: b.block_type,
+                    rotation: b.rotation,
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Component)]
+pub struct SaveEntity {
+    pub id: Entity,
+}
+
+pub trait Savable {}
