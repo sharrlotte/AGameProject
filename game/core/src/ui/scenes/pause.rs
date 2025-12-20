@@ -1,25 +1,49 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::{AppState, GameState, save::base::SaveWorldEvent};
 
 pub struct PausePlugin;
 
 impl Plugin for PausePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Pause), setup_pause)
-            .add_systems(Update, handle_pause_buttons.run_if(in_state(AppState::Pause)))
-            .add_systems(OnExit(AppState::Pause), cleanup_pause);
+        app.add_systems(OnEnter(GameState::Paused), setup_pause)
+            .add_systems(
+                Update,
+                handle_pause_buttons.run_if(in_state(GameState::Paused)),
+            )
+            .add_systems(OnExit(GameState::Paused), cleanup_pause)
+            .add_systems(
+                Update,
+                handle_pause_input
+                    .run_if(in_state(AppState::Game).or(in_state(AppState::ShipEditor))),
+            );
     }
 }
-
-#[derive(Component)]
-struct PauseScreen;
 
 #[derive(Component)]
 enum PauseButton {
     Resume,
     Home,
+    Save,
     Exit,
+}
+
+#[derive(Component)]
+struct PauseScreen;
+
+fn handle_pause_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut game_state: ResMut<NextState<GameState>>,
+    state: Res<State<GameState>>,
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        let next_state: GameState = match state.get() {
+            GameState::Paused => GameState::Playing,
+            GameState::Playing => GameState::Paused,
+        };
+
+        game_state.set(next_state);
+    }
 }
 
 fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
@@ -29,6 +53,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
 
     commands
         .spawn((
+            Transform::from_xyz(0.0, 0.0, 100.0),
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
@@ -75,6 +100,34 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Resume"),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // Save Button
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    PauseButton::Save,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Save"),
                         TextFont {
                             font_size: 20.0,
                             ..default()
@@ -146,8 +199,10 @@ fn handle_pause_buttons(
         (&Interaction, &PauseButton, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut game_state: ResMut<NextState<GameState>>,
     mut exit: MessageWriter<AppExit>,
+    mut events: MessageWriter<SaveWorldEvent>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
@@ -156,15 +211,22 @@ fn handle_pause_buttons(
                 match button_type {
                     PauseButton::Resume => {
                         info!("Resume button clicked");
-                        next_state.set(AppState::Game);
+                        game_state.set(GameState::Playing);
                     }
                     PauseButton::Home => {
                         info!("Home button clicked");
-                        next_state.set(AppState::Home);
+                        app_state.set(AppState::Home);
                     }
                     PauseButton::Exit => {
                         info!("Exit button clicked");
                         exit.write(AppExit::Success);
+                    }
+                    PauseButton::Save => {
+                        info!("Save button clicked");
+
+                        events.write(SaveWorldEvent {
+                            name: "test".to_string(),
+                        });
                     }
                 }
             }
@@ -178,7 +240,11 @@ fn handle_pause_buttons(
     }
 }
 
-fn cleanup_pause(mut commands: Commands, query: Query<Entity, With<PauseScreen>>, mut time: ResMut<Time<Virtual>>) {
+fn cleanup_pause(
+    mut commands: Commands,
+    query: Query<Entity, With<PauseScreen>>,
+    mut time: ResMut<Time<Virtual>>,
+) {
     info!("Cleaning up Pause Menu");
     time.unpause();
     for entity in &query {

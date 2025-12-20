@@ -4,11 +4,6 @@ use uuid::Uuid;
 
 use crate::content::block::base::BlockType;
 
-pub struct WorldContext {
-    pub ships: Vec<ShipData>,
-    pub blocks: Vec<BlockData>,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ShipData {
     pub id: Uuid,

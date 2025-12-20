@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::save::base::Savable;
+use crate::save::io::Save;
 
 pub const FACE_RIGHT: u8 = 0b0001; // +X
 pub const FACE_LEFT: u8 = 0b0010; // -X
@@ -178,6 +178,9 @@ impl ShootPattern {
 }
 
 #[derive(Component, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component)]
+#[require(Save)]
+
 pub enum ShootPatternState {
     Single {
         last_fired_at: f32,
@@ -189,8 +192,6 @@ pub enum ShootPatternState {
     },
     Continuous,
 }
-
-impl Savable for ShootPatternState {}
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockDef {

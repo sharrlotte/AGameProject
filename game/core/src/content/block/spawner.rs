@@ -132,6 +132,7 @@ pub fn render_block_component(
                     color: Color::srgb(1.005, 1.005, 1.005),
                     ..default()
                 },
+                Transform::from_translation(f.offset.extend(f.z)),
             ));
         }
         BlockComponent::Sprite(f) => {

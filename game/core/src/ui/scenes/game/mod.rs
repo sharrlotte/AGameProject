@@ -23,8 +23,7 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom, update_fps, handle_pause_input)
-                    .run_if(in_state(AppState::Game)),
+                (camera_follow, camera_zoom, update_fps).run_if(in_state(AppState::Game)),
             )
             .add_plugins(BackgroundPlugin);
     }
@@ -148,15 +147,5 @@ fn camera_zoom(
                 ortho.scale = ortho.scale.clamp(0.1, 5.0);
             }
         }
-    }
-}
-
-fn handle_pause_input(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<AppState>>,
-) {
-    if keys.just_pressed(KeyCode::Escape) {
-        info!("Pausing game");
-        next_state.set(AppState::Pause);
     }
 }

@@ -1,10 +1,9 @@
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::{
     content::block::base::{ShootPattern, TargetingStrategy},
-    save::base::Savable,
+    save::io::Save,
 };
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -18,7 +17,9 @@ pub struct Turret {
     pub shooting_pattern: ShootPattern,
 }
 
-#[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+#[require(Save)]
 pub struct TurretState {
     #[reflect(ignore)]
     pub potential_targets: HashSet<Entity>,
@@ -27,8 +28,6 @@ pub struct TurretState {
     pub target: Option<Entity>,
     pub shoot_at: Option<Vec2>,
 }
-
-impl Savable for TurretState {}
 
 #[derive(Component, Default, Debug, Clone, Reflect)]
 #[reflect(Component)]

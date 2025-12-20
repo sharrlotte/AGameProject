@@ -44,9 +44,7 @@ impl SchematicData {
     }
 }
 
-#[derive(Copy, Clone, Component)]
-pub struct SaveEntity {
-    pub id: Entity,
+#[derive(Message, Event)]
+pub struct SaveWorldEvent {
+    pub name: String,
 }
-
-pub trait Savable {}

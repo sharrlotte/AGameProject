@@ -10,6 +10,7 @@ use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
 use crate::content::turret::TurretPlugin;
+use crate::save::SavePlugin;
 use crate::save::base::SchematicData;
 use crate::save::io::load_saved_schematics;
 
@@ -42,6 +43,7 @@ fn main() {
     .init_resource::<BlockRegistry>()
     .init_resource::<AppVar>()
     .init_state::<AppState>()
+    .init_state::<GameState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
@@ -53,6 +55,7 @@ fn main() {
         TurretPlugin,
         BulletPlugin,
         DeathPlugin,
+        SavePlugin,
     ));
 
     #[cfg(debug_assertions)]
@@ -92,7 +95,13 @@ pub enum AppState {
     Home,
     Game,
     ShipEditor,
-    Pause,
+}
+
+#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
+pub enum GameState {
+    #[default]
+    Playing,
+    Paused,
 }
 
 #[derive(Resource, Default)]

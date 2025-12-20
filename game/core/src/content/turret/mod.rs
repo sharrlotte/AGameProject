@@ -26,6 +26,6 @@ impl Plugin for TurretPlugin {
                 .run_if(in_state(AppState::Game)),
         )
         .add_systems(FixedUpdate, update_turret_target)
-        .insert_resource(Time::<Fixed>::from_seconds(0.1));
+        .insert_resource(Time::<Fixed>::from_hz(15.0));
     }
 }
