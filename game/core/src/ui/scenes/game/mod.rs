@@ -102,6 +102,7 @@ fn cleanup_game_entities(
 ) {
     info!("Cleaning up Game Entities");
     initialized.0 = false;
+    
     for entity in &ships {
         commands.entity(entity).despawn();
     }
@@ -123,7 +124,7 @@ fn camera_follow(
         return;
     }
 
-    let (ship_transform, ship) = player_query.single().unwrap();
+    let (ship_transform, ship) = player_query.iter().next().unwrap();
 
     let target = ship_transform
         .transform_point(ship.center.extend(0.0))
