@@ -14,7 +14,9 @@ use crate::save::SavePlugin;
 use crate::save::base::SchematicData;
 use crate::save::io::load_saved_schematics;
 
+#[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
+
 use bevy::post_process::bloom::BloomCompositeMode;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy::{

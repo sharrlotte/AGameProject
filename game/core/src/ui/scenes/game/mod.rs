@@ -102,7 +102,7 @@ fn cleanup_game_entities(
 ) {
     info!("Cleaning up Game Entities");
     initialized.0 = false;
-    
+
     for entity in &ships {
         commands.entity(entity).despawn();
     }
@@ -132,8 +132,9 @@ fn camera_follow(
 
     let current = camera_transform.translation.truncate();
 
-    let smooth_speed = 5.0;
-    let new_position = current.lerp(target, time.delta_secs() * smooth_speed);
+    let smooth_speed = 20.0;
+    let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
+    let new_position = current.lerp(target, t);
 
     camera_transform.translation.x = new_position.x;
     camera_transform.translation.y = new_position.y;

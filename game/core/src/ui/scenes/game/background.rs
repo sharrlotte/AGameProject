@@ -62,7 +62,7 @@ fn update_background(
     let (camera_transform, _projection) = *camera_query;
     let camera_position = camera_transform.translation.truncate();
 
-    let parallax_factor = 0.90;
+    let parallax_factor = 0.98;
     let target_position = camera_position * parallax_factor;
     let mut base_scale = 2.0; // Default fallback
 

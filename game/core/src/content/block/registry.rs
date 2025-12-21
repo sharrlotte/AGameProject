@@ -64,7 +64,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
             shape: BlockShape::default(),
             cost: 50,
             components: vec![BlockComponent::Sprite(SpriteComponent {
-                sprite: "textures/blocks/surge-wall-large.png".into(),
+                sprite: "textures/blocks/thruster.png".into(),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,

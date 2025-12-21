@@ -90,6 +90,7 @@ pub enum BlockComponent {
     Recoil(RecoilComponent),
     HeatEmitter(HeatEmitterComponent),
     EnergyConsumer(EnergyConsumerComponent),
+    Thruster(ThrusterComponent),
 }
 
 #[derive(Clone, PartialEq, Reflect)]
@@ -252,7 +253,13 @@ pub struct PowerStorage {
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct Thruster {
     pub force: f32,
-    pub direction: Vec2,
+    pub torque: f32,
+}
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct ThrusterComponent {
+    pub force: f32,
+    pub torque: f32,
 }
 
 #[derive(Component, Debug, Clone, Reflect)]

@@ -10,11 +10,15 @@ use crate::{
     GRID_SIZE,
     content::{
         block::{
-            base::{Block, BlockComponent, BlockDef, BlockGroup, BlockState, BlockType, GridPosition, Health, ShipIdComponent, ShootPattern},
+            base::{
+                Block, BlockComponent, BlockDef, BlockGroup, BlockState, BlockType, GridPosition,
+                Health, ShipIdComponent, ShootPattern, Thruster, ThrusterComponent,
+            },
             registry::BlockRegistry,
         },
         ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState},
-        team::Team, turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
+        team::Team,
+        turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
     },
 };
 
@@ -67,6 +71,8 @@ pub struct ShipCalculatedStat {
     pub mass: f32,
     pub center: Vec2,
     pub collider: Collider,
+    pub thrust_power: f32,
+    pub turn_speed: f32,
 }
 
 pub fn calculate_ship_stat(
@@ -75,20 +81,37 @@ pub fn calculate_ship_stat(
 ) -> ShipCalculatedStat {
     let mut mass: f32 = 0.0;
     let mut center = Vec2::ZERO;
+    let mut thrust_power: f32 = 1000.0;
+    let mut turn_speed: f32 = 250.0;
 
     for block in blocks {
-        if let Some(def) = registry.get(&block.block_type) {
-            mass += def.mass;
+        let Some(def) = registry.get(&block.block_type) else {
+            warn!("Block type {:?} not found in registry", block.block_type);
+            continue;
+        };
 
-            if def.block_group == BlockGroup::Core {
-                let size = def.shape.size.as_vec2();
-                let offset = size * GRID_SIZE * 0.5;
-                center = block.position.as_vec2() * GRID_SIZE + offset;
+        mass += def.mass;
+
+        if def.block_group == BlockGroup::Core {
+            let size = def.shape.size.as_vec2();
+            let offset = size * GRID_SIZE * 0.5;
+            center = block.position.as_vec2() * GRID_SIZE + offset;
+        }
+
+        for component in &def.components {
+            match component {
+                BlockComponent::Thruster(ThrusterComponent { force, torque }) => {
+                    thrust_power += force;
+                    turn_speed += torque;
+                }
+                _ => {}
             }
         }
     }
 
     return ShipCalculatedStat {
+        thrust_power,
+        turn_speed,
         mass,
         center: center,
         collider: build_ship_voxel_collider_2d(&blocks, registry),
@@ -108,6 +131,8 @@ impl ShipData {
             mass,
             center,
             collider,
+            thrust_power,
+            turn_speed,
         } = calculate_ship_stat(&self.blocks, registry);
 
         let mut ship_cmd = commands.spawn((
@@ -130,8 +155,8 @@ impl ShipData {
                 id: self.id,
                 blocks: self.blocks.clone(),
                 center,
-                thrust_power: 1000.0,
-                turn_speed: 250.0,
+                thrust_power,
+                turn_speed,
                 radar_range: 3000.0,
             },
             ShipState {},
@@ -314,6 +339,12 @@ pub fn render_block_component(
                 },
                 Transform::from_translation(f.offset.extend(f.z)),
             ));
+        }
+        BlockComponent::Thruster(ThrusterComponent { force, torque }) => {
+            commands.entity(child).insert((Thruster {
+                force: *force,
+                torque: *torque,
+            },));
         }
     };
 
