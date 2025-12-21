@@ -102,6 +102,8 @@ fn setup_game(
                 TextColor(Color::WHITE),
                 Node {
                     padding: UiRect::all(Val::Px(10.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
                 Button,
