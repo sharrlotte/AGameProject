@@ -4,7 +4,32 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.17.3", features = ["serialize"] }
+bevy = { version = "0.17.3", default-features = false, features = [
+  "animation",
+  "bevy_asset",
+  "bevy_state",
+  "bevy_color",
+  "bevy_gilrs",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "multi_threaded",
+  "png",
+  "hdr",
+  "x11",
+  "bevy_gizmos",
+  "tonemapping_luts",
+  "smaa_luts",
+  "default_font",
+  "sysinfo_plugin",
+  "serialize",
+] }
 bevy-inspector-egui = { version = "0.35" }
 bevy_rapier2d = { version = "0.32.0" }
 directories = "6.0.0"
