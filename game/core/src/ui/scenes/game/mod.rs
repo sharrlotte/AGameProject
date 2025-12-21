@@ -41,6 +41,9 @@ struct FpsText;
 #[derive(Component)]
 struct TurretControlModeButton;
 
+#[derive(Component)]
+struct TurretControlModeText;
+
 fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
     let fps = 1.0 / time.delta_secs();
     if fps.is_finite() {
@@ -93,24 +96,30 @@ fn setup_game(
                 TurretControl::Hold => "Turret Control: Hold",
             };
 
-            container.spawn((
-                Text::new(text),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                Node {
-                    padding: UiRect::all(Val::Px(10.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                Button,
-                TurretControlModeButton,
-                BorderRadius::all(Val::Px(10.0)),
-                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            ));
+            container
+                .spawn((
+                    Node {
+                        padding: UiRect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Button,
+                    TurretControlModeButton,
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                ))
+                .with_children(|button| {
+                    button.spawn((
+                        Text::new(text),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        TurretControlModeText,
+                    ));
+                });
 
             container.spawn((
                 Text::new("FPS: N/A"),
@@ -127,24 +136,26 @@ fn setup_game(
 
 fn update_turret_control_mode_button(
     mut game_state: ResMut<GameState>,
-    mut button_query: Query<
-        (&mut Text, &Interaction),
-        (Changed<Interaction>, With<TurretControlModeButton>),
-    >,
+    mut button_query: Query<&Interaction, (Changed<Interaction>, With<TurretControlModeButton>)>,
+    mut text_query: Query<&mut Text, With<TurretControlModeText>>,
 ) {
-    let Ok((mut button_text, interaction)) = button_query.single_mut() else {
+    let Ok(interaction) = button_query.single_mut() else {
+        return;
+    };
+
+    let Ok(mut text) = text_query.single_mut() else {
         return;
     };
 
     if *interaction == Interaction::Pressed {
         game_state.turret_control = game_state.turret_control.next();
 
-        let text = match game_state.turret_control {
+        let mod_string = match game_state.turret_control {
             TurretControl::Manual => "Turret Control: Manual",
             TurretControl::Auto => "Turret Control: Automatic",
             TurretControl::Hold => "Turret Control: Hold",
         };
-        button_text.0 = text.to_string();
+        text.0 = mod_string.to_string();
     }
 }
 

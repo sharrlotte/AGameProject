@@ -1,15 +1,18 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, RigidBody};
+use bevy_rapier2d::prelude::{
+    ActiveEvents, Collider, CollisionEvent, ExternalForce, RigidBody, Velocity,
+};
 
 use crate::{
-    components::death::Death,
+    components::{
+        damage::{Damage, DamageEvent},
+        death::Death,
+    },
     content::{
-        block::{
-            base::{Block, BlockGroup, Health, ShipIdComponent},
-            registry::BlockRegistry,
-        },
-        bullet::base::Bullet,
-        ship::base::{RebuildShipCollider, Ship},
+        block::base::Health,
+        bullet::base::{Bullet, Missile},
     },
 };
 
@@ -17,12 +20,33 @@ pub fn handle_bullet_collisions(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
-    mut healths: Query<(Entity, &mut Health, &mut Block, &ShipIdComponent)>,
-    mut ships: Query<&mut Ship>,
-    registry: Res<BlockRegistry>,
+    mut writer: MessageWriter<DamageEvent>,
+    damages: Query<&Damage>,
+    healths: Query<&Health>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
+            if let Some((attacker, target)) = match (
+                damages.contains(*e1),
+                healths.contains(*e2),
+                damages.contains(*e2),
+                healths.contains(*e1),
+            ) {
+                (true, true, _, _) => Some((e1, e2)),
+                (_, _, true, true) => Some((e2, e1)),
+                _ => None,
+            } {
+                if let Ok(damage) = damages.get(*attacker) {
+                    writer.write(DamageEvent {
+                        attacker: *attacker,
+                        target: *target,
+                        damage: damage.damage,
+                    });
+                } else {
+                    warn!("Missing damage {} or {}, idk how", e1, e2);
+                }
+            }
+
             let b1 = bullets.get(*e1);
             let b2 = bullets.get(*e2);
 
@@ -31,7 +55,7 @@ pub fn handle_bullet_collisions(
             };
 
             let Ok((_, mut bulletc)) = bullets.get_mut(bullet) else {
-                warn!("Missing bullet {} or {}, idk how", e1, e2);
+                warn!("Missing damage {} or {}, idk how", e1, e2);
                 continue;
             };
 
@@ -45,68 +69,66 @@ pub fn handle_bullet_collisions(
             } else {
                 bulletc.piercing -= 1;
             }
-
-            let h1 = healths.contains(*e1);
-            let h2 = healths.contains(*e2);
-
-            let health = if h1 {
-                *e1
-            } else if h2 {
-                *e2
-            } else {
-                continue;
-            };
-
-            let Ok((_, mut healthc, block, belong)) = healths.get_mut(health) else {
-                warn!("Missing health {} or {}, idk how", e1, e2);
-                continue;
-            };
-
-            healthc.health -= bulletc.damage;
-
-            if healthc.health <= 0.0 {
-                commands.entity(health).insert(Death);
-
-                if ships.contains(belong.ship) {
-                    commands.entity(belong.ship).insert(RebuildShipCollider);
-                }
-
-                if let Ok(mut ship) = ships.get_mut(belong.ship) {
-                    ship.blocks.retain_mut(|f| f.id != block.id);
-                }
-
-                let Some(def) = registry.get(&block.block_type) else {
-                    continue;
-                };
-
-                if def.block_group != BlockGroup::Core {
-                    continue;
-                }
-
-                if ships.contains(belong.ship) {
-                    commands.entity(belong.ship).insert(Death);
-                }
-            }
         }
     }
 }
 
 pub fn handle_despawn_bullet(
-    time: Res<Time>,
     mut commands: Commands,
     mut query: Query<(Entity, &mut Bullet, &GlobalTransform)>,
 ) {
-    for (entity, mut bullet, global_transform) in query.iter_mut() {
-        bullet.timer.tick(time.delta());
-
-        if bullet.timer.is_finished() {
-            commands.entity(entity).insert(Death);
-            continue;
-        }
-
+    for (entity, bullet, global_transform) in query.iter_mut() {
         if bullet.range < (bullet.shooted_at - global_transform.translation().truncate()).length() {
             commands.entity(entity).insert(Death);
             continue;
         }
+    }
+}
+
+pub fn handle_missile_radar(
+    mut collision_events: MessageReader<CollisionEvent>,
+    mut missiles: Query<&mut Missile>,
+) {
+    for event in collision_events.read() {
+        if let CollisionEvent::Started(e1, e2, _) = event {
+            if let Ok(mut missile) = missiles.get_mut(*e1) {
+                missile.target = Some(*e2);
+            }
+        }
+    }
+}
+
+pub fn handle_missiles(
+    mut query: Query<(
+        &mut Missile,
+        &GlobalTransform,
+        &mut ExternalForce,
+        &mut Velocity,
+    )>,
+    targets: Query<&GlobalTransform>,
+) {
+    for (missile, transform, mut force, mut velocity) in query.iter_mut() {
+        let Some(target) = missile.target else {
+            continue;
+        };
+
+        let Ok(target_position) = targets.get(target) else {
+            continue;
+        };
+
+        let direction = (target_position.translation().truncate()
+            - transform.translation().truncate())
+        .normalize_or_zero();
+
+        let angle = direction.y.atan2(direction.x) - PI / 2.0;
+        let angle_diff = angle - transform.rotation().to_euler(EulerRot::XYZ).2;
+        let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
+
+        let torque = (if angle_diff > 0.0 { 1.0 } else { -1.0 }) * turn_speed_multiplier;
+
+        velocity.angvel = velocity.angvel.clamp(-1.0, 1.0);
+
+        force.torque = torque;
+        force.force = direction * missile.speed;
     }
 }

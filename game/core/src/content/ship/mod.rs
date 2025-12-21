@@ -2,10 +2,11 @@ pub mod base;
 pub mod controller;
 pub mod indicators;
 
+use crate::components::death::Death;
+use crate::content::block::BlockDestroyedEvent;
+use crate::content::block::base::BlockType;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::ship::base::{
-    AIShipController, PlayerShipController, RebuildShipCollider, Ship,
-};
+use crate::content::ship::base::{AIShipController, PlayerShipController, Ship};
 use crate::content::ship::controller::{ai_ship_controller, player_ship_controller};
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::team::Team;
@@ -23,6 +24,7 @@ pub struct ShipPlugin;
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ComponentState>()
+            .add_message::<ShipDestroyedEvent>()
             .add_systems(
                 Update,
                 (
@@ -44,6 +46,12 @@ impl Plugin for ShipPlugin {
 #[derive(Resource, Default)]
 pub struct ComponentState {
     cursor_world_position: Option<Vec2>,
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct ShipDestroyedEvent {
+    pub ship_id: Entity,
+    pub team: Team,
 }
 
 fn process_input(
@@ -134,10 +142,30 @@ fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
 
 fn check_rebuild_ship_collider(
     mut commands: Commands,
-    ships: Query<(Entity, &Ship), With<RebuildShipCollider>>,
+    mut events: MessageReader<BlockDestroyedEvent>,
+    mut writer: MessageWriter<ShipDestroyedEvent>,
+    mut ships: Query<(Entity, &mut Ship, &Team)>,
     registry: Res<BlockRegistry>,
 ) {
-    for (entity, ship) in &ships {
+    for event in events.read() {
+        let Ok((entity, mut ship, team)) = ships.get_mut(event.ship_id) else {
+            warn!("Ship {} not found!", event.ship_id);
+            continue;
+        };
+
+        if let Some(block) = registry.get(&event.block) {
+            if block.block_type == BlockType::Core {
+                writer.write(ShipDestroyedEvent {
+                    ship_id: entity,
+                    team: team.clone(),
+                });
+                commands.entity(entity).insert(Death);
+                return;
+            }
+        }
+
+        ship.blocks.retain_mut(|f| f.id != event.block_id);
+
         let ShipCalculatedStat {
             mass,
             center,
@@ -146,7 +174,7 @@ fn check_rebuild_ship_collider(
             turn_speed,
         } = calculate_ship_stat(&ship.blocks, &registry);
 
-        commands.entity(entity).remove::<Collider>().insert((
+        commands.entity(entity).insert((
             collider,
             ColliderMassProperties::Mass(mass),
             Ship {
@@ -158,7 +186,5 @@ fn check_rebuild_ship_collider(
                 radar_range: 3000.0,
             },
         ));
-
-        commands.entity(entity).remove::<RebuildShipCollider>();
     }
 }

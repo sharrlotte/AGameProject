@@ -53,3 +53,7 @@ pub struct SaveWorldEvent {
 pub struct LoadWorldEvent {
     pub path: PathBuf,
 }
+
+#[derive(Component, Default)]
+pub struct Save {
+}

@@ -19,6 +19,7 @@ pub enum BlockType {
     Cockpit,
     Core,
     LazerTurret,
+    Swarmer,
 
     // Real
     BlockScrap,
@@ -118,7 +119,6 @@ pub struct SpriteComponent {
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TurretComponent {
-    pub component_id: String,
     pub strategy: TargetingStrategy,
     pub range: f32,
     pub turn_speed: f32,
@@ -148,56 +148,57 @@ pub enum ShootingProjectile {
     },
     Beam {
         range: f32,
-        damage_per_second: f32,
+        damage: f32,
         width: f32,
     },
+    Missile {
+        speed: f32,
+        damage: f32,
+        lifetime: f32,
+    },
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq)]
+pub enum ShootPattern {
+    Single(SingleShootPattern),
+    Burst(BurstShootPattern),
+    Continuous(ContinuousShootPattern),
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub enum ShootPattern {
-    Single {
-        fire_rate: f32,
-        projectile: ShootingProjectile,
-    },
-    Burst {
-        count: u32,
-        delay: f32,
-        projectile: ShootingProjectile,
-    },
-    Continuous,
+pub struct SingleShootPattern {
+    pub fire_rate: f32,
+    pub projectile: ShootingProjectile,
 }
 
-impl ShootPattern {
-    pub fn new(&self) -> ShootPatternState {
-        match self {
-            ShootPattern::Single { .. } => ShootPatternState::Single { last_fired_at: 0.0 },
-            ShootPattern::Burst { .. } => ShootPatternState::Burst {
-                current_shot: 0,
-                burst_timer: 0.0,
-                is_bursting: false,
-            },
-            ShootPattern::Continuous => ShootPatternState::Continuous,
-        }
-    }
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+pub struct SingleShootPatternState {
+    pub last_fired_at: f32,
 }
 
-#[derive(Component, Debug, Reflect, Clone, Serialize, Deserialize)]
-pub enum ShootPatternState {
-    Single {
-        last_fired_at: f32,
-    },
-    Burst {
-        current_shot: u32,
-        burst_timer: f32,
-        is_bursting: bool,
-    },
-    Continuous,
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct BurstShootPattern {
+    pub count: u32,
+    pub delay: f32,
+    pub projectile: ShootingProjectile,
 }
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+pub struct BurstShootPatternState {
+    pub current_shot: u32,
+    pub burst_timer: f32,
+    pub is_bursting: bool,
+}
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct ContinuousShootPattern {}
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct ContinuousShootPatternState {}
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockDef {
     pub name: String,
-    pub description: String,
     pub block_type: BlockType,
     pub block_group: BlockGroup,
     pub mass: f32,
@@ -224,7 +225,7 @@ pub struct BlockState {
 
 #[derive(Component, Clone, PartialEq)]
 pub struct ShipIdComponent {
-    pub ship: Entity,
+    pub id: Entity,
 }
 
 #[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]

@@ -5,7 +5,10 @@ mod save;
 mod ui;
 mod world;
 
+use crate::components::damage::DamagePlugin;
 use crate::components::death::DeathPlugin;
+use crate::components::lifetime::LifetimePlugin;
+use crate::content::block::BlockPlugin;
 use crate::content::block::registry::{BlockRegistry, register_default_blocks};
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
@@ -58,6 +61,9 @@ fn main() {
         BulletPlugin,
         DeathPlugin,
         SavePlugin,
+        LifetimePlugin,
+        BlockPlugin,
+        DamagePlugin,
     ));
 
     #[cfg(debug_assertions)]

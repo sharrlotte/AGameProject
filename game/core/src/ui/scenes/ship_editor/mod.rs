@@ -980,8 +980,8 @@ fn update_block_properties_panel(
         if let Some(block_type) = editor.selected_block {
             if let Some(def) = registry.get(&block_type) {
                 **text = format!(
-                    "Name: {}\nCost: {}\nMass: {}\nHP: {}\n\n{}",
-                    def.name, def.cost, def.mass, def.health, def.description
+                    "Name: {}\nCost: {}\nMass: {}\nHP: {}\n",
+                    def.name, def.cost, def.mass, def.health
                 );
             }
         } else {

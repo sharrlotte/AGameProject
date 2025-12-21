@@ -68,9 +68,6 @@ pub enum AIShipBehavior {
     Kamikaze { target: Entity },
 }
 
-#[derive(Component)]
-pub struct RebuildShipCollider;
-
 #[derive(Component, Debug, Default, Reflect)]
 pub struct ShipGrid {
     /// Maps (x, y) -> Entity ID

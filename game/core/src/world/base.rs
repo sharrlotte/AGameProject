@@ -11,8 +11,10 @@ use crate::{
     content::{
         block::{
             base::{
-                Block, BlockComponent, BlockDef, BlockGroup, BlockState, BlockType, GridPosition,
-                Health, ShipIdComponent, ShootPattern, Thruster, ThrusterComponent,
+                Block, BlockComponent, BlockDef, BlockGroup, BlockState, BlockType,
+                BurstShootPatternState, ContinuousShootPatternState, GridPosition, Health,
+                ShipIdComponent, ShootPattern, SingleShootPatternState, Thruster,
+                ThrusterComponent,
             },
             registry::BlockRegistry,
         },
@@ -182,7 +184,7 @@ impl ShipData {
                     team,
                 );
 
-                commands.entity(base).insert(ShipIdComponent { ship });
+                commands.entity(base).insert(ShipIdComponent { id: ship });
 
                 for component in &def.components {
                     render_block_component(commands, base, assets, def, component, team);
@@ -255,7 +257,7 @@ pub fn render_block_base(
                 health: def.health,
                 max_health: def.health,
             },
-            ShipIdComponent { ship },
+            ShipIdComponent { id: ship },
         ))
         .id();
 
@@ -304,13 +306,11 @@ pub fn render_block_component(
                     target: None,
                     shoot_at: None,
                 },
-                f.shooting_pattern.clone(),
-                ShootPattern::new(&f.shooting_pattern),
                 Sensor,
                 Collider::ball(f.range),
                 CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
-                ColliderMassProperties::Mass(0.0),
                 ActiveEvents::COLLISION_EVENTS,
+                ColliderMassProperties::Mass(0.0),
                 Sprite {
                     image: assets.load(&f.sprite),
                     custom_size: Some(get_block_size(def)),
@@ -319,6 +319,29 @@ pub fn render_block_component(
                 },
                 Transform::from_translation(f.offset.extend(f.z)),
             ));
+
+            match f.shooting_pattern.clone() {
+                ShootPattern::Single(s) => {
+                    commands
+                        .entity(child)
+                        .insert((s, SingleShootPatternState { last_fired_at: 0.0 }));
+                }
+                ShootPattern::Burst(s) => {
+                    commands.entity(child).insert((
+                        s,
+                        BurstShootPatternState {
+                            current_shot: 0,
+                            burst_timer: 0.0,
+                            is_bursting: false,
+                        },
+                    ));
+                }
+                ShootPattern::Continuous(s) => {
+                    commands
+                        .entity(child)
+                        .insert((s, ContinuousShootPatternState {}));
+                }
+            }
         }
         BlockComponent::Sprite(f) => {
             commands.entity(child).insert((

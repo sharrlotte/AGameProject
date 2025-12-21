@@ -2,14 +2,19 @@ use bevy::prelude::*;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet}, error::Error, fmt::Debug, fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}
+    collections::{HashMap, HashSet},
+    error::Error,
+    fmt::Debug,
+    fs,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use uuid::Uuid;
 
 use crate::{
     content::{
         block::{
-            base::{Block, BlockState, BlockType, Health, ShootPatternState},
+            base::{Block, BlockState, BlockType, Health, SingleShootPatternState},
             registry::BlockRegistry,
         },
         ship::base::ShipState,
@@ -19,6 +24,7 @@ use crate::{
     save::base::{LoadWorldEvent, SaveWorldEvent, SchematicBlockData, SchematicData},
     world::base::{BlockData, ShipData, render_block_base},
 };
+
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
@@ -150,7 +156,12 @@ pub struct SaveData {
     turrets: Vec<TurretSave>,
     transforms: Vec<ParentWrapper<Transform>>,
     healths: Vec<ParentWrapper<Health>>,
-    shoot_patterns: Vec<ParentWrapper<ShootPatternState>>,
+    shoot_patterns: ShootPatternSave,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShootPatternSave {
+    single: Vec<ParentWrapper<SingleShootPatternState>>,
 }
 
 pub fn handle_save_world_event(
@@ -159,7 +170,7 @@ pub fn handle_save_world_event(
     block_query: Query<(Entity, &Block, &BlockState)>,
     turret_query: Query<(Entity, &TurretState)>,
     health_query: Query<(Entity, &Health)>,
-    shoot_pattern_query: Query<(Entity, &ShootPatternState)>,
+    singel_shoot_pattern_query: Query<(Entity, &SingleShootPatternState)>,
     parents: Query<(Entity, &ChildOf)>,
     mut events: MessageReader<SaveWorldEvent>,
 ) {
@@ -257,7 +268,9 @@ pub fn handle_save_world_event(
             turrets,
             transforms: clone_query(&ids, &transform_query),
             healths: clone_query(&ids, &health_query),
-            shoot_patterns: clone_query(&ids, &shoot_pattern_query),
+            shoot_patterns: ShootPatternSave {
+                single: clone_query(&ids, &singel_shoot_pattern_query),
+            },
         };
 
         if let Err(e) = write_world_save(&path, save) {
@@ -393,6 +406,6 @@ pub fn handle_load_world_event(
 
         spawn_components(&mut commands, &ids, transforms);
         spawn_components(&mut commands, &ids, healths);
-        spawn_components(&mut commands, &ids, shoot_patterns);
+        spawn_components(&mut commands, &ids, shoot_patterns.single);
     }
 }

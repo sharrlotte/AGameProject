@@ -1,5 +1,5 @@
 use bevy::{
-    app::{App, Plugin, PreUpdate},
+    app::{App, First, Plugin},
     ecs::{
         component::Component,
         entity::Entity,
@@ -11,7 +11,7 @@ pub struct DeathPlugin;
 
 impl Plugin for DeathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, despawn_dead);
+        app.add_systems(First, despawn_dead);
     }
 }
 

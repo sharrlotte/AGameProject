@@ -1,7 +1,11 @@
 use std::f32::consts::PI;
 
-use crate::content::block::base::{ShootPattern, ShootPatternState, ShootingProjectile};
-use crate::content::bullet::base::Bullet;
+use crate::components::damage::Damage;
+use crate::components::lifetime::Lifetime;
+use crate::content::block::base::{
+    ShootingProjectile, SingleShootPattern, SingleShootPatternState,
+};
+use crate::content::bullet::base::{Bullet, Missile};
 use crate::content::team::Team;
 use crate::content::turret::base::{Turret, TurretState};
 use bevy::prelude::*;
@@ -14,8 +18,8 @@ pub fn handle_turret_emission(
         &GlobalTransform,
         &Turret,
         &mut TurretState,
-        &ShootPattern,
-        &mut ShootPatternState,
+        &SingleShootPattern,
+        &mut SingleShootPatternState,
         &Team,
     )>,
 ) {
@@ -28,34 +32,18 @@ pub fn handle_turret_emission(
 
         let Turret { barrels, range, .. } = turret;
 
-        match (shoot_pattern, &mut *shoot_pattern_state) {
-            (
-                ShootPattern::Single {
-                    fire_rate,
-                    projectile,
-                },
-                ShootPatternState::Single { last_fired_at },
-            ) => {
-                if time.elapsed_secs() - *last_fired_at >= *fire_rate {
-                    for barrel_position in barrels.iter() {
-                        spawn_bullet(
-                            &mut commands,
-                            transform,
-                            team,
-                            *barrel_position,
-                            *range,
-                            &projectile,
-                        );
-                    }
-                    *last_fired_at = time.elapsed_secs();
-                }
-            }
-            _ => {
-                warn!(
-                    "Unknown shoot pattern {:?} {:?}",
-                    shoot_pattern, shoot_pattern_state
+        if time.elapsed_secs() - shoot_pattern_state.last_fired_at >= shoot_pattern.fire_rate {
+            for barrel_position in barrels.iter() {
+                spawn_bullet(
+                    &mut commands,
+                    transform,
+                    team,
+                    *barrel_position,
+                    *range,
+                    &shoot_pattern.projectile,
                 );
             }
+            shoot_pattern_state.last_fired_at = time.elapsed_secs();
         }
     }
 }
@@ -84,13 +72,15 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
-                    Bullet {
+                    Lifetime {
                         timer: Timer::from_seconds(*lifetime, TimerMode::Once),
+                    },
+                    Bullet {
                         shooted_at: spawn_position.truncate(),
                         range,
-                        damage: *damage,
                         piercing: *piercing,
                     },
+                    Damage { damage: *damage },
                     Sprite {
                         color: Color::srgb(10.0, 0.0, 0.0),
                         custom_size: Some(Vec2::new(2.0, 50.0)),
@@ -122,7 +112,61 @@ pub fn spawn_bullet(
             }
         }
         ShootingProjectile::Beam { .. } => {
-            // Beam implementation omitted for brevity
+            todo!("Beam implementation");
+        }
+        ShootingProjectile::Missile {
+            speed,
+            damage,
+            lifetime,
+        } => {
+            let missile = commands
+                .spawn((
+                    Lifetime {
+                        timer: Timer::from_seconds(*lifetime, TimerMode::Once),
+                    },
+                    Missile {
+                        shooted_at: spawn_position.truncate(),
+                        range,
+                        speed: *speed,
+                        target: None,
+                    },
+                    Sprite {
+                        color: Color::srgb(8.0, 0.0, 10.0),
+                        custom_size: Some(Vec2::new(2.0, 50.0)),
+                        ..default()
+                    },
+                    Transform {
+                        translation: spawn_position,
+                        rotation,
+                        ..default()
+                    },
+                    RigidBody::Dynamic,
+                    Collider::ball(range),
+                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                    ActiveEvents::COLLISION_EVENTS,
+                    Velocity::linear(Vec2::from_angle(dir) * *speed),
+                    GravityScale(0.0),
+                    ColliderMassProperties::Mass(0.001),
+                    Sensor,
+                    Damping {
+                        linear_damping: 1.0,
+                        angular_damping: 2.0,
+                    },
+                    *team,
+                ))
+                .id();
+
+            let hit_box = commands
+                .spawn((
+                    Collider::ball(5.0),
+                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                    ActiveEvents::COLLISION_EVENTS,
+                    Sensor,
+                    Damage { damage: *damage },
+                ))
+                .id();
+
+            commands.entity(missile).add_child(hit_box);
         }
     }
 }
