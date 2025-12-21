@@ -111,7 +111,7 @@ pub fn spawn_bullet(
                     Sensor,
                     Damping {
                         linear_damping: 0.1,
-                        angular_damping: 0.1,
+                        angular_damping: 0.75,
                     },
                     *team,
                 ))

@@ -1,5 +1,5 @@
 use bevy::{
-    app::{App, Plugin, PostUpdate, Update},
+    app::{App, Plugin, Update},
     ecs::schedule::{IntoScheduleConfigs, common_conditions::on_message},
 };
 
@@ -22,7 +22,7 @@ impl Plugin for SavePlugin {
                 handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
             )
             .add_systems(
-                PostUpdate,
+                Update,
                 handle_load_world_event.run_if(on_message::<LoadWorldEvent>),
             );
     }

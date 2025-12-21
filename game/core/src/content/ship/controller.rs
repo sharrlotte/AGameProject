@@ -154,7 +154,7 @@ fn chase(
 
     let percent = (angle_diff.abs() / PI).clamp(0.25, 1.0);
     let speed_percent = if velocity.linvel.length() > PI / 4.0 {
-        0.3
+        0.1
     } else {
         1.0
     };
