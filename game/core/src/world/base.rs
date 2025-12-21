@@ -166,10 +166,7 @@ impl ShipData {
         if team.is_player() {
             ship_cmd.insert(PlayerShipController);
         } else {
-            ship_cmd.insert(AIShipController {
-                behavior: AIShipBehavior::Idle,
-                initial_behavior: AIShipBehavior::Idle,
-            });
+            ship_cmd.insert(AIShipController::new(AIShipBehavior::Idle));
         }
 
         let ship = ship_cmd.id();

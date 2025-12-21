@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{math::FloatPow, prelude::*};
 use bevy_rapier2d::prelude::*;
 
 use crate::content::{
@@ -28,12 +28,15 @@ pub fn player_ship_controller(
         if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
             linear_force += forward * thrust_power;
         }
+
         if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
             linear_force -= forward * thrust_power;
         }
+
         if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
             torque += turn_speed;
         }
+
         if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight) {
             torque -= turn_speed;
         }
@@ -83,12 +86,12 @@ pub fn ai_ship_controller(
             })
             .collect();
 
-        match controller.behavior {
+        match controller.current() {
             AIShipBehavior::Idle => {
                 if !in_range.is_empty() {
-                    controller.behavior = AIShipBehavior::Chase {
+                    controller.next(AIShipBehavior::Chase {
                         target: in_range[0].0,
-                    };
+                    });
                 }
             }
             AIShipBehavior::Chase { target } => {
@@ -97,87 +100,204 @@ pub fn ai_ship_controller(
                     .map(|transform| transform.translation.truncate());
 
                 if let Ok(position) = position {
-                    chase(
+                    approach(
                         transform,
                         velocity,
                         &mut force,
                         position,
                         thrust_power,
                         turn_speed,
+                        100.0,
                     );
                 } else {
-                    controller.behavior = controller.initial_behavior;
+                    controller.reset();
                 }
             }
-            AIShipBehavior::Wander => {
-                // Randomly move around
-            }
+            AIShipBehavior::Wander => {}
             AIShipBehavior::Attack { target_position } => {
-                chase(
+                approach(
                     transform,
                     velocity,
                     &mut force,
                     target_position,
                     thrust_power,
                     turn_speed,
+                    100.0,
                 );
             }
             AIShipBehavior::Flee { from } => {
-                // Run away from the player
+                let position = global_transforms
+                    .get(from)
+                    .map(|transform| transform.translation.truncate());
+
+                if let Ok(position) = position {
+                    let direction =
+                        (transform.translation.truncate() - position).normalize_or_zero();
+
+                    let op_direction = direction * -1.0;
+                    let op_position = transform.translation.truncate() + op_direction * 1000.0;
+
+                    approach(
+                        transform,
+                        velocity,
+                        &mut force,
+                        op_position,
+                        thrust_power,
+                        turn_speed,
+                        100.0,
+                    );
+                }
             }
-            AIShipBehavior::Patrol { around_position } => {
-                // Move between predefined points
+            AIShipBehavior::Patrol {
+                around_position,
+                radius,
+            } => {
+                go_around(
+                    transform,
+                    velocity,
+                    &mut force,
+                    around_position,
+                    radius,
+                    thrust_power,
+                    turn_speed,
+                );
             }
-            AIShipBehavior::Guard { target } => {
-                // Guard the target
+            AIShipBehavior::Guard { target, radius } => {
+                if let Ok(position) = global_transforms.get(target) {
+                    let target_pos_actual = position.translation.truncate();
+
+                    go_around(
+                        transform,
+                        velocity,
+                        &mut force,
+                        target_pos_actual,
+                        radius,
+                        thrust_power,
+                        turn_speed,
+                    );
+                } else {
+                    controller.reset();
+                }
             }
-            AIShipBehavior::Follow { target } => {
-                // Follow the target
+            AIShipBehavior::Follow { target, radius } => {
+                if let Ok(position) = global_transforms.get(target) {
+                    let target_pos_actual = position.translation.truncate();
+
+                    approach(
+                        transform,
+                        velocity,
+                        &mut force,
+                        target_pos_actual,
+                        thrust_power,
+                        turn_speed,
+                        radius,
+                    );
+                } else {
+                    controller.reset();
+                }
             }
             AIShipBehavior::Kamikaze { target } => {
                 // Kamikaze at the target
+                if let Ok(position) = global_transforms.get(target) {
+                    let target_pos_actual = position.translation.truncate();
+
+                    approach(
+                        transform,
+                        velocity,
+                        &mut force,
+                        target_pos_actual,
+                        thrust_power,
+                        turn_speed,
+                        0.0,
+                    );
+                } else {
+                    controller.reset();
+                }
             }
         }
     }
 }
 
-const CLOSE_ENOUGH_DISTANCE: f32 = 1000.0;
-
-fn chase(
+fn approach(
     transform: &Transform,
     velocity: &Velocity,
     force: &mut ExternalForce,
     target_position: Vec2,
     thrust_power: f32,
     turn_speed: f32,
+    radius: f32,
 ) {
     let direction = (target_position - transform.translation.truncate()).normalize_or_zero();
     let angle = direction.y.atan2(direction.x) - PI / 2.0;
     let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
+    let distance = transform.translation.truncate().distance(target_position);
 
-    let percent = (angle_diff.abs() / PI).clamp(0.25, 1.0);
-    let speed_percent = if velocity.linvel.length() > PI / 4.0 {
-        0.1
-    } else {
+    let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
+    let force_multiplier = if distance > radius.squared().squared() {
         1.0
+    } else if distance > radius.squared() {
+        0.5
+    } else {
+        0.1
     };
 
-    let torque = if angle_diff > 0.0 {
+    let torque = (if angle_diff > 0.0 {
         turn_speed
     } else {
         -turn_speed
-    } * speed_percent
-        * percent;
+    }) * (if velocity.linvel.length() > PI / 4.0 {
+        0.1
+    } else {
+        1.0
+    }) * turn_speed_multiplier;
 
     force.torque = torque;
 
     if angle_diff.abs() < PI / 2.0 {
-        if transform.translation.truncate().distance(target_position) <= CLOSE_ENOUGH_DISTANCE {
+        if distance <= radius {
             force.force = Vec2::ZERO;
-            force.torque = 0.0;
         } else {
-            let linear_force = direction * thrust_power;
-            force.force = linear_force;
+            force.force = direction * thrust_power * force_multiplier;
         }
+    }
+}
+
+fn go_around(
+    transform: &Transform,
+    velocity: &Velocity,
+    force: &mut ExternalForce,
+    around_position: Vec2,
+    radius: f32,
+    thrust_power: f32,
+    turn_speed: f32,
+) {
+    let in_range = transform.translation.truncate().distance(around_position) <= 300.0;
+
+    let direction = (around_position - transform.translation.truncate()).normalize_or_zero();
+
+    let position_on_ring = transform.translation.truncate() + direction * radius;
+
+    if in_range {
+        let next_position = position_on_ring + Vec2::new(direction.y, -direction.x) * 100.0;
+
+        approach(
+            transform,
+            velocity,
+            force,
+            next_position,
+            thrust_power,
+            turn_speed,
+            100.0,
+        );
+    } else {
+        approach(
+            transform,
+            velocity,
+            force,
+            position_on_ring,
+            thrust_power,
+            turn_speed,
+            100.0,
+        );
     }
 }

@@ -106,12 +106,22 @@ pub enum PauseState {
     Paused,
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Clone)]
 pub enum TurretControl {
     #[default]
     Auto,
     Manual,
     Hold,
+}
+
+impl TurretControl {
+    pub fn next(&mut self) -> Self {
+        match self {
+            Self::Auto => Self::Manual,
+            Self::Manual => Self::Hold,
+            Self::Hold => Self::Auto,
+        }
+    }
 }
 
 #[derive(Resource, Default)]

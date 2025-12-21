@@ -3,10 +3,10 @@ mod background;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-use crate::SceneState;
 use crate::content::bullet::base::Bullet;
 use crate::content::ship::base::{PlayerShipController, Ship};
 use crate::ui::scenes::game::background::{BackgroundConfig, BackgroundImage, BackgroundPlugin};
+use crate::{GameState, SceneState, TurretControl};
 
 #[derive(Resource, Default)]
 struct GameInitialized(bool);
@@ -23,7 +23,13 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom, update_fps).run_if(in_state(SceneState::Game)),
+                (
+                    camera_follow,
+                    camera_zoom,
+                    update_fps,
+                    update_turret_control_mode_button,
+                )
+                    .run_if(in_state(SceneState::Game)),
             )
             .add_plugins(BackgroundPlugin);
     }
@@ -31,6 +37,9 @@ impl Plugin for GamePlugin {
 
 #[derive(Component)]
 struct FpsText;
+
+#[derive(Component)]
+struct TurretControlModeButton;
 
 fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
     let fps = 1.0 / time.delta_secs();
@@ -42,6 +51,7 @@ fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
 fn setup_game(
     mut commands: Commands,
     mut initialized: ResMut<GameInitialized>,
+    game_state: Res<GameState>,
     fps_query: Query<(), With<FpsText>>,
 ) {
     if initialized.0 {
@@ -69,21 +79,68 @@ fn setup_game(
 
     info!("Setting up Game Scene");
 
-    commands.spawn((
-        Text::new("FPS: N/A"),
-        TextFont {
-            font_size: 20.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
+    commands
+        .spawn(Node {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             left: Val::Px(10.0),
             ..default()
-        },
-        FpsText,
-    ));
+        })
+        .with_children(|container| {
+            container.spawn((
+                Text::new("FPS: N/A"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node { ..default() },
+                FpsText,
+            ));
+
+            let text = match game_state.turret_control {
+                TurretControl::Manual => "Turret Control: Manual",
+                TurretControl::Auto => "Turret Control: Automatic",
+                TurretControl::Hold => "Turret Control: Hold",
+            };
+
+            container.spawn((
+                Text::new(text),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node { ..default() },
+                Button,
+                TurretControlModeButton,
+                BorderRadius::all(Val::Px(10.0)),
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            ));
+        });
+}
+
+fn update_turret_control_mode_button(
+    mut game_state: ResMut<GameState>,
+    mut button_query: Query<
+        (&mut Text, &Interaction),
+        (Changed<Interaction>, With<TurretControlModeButton>),
+    >,
+) {
+    let Ok((mut button_text, interaction)) = button_query.single_mut() else {
+        return;
+    };
+
+    if *interaction == Interaction::Pressed {
+        game_state.turret_control = game_state.turret_control.next();
+
+        let text = match game_state.turret_control {
+            TurretControl::Manual => "Turret Control: Manual",
+            TurretControl::Auto => "Turret Control: Automatic",
+            TurretControl::Hold => "Turret Control: Hold",
+        };
+        button_text.0 = text.to_string();
+    }
 }
 
 fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {

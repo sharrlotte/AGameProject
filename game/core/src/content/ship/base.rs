@@ -23,8 +23,36 @@ pub struct PlayerShipController;
 
 #[derive(Component)]
 pub struct AIShipController {
-    pub behavior: AIShipBehavior,
-    pub initial_behavior: AIShipBehavior,
+    last_behavior: AIShipBehavior,
+    behavior: AIShipBehavior,
+    initial_behavior: AIShipBehavior,
+}
+
+impl AIShipController {
+    pub fn new(initial_behavior: AIShipBehavior) -> Self {
+        Self {
+            last_behavior: initial_behavior,
+            behavior: initial_behavior,
+            initial_behavior,
+        }
+    }
+
+    pub fn next(&mut self, behavior: AIShipBehavior) {
+        self.last_behavior = self.behavior;
+        self.behavior = behavior;
+    }
+
+    pub fn current(&self) -> AIShipBehavior {
+        self.behavior
+    }
+
+    pub fn last(&self) -> AIShipBehavior {
+        self.last_behavior
+    }
+
+    pub fn reset(&mut self) {
+        self.behavior = self.initial_behavior;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,11 +60,11 @@ pub enum AIShipBehavior {
     Idle,
     Wander,
     Attack { target_position: Vec2 },
-    Patrol { around_position: Vec2 },
+    Patrol { around_position: Vec2, radius: f32 },
     Chase { target: Entity },
     Flee { from: Entity },
-    Guard { target: Entity },
-    Follow { target: Entity },
+    Guard { target: Entity, radius: f32 },
+    Follow { target: Entity, radius: f32 },
     Kamikaze { target: Entity },
 }
 
