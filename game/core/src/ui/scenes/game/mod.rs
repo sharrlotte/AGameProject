@@ -87,17 +87,6 @@ fn setup_game(
             ..default()
         })
         .with_children(|container| {
-            container.spawn((
-                Text::new("FPS: N/A"),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                Node { ..default() },
-                FpsText,
-            ));
-
             let text = match game_state.turret_control {
                 TurretControl::Manual => "Turret Control: Manual",
                 TurretControl::Auto => "Turret Control: Automatic",
@@ -111,11 +100,25 @@ fn setup_game(
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                Node { ..default() },
+                Node {
+                    padding: UiRect::all(Val::Px(10.0)),
+                    ..default()
+                },
                 Button,
                 TurretControlModeButton,
                 BorderRadius::all(Val::Px(10.0)),
                 BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            ));
+
+            container.spawn((
+                Text::new("FPS: N/A"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node { ..default() },
+                FpsText,
             ));
         });
 }
