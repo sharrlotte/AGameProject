@@ -37,6 +37,7 @@ pub enum AIShipBehavior {
     Flee { from: Entity },
     Guard { target: Entity },
     Follow { target: Entity },
+    Kamikaze { target: Entity },
 }
 
 #[derive(Component)]

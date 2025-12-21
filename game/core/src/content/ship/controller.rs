@@ -134,6 +134,9 @@ pub fn ai_ship_controller(
             AIShipBehavior::Follow { target } => {
                 // Follow the target
             }
+            AIShipBehavior::Kamikaze { target } => {
+                // Kamikaze at the target
+            }
         }
     }
 }

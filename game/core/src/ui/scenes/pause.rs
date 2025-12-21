@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    AppState, GameState,
+    SceneState, PauseState,
     content::{bullet::base::Bullet, ship::base::Ship},
     save::{
         base::{LoadWorldEvent, SaveWorldEvent},
@@ -13,16 +13,16 @@ pub struct PausePlugin;
 
 impl Plugin for PausePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Paused), setup_pause)
+        app.add_systems(OnEnter(PauseState::Paused), setup_pause)
             .add_systems(
                 Update,
-                handle_pause_buttons.run_if(in_state(GameState::Paused)),
+                handle_pause_buttons.run_if(in_state(PauseState::Paused)),
             )
-            .add_systems(OnExit(GameState::Paused), cleanup_pause)
+            .add_systems(OnExit(PauseState::Paused), cleanup_pause)
             .add_systems(
                 Update,
                 handle_pause_input
-                    .run_if(in_state(AppState::Game).or(in_state(AppState::ShipEditor))),
+                    .run_if(in_state(SceneState::Game).or(in_state(SceneState::ShipEditor))),
             );
     }
 }
@@ -41,13 +41,13 @@ struct PauseScreen;
 
 fn handle_pause_input(
     keys: Res<ButtonInput<KeyCode>>,
-    mut game_state: ResMut<NextState<GameState>>,
-    state: Res<State<GameState>>,
+    mut game_state: ResMut<NextState<PauseState>>,
+    state: Res<State<PauseState>>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
-        let next_state: GameState = match state.get() {
-            GameState::Paused => GameState::Playing,
-            GameState::Playing => GameState::Paused,
+        let next_state: PauseState = match state.get() {
+            PauseState::Paused => PauseState::Playing,
+            PauseState::Playing => PauseState::Paused,
         };
 
         game_state.set(next_state);
@@ -233,8 +233,8 @@ fn handle_pause_buttons(
         (&Interaction, &PauseButton, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
-    mut app_state: ResMut<NextState<AppState>>,
-    mut game_state: ResMut<NextState<GameState>>,
+    mut app_state: ResMut<NextState<SceneState>>,
+    mut game_state: ResMut<NextState<PauseState>>,
     mut exit: MessageWriter<AppExit>,
     mut save_events: MessageWriter<SaveWorldEvent>,
     mut load_events: MessageWriter<LoadWorldEvent>,
@@ -248,14 +248,14 @@ fn handle_pause_buttons(
                 *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
                 match button_type {
                     PauseButton::Resume => {
-                        game_state.set(GameState::Playing);
+                        game_state.set(PauseState::Playing);
                     }
                     PauseButton::Home => {
-                        game_state.set(GameState::Playing);
-                        app_state.set(AppState::Home);
+                        game_state.set(PauseState::Playing);
+                        app_state.set(SceneState::Home);
                     }
                     PauseButton::Exit => {
-                        game_state.set(GameState::Playing);
+                        game_state.set(PauseState::Playing);
                         exit.write(AppExit::Success);
                     }
                     PauseButton::Save => {
@@ -264,8 +264,8 @@ fn handle_pause_buttons(
                         });
                     }
                     PauseButton::Load => {
-                        game_state.set(GameState::Playing);
-                        
+                        game_state.set(PauseState::Playing);
+
                         for entity in &bullets {
                             commands.entity(entity).despawn();
                         }

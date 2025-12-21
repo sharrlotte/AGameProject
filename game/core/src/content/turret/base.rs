@@ -25,11 +25,3 @@ pub struct TurretState {
     pub target: Option<Entity>,
     pub shoot_at: Option<Vec2>,
 }
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct PlayerFireController;
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct AIFireController;

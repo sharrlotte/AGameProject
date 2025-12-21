@@ -3,7 +3,7 @@ mod background;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::SceneState;
 use crate::content::bullet::base::Bullet;
 use crate::content::ship::base::{PlayerShipController, Ship};
 use crate::ui::scenes::game::background::{BackgroundConfig, BackgroundImage, BackgroundPlugin};
@@ -16,14 +16,14 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameInitialized>()
-            .add_systems(OnEnter(AppState::Game), setup_game)
+            .add_systems(OnEnter(SceneState::Game), setup_game)
             .add_systems(
-                OnExit(AppState::Game),
+                OnExit(SceneState::Game),
                 (cleanup_game, cleanup_game_entities),
             )
             .add_systems(
                 Update,
-                (camera_follow, camera_zoom, update_fps).run_if(in_state(AppState::Game)),
+                (camera_follow, camera_zoom, update_fps).run_if(in_state(SceneState::Game)),
             )
             .add_plugins(BackgroundPlugin);
     }

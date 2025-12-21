@@ -12,7 +12,7 @@ use crate::content::team::Team;
 use crate::math::random_vec2_step;
 use crate::save::io::load_saved_schematics;
 use crate::world::base::{ShipCalculatedStat, calculate_ship_stat};
-use crate::{AppState, AppVar};
+use crate::{GameState, SceneState};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
@@ -34,9 +34,9 @@ impl Plugin for ShipPlugin {
                     process_input,
                 )
                     .chain()
-                    .run_if(in_state(AppState::Game)),
+                    .run_if(in_state(SceneState::Game)),
             )
-            .add_systems(OnEnter(AppState::Home), cleanup_ships)
+            .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);
     }
 }
@@ -61,7 +61,7 @@ fn process_input(
 fn check_player_ship(
     mut commands: Commands,
     ships: Query<&PlayerShipController>,
-    vars: Res<AppVar>,
+    vars: Res<GameState>,
     registry: Res<BlockRegistry>,
     assets: Res<AssetServer>,
 ) {
@@ -69,7 +69,7 @@ fn check_player_ship(
         let ship = if let Some(ship) = &vars.current_ship {
             ship
         } else {
-            warn!("No ship loaded in AppVar!");
+            warn!("No ship loaded in GameState!");
             return;
         };
 

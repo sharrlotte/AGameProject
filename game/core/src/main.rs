@@ -43,9 +43,9 @@ fn main() {
     .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
     .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
-    .init_resource::<AppVar>()
-    .init_state::<AppState>()
-    .init_state::<GameState>()
+    .init_resource::<GameState>()
+    .init_state::<SceneState>()
+    .init_state::<PauseState>()
     .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
@@ -92,7 +92,7 @@ fn setup_camera(mut commands: Commands) {
 }
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
-pub enum AppState {
+pub enum SceneState {
     #[default]
     Home,
     Game,
@@ -100,20 +100,29 @@ pub enum AppState {
 }
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
-pub enum GameState {
+pub enum PauseState {
     #[default]
     Playing,
     Paused,
 }
 
+#[derive(Default, PartialEq)]
+pub enum TurretControl {
+    #[default]
+    Auto,
+    Manual,
+    Hold,
+}
+
 #[derive(Resource, Default)]
-pub struct AppVar {
+pub struct GameState {
     pub current_ship: Option<SchematicData>,
+    pub turret_control: TurretControl,
 }
 
 pub const GRID_SIZE: f32 = 64.0;
 
-fn load_current_ship(mut state: ResMut<AppVar>) {
+fn load_current_ship(mut state: ResMut<GameState>) {
     let ships = load_saved_schematics();
 
     if let Some(ship) = ships.first() {

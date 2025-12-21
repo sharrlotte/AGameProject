@@ -8,8 +8,11 @@ use crate::content::ship::base::{Ship, ShipGrid};
 use crate::content::team::Team;
 use crate::save::base::{SchematicBlockData, SchematicData};
 use crate::save::io::{load_saved_schematics, save_schematic};
-use crate::world::base::{get_block_half_size, get_block_size, get_block_transform, render_block_base, render_block_component};
-use crate::{AppState, AppVar, GRID_SIZE};
+use crate::world::base::{
+    get_block_half_size, get_block_size, get_block_transform, render_block_base,
+    render_block_component,
+};
+use crate::{GRID_SIZE, GameState, SceneState};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -23,14 +26,14 @@ impl Plugin for ShipEditorPlugin {
             .add_message::<ShipSaveChanged>()
             .init_resource::<EditorState>()
             .add_systems(
-                OnEnter(AppState::ShipEditor),
+                OnEnter(SceneState::ShipEditor),
                 (
                     setup_editor_ui,
                     load_initial_ship.after(setup_editor_ui),
                     refresh_ship_list.after(load_initial_ship),
                 ),
             )
-            .add_systems(OnExit(AppState::ShipEditor), cleanup_ship_editor)
+            .add_systems(OnExit(SceneState::ShipEditor), cleanup_ship_editor)
             .add_systems(
                 Update,
                 (
@@ -50,7 +53,7 @@ impl Plugin for ShipEditorPlugin {
                     handle_nav_buttons,
                 )
                     .chain()
-                    .run_if(in_state(AppState::ShipEditor)),
+                    .run_if(in_state(SceneState::ShipEditor)),
             );
     }
 }
@@ -542,7 +545,7 @@ fn handle_block_selection(
 
 fn handle_deploy_button_click(
     mut buttons: Query<(&Interaction, &mut BackgroundColor), With<DeployButton>>,
-    mut app_var: ResMut<AppVar>,
+    mut app_var: ResMut<GameState>,
     editor: Res<EditorState>,
     blocks: Query<(&Block, &GridPosition)>,
 ) {
@@ -580,7 +583,7 @@ fn handle_deploy_button_click(
 
 fn handle_deploy_button(
     mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
-    app_var: ResMut<AppVar>,
+    app_var: ResMut<GameState>,
     editor: Res<EditorState>,
 ) {
     let is_deployed = if let Some(current) = &app_var.current_ship {
@@ -608,7 +611,7 @@ fn handle_nav_buttons(
         ),
         (Changed<Interaction>, With<Button>),
     >,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<SceneState>>,
 ) {
     for (interaction, mut bg_color, back, play) in &mut interactions {
         if back.is_none() && play.is_none() {
@@ -618,9 +621,9 @@ fn handle_nav_buttons(
         match *interaction {
             Interaction::Pressed => {
                 if back.is_some() {
-                    next_state.set(AppState::Home);
+                    next_state.set(SceneState::Home);
                 } else if play.is_some() {
-                    next_state.set(AppState::Game);
+                    next_state.set(SceneState::Game);
                 }
             }
             Interaction::Hovered => {

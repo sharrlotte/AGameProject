@@ -18,7 +18,7 @@ use crate::{
         },
         ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState},
         team::Team,
-        turret::base::{AIFireController, PlayerFireController, Turret, TurretState},
+        turret::base::{Turret, TurretState},
     },
 };
 
@@ -292,12 +292,6 @@ pub fn render_block_component(
         BlockComponent::HeatEmitter(_heat_emitter_component) => todo!(),
         BlockComponent::EnergyConsumer(_energy_consumer_component) => todo!(),
         BlockComponent::Turret(f) => {
-            if team.is_player() {
-                commands.entity(child).insert(PlayerFireController);
-            } else {
-                commands.entity(child).insert(AIFireController);
-            }
-
             commands.entity(child).insert((
                 Turret {
                     strategy: f.strategy.clone(),

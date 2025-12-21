@@ -162,7 +162,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 BlockComponent::Turret(TurretComponent {
                     component_id: "lazer_turret".into(),
                     range: 20000.0,
-                    turn_speed: 2.0,
+                    turn_speed: 4.0,
                     barrels: vec![Vec2::new(0.0, 0.0)],
                     fire_all_at_once: false,
                     strategy: TargetingStrategy::Closest,

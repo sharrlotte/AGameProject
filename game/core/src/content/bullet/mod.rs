@@ -3,7 +3,7 @@ pub mod physic;
 
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::SceneState;
 use crate::content::bullet::base::Bullet;
 use crate::content::bullet::physic::{handle_bullet_collisions, handle_despawn_bullet};
 
@@ -13,9 +13,9 @@ impl Plugin for BulletPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (handle_despawn_bullet, handle_bullet_collisions).run_if(in_state(AppState::Game)),
+            (handle_despawn_bullet, handle_bullet_collisions).run_if(in_state(SceneState::Game)),
         )
-        .add_systems(OnEnter(AppState::Home), cleanup_bullets);
+        .add_systems(OnEnter(SceneState::Home), cleanup_bullets);
     }
 }
 

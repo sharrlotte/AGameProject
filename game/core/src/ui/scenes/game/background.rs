@@ -1,15 +1,15 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::AppState;
+use crate::SceneState;
 
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Game), setup_background)
-            .add_systems(Update, update_background.run_if(in_state(AppState::Game)))
-            .add_systems(OnEnter(AppState::Home), cleanup_background);
+        app.add_systems(OnEnter(SceneState::Game), setup_background)
+            .add_systems(Update, update_background.run_if(in_state(SceneState::Game)))
+            .add_systems(OnEnter(SceneState::Home), cleanup_background);
     }
 }
 
