@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use crate::SceneState;
 use crate::content::bullet::base::Bullet;
 use crate::content::bullet::physic::{
-    handle_bullet_collisions, handle_despawn_bullet, handle_missile_radar, handle_missiles
+    handle_bullet_collisions, handle_bullets, handle_despawn_bullet, handle_missile_radar, handle_missiles
 };
 
 pub struct BulletPlugin;
@@ -20,6 +20,7 @@ impl Plugin for BulletPlugin {
                 handle_bullet_collisions,
                 handle_missiles,
                 handle_missile_radar,
+                handle_bullets,
             )
                 .run_if(in_state(SceneState::Game)),
         )

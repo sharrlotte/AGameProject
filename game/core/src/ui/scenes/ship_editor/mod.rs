@@ -1107,7 +1107,11 @@ fn refresh_ship_list(
                         ))
                         .with_children(|btn| {
                             btn.spawn((
-                                Text::new(ship.name.replace(".json", "")),
+                                Text::new(if ship.name.is_empty() {
+                                    ship.filename.clone()
+                                } else {
+                                    ship.name.clone()
+                                }),
                                 TextFont {
                                     font_size: 14.0,
                                     ..default()
@@ -1240,16 +1244,10 @@ fn perform_save_schematic(
         })
         .collect::<Vec<SchematicBlockData>>();
 
-    let save_name: String = if name.is_empty() {
-        "ship_0".to_string()
-    } else {
-        name
-    };
-
     let ship_data = SchematicData {
         id,
         filename,
-        name: save_name,
+        name,
         blocks: saved_blocks,
     };
 
@@ -1280,9 +1278,8 @@ fn spawn_ship(
     if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.filename == filename) {
         info!("Loading ship: {}", ship_to_load.name);
 
-        // 1. Clear current ship
         editor.grid = ShipGrid::new();
-        editor.filename = ship_to_load.name;
+        editor.filename = ship_to_load.filename;
 
         if ship_to_load.blocks.is_empty() {
             warn!("Ship {} is empty", editor.filename);

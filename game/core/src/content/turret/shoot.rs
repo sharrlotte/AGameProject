@@ -79,6 +79,7 @@ pub fn spawn_bullet(
                         shooted_at: spawn_position.truncate(),
                         range,
                         piercing: *piercing,
+                        velocity: Vec2::from_angle(dir) * *speed,
                     },
                     Damage { damage: *damage },
                     Sprite {
@@ -91,18 +92,10 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    RigidBody::Dynamic,
                     Collider::ball(5.0),
                     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
-                    Velocity::linear(Vec2::from_angle(dir) * *speed),
-                    GravityScale(0.0),
-                    ColliderMassProperties::Mass(0.001),
                     Sensor,
-                    Damping {
-                        linear_damping: 0.1,
-                        angular_damping: 0.75,
-                    },
                     *team,
                 ))
                 .id();
@@ -140,18 +133,10 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    RigidBody::Dynamic,
                     Collider::ball(range),
                     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
-                    Velocity::linear(Vec2::from_angle(dir) * *speed),
-                    GravityScale(0.0),
-                    ColliderMassProperties::Mass(0.001),
                     Sensor,
-                    Damping {
-                        linear_damping: 1.0,
-                        angular_damping: 2.0,
-                    },
                     *team,
                 ))
                 .id();

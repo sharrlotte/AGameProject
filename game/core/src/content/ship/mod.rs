@@ -174,7 +174,7 @@ fn check_rebuild_ship_collider(
             turn_speed,
         } = calculate_ship_stat(&ship.blocks, &registry);
 
-        commands.entity(entity).insert((
+        commands.entity(entity).remove::<Collider>().insert((
             collider,
             ColliderMassProperties::Mass(mass),
             Ship {

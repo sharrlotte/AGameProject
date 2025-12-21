@@ -1,9 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{
-    ActiveEvents, Collider, CollisionEvent, ExternalForce, RigidBody, Velocity,
-};
+use bevy_rapier2d::prelude::{ActiveEvents, Collider, CollisionEvent, ExternalForce, RigidBody};
 
 use crate::{
     components::{
@@ -73,6 +71,12 @@ pub fn handle_bullet_collisions(
     }
 }
 
+pub fn handle_bullets(mut query: Query<(&mut Bullet, &mut Transform)>, time: Res<Time>) {
+    for (bullet, mut transform) in query.iter_mut() {
+        transform.translation += bullet.velocity.extend(0.0) * time.delta_secs();
+    }
+}
+
 pub fn handle_despawn_bullet(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Bullet, &GlobalTransform)>,
@@ -93,42 +97,42 @@ pub fn handle_missile_radar(
         if let CollisionEvent::Started(e1, e2, _) = event {
             if let Ok(mut missile) = missiles.get_mut(*e1) {
                 missile.target = Some(*e2);
+            } else if let Ok(mut missile) = missiles.get_mut(*e2) {
+                missile.target = Some(*e1);
             }
         }
     }
 }
 
 pub fn handle_missiles(
-    mut query: Query<(
-        &mut Missile,
-        &GlobalTransform,
-        &mut ExternalForce,
-        &mut Velocity,
-    )>,
+    mut missiles: Query<(&Missile, &mut Transform, &GlobalTransform)>,
     targets: Query<&GlobalTransform>,
+    time: Res<Time>,
 ) {
-    for (missile, transform, mut force, mut velocity) in query.iter_mut() {
-        let Some(target) = missile.target else {
-            continue;
+    for (missile, mut transform, global) in missiles.iter_mut() {
+        let forward = global.up().truncate();
+
+        if let Some(target) = missile.target {
+            let Ok(target_gt) = targets.get(target) else {
+                warn!("Missing target possition");
+                continue;
+            };
+
+            let to_target = target_gt.translation().truncate() - global.translation().truncate();
+
+            if to_target.length_squared() < 0.0001 {
+                continue;
+            }
+
+            let target_dir = to_target.normalize();
+            let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+            let max_turn = 2.0 * time.delta_secs();
+            let turn = angle_error.clamp(-max_turn, max_turn);
+
+            transform.rotate_z(turn);
+            transform.translation += (forward * missile.speed * time.delta_secs()).extend(0.0);
         };
 
-        let Ok(target_position) = targets.get(target) else {
-            continue;
-        };
-
-        let direction = (target_position.translation().truncate()
-            - transform.translation().truncate())
-        .normalize_or_zero();
-
-        let angle = direction.y.atan2(direction.x) - PI / 2.0;
-        let angle_diff = angle - transform.rotation().to_euler(EulerRot::XYZ).2;
-        let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
-
-        let torque = (if angle_diff > 0.0 { 1.0 } else { -1.0 }) * turn_speed_multiplier;
-
-        velocity.angvel = velocity.angvel.clamp(-1.0, 1.0);
-
-        force.torque = torque;
-        force.force = direction * missile.speed;
+        transform.translation += (forward * missile.speed * time.delta_secs()).extend(0.0);
     }
 }

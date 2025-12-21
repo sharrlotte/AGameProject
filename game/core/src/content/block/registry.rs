@@ -211,13 +211,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 turn_speed: 4.0,
                 fire_all_at_once: false,
                 strategy: TargetingStrategy::Closest,
-                sprite: "textures/blocks/swarner.png".into(),
+                sprite: "textures/blocks/swarmer.png".into(),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
                 barrels: vec![Vec2::new(-32.0, 0.0), Vec2::new(-32.0, 0.0)],
                 shooting_pattern: ShootPattern::Single(SingleShootPattern {
-                    fire_rate: 0.15,
+                    fire_rate: 0.75,
                     projectile: ShootingProjectile::Missile {
                         speed: 100.0,
                         damage: 20.0,
