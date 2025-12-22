@@ -163,30 +163,20 @@ pub fn system_turret_tracking(
                 continue;
             }
 
-            // Atan2 returns angle in radians [-PI, PI] relative to X-axis
-            // Assuming sprites face UP (Y+), we need to subtract PI/2
-            let target_angle = diff.y.atan2(diff.x) - std::f32::consts::FRAC_PI_2;
+            let forward: Vec2 = global_transform.up().truncate();
 
-            // Get current global rotation around Z
-            let (_, current_rot, _) = global_transform.to_scale_rotation_translation();
-            let current_angle = current_rot.to_euler(EulerRot::XYZ).2;
+            let to_target = shoot_at_position - global_transform.translation().truncate();
 
-            let mut angle_error = target_angle - current_angle;
-
-            // Normalize angle_error to [-PI, PI]
-            while angle_error > std::f32::consts::PI {
-                angle_error -= 2.0 * std::f32::consts::PI;
-            }
-            while angle_error < -std::f32::consts::PI {
-                angle_error += 2.0 * std::f32::consts::PI;
+            if to_target.length_squared() < 0.0001 {
+                continue;
             }
 
-            let max_rot = turret.turn_speed * time.delta_secs();
+            let target_dir = to_target.normalize();
+            let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+            let max_turn = turret.turn_speed * time.delta_secs();
+            let turn = angle_error.clamp(-max_turn, max_turn);
 
-            // Clamp rotation to max_rot, but don't overshoot
-            let rot_amount = angle_error.clamp(-max_rot, max_rot);
-
-            transform.rotate_z(rot_amount);
+            transform.rotate_z(turn);
         }
     }
 }

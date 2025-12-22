@@ -123,7 +123,6 @@ pub struct TurretComponent {
     pub range: f32,
     pub turn_speed: f32,
     pub barrels: Vec<Vec2>,
-    pub fire_all_at_once: bool,
     pub shooting_pattern: ShootPattern,
     pub sprite: String,
     pub offset: Vec2,

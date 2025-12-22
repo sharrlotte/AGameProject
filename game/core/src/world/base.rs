@@ -303,7 +303,6 @@ pub fn render_block_component(
                     strategy: f.strategy.clone(),
                     range: f.range,
                     turn_speed: f.turn_speed,
-                    fire_all_at_once: f.fire_all_at_once,
                     barrels: f.barrels.clone(),
                     shooting_pattern: f.shooting_pattern.clone(),
                 },

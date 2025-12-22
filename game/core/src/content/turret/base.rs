@@ -10,7 +10,6 @@ pub struct Turret {
     pub range: f32,
     pub turn_speed: f32,
     pub barrels: Vec<Vec2>,
-    pub fire_all_at_once: bool,
     pub strategy: TargetingStrategy,
     pub shooting_pattern: ShootPattern,
 }

@@ -1,15 +1,15 @@
 mod components;
 mod content;
-mod utils;
 mod save;
 mod ui;
+mod utils;
 mod world;
 
 use crate::components::damage::DamagePlugin;
 use crate::components::death::DeathPlugin;
 use crate::components::lifetime::LifetimePlugin;
 use crate::content::block::BlockPlugin;
-use crate::content::block::registry::{BlockRegistry, register_default_blocks};
+use crate::content::block::registry::BlockRegistry;
 use crate::content::bullet::BulletPlugin;
 use crate::content::ship::ShipPlugin;
 use crate::content::turret::TurretPlugin;
@@ -44,12 +44,11 @@ fn main() {
         ..Default::default()
     }))
     .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-    .add_plugins(RapierDebugRenderPlugin::default())
+    // .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<GameState>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
-    .add_systems(PreStartup, register_default_blocks)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
         HomePlugin,

@@ -55,39 +55,32 @@ impl Plugin for DamagePlugin {
 fn handle_damage_events(
     mut commands: Commands,
     mut events: MessageReader<DamageEvent>,
-    mut healths: Query<&mut Health>,
+    mut healths: Query<(Entity, &mut Health, Option<&mut Sprite>)>,
 ) {
     for event in events.read() {
-        if let Ok(mut health) = healths.get_mut(event.target) {
+        if let Ok((entity, mut health, sprite)) = healths.get_mut(event.target) {
             health.health -= event.damage;
 
-            let overlay = commands
-                .spawn((
-                    Sprite {
-                        color: Color::srgba(10.0, 10.0, 10.0, 0.8),
-                        custom_size: Some(Vec2::new(64.0, 64.0)),
-                        ..default()
-                    },
-                    FlashOverlay {
-                        timer: Timer::from_seconds(0.1, TimerMode::Once),
-                    },
-                ))
-                .id();
+            if let Some(mut sprite) = sprite {
+                sprite.color = Color::srgba(5.0, 0.0, 0.0, 0.8);
 
-            commands.entity(event.target).add_child(overlay);
+                commands.entity(entity).insert(FlashOverlay {
+                    timer: Timer::from_seconds(0.1, TimerMode::Once),
+                });
+            }
         }
     }
 }
 
 pub fn handle_flash_overlay(
     mut commands: Commands,
-    mut flash_overlays: Query<(&mut FlashOverlay, Entity)>,
+    mut flash_overlays: Query<(Entity ,&mut FlashOverlay)>,
     time: Res<Time>,
 ) {
-    for (mut flash_overlay, entity) in flash_overlays.iter_mut() {
+    for (entity, mut flash_overlay) in flash_overlays.iter_mut() {
         flash_overlay.timer.tick(time.delta());
         if flash_overlay.timer.is_finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).remove::<FlashOverlay>();
         }
     }
 }

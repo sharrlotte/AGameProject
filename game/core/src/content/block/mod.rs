@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     components::death::Death,
-    content::block::base::{Block, BlockType, Health, ShipIdComponent},
+    content::block::{base::{Block, BlockType, Health, ShipIdComponent}, registry::register_default_blocks},
 };
 
 pub struct BlockPlugin;
@@ -14,7 +14,8 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BlockDestroyedEvent>()
-            .add_systems(Last, handle_block_destroy);
+            .add_systems(Last, handle_block_destroy)
+            .add_systems(PreStartup, register_default_blocks);
     }
 }
 

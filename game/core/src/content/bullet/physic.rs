@@ -98,7 +98,7 @@ pub fn handle_missiles(
     time: Res<Time>,
 ) {
     for (missile, mut transform, global) in missiles.iter_mut() {
-        let forward = global.up().truncate();
+        let forward: Vec2 = global.up().truncate();
 
         if let Some(target) = missile.target {
             if let Ok(target_gt) = targets.get(target) {

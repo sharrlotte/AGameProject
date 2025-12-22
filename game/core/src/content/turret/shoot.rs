@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use crate::components::damage::Damage;
 use crate::components::entity_type::EntityType;
 use crate::components::lifetime::Lifetime;
@@ -53,16 +51,14 @@ pub fn spawn_bullet(
     commands: &mut Commands,
     turret_transform: &GlobalTransform,
     team: &Team,
-    position: Vec2,
+    barrel_position: Vec2,
     range: f32,
     projectile: &ShootingProjectile,
 ) {
-    let rotation: Quat = turret_transform.rotation();
-    let dir = rotation.to_euler(EulerRot::XYZ).2 + PI / 2.0;
-
-    let (_, turret_rot, _) = turret_transform.to_scale_rotation_translation();
-    let world_offset = turret_rot * position.extend(0.0);
+    let rotation = turret_transform.rotation();
+    let world_offset = rotation * barrel_position.extend(0.0);
     let spawn_position = turret_transform.translation() + world_offset;
+    let dir = (rotation * Vec3::Y).truncate().normalize();
 
     match &projectile {
         ShootingProjectile::Bullet {
@@ -81,7 +77,7 @@ pub fn spawn_bullet(
                         shooted_at: spawn_position.truncate(),
                         range,
                         piercing: *piercing,
-                        velocity: Vec2::from_angle(dir) * *speed,
+                        velocity: dir * *speed,
                     },
                     Damage { damage: *damage },
                     Sprite {
