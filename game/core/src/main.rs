@@ -30,6 +30,7 @@ use bevy::{
 };
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
+use bevy_rapier2d::rapier::prelude::IntegrationParameters;
 use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
@@ -45,8 +46,22 @@ fn main() {
         }),
         ..Default::default()
     }))
-    .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-    // .add_plugins(RapierDebugRenderPlugin::default())
+    .add_plugins(
+        RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0)
+            .with_custom_initialization(
+                RapierContextInitialization::InitializeDefaultRapierContext {
+                    integration_parameters: IntegrationParameters::default(),
+                    rapier_configuration: RapierConfiguration {
+                        gravity: Vec2::ZERO,
+                        physics_pipeline_active: true,
+                        scaled_shape_subdivision: 10,
+                        force_update_from_transform_changes: false,
+                    },
+                },
+            )
+            .in_fixed_schedule(),
+    )
+    .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<BlockRegistry>()
     .init_resource::<GameState>()
     .init_state::<SceneState>()
@@ -67,7 +82,7 @@ fn main() {
         SavePlugin,
         BlockPlugin,
         DamagePlugin,
-        HanabiPlugin
+        HanabiPlugin,
     ));
 
     #[cfg(debug_assertions)]
@@ -77,6 +92,8 @@ fn main() {
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
         );
     }
+
+    app.insert_resource(Time::<Fixed>::from_hz(60.0));
 
     app.run();
 }

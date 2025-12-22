@@ -161,7 +161,6 @@ impl ShipData {
                 ReadMassProperties::default(),
                 Restitution::coefficient(0.05),
                 ColliderMassProperties::Density(1.0),
-                GravityScale(0.0),
                 Damping {
                     linear_damping: 0.7,
                     angular_damping: 0.9,
@@ -312,7 +311,6 @@ pub fn render_block_component(
                 Sensor,
                 Collider::ball(f.range),
                 CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
-                ActiveEvents::COLLISION_EVENTS,
                 ColliderMassProperties::Mass(0.0),
                 Sprite {
                     image: f.image.clone(),

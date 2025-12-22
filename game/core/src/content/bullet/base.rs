@@ -31,7 +31,7 @@ pub struct MissileHitbox {
 }
 
 use bevy::{
-    app::{App, Plugin, Update},
+    app::{App, Plugin},
     ecs::{
         component::Component,
         entity::Entity,
@@ -44,7 +44,7 @@ pub struct LifetimePlugin;
 
 impl Plugin for LifetimePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_lifetime);
+        app.add_systems(FixedUpdate, update_lifetime);
     }
 }
 
@@ -68,6 +68,7 @@ fn update_lifetime(
 ) {
     for (entity, mut lifetime) in query.iter_mut() {
         lifetime.timer.tick(time.delta());
+
         if lifetime.timer.is_finished() {
             let Ok(mut commands) = commands.get_entity(entity) else {
                 continue;

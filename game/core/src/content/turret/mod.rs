@@ -14,11 +14,11 @@ pub struct TurretPlugin;
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            FixedUpdate,
             system_turret_tracking.run_if(in_state(SceneState::Game)),
         )
         .add_systems(
-            Update,
+            FixedUpdate,
             update_turret_target
                 .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
         );

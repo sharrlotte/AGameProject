@@ -29,7 +29,7 @@ impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ComponentState>()
             .add_systems(
-                Update,
+                FixedUpdate,
                 (
                     player_ship_controller,
                     ai_ship_controller,
@@ -38,11 +38,11 @@ impl Plugin for ShipPlugin {
                     .run_if(in_state(SceneState::Game)),
             )
             .add_systems(
-                Update,
+                FixedUpdate,
                 (check_player_ship, check_enemy_ship)
                     .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
             )
-            .add_systems(PostUpdate, check_rebuild_ship_collider)
+            .add_systems(FixedUpdate, check_rebuild_ship_collider)
             .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);
     }

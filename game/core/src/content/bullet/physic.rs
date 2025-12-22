@@ -24,6 +24,7 @@ pub fn handle_bullet_collisions(
     mut missile_radars: Query<(Entity, &mut Missile)>,
     missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
 ) {
+    info!("COllisions: {}", collision_events.len());
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
             if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e1) {
@@ -74,7 +75,7 @@ fn handle_missile_collision(
 
     commands.spawn((
         Transform::from(*transform),
-        Lifetime::new(10.0),
+        Lifetime::new(1.0),
         Damage {
             damage: hitbox.blast_damage,
         },
@@ -111,7 +112,7 @@ pub fn handle_bullets(
     }
 }
 
-pub fn handle_despawn_bullet(
+pub fn destroy_out_of_range_bullet(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Bullet, &GlobalTransform)>,
 ) {

@@ -1194,7 +1194,6 @@ fn remove_block_at(
                     editor.grid.remove(anchor + voxel.position);
                 }
 
-                // Despawn the entity
                 commands.entity(entity).despawn();
             }
         }
