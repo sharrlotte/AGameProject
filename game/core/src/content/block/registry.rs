@@ -2,8 +2,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::content::block::base::{
-    BlockComponent, BlockDef, BlockGroup, BlockShape, BlockType, ShootPattern, ShootingProjectile,
-    SingleShootPattern, SpriteComponent, TargetingStrategy, TurretComponent,
+    BlockComponent, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern, ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy, TurretComponent
 };
 
 #[derive(Resource, Default, Reflect)]
@@ -216,8 +215,9 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: 0.1,
                 animated: false,
                 barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
-                shooting_pattern: ShootPattern::Single(SingleShootPattern {
+                shooting_pattern: ShootPattern::Burst(BurstShootPattern {
                     fire_rate: 2.75,
+                    delay: 0.35,
                     projectile: ShootingProjectile::Missile {
                         speed: 3000.0,
                         damage: 20.0,

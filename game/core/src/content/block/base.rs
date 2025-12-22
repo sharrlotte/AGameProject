@@ -178,16 +178,17 @@ pub struct SingleShootPatternState {
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub struct BurstShootPattern {
-    pub count: u32,
+    pub fire_rate: f32,
     pub delay: f32,
     pub projectile: ShootingProjectile,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct BurstShootPatternState {
-    pub current_shot: u32,
-    pub burst_timer: f32,
     pub is_bursting: bool,
+    pub last_fired_at: f32,
+    pub current_barrel: usize,
+    pub last_barrel_fired_at: f32,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]

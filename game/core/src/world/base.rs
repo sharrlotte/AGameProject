@@ -333,8 +333,9 @@ pub fn render_block_component(
                     commands.entity(child).insert((
                         s,
                         BurstShootPatternState {
-                            current_shot: 0,
-                            burst_timer: 0.0,
+                            last_fired_at: 0.0,
+                            current_barrel: 0,
+                            last_barrel_fired_at: 0.0,
                             is_bursting: false,
                         },
                     ));
