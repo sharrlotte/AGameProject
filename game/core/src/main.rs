@@ -4,6 +4,7 @@ mod save;
 mod ui;
 mod utils;
 mod world;
+mod constant;
 
 use crate::components::damage::DamagePlugin;
 use crate::components::death::DeathPlugin;
@@ -134,8 +135,6 @@ pub struct GameState {
     pub current_ship: Option<SchematicData>,
     pub turret_control: TurretControl,
 }
-
-pub const GRID_SIZE: f32 = 64.0;
 
 fn load_current_ship(mut state: ResMut<GameState>) {
     let ships = load_saved_schematics();

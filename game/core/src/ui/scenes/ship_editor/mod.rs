@@ -12,7 +12,7 @@ use crate::world::base::{
     get_block_half_size, get_block_size, get_block_transform, render_block_base,
     render_block_component,
 };
-use crate::{GRID_SIZE, GameState, SceneState};
+use crate::{GameState, SceneState, constant::GRID_SIZE};
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    GRID_SIZE,
     components::entity_type::EntityType,
+    constant::GRID_SIZE,
     content::{
         block::{
             base::{

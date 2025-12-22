@@ -5,8 +5,12 @@ use bevy::prelude::*;
 use uuid::Uuid;
 
 use crate::{
-    components::death::Death,
-    content::block::{base::{Block, BlockType, Health, ShipIdComponent}, registry::register_default_blocks},
+    components::{damage::DamageEvent, death::Death},
+    constant::GRID_SIZE,
+    content::block::{
+        base::{Block, BlockType, Health, ShipIdComponent},
+        registry::{BlockRegistry, register_default_blocks},
+    },
 };
 
 pub struct BlockPlugin;
@@ -14,6 +18,7 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BlockDestroyedEvent>()
+            .add_systems(Last, (handle_block_damage_event, handle_flash_overlay))
             .add_systems(Last, handle_block_destroy)
             .add_systems(PreStartup, register_default_blocks);
     }
@@ -39,6 +44,56 @@ fn handle_block_destroy(
                 block_id: block.id,
             });
             commands.entity(entity).insert(Death);
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct FlashOverlay {
+    timer: Timer,
+}
+
+fn handle_block_damage_event(
+    mut events: MessageReader<DamageEvent>,
+    mut commands: Commands,
+    blocks: Query<&Block>,
+    registry: Res<BlockRegistry>,
+) {
+    for event in events.read() {
+        let Ok(block) = blocks.get(event.target) else {
+            continue;
+        };
+
+        let Some(def) = registry.get(&block.block_type) else {
+            continue;
+        };
+
+        let overlay = commands
+            .spawn((
+                Sprite {
+                    color: Color::srgba(10.0, 0.0, 0.0, 0.8),
+                    custom_size: Some(def.shape.size.as_vec2() * GRID_SIZE),
+                    ..default()
+                },
+                FlashOverlay {
+                    timer: Timer::from_seconds(0.1, TimerMode::Once),
+                },
+            ))
+            .id();
+
+        commands.entity(event.target).add_child(overlay);
+    }
+}
+
+pub fn handle_flash_overlay(
+    mut commands: Commands,
+    mut flash_overlays: Query<(&mut FlashOverlay, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut flash_overlay, entity) in flash_overlays.iter_mut() {
+        flash_overlay.timer.tick(time.delta());
+        if flash_overlay.timer.is_finished() {
+            commands.entity(entity).despawn();
         }
     }
 }

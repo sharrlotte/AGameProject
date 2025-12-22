@@ -213,7 +213,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
-                barrels: vec![Vec2::new(-32.0, 0.0), Vec2::new(-32.0, 0.0)],
+                barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
                 shooting_pattern: ShootPattern::Single(SingleShootPattern {
                     fire_rate: 0.75,
                     projectile: ShootingProjectile::Missile {
