@@ -71,7 +71,7 @@ fn handle_block_damage_event(
         let overlay = commands
             .spawn((
                 Sprite {
-                    color: Color::srgba(10.0, 10.0, 10.0, 0.8),
+                    color: Color::srgba(5.0, 5.0, 5.0, 0.8),
                     custom_size: Some(def.shape.size.as_vec2() * GRID_SIZE),
                     ..default()
                 },

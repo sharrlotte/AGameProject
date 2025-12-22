@@ -55,7 +55,7 @@ impl AIShipController {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum AIShipBehavior {
     Idle,
     Wander,

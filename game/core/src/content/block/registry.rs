@@ -148,7 +148,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: 0.1,
                 animated: false,
                 shooting_pattern: ShootPattern::Burst(BurstShootPattern {
-                    fire_rate: 3.0,
+                    fire_rate: 5.0,
                     delay: 0.1,
                     amount: 12,
                     projectile: ShootingProjectile::Bullet {
