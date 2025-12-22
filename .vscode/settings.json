@@ -1,8 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
         "game/Cargo.toml"
-    ],
-    "rust-analyzer.cargo.allFeatures": false,
-    "rust-analyzer.cargo.buildScripts.enable": false,
-    "rust-analyzer.checkOnSave": false
+    ]
 }

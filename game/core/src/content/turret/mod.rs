@@ -1,114 +1,26 @@
-use std::collections::HashSet;
+use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, time::common_conditions::on_timer};
 
-pub mod shoot;
+pub mod base;
 pub mod targeting;
-pub mod tracking;
 
-use serde::{Deserialize, Serialize};
-use shoot::handle_turret_emission;
-use targeting::{update_player_fire_controller, update_turret_target};
+use targeting::update_turret_target;
 
-use crate::content::{
-    bullet::BulletPlugin,
-    turret::tracking::{draw_turret_ranges, system_turret_tracking},
-};
+use crate::{SceneState, content::turret::targeting::system_turret_tracking};
 
 pub struct TurretPlugin;
 
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<PlayerFireController>()
-            .register_type::<AIFireController>()
-            .register_type::<ShootPattern>()
-            .register_type::<TurretController>()
-            .add_systems(
-                Update,
-                (
-                    update_player_fire_controller,
-                    update_turret_target,
-                    handle_turret_emission,
-                    system_turret_tracking,
-                    draw_turret_ranges,
-                ),
-            )
-            .add_plugins(BulletPlugin);
+        app.add_systems(
+            FixedUpdate,
+            system_turret_tracking.run_if(in_state(SceneState::Game)),
+        )
+        .add_systems(
+            FixedUpdate,
+            update_turret_target
+                .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
+        );
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub enum TargetingStrategy {
-    Closest,
-    MostHP,
-    EnemyBullet,
-}
-
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-pub enum ShootingProjectile {
-    Bullet {
-        speed: f32,
-        damage: f32,
-        lifetime: f32,
-        piercing: u8,
-    },
-    Beam {
-        range: f32,
-        damage_per_second: f32,
-        width: f32,
-    },
-}
-
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-pub enum ShootPattern {
-    Single {
-        fire_rate: f32,
-        last_fired_at: f32,
-        projectile: ShootingProjectile,
-    },
-    Burst {
-        count: u32,
-        delay: f32,
-        current_shot: u32,
-        burst_timer: f32,
-        is_bursting: bool,
-        projectile: ShootingProjectile,
-    },
-    Continuous,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct TurretController {
-    pub strategy: TargetingStrategy,
-    pub range: f32,
-    pub turn_speed: f32,
-    pub barrels: Vec<Vec2>,
-    pub fire_all_at_once: bool,
-    pub shooting_pattern: ShootPattern,
-
-    #[reflect(ignore)]
-    pub potential_targets: HashSet<Entity>,
-
-    pub active: bool,
-    pub target_pos: Option<Vec2>,
-    pub current_barrel_index: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-pub struct TurretFeature {
-    pub strategy: TargetingStrategy,
-    pub range: f32,
-    pub turn_speed: f32,
-    pub barrels: Vec<Vec2>,
-    pub fire_all_at_once: bool,
-    pub shooting_pattern: ShootPattern,
-}
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct PlayerFireController;
-
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct AIFireController;

@@ -1,44 +1,43 @@
 name: Build Bevy (Windows)
 
 on:
-  push:
-    paths:
-      - "game/**"
-  pull_request:
-    paths:
-      - "game/**"
+   pull_request:
+      paths:
+         - "game/**"
+      branches:
+         - main
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+   build-windows:
+      runs-on: windows-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      steps:
+         - name: Checkout repository
+           uses: actions/checkout@v4
 
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+         - name: Install Rust (stable)
+           uses: actions-rs/toolchain@v1
+           with:
+              toolchain: stable
+              profile: minimal
+              override: true
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            game/core
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+         - name: Cache Cargo
+           uses: actions/cache@v4
+           with:
+              path: |
+                 ~/.cargo/registry
+                 ~/.cargo/git
+                 game/core
+              key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build Bevy app (release)
-        working-directory: game/core
-        run: |
-          cargo build --release
+         - name: Build Bevy app (release)
+           working-directory: game/core
+           run: |
+              cargo build --release
 
-      - name: Upload Windows executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: bevy-windows-exe
-          path: game/target/release/*.exe
+         - name: Upload Windows executable
+           uses: actions/upload-artifact@v4
+           with:
+              name: bevy-windows-exe
+              path: game/target/release/*.exe

@@ -1,7 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::content::structures::ship::Ship;
-use crate::content::team::Team;
+use crate::content::{ship::base::Ship, team::Team};
 use bevy::prelude::*;
 
 pub struct IndicatorsPlugin;
@@ -19,38 +18,37 @@ fn draw_indicators(
     window: Single<&Window>,
 ) {
     let (camera, camera_transform, projection) = *camera;
+    // max(32) prevent crash when window size is too small, idk how
     let window_size = Vec2::new(window.width(), window.height());
 
     for (ship_transform, team, ship) in &ships {
-        let ship_pos = ship_transform.transform_point(ship.center.extend(0.0));
+        let ship_position = ship_transform.transform_point(ship.center.extend(0.0));
 
         // Project to screen to check visibility and clamp
-        if let Ok(viewport_pos) = camera.world_to_viewport(camera_transform, ship_pos) {
+        if let Ok(viewport_position) = camera.world_to_viewport(camera_transform, ship_position) {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale
             } else {
                 1.0
             };
             let margin = 30.0;
-            let clamped_x = viewport_pos.x.clamp(margin, window_size.x - margin);
-            let clamped_y = viewport_pos.y.clamp(margin, window_size.y - margin);
+            let clamped_x = viewport_position
+                .x
+                .clamp(margin, (window_size.x - margin).max(margin + 1.0));
+            let clamped_y = viewport_position
+                .y
+                .clamp(margin, (window_size.y - margin).max(margin + 1.0));
 
-            let clamped_viewport_pos = Vec2::new(clamped_x, clamped_y);
+            let clamped_viewport_position = Vec2::new(clamped_x, clamped_y);
 
             // Convert back to world space for drawing Gizmos
-            if let Ok(world_pos) =
-                camera.viewport_to_world_2d(camera_transform, clamped_viewport_pos)
+            if let Ok(world_position) =
+                camera.viewport_to_world_2d(camera_transform, clamped_viewport_position)
             {
-                let color = if team.id == 0 {
-                    Color::srgb(0.0, 1.1, 0.0) // Green
-                } else {
-                    Color::srgb(1.1, 0.0, 0.0) // Red
-                };
+                let color = team.color(1.0);
+                let size = 45.0 * scale.sqrt();
 
-                // Triangle pointing toward the target
-                let size = 30.0 * scale; // 1.5 times bigger
-
-                let diff = ship_pos.truncate() - world_pos;
+                let diff = ship_position.truncate() - world_position;
                 // Only draw if we are somewhat far from the target (avoid drawing on top)
                 let angle: f32 = if diff.length_squared() > 0.5 {
                     diff.y.atan2(diff.x)
@@ -67,14 +65,15 @@ fn draw_indicators(
 
                 // Rotate and Translate
                 let transform_point =
-                    |p: Vec2| -> Vec2 { world_pos + (rotation * p.extend(0.0)).truncate() };
+                    |p: Vec2| -> Vec2 { world_position + (rotation * p.extend(0.0)).truncate() };
 
                 let v1 = transform_point(p1);
                 let v2 = transform_point(p2);
                 let v3 = transform_point(p3);
 
-                // Draw outline (Gizmos don't support solid fill natively yet)
-                gizmos.linestrip_2d(vec![v1, v2, v3, v1], color);
+                let points = [v1, v2, v3, v1];
+
+                gizmos.linestrip_2d(points, color);
             }
         }
     }
