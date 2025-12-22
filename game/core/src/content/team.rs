@@ -3,8 +3,8 @@ use bevy_rapier2d::prelude::Group;
 use serde::{Deserialize, Serialize};
 
 const COLORS: [Color; 16] = [
-    Color::srgb(1.0, 0.0, 0.0),    // red
     Color::srgb(0.0, 1.0, 0.0),    // green
+    Color::srgb(1.0, 0.0, 0.0),    // red
     Color::srgb(0.0, 0.0, 1.0),    // blue
     Color::srgb(1.0, 1.0, 0.0),    // yellow
     Color::srgb(1.0, 0.5, 0.0),    // orange

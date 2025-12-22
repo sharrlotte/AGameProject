@@ -10,7 +10,7 @@ pub fn handle_bullet_collisions(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
-    mut missile_radars: Query<&mut Missile>,
+    mut missile_radars: Query<(Entity, &mut Missile)>,
     missile_hitboxes: Query<&MissileHitbox>,
 ) {
     for event in collision_events.read() {
@@ -27,10 +27,10 @@ pub fn handle_bullet_collisions(
                 handle_missile_collision(&mut commands, hitbox);
             }
 
-            if let Ok(mut missilec) = missile_radars.get_mut(*e1) {
-                handle_missile_radar_collision(&mut missilec, *e2);
-            } else if let Ok(mut missilec) = missile_radars.get_mut(*e2) {
-                handle_missile_radar_collision(&mut missilec, *e1);
+            if let Ok((radar, mut missilec)) = missile_radars.get_mut(*e1) {
+                handle_missile_radar_collision(&mut commands, radar, &mut missilec, *e2);
+            } else if let Ok((radar, mut missilec)) = missile_radars.get_mut(*e2) {
+                handle_missile_radar_collision(&mut commands, radar, &mut missilec, *e1);
             }
         }
     }
@@ -52,8 +52,17 @@ fn handle_missile_collision(commands: &mut Commands, hitbox: &MissileHitbox) {
         .insert((Visibility::Hidden, ColliderDisabled, Death));
 }
 
-fn handle_missile_radar_collision(missile: &mut Missile, target: Entity) {
-    missile.target = Some(target);
+fn handle_missile_radar_collision(
+    commands: &mut Commands,
+    radar: Entity,
+    missile: &mut Missile,
+    target: Entity,
+) {
+    if missile.target.is_none() {
+        missile.target = Some(target);
+    }
+
+    commands.entity(radar).insert(ColliderDisabled);
 }
 
 pub fn handle_bullets(

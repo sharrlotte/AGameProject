@@ -19,7 +19,7 @@ fn draw_indicators(
 ) {
     let (camera, camera_transform, projection) = *camera;
     // max(32) prevent crash when window size is too small, idk how
-    let window_size = Vec2::new(window.width().max(32.0), window.height().max(32.0));
+    let window_size = Vec2::new(window.width(), window.height());
 
     for (ship_transform, team, ship) in &ships {
         let ship_position = ship_transform.transform_point(ship.center.extend(0.0));
@@ -32,8 +32,12 @@ fn draw_indicators(
                 1.0
             };
             let margin = 30.0;
-            let clamped_x = viewport_position.x.clamp(margin, window_size.x - margin);
-            let clamped_y = viewport_position.y.clamp(margin, window_size.y - margin);
+            let clamped_x = viewport_position
+                .x
+                .clamp(margin, (window_size.x - margin).max(margin + 1.0));
+            let clamped_y = viewport_position
+                .y
+                .clamp(margin, (window_size.y - margin).max(margin + 1.0));
 
             let clamped_viewport_position = Vec2::new(clamped_x, clamped_y);
 
@@ -41,12 +45,7 @@ fn draw_indicators(
             if let Ok(world_position) =
                 camera.viewport_to_world_2d(camera_transform, clamped_viewport_position)
             {
-                let color = if team.is_player() {
-                    Color::srgb(0.0, 1.1, 0.0) // Green
-                } else {
-                    Color::srgb(1.1, 0.0, 0.0) // Red
-                };
-
+                let color = team.color(1.0);
                 let size = 45.0 * scale.sqrt();
 
                 let diff = ship_position.truncate() - world_position;

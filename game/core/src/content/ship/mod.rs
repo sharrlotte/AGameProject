@@ -113,9 +113,8 @@ fn check_enemy_ship(
     let missing = ENEMIES - ships.iter().len();
     let mut rng = rand::rng();
 
-    let team_id = rng.random_range(1..10);
-
     for _ in 0..missing {
+        let team_id = rng.random_range(1..10);
         let schematics = load_saved_schematics();
         let Some(schematic) = schematics.choose(&mut rng) else {
             continue;

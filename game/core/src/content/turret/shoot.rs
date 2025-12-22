@@ -40,6 +40,7 @@ pub fn handle_turret_emission(
                     *barrel_position,
                     *range,
                     &shoot_pattern.projectile,
+                    turret_state.target,
                 );
             }
             shoot_pattern_state.last_fired_at = time.elapsed_secs();
@@ -54,6 +55,7 @@ pub fn spawn_bullet(
     barrel_position: Vec2,
     range: f32,
     projectile: &ShootingProjectile,
+    target: Option<Entity>,
 ) {
     let rotation = turret_transform.rotation();
     let world_offset = rotation * barrel_position.extend(0.0);
@@ -121,7 +123,7 @@ pub fn spawn_bullet(
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
                         speed: *speed,
-                        target: None,
+                        target,
                     },
                     Sprite {
                         color: team.color(10.0),
@@ -133,13 +135,18 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
+                    *team,
+                ))
+                .id();
+
+            if target.is_some() {
+                commands.entity(missile).insert((
                     Collider::ball(*lock_range),
                     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
-                    *team,
-                ))
-                .id();
+                ));
+            }
 
             let hit_box = commands
                 .spawn((
