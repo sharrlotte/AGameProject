@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::save::base::Save;
+use crate::{content::team::Team, save::base::Save};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[require(Save)]
@@ -25,4 +25,7 @@ pub struct Missile {
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct MissileHitbox {
     pub missile: Entity,
+    pub blast_damage: f32,
+    pub blast_radius: f32,
+    pub team: Team,
 }

@@ -1,3 +1,4 @@
+use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{ColliderDisabled, CollisionEvent};
 
@@ -22,6 +23,7 @@ pub fn handle_bullet_collisions(
     mut bullets: Query<(Entity, &mut Bullet)>,
     mut missile_radars: Query<(Entity, &mut Missile)>,
     missile_hitboxes: Query<&MissileHitbox>,
+    assets: Res<AssetServer>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -32,9 +34,9 @@ pub fn handle_bullet_collisions(
             }
 
             if let Ok(hitbox) = missile_hitboxes.get(*e1) {
-                handle_missile_collision(&mut commands, hitbox);
+                handle_missile_collision(&mut commands, hitbox, &assets);
             } else if let Ok(hitbox) = missile_hitboxes.get(*e2) {
-                handle_missile_collision(&mut commands, hitbox);
+                handle_missile_collision(&mut commands, hitbox, &assets);
             }
 
             if let Ok((radar, mut missilec)) = missile_radars.get_mut(*e1) {
@@ -56,10 +58,40 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
     }
 }
 
-fn handle_missile_collision(commands: &mut Commands, hitbox: &MissileHitbox) {
+fn handle_missile_collision(
+    commands: &mut Commands,
+    hitbox: &MissileHitbox,
+    assets: &Res<AssetServer>,
+) {
     commands
         .entity(hitbox.missile)
         .insert((Visibility::Hidden, ColliderDisabled, Death));
+
+    commands.spawn((
+        Lifetime {
+            timer: Timer::from_seconds(10.0, TimerMode::Once),
+        },
+        Damage {
+            damage: hitbox.blast_damage,
+        },
+        Collider::ball(hitbox.blast_radius),
+        CollisionGroups::new(
+            hitbox.team.get_bullet_group(),
+            hitbox.team.get_bullet_filter(),
+        ),
+        ActiveEvents::COLLISION_EVENTS,
+        Sensor,
+        Sprite {
+            image: assets.load("textures/circle.png"),
+            custom_size: Some(Vec2::new(
+                hitbox.blast_radius * 2.0,
+                hitbox.blast_radius * 2.0,
+            )),
+            color: hitbox.team.color(2.0),
+            ..default()
+        },
+        hitbox.team,
+    ));
 }
 
 fn handle_missile_radar_collision(
@@ -89,7 +121,12 @@ pub fn handle_despawn_bullet(
     mut query: Query<(Entity, &mut Bullet, &GlobalTransform)>,
 ) {
     for (entity, bullet, global_transform) in query.iter_mut() {
-        if bullet.range < (bullet.shooted_at - global_transform.translation().truncate()).length() {
+        if bullet.range.squared()
+            < global_transform
+                .translation()
+                .truncate()
+                .distance_squared(bullet.shooted_at)
+        {
             commands.entity(entity).insert(Death);
         }
     }
@@ -309,6 +346,8 @@ pub fn spawn_bullet(
             damage,
             lifetime,
             lock_range,
+            blast_damage,
+            blast_radius,
         } => {
             let missile = commands
                 .spawn((
@@ -354,7 +393,12 @@ pub fn spawn_bullet(
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     Damage { damage: *damage },
-                    MissileHitbox { missile },
+                    MissileHitbox {
+                        missile,
+                        blast_damage: *blast_damage,
+                        blast_radius: *blast_radius,
+                        team: *team,
+                    },
                     Transform::default(),
                 ))
                 .id();

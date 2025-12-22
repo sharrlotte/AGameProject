@@ -225,6 +225,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         damage: 20.0,
                         lifetime: 15.0,
                         lock_range: 6000.0,
+                        blast_damage: 60.0,
+                        blast_radius: 200.0,
                     },
                 }),
             }),

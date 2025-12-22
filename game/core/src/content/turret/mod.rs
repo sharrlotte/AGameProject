@@ -20,8 +20,7 @@ impl Plugin for TurretPlugin {
         .add_systems(
             Update,
             update_turret_target
-                .run_if(on_timer(Duration::from_millis(100)))
-                .run_if(in_state(SceneState::Game)),
+                .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
         );
     }
 }

@@ -156,6 +156,8 @@ pub enum ShootingProjectile {
         damage: f32,
         lifetime: f32,
         lock_range: f32,
+        blast_damage: f32,
+        blast_radius: f32,
     },
 }
 
