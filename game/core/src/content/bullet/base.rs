@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{content::team::Team, save::base::Save};
+use crate::{components::death::Death, content::team::Team, save::base::Save};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[require(Save)]
@@ -29,9 +29,6 @@ pub struct MissileHitbox {
     pub blast_radius: f32,
     pub team: Team,
 }
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct Pooled;
 
 use bevy::{
     app::{App, Plugin, Update},
@@ -75,7 +72,7 @@ fn update_lifetime(
             let Ok(mut commands) = commands.get_entity(entity) else {
                 continue;
             };
-            commands.insert(Pooled);
+            commands.insert(Death);
         }
     }
 }

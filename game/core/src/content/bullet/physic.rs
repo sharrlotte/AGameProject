@@ -8,7 +8,7 @@ use crate::content::block::base::{
     BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
 };
-use crate::content::bullet::base::{Lifetime, Pooled};
+use crate::content::bullet::base::Lifetime;
 use crate::content::team::Team;
 use crate::content::turret::base::{Turret, TurretState};
 use crate::{
@@ -51,7 +51,7 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
     if bulletc.piercing <= 0 {
         commands
             .entity(bullet)
-            .insert((Visibility::Hidden, ColliderDisabled, Pooled));
+            .insert((Visibility::Hidden, ColliderDisabled, Death));
     } else {
         bulletc.piercing -= 1;
     }
@@ -64,7 +64,7 @@ fn handle_missile_collision(
 ) {
     commands
         .entity(hitbox.missile)
-        .insert((Visibility::Hidden, ColliderDisabled, Pooled));
+        .insert((Visibility::Hidden, ColliderDisabled, Death));
 
     commands.spawn((
         Transform::from(*transform),
@@ -97,7 +97,7 @@ fn handle_missile_radar_collision(
 }
 
 pub fn handle_bullets(
-    mut query: Query<(&mut Bullet, &mut Transform), Without<Pooled>>,
+    mut query: Query<(&mut Bullet, &mut Transform), Without<Death>>,
     time: Res<Time>,
 ) {
     for (bullet, mut transform) in query.iter_mut() {
