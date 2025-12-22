@@ -121,7 +121,7 @@ pub fn handle_missiles(
         missile.age += time.delta_secs();
 
         let t = (missile.age / missile.accel_time).clamp(0.4, 1.0);
-        let eased = t.powf(2.0);
+        let eased = t.powf(1.2);
 
         let current_speed = missile.speed * eased;
 
@@ -321,7 +321,7 @@ pub fn spawn_bullet(
                         lock_range: *lock_range,
                         age: 0.0,
                         speed: *speed,
-                        accel_time: 0.2,
+                        accel_time: 0.35,
                         target,
                     },
                     Sprite {

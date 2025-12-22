@@ -256,8 +256,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
                 barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
                 shooting_pattern: ShootPattern::Burst(BurstShootPattern {
-                    fire_rate: 0.55,
-                    delay: 0.55,
+                    fire_rate: 0.2,
+                    delay: 0.2,
                     amount: 12,
                     projectile: ShootingProjectile::Bullet {
                         speed: 4000.0,
