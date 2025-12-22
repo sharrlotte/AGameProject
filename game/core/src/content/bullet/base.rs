@@ -17,7 +17,9 @@ pub struct Missile {
     pub lock_range: f32,
     pub shooted_at: Vec2,
     pub speed: f32,
+    pub age: f32,
     pub target: Option<Entity>,
+    pub accel_time: f32,
 }
 
 #[derive(Component, Debug, Clone, Reflect)]

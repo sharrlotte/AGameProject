@@ -111,12 +111,19 @@ pub fn handle_missile_radar(
 }
 
 pub fn handle_missiles(
-    mut missiles: Query<(&Missile, &mut Transform, &GlobalTransform), Without<Death>>,
+    mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
     targets: Query<&GlobalTransform>,
     time: Res<Time>,
 ) {
-    for (missile, mut transform, global) in missiles.iter_mut() {
+    for (mut missile, mut transform, global) in missiles.iter_mut() {
         let forward: Vec2 = global.up().truncate();
+
+        missile.age += time.delta_secs();
+
+        let t = (missile.age / missile.accel_time).clamp(0.4, 1.0);
+        let eased = t.powf(2.0);
+
+        let current_speed = missile.speed * eased;
 
         if let Some(target) = missile.target {
             if let Ok(target_gt) = targets.get(target) {
@@ -133,13 +140,13 @@ pub fn handle_missiles(
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
                 transform.rotate_z(turn);
-                transform.translation += (forward * missile.speed * time.delta_secs()).extend(0.0);
+                transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
 
                 continue;
             };
         };
 
-        transform.translation += (forward * missile.speed * time.delta_secs()).extend(0.0);
+        transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
     }
 }
 
@@ -312,7 +319,9 @@ pub fn spawn_bullet(
                     Missile {
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
+                        age: 0.0,
                         speed: *speed,
+                        accel_time: 0.2,
                         target,
                     },
                     Sprite {
