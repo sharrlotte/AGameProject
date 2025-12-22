@@ -336,6 +336,7 @@ pub fn render_block_component(
                             last_fired_at: 0.0,
                             current_barrel: 0,
                             last_barrel_fired_at: 0.0,
+                            current_amount: 0,
                             is_bursting: false,
                         },
                     ));

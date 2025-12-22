@@ -164,7 +164,7 @@ pub fn handle_single_shot(
 
         let Turret { barrels, range, .. } = turret;
 
-        if time.elapsed_secs() - shoot_pattern_state.last_fired_at >= shoot_pattern.fire_rate {
+        if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
             for barrel_position in barrels.iter() {
                 spawn_bullet(
                     &mut commands,
@@ -204,20 +204,22 @@ pub fn handle_burst_shot(
 
         if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
             shoot_pattern_state.is_bursting = true;
+            shoot_pattern_state.current_amount = shoot_pattern.amount;
             shoot_pattern_state.last_fired_at = time.elapsed_secs();
         } else if !shoot_pattern_state.is_bursting {
             continue;
         }
 
-        if (time.elapsed_secs() - shoot_pattern_state.last_barrel_fired_at) >= shoot_pattern.delay {
+        if time.elapsed_secs() < shoot_pattern_state.last_barrel_fired_at + shoot_pattern.delay {
             continue;
         }
 
         let barrel_index = shoot_pattern_state.current_barrel % barrels.len();
         let barrel_position = barrels[barrel_index];
 
-        if (barrel_index + 1) >= barrels.len() {
+        if shoot_pattern_state.current_amount <= 0 {
             shoot_pattern_state.is_bursting = false;
+            continue;
         }
 
         spawn_bullet(
@@ -231,6 +233,7 @@ pub fn handle_burst_shot(
         );
 
         shoot_pattern_state.last_barrel_fired_at = time.elapsed_secs();
+        shoot_pattern_state.current_amount -= 1;
         shoot_pattern_state.current_barrel += 1;
     }
 }

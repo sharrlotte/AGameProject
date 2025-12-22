@@ -180,6 +180,7 @@ pub struct SingleShootPatternState {
 pub struct BurstShootPattern {
     pub fire_rate: f32,
     pub delay: f32,
+    pub amount: i8,
     pub projectile: ShootingProjectile,
 }
 
@@ -189,6 +190,7 @@ pub struct BurstShootPatternState {
     pub last_fired_at: f32,
     pub current_barrel: usize,
     pub last_barrel_fired_at: f32,
+    pub current_amount: i8,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
