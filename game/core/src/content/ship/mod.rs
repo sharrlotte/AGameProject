@@ -97,7 +97,7 @@ fn check_player_ship(
     }
 }
 
-const ENEMIES: usize = 3;
+const ENEMIES: usize = 1;
 
 fn check_enemy_ship(
     mut commands: Commands,

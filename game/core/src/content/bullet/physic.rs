@@ -11,7 +11,7 @@ pub fn handle_bullet_collisions(
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
     mut missile_radars: Query<&mut Missile>,
-    missile_hitboxes: Query<(Entity, &MissileHitbox)>,
+    missile_hitboxes: Query<&MissileHitbox>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -21,10 +21,10 @@ pub fn handle_bullet_collisions(
                 handle_bullet_collision(&mut commands, bullet, &mut bulletc);
             }
 
-            if let Ok((missile, _)) = missile_hitboxes.get(*e1) {
-                handle_missile_collision(&mut commands, missile);
-            } else if let Ok((missile, _)) = missile_hitboxes.get(*e2) {
-                handle_missile_collision(&mut commands, missile);
+            if let Ok(hitbox) = missile_hitboxes.get(*e1) {
+                handle_missile_collision(&mut commands, hitbox);
+            } else if let Ok(hitbox) = missile_hitboxes.get(*e2) {
+                handle_missile_collision(&mut commands, hitbox);
             }
 
             if let Ok(mut missilec) = missile_radars.get_mut(*e1) {
@@ -46,18 +46,20 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
     }
 }
 
-fn handle_missile_collision(commands: &mut Commands, missile: Entity) {
+fn handle_missile_collision(commands: &mut Commands, hitbox: &MissileHitbox) {
     commands
-        .entity(missile)
+        .entity(hitbox.missile)
         .insert((Visibility::Hidden, ColliderDisabled, Death));
-    info!("Missile hit");
 }
 
 fn handle_missile_radar_collision(missile: &mut Missile, target: Entity) {
     missile.target = Some(target);
 }
 
-pub fn handle_bullets(mut query: Query<(&mut Bullet, &mut Transform)>, time: Res<Time>) {
+pub fn handle_bullets(
+    mut query: Query<(&mut Bullet, &mut Transform), Without<Death>>,
+    time: Res<Time>,
+) {
     for (bullet, mut transform) in query.iter_mut() {
         transform.translation += bullet.velocity.extend(0.0) * time.delta_secs();
     }
@@ -77,7 +79,7 @@ pub fn handle_despawn_bullet(
 
 pub fn handle_missile_radar(
     mut collision_events: MessageReader<CollisionEvent>,
-    mut missiles: Query<&mut Missile>,
+    mut missiles: Query<&mut Missile, Without<Death>>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -91,7 +93,7 @@ pub fn handle_missile_radar(
 }
 
 pub fn handle_missiles(
-    mut missiles: Query<(&Missile, &mut Transform, &GlobalTransform)>,
+    mut missiles: Query<(&Missile, &mut Transform, &GlobalTransform), Without<Death>>,
     targets: Query<&GlobalTransform>,
     time: Res<Time>,
 ) {

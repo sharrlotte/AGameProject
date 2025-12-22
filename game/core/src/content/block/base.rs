@@ -155,6 +155,7 @@ pub enum ShootingProjectile {
         speed: f32,
         damage: f32,
         lifetime: f32,
+        lock_range: f32,
     },
 }
 

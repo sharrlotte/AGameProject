@@ -117,6 +117,7 @@ pub fn spawn_bullet(
             speed,
             damage,
             lifetime,
+            lock_range,
         } => {
             let missile = commands
                 .spawn((
@@ -126,7 +127,7 @@ pub fn spawn_bullet(
                     },
                     Missile {
                         shooted_at: spawn_position.truncate(),
-                        range,
+                        lock_range: *lock_range,
                         speed: *speed,
                         target: None,
                     },
@@ -136,7 +137,7 @@ pub fn spawn_bullet(
                         } else {
                             Color::srgb(8.0, 10.0, 0.0)
                         },
-                        custom_size: Some(Vec2::new(2.0, 50.0)),
+                        custom_size: Some(Vec2::new(5.0, 50.0)),
                         ..default()
                     },
                     Transform {
@@ -144,7 +145,7 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    Collider::ball(range),
+                    Collider::ball(*lock_range),
                     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
@@ -159,7 +160,7 @@ pub fn spawn_bullet(
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     Damage { damage: *damage },
-                    MissileHitbox,
+                    MissileHitbox { missile },
                     Transform::default(),
                 ))
                 .id();

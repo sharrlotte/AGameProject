@@ -17,11 +17,13 @@ pub struct Bullet {
 #[derive(Component, Debug, Clone, Reflect)]
 #[require(Save)]
 pub struct Missile {
-    pub range: f32,
+    pub lock_range: f32,
     pub shooted_at: Vec2,
     pub speed: f32,
     pub target: Option<Entity>,
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-pub struct MissileHitbox;
+pub struct MissileHitbox {
+    pub missile: Entity,
+}
