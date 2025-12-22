@@ -4,7 +4,8 @@ pub mod physic;
 use bevy::prelude::*;
 
 use crate::SceneState;
-use crate::content::bullet::base::{Bullet, Projectile};
+use crate::components::entity_type::EntityType;
+use crate::content::bullet::base::Bullet;
 use crate::content::bullet::physic::{
     handle_bullet_collisions, handle_bullets, handle_despawn_bullet, handle_missile_radar,
     handle_missiles,
@@ -34,11 +35,11 @@ impl Plugin for BulletPlugin {
     }
 }
 
-fn log_projectiles(bullets: Query<&Projectile>) {
-    info!("projectiles: {}", bullets.iter().count());
+fn log_projectiles(bullets: Query<&EntityType>) {
+    info!("entities: {}", bullets.iter().count());
 }
 
-fn cleanup_bullets(mut commands: Commands, bullets: Query<Entity, With<Projectile>>) {
+fn cleanup_bullets(mut commands: Commands, bullets: Query<Entity, With<EntityType>>) {
     for entity in &bullets {
         commands.entity(entity).despawn();
     }

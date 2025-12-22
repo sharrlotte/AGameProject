@@ -3,9 +3,6 @@ use bevy::prelude::*;
 use crate::save::base::Save;
 
 #[derive(Component, Debug, Clone, Reflect)]
-pub struct Projectile;
-
-#[derive(Component, Debug, Clone, Reflect)]
 #[require(Save)]
 pub struct Bullet {
     pub range: f32,
