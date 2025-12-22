@@ -25,7 +25,6 @@ use crate::{
     world::base::{BlockData, ShipData, render_block_base},
 };
 
-
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
         "com",           // qualifier
@@ -111,7 +110,6 @@ pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
             if let Err(e) = fs::write(&path, json) {
                 return Err(e);
             } else {
-                info!("Ship saved at: {}", path.display());
                 return Ok(());
             }
         }
@@ -233,8 +231,6 @@ pub fn handle_save_world_event(
             })
             .collect::<Vec<_>>();
 
-        info!("saving {} ships", ships.len());
-
         let blocks = block_query
             .iter()
             .map(|(entity, block, state)| BlockSave {
@@ -247,8 +243,6 @@ pub fn handle_save_world_event(
             })
             .collect::<Vec<_>>();
 
-        info!("saving {} blocks", blocks.len());
-
         let turrets = turret_query
             .iter()
             .map(|(entity, state)| TurretSave {
@@ -257,8 +251,6 @@ pub fn handle_save_world_event(
                 state: state.clone(),
             })
             .collect::<Vec<_>>();
-
-        info!("saving {} turrets", turrets.len());
 
         let path = event.path.clone();
 
@@ -339,10 +331,6 @@ pub fn handle_load_world_event(
             shoot_patterns,
             transforms,
         } = save;
-
-        info!("loading {} ships", ships.len());
-        info!("loading {} blocks", blocks.len());
-        info!("loading {} turrets", turrets.len());
 
         for ship_data in ships {
             let blocks = blocks

@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use std::time::Duration;
+
+use bevy::{prelude::*, time::common_conditions::on_timer};
 
 pub mod base;
 pub mod shoot;
@@ -17,7 +19,11 @@ impl Plugin for TurretPlugin {
             Update,
             (handle_turret_emission, system_turret_tracking).run_if(in_state(SceneState::Game)),
         )
-        .add_systems(FixedUpdate, update_turret_target)
-        .insert_resource(Time::<Fixed>::from_hz(15.0));
+        .add_systems(
+            Update,
+            update_turret_target
+                .run_if(on_timer(Duration::from_millis(100)))
+                .run_if(in_state(SceneState::Game)),
+        );
     }
 }

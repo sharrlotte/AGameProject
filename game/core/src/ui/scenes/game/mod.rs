@@ -80,8 +80,6 @@ fn setup_game(
     }
     initialized.0 = true;
 
-    info!("Setting up Game Scene");
-
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
@@ -160,7 +158,6 @@ fn update_turret_control_mode_button(
 }
 
 fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
-    info!("Cleaning up Game Scene UI");
     for entity in &query {
         commands.entity(entity).despawn();
     }
@@ -173,7 +170,6 @@ fn cleanup_game_entities(
     backgrounds: Query<Entity, With<BackgroundImage>>,
     mut initialized: ResMut<GameInitialized>,
 ) {
-    info!("Cleaning up Game Entities");
     initialized.0 = false;
 
     for entity in &ships {

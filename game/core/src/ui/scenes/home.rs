@@ -24,8 +24,6 @@ enum HomeButton {
 }
 
 fn setup_home(mut commands: Commands) {
-    info!("Setting up Home Screen");
-
     commands
         .spawn((
             Node {
@@ -169,19 +167,15 @@ fn handle_home_buttons(
                 *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
                 match button_type {
                     HomeButton::Play => {
-                        info!("Play button clicked");
                         next_state.set(SceneState::Game);
                     }
                     HomeButton::ShipEditor => {
-                        info!("Ship Editor button clicked");
                         next_state.set(SceneState::ShipEditor);
                     }
                     HomeButton::Settings => {
-                        info!("Settings button clicked");
                         // TODO: Implement settings screen
                     }
                     HomeButton::Exit => {
-                        info!("Exit button clicked");
                         exit.write(AppExit::Success);
                     }
                 }
@@ -197,7 +191,6 @@ fn handle_home_buttons(
 }
 
 fn cleanup_home(mut commands: Commands, query: Query<Entity, With<HomeScreen>>) {
-    info!("Cleaning up Home Screen");
     for entity in &query {
         commands.entity(entity).despawn();
     }

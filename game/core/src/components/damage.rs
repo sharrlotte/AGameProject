@@ -1,10 +1,9 @@
 use bevy::{
-    app::{App, Plugin, PostUpdate},
+    app::{App, Plugin, PostUpdate, Update},
     ecs::{
         component::Component,
         entity::Entity,
         message::{Message, MessageReader, MessageWriter},
-        schedule::IntoScheduleConfigs,
         system::Query,
     },
     reflect::Reflect,
@@ -30,10 +29,9 @@ pub struct DamagePlugin;
 
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<DamageEvent>().add_systems(
-            PostUpdate,
-            (handle_damage_collisions, handle_damage_events).chain(),
-        );
+        app.add_message::<DamageEvent>()
+            .add_systems(Update, handle_damage_collisions)
+            .add_systems(PostUpdate, handle_damage_events);
     }
 }
 

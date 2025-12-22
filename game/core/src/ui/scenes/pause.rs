@@ -55,8 +55,6 @@ fn handle_pause_input(
 }
 
 fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
-    info!("Setting up Pause Menu");
-
     time.pause();
 
     commands
@@ -295,7 +293,6 @@ fn cleanup_pause(
     query: Query<Entity, With<PauseScreen>>,
     mut time: ResMut<Time<Virtual>>,
 ) {
-    info!("Cleaning up Pause Menu");
     time.unpause();
     for entity in &query {
         commands.entity(entity).despawn();

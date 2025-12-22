@@ -2,6 +2,8 @@ pub mod base;
 pub mod controller;
 pub mod indicators;
 
+use std::time::Duration;
+
 use crate::components::death::Death;
 use crate::content::block::BlockDestroyedEvent;
 use crate::content::block::base::BlockType;
@@ -15,6 +17,7 @@ use crate::utils::random::random_vec2_step;
 use crate::world::base::{ShipCalculatedStat, calculate_ship_stat};
 use crate::{GameState, SceneState};
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 use rand::Rng;
@@ -32,12 +35,13 @@ impl Plugin for ShipPlugin {
                     player_ship_controller,
                     ai_ship_controller,
                     check_rebuild_ship_collider,
-                    check_player_ship,
-                    check_enemy_ship,
                     process_input,
                 )
-                    .chain()
                     .run_if(in_state(SceneState::Game)),
+            )
+            .add_systems(
+                Update,
+                (check_player_ship, check_enemy_ship).run_if(on_timer(Duration::from_millis(100))),
             )
             .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);

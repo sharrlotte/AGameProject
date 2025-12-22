@@ -1,13 +1,13 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use crate::content::{ship::base::Ship, team::Team};
-use bevy::prelude::*;
+use bevy::{prelude::*, time::common_conditions::on_timer};
 
 pub struct IndicatorsPlugin;
 
 impl Plugin for IndicatorsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, draw_indicators);
+        app.add_systems(Update, draw_indicators.run_if(on_timer(Duration::from_millis(50))));
     }
 }
 

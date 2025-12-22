@@ -27,11 +27,7 @@ impl Plugin for ShipEditorPlugin {
             .init_resource::<EditorState>()
             .add_systems(
                 OnEnter(SceneState::ShipEditor),
-                (
-                    setup_editor_ui,
-                    load_initial_ship.after(setup_editor_ui),
-                    refresh_ship_list.after(load_initial_ship),
-                ),
+                (setup_editor_ui, load_initial_ship, refresh_ship_list).chain(),
             )
             .add_systems(OnExit(SceneState::ShipEditor), cleanup_ship_editor)
             .add_systems(
@@ -40,8 +36,6 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_selection,
                     handle_tab_switching,
                     handle_ship_loading,
-                    handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
-                    refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                     process_input, // Replaced handle_grid_input
                     draw_grid,     // New system
                     update_placement_preview,
@@ -51,6 +45,8 @@ impl Plugin for ShipEditorPlugin {
                     handle_deploy_button,
                     handle_deploy_button_click,
                     handle_nav_buttons,
+                    handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
+                    refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                 )
                     .chain()
                     .run_if(in_state(SceneState::ShipEditor)),
@@ -570,7 +566,6 @@ fn handle_deploy_button_click(
             };
 
             app_var.current_ship = Some(ship_data);
-            info!("Deployed ship: {}", editor.filename);
         }
 
         match interaction {
@@ -1039,11 +1034,9 @@ fn load_initial_ship(
     placed_blocks: Query<Entity, With<PlacedBlock>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    info!("Loading initial ship...");
     let ship_names = load_saved_schematics();
 
     if ship_names.is_empty() {
-        info!("No ships available to load.");
         return;
     }
 
@@ -1066,8 +1059,6 @@ fn refresh_ship_list(
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
     available_ships.ships = load_saved_schematics();
-
-    info!("Refreshed ship list: {:?}", available_ships.ships.len());
 
     // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
@@ -1221,7 +1212,6 @@ fn remove_block_at(
 
                 // Despawn the entity
                 commands.entity(entity).despawn();
-                info!("Deleted block at {:?}", grid_position);
             }
         }
     }
@@ -1255,7 +1245,6 @@ fn perform_save_schematic(
         error!("Fail to save ship: {:?}", e)
     } else {
         ship_saved_event.write(ShipSavesChanged);
-        info!("Ship saved at: {}", ship_data.name);
     }
 }
 
@@ -1276,8 +1265,6 @@ fn spawn_ship(
     let ships = load_saved_schematics();
 
     if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.filename == filename) {
-        info!("Loading ship: {}", ship_to_load.name);
-
         editor.grid = ShipGrid::new();
         editor.filename = ship_to_load.filename;
 
