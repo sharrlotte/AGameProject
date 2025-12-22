@@ -31,7 +31,9 @@ impl BlockRegistry {
     }
 }
 
-pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
+pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<AssetServer>) {
+    let load = |image: String| -> Handle<Image> { assets.load(image) };
+
     registry.register(BlockDef {
         name: "Standard Hull".into(),
         block_type: BlockType::Hull,
@@ -41,7 +43,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 5,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/surge-wall-large.png".into(),
+            image: load("textures/blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -57,7 +59,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 50,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/thruster.png".into(),
+            image: load("textures/blocks/thruster.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -74,7 +76,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/surge-wall-large.png".into(),
+            image: load("textures/blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -90,7 +92,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 150,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/surge-wall-large.png".into(),
+            image: load("textures/blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -107,13 +109,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                sprite: "textures/blocks/core-nucleus.png".into(),
+                image: load("textures/blocks/core-nucleus.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
             }),
             BlockComponent::Sprite(SpriteComponent {
-                sprite: "textures/blocks/core-nucleus-team.png".into(),
+                image: load("textures/blocks/core-nucleus-team.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
@@ -131,7 +133,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                sprite: "textures/blocks/block-2.png".into(),
+                image: load("textures/blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
@@ -141,7 +143,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 turn_speed: 4.0,
                 barrels: vec![Vec2::new(0.0, 0.0)],
                 strategy: TargetingStrategy::Closest,
-                sprite: "textures/blocks/lancer.png".into(),
+                image: load("textures/blocks/lancer.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
@@ -167,7 +169,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/block-scrap.png".into(),
+            image: load("textures/blocks/block-scrap.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -183,7 +185,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            sprite: "textures/blocks/block-steel.png".into(),
+            image: load("textures/blocks/block-steel.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -200,7 +202,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                sprite: "textures/blocks/block-2.png".into(),
+                image: load("textures/blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
@@ -209,7 +211,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>) {
                 range: 20000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
-                sprite: "textures/blocks/swarmer.png".into(),
+                image: load("textures/blocks/swarmer.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,

@@ -111,7 +111,7 @@ pub struct EnergyConsumerComponent {
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct SpriteComponent {
-    pub sprite: String,
+    pub image: Handle<Image>,
     pub offset: Vec2,
     pub z: f32,
     pub animated: bool,
@@ -124,7 +124,7 @@ pub struct TurretComponent {
     pub turn_speed: f32,
     pub barrels: Vec<Vec2>,
     pub shooting_pattern: ShootPattern,
-    pub sprite: String,
+    pub image: Handle<Image>,
     pub offset: Vec2,
     pub z: f32,
     pub animated: bool,

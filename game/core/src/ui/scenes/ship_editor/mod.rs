@@ -149,7 +149,7 @@ fn cleanup_ship_editor(
     }
 }
 
-fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets: Res<AssetServer>) {
+fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>) {
     // Root Node (Full Screen)
     commands.spawn((ShipBase, Visibility::Inherited, Transform::default()));
 
@@ -314,8 +314,7 @@ fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets:
                                                         BlockComponent::Sprite(visual) => {
                                                             icon_parent.spawn((
                                                                 ImageNode {
-                                                                    image: assets
-                                                                        .load(&visual.sprite),
+                                                                    image: visual.image.clone(),
                                                                     ..default()
                                                                 },
                                                                 Node {
@@ -331,8 +330,7 @@ fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>, assets:
                                                         BlockComponent::Turret(visual) => {
                                                             icon_parent.spawn((
                                                                 ImageNode {
-                                                                    image: assets
-                                                                        .load(&visual.sprite),
+                                                                    image: visual.image.clone(),
                                                                     ..default()
                                                                 },
                                                                 Node {
@@ -820,7 +818,6 @@ fn update_placement_preview(
     mut commands: Commands,
     editor: Res<EditorState>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
     preview: Query<Entity, With<PlacementPreview>>,
     blocks: Query<(&Block, &GridPosition)>, // Added query
 ) {
@@ -866,7 +863,7 @@ fn update_placement_preview(
                         BlockComponent::Sprite(visual) => {
                             icon_parent.spawn((
                                 Sprite {
-                                    image: assets.load(&visual.sprite),
+                                    image: visual.image.clone(),
                                     custom_size: Some(get_block_size(def)),
                                     color: tint,
                                     ..default()
@@ -877,7 +874,7 @@ fn update_placement_preview(
                         BlockComponent::Turret(visual) => {
                             icon_parent.spawn((
                                 Sprite {
-                                    image: assets.load(&visual.sprite),
+                                    image: visual.image.clone(),
                                     custom_size: Some(get_block_size(def)),
                                     color: tint,
                                     ..default()
@@ -898,7 +895,6 @@ fn update_placement_preview(
 
 fn handle_placement(
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
     blocks: Query<(&Block, &GridPosition)>, // Added query
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
@@ -927,13 +923,7 @@ fn handle_placement(
                 return;
             }
 
-            let base = spawn_placed_block(
-                &mut commands,
-                &assets,
-                ship_base.entity(),
-                def,
-                grid_position,
-            );
+            let base = spawn_placed_block(&mut commands, ship_base.entity(), def, grid_position);
 
             for voxel in &def.shape.voxels {
                 editor.grid.insert(grid_position + voxel.position, base);
@@ -1030,7 +1020,6 @@ fn load_initial_ship(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
@@ -1047,7 +1036,6 @@ fn load_initial_ship(
         &mut commands,
         &mut editor,
         &registry,
-        &assets,
         &filename,
         ship_base.entity(),
     );
@@ -1148,7 +1136,6 @@ fn handle_ship_loading(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
     placed_blocks: Query<Entity, With<PlacedBlock>>,
     mut interaction: Query<(&Interaction, &LoadShipButton), (Changed<Interaction>, With<Button>)>,
     ship_base: Single<Entity, With<ShipBase>>,
@@ -1160,7 +1147,6 @@ fn handle_ship_loading(
                 &mut commands,
                 &mut editor,
                 &registry,
-                &assets,
                 &load_btn.filename,
                 ship_base.entity(),
             );
@@ -1169,7 +1155,6 @@ fn handle_ship_loading(
 }
 fn spawn_placed_block(
     commands: &mut Commands,
-    assets: &AssetServer,
     base: Entity,
     block_def: &BlockDef,
     grid_position: IVec2,
@@ -1187,7 +1172,7 @@ fn spawn_placed_block(
     commands.entity(base).insert(PlacedBlock);
 
     for component in &block_def.components {
-        render_block_component(commands, base, assets, block_def, component, team);
+        render_block_component(commands, base, block_def, component, team);
     }
 
     return base;
@@ -1258,7 +1243,6 @@ fn spawn_ship(
     commands: &mut Commands,
     editor: &mut EditorState,
     registry: &BlockRegistry,
-    assets: &AssetServer,
     filename: &str,
     ship_base: Entity,
 ) {
@@ -1276,13 +1260,8 @@ fn spawn_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let base = spawn_placed_block(
-                    commands,
-                    &assets,
-                    ship_base.entity(),
-                    def,
-                    saved_block.position,
-                );
+                let base =
+                    spawn_placed_block(commands, ship_base.entity(), def, saved_block.position);
 
                 for voxel in &def.shape.voxels {
                     editor

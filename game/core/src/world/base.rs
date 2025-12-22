@@ -126,7 +126,6 @@ impl ShipData {
         &self,
         commands: &mut Commands,
         registry: &BlockRegistry,
-        assets: &AssetServer,
         team: Team,
         transform: Transform,
     ) -> Entity {
@@ -193,7 +192,7 @@ impl ShipData {
                 commands.entity(base).insert(ShipIdComponent { id: ship });
 
                 for component in &def.components {
-                    render_block_component(commands, base, assets, def, component, team);
+                    render_block_component(commands, base, def, component, team);
                 }
             }
         }
@@ -276,7 +275,6 @@ pub fn render_block_base(
 pub fn render_block_component(
     commands: &mut Commands,
     parent: Entity,
-    assets: &AssetServer,
     def: &BlockDef,
     component: &BlockComponent,
     team: Team,
@@ -318,7 +316,7 @@ pub fn render_block_component(
                 ActiveEvents::COLLISION_EVENTS,
                 ColliderMassProperties::Mass(0.0),
                 Sprite {
-                    image: assets.load(&f.sprite),
+                    image: f.image.clone(),
                     custom_size: Some(get_block_size(def)),
                     ..default()
                 },
@@ -351,7 +349,7 @@ pub fn render_block_component(
         BlockComponent::Sprite(f) => {
             commands.entity(child).insert((
                 Sprite {
-                    image: assets.load(&f.sprite),
+                    image: f.image.clone(),
                     custom_size: Some(get_block_size(def)),
                     ..default()
                 },

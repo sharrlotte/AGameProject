@@ -28,7 +28,6 @@ pub struct ShipPlugin;
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ComponentState>()
-            .add_message::<ShipDestroyedEvent>()
             .add_systems(
                 Update,
                 (
@@ -53,12 +52,6 @@ pub struct ComponentState {
     cursor_world_position: Option<Vec2>,
 }
 
-#[derive(Message, Debug, Clone)]
-pub struct ShipDestroyedEvent {
-    pub ship_id: Entity,
-    pub team: Team,
-}
-
 fn process_input(
     mut state: ResMut<ComponentState>,
     window: Single<&Window, With<PrimaryWindow>>,
@@ -76,7 +69,6 @@ fn check_player_ship(
     ships: Query<&PlayerShipController>,
     vars: Res<GameState>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
 ) {
     if ships.iter().len() == 0 {
         let ship = if let Some(ship) = &vars.current_ship {
@@ -95,7 +87,6 @@ fn check_player_ship(
         ship.to_ship_data().spawn(
             &mut commands,
             &registry,
-            &assets,
             Team::new(0),
             Transform::from_translation(position.extend(0.0)),
         );
@@ -108,7 +99,6 @@ fn check_enemy_ship(
     mut commands: Commands,
     ships: Query<&AIShipController>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
 ) {
     if ships.iter().len() > ENEMIES {
         return;
@@ -133,7 +123,6 @@ fn check_enemy_ship(
         schematic.to_ship_data().spawn(
             &mut commands,
             &registry,
-            &assets,
             Team::new(team_id),
             Transform::from_translation(position.extend(0.0)),
         );
@@ -149,24 +138,19 @@ fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
 fn check_rebuild_ship_collider(
     mut commands: Commands,
     mut events: MessageReader<BlockDestroyedEvent>,
-    mut writer: MessageWriter<ShipDestroyedEvent>,
     mut ships: Query<(Entity, &mut Ship, &Team)>,
     registry: Res<BlockRegistry>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut ship, team)) = ships.get_mut(event.ship_id) else {
+        let Ok((entity, mut ship, _)) = ships.get_mut(event.ship_id) else {
             warn!("Ship {} not found!", event.ship_id);
             continue;
         };
 
         if let Some(block) = registry.get(&event.block) {
             if block.block_type == BlockType::Core {
-                writer.write(ShipDestroyedEvent {
-                    ship_id: entity,
-                    team: team.clone(),
-                });
                 commands.entity(entity).insert(Death);
-                return;
+                continue;
             }
         }
 

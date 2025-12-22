@@ -301,7 +301,6 @@ pub fn handle_load_world_event(
     mut commands: Commands,
     mut events: MessageReader<LoadWorldEvent>,
     registry: Res<BlockRegistry>,
-    assets: Res<AssetServer>,
 ) {
     for event in events.read() {
         let path = event.path.clone();
@@ -352,7 +351,6 @@ pub fn handle_load_world_event(
             let ship = data.spawn(
                 &mut commands,
                 &registry,
-                &assets,
                 ship_data.team,
                 Transform::default(),
             );
