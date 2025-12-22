@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use crate::SceneState;
 use crate::components::entity_type::EntityType;
+use crate::content::bullet::base::LifetimePlugin;
 use crate::content::bullet::physic::{
     handle_bullet_collisions, handle_bullets, handle_burst_shot, handle_despawn_bullet,
     handle_missile_radar, handle_missiles, handle_single_shot,
@@ -30,7 +31,8 @@ impl Plugin for BulletPlugin {
             Update,
             handle_despawn_bullet.run_if(in_state(SceneState::Game)),
         )
-        .add_systems(OnEnter(SceneState::Home), cleanup_bullets);
+        .add_systems(OnEnter(SceneState::Home), cleanup_bullets)
+        .add_plugins(LifetimePlugin);
     }
 }
 

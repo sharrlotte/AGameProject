@@ -8,7 +8,6 @@ mod world;
 
 use crate::components::damage::DamagePlugin;
 use crate::components::death::DeathPlugin;
-use crate::components::lifetime::LifetimePlugin;
 use crate::content::block::BlockPlugin;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::bullet::BulletPlugin;
@@ -29,6 +28,7 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
 };
+use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
@@ -65,9 +65,9 @@ fn main() {
         BulletPlugin,
         DeathPlugin,
         SavePlugin,
-        LifetimePlugin,
         BlockPlugin,
         DamagePlugin,
+        HanabiPlugin
     ));
 
     #[cfg(debug_assertions)]

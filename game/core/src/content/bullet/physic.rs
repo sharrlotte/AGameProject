@@ -4,11 +4,11 @@ use bevy_rapier2d::prelude::{ColliderDisabled, CollisionEvent};
 
 use crate::components::damage::Damage;
 use crate::components::entity_type::EntityType;
-use crate::components::lifetime::Lifetime;
 use crate::content::block::base::{
     BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
 };
+use crate::content::bullet::base::{Lifetime, Pooled};
 use crate::content::team::Team;
 use crate::content::turret::base::{Turret, TurretState};
 use crate::{
@@ -22,8 +22,7 @@ pub fn handle_bullet_collisions(
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
     mut missile_radars: Query<(Entity, &mut Missile)>,
-    missile_hitboxes: Query<&MissileHitbox>,
-    assets: Res<AssetServer>,
+    missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -33,10 +32,10 @@ pub fn handle_bullet_collisions(
                 handle_bullet_collision(&mut commands, bullet, &mut bulletc);
             }
 
-            if let Ok(hitbox) = missile_hitboxes.get(*e1) {
-                handle_missile_collision(&mut commands, hitbox, &assets);
-            } else if let Ok(hitbox) = missile_hitboxes.get(*e2) {
-                handle_missile_collision(&mut commands, hitbox, &assets);
+            if let Ok((hitbox, transform)) = missile_hitboxes.get(*e1) {
+                handle_missile_collision(&mut commands, hitbox, transform);
+            } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e2) {
+                handle_missile_collision(&mut commands, hitbox, transform);
             }
 
             if let Ok((radar, mut missilec)) = missile_radars.get_mut(*e1) {
@@ -52,7 +51,7 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
     if bulletc.piercing <= 0 {
         commands
             .entity(bullet)
-            .insert((Visibility::Hidden, ColliderDisabled, Death));
+            .insert((Visibility::Hidden, ColliderDisabled, Pooled));
     } else {
         bulletc.piercing -= 1;
     }
@@ -61,16 +60,15 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
 fn handle_missile_collision(
     commands: &mut Commands,
     hitbox: &MissileHitbox,
-    assets: &Res<AssetServer>,
+    transform: &GlobalTransform,
 ) {
     commands
         .entity(hitbox.missile)
-        .insert((Visibility::Hidden, ColliderDisabled, Death));
+        .insert((Visibility::Hidden, ColliderDisabled, Pooled));
 
     commands.spawn((
-        Lifetime {
-            timer: Timer::from_seconds(10.0, TimerMode::Once),
-        },
+        Transform::from(*transform),
+        Lifetime::new(10.0),
         Damage {
             damage: hitbox.blast_damage,
         },
@@ -81,15 +79,6 @@ fn handle_missile_collision(
         ),
         ActiveEvents::COLLISION_EVENTS,
         Sensor,
-        Sprite {
-            image: assets.load("textures/circle.png"),
-            custom_size: Some(Vec2::new(
-                hitbox.blast_radius * 2.0,
-                hitbox.blast_radius * 2.0,
-            )),
-            color: hitbox.team.color(2.0),
-            ..default()
-        },
         hitbox.team,
     ));
 }
@@ -108,7 +97,7 @@ fn handle_missile_radar_collision(
 }
 
 pub fn handle_bullets(
-    mut query: Query<(&mut Bullet, &mut Transform), Without<Death>>,
+    mut query: Query<(&mut Bullet, &mut Transform), Without<Pooled>>,
     time: Res<Time>,
 ) {
     for (bullet, mut transform) in query.iter_mut() {
@@ -127,7 +116,7 @@ pub fn handle_despawn_bullet(
                 .truncate()
                 .distance_squared(bullet.shooted_at)
         {
-            commands.entity(entity).insert(Death);
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -306,9 +295,7 @@ pub fn spawn_bullet(
             let bullet = commands
                 .spawn((
                     EntityType::Projectile,
-                    Lifetime {
-                        timer: Timer::from_seconds(*lifetime, TimerMode::Once),
-                    },
+                    Lifetime::new(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
                         range,
@@ -352,9 +339,7 @@ pub fn spawn_bullet(
             let missile = commands
                 .spawn((
                     EntityType::Projectile,
-                    Lifetime {
-                        timer: Timer::from_seconds(*lifetime, TimerMode::Once),
-                    },
+                    Lifetime::new(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
