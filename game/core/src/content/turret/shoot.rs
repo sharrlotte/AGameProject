@@ -1,11 +1,12 @@
 use std::f32::consts::PI;
 
 use crate::components::damage::Damage;
+use crate::components::entity_type::EntityType;
 use crate::components::lifetime::Lifetime;
 use crate::content::block::base::{
     ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
-use crate::content::bullet::base::{Bullet, Missile};
+use crate::content::bullet::base::{Bullet, Missile, MissileHitbox};
 use crate::content::team::Team;
 use crate::content::turret::base::{Turret, TurretState};
 use bevy::prelude::*;
@@ -72,6 +73,7 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
+                    EntityType::Projectile,
                     Lifetime {
                         timer: Timer::from_seconds(*lifetime, TimerMode::Once),
                     },
@@ -84,9 +86,9 @@ pub fn spawn_bullet(
                     Damage { damage: *damage },
                     Sprite {
                         color: if team.is_player() {
-                            Color::srgb(10.0, 0.0, 0.0)
-                        } else {
                             Color::srgb(0.0, 10.0, 0.0)
+                        } else {
+                            Color::srgb(10.0, 0.0, 0.0)
                         },
                         custom_size: Some(Vec2::new(2.0, 50.0)),
                         ..default()
@@ -118,6 +120,7 @@ pub fn spawn_bullet(
         } => {
             let missile = commands
                 .spawn((
+                    EntityType::Projectile,
                     Lifetime {
                         timer: Timer::from_seconds(*lifetime, TimerMode::Once),
                     },
@@ -156,6 +159,8 @@ pub fn spawn_bullet(
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     Damage { damage: *damage },
+                    MissileHitbox,
+                    Transform::default(),
                 ))
                 .id();
 

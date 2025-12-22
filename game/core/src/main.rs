@@ -1,6 +1,6 @@
 mod components;
 mod content;
-mod math;
+mod utils;
 mod save;
 mod ui;
 mod world;

@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     GRID_SIZE,
+    components::entity_type::EntityType,
     content::{
         block::{
             base::{
@@ -137,41 +138,46 @@ impl ShipData {
             turn_speed,
         } = calculate_ship_stat(&self.blocks, registry);
 
-        let mut ship_cmd = commands.spawn((
-            transform,
-            Visibility::Visible,
-            RigidBody::Dynamic,
-            Velocity::zero(),
-            ExternalForce::default(),
-            ExternalImpulse::default(),
-            ReadMassProperties::default(),
-            Restitution::coefficient(0.2),
-            Ccd::enabled(),
-            ColliderMassProperties::Density(1.0),
-            GravityScale(0.0),
-            Damping {
-                linear_damping: 0.7,
-                angular_damping: 0.9,
-            },
-            Ship {
-                id: self.id,
-                blocks: self.blocks.clone(),
-                center,
-                thrust_power,
-                turn_speed,
-                radar_range: 3000.0,
-            },
-            ShipState {},
-            team,
-        ));
+        let ship = commands
+            .spawn((
+                transform,
+                Visibility::Visible,
+                Ship {
+                    id: self.id,
+                    blocks: self.blocks.clone(),
+                    center,
+                    thrust_power,
+                    turn_speed,
+                    radar_range: 3000.0,
+                },
+                ShipState {},
+                EntityType::Ship,
+                team,
+            ))
+            .insert((
+                RigidBody::Dynamic,
+                Velocity::zero(),
+                ExternalForce::default(),
+                ExternalImpulse::default(),
+                ReadMassProperties::default(),
+                Restitution::coefficient(0.2),
+                Ccd::enabled(),
+                ColliderMassProperties::Density(1.0),
+                GravityScale(0.0),
+                Damping {
+                    linear_damping: 0.7,
+                    angular_damping: 0.9,
+                },
+            ))
+            .id();
 
         if team.is_player() {
-            ship_cmd.insert(PlayerShipController);
+            commands.entity(ship).insert(PlayerShipController);
         } else {
-            ship_cmd.insert(AIShipController::new(AIShipBehavior::Idle));
+            commands
+                .entity(ship)
+                .insert(AIShipController::new(AIShipBehavior::Idle));
         }
-
-        let ship = ship_cmd.id();
 
         for block_data in &self.blocks {
             if let Some(def) = registry.get(&block_data.block_type) {
@@ -258,6 +264,7 @@ pub fn render_block_base(
                 max_health: def.health,
             },
             ShipIdComponent { id: ship },
+            EntityType::Block,
         ))
         .id();
 

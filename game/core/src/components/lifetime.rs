@@ -31,7 +31,10 @@ fn update_lifetime(
     for (entity, mut lifetime) in query.iter_mut() {
         lifetime.timer.tick(time.delta());
         if lifetime.timer.is_finished() {
-            commands.entity(entity).insert(Death);
+            let Ok(mut commands) = commands.get_entity(entity) else {
+                continue;
+            };
+            commands.insert(Death);
         }
     }
 }
