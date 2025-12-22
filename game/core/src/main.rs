@@ -1,10 +1,10 @@
 mod components;
+mod constant;
 mod content;
 mod save;
 mod ui;
 mod utils;
 mod world;
-mod constant;
 
 use crate::components::damage::DamagePlugin;
 use crate::components::death::DeathPlugin;
@@ -18,6 +18,7 @@ use crate::save::SavePlugin;
 use crate::save::base::SchematicData;
 use crate::save::io::load_saved_schematics;
 
+use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
 
@@ -52,6 +53,9 @@ fn main() {
     .init_state::<PauseState>()
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
+        FrameTimeDiagnosticsPlugin::new(1000),
+        EntityCountDiagnosticsPlugin::new(1000),
+        //
         HomePlugin,
         GamePlugin,
         PausePlugin,

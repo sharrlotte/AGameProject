@@ -139,7 +139,7 @@ pub fn spawn_bullet(
                 ))
                 .id();
 
-            if target.is_some() {
+            if target.is_none() {
                 commands.entity(missile).insert((
                     Collider::ball(*lock_range),
                     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
