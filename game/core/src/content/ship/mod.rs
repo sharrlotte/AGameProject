@@ -30,7 +30,11 @@ impl Plugin for ShipPlugin {
         app.init_resource::<ComponentState>()
             .add_systems(
                 Update,
-                (player_ship_controller, ai_ship_controller, process_input)
+                (
+                    player_ship_controller,
+                    ai_ship_controller,
+                    process_input,
+                )
                     .run_if(in_state(SceneState::Game)),
             )
             .add_systems(

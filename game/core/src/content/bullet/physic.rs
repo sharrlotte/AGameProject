@@ -51,7 +51,10 @@ fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mu
     if bulletc.piercing <= 0 {
         commands
             .entity(bullet)
-            .insert((Visibility::Hidden, ColliderDisabled, Death));
+            .insert((Visibility::Hidden, Death))
+            .remove::<Collider>()
+            .remove::<CollisionGroups>()
+            .remove::<ActiveEvents>();
     } else {
         bulletc.piercing -= 1;
     }
@@ -64,7 +67,10 @@ fn handle_missile_collision(
 ) {
     commands
         .entity(hitbox.missile)
-        .insert((Visibility::Hidden, ColliderDisabled, Death));
+        .insert((Visibility::Hidden, Death))
+        .remove::<Collider>()
+        .remove::<CollisionGroups>()
+        .remove::<ActiveEvents>();
 
     commands.spawn((
         Transform::from(*transform),

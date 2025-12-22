@@ -1186,7 +1186,6 @@ fn remove_block_at(
     grid_position: IVec2,
 ) {
     if let Some(&entity) = editor.grid.get(grid_position) {
-        // Get the block info to find all occupied cells
         if let Ok((block, grid_pos_comp)) = blocks.get(entity) {
             let anchor = grid_pos_comp.0;
             if let Some(def) = registry.get(&block.block_type) {

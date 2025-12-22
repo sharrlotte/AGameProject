@@ -223,7 +223,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Missile {
                         speed: 3000.0,
                         damage: 20.0,
-                        lifetime: 15.0,
+                        lifetime: 5.0,
                         lock_range: 6000.0,
                         blast_damage: 60.0,
                         blast_radius: 200.0,
@@ -264,7 +264,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Bullet {
                         speed: 4000.0,
                         damage: 20.0,
-                        lifetime: 15.0,
+                        lifetime: 5.0,
                         piercing: 2,
                     },
                 }),

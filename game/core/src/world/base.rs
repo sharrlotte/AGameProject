@@ -159,8 +159,7 @@ impl ShipData {
                 ExternalForce::default(),
                 ExternalImpulse::default(),
                 ReadMassProperties::default(),
-                Restitution::coefficient(0.2),
-                Ccd::enabled(),
+                Restitution::coefficient(0.05),
                 ColliderMassProperties::Density(1.0),
                 GravityScale(0.0),
                 Damping {
