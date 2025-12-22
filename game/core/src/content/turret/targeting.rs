@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::FloatPow, prelude::*};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
@@ -6,24 +6,19 @@ use crate::{
     content::{
         block::base::{Block, TargetingStrategy},
         team::Team,
-        turret::base::{Turret, TurretState},
+        turret::base::{PotentialTargetChange, Turret, TurretState},
     },
 };
 
 pub fn update_turret_target(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
-    game_state: Res<GameState>,
-
     mut collision_events: MessageReader<CollisionEvent>,
-    mut turrets: Query<(Entity, &GlobalTransform, &Turret, &mut TurretState, &Team)>,
-    mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
+    mut turrets: Query<(Entity, &mut TurretState), With<Turret>>,
+    mut blocks: Query<Entity, With<Block>>,
+    mut potential_target_events: MessageWriter<PotentialTargetChange>,
 ) {
     for event in collision_events.read() {
         match event {
             CollisionEvent::Started(e1, e2, _flags) => {
-                // Check if e1 or e2 is a DetectionRange sensor
                 let (turret, block) = match (
                     turrets.contains(*e1),
                     blocks.contains(*e1),
@@ -36,10 +31,11 @@ pub fn update_turret_target(
                 };
 
                 // Add enemy to potential targets
-                if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, _, mut state, _)) = turret
+                if let Ok(enemy) = block
+                    && let Ok((turret, mut state)) = turret
                 {
                     state.potential_targets.insert(enemy);
+                    potential_target_events.write(PotentialTargetChange { turret });
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
@@ -54,17 +50,27 @@ pub fn update_turret_target(
                     _ => continue,
                 };
 
-                if let Ok((enemy, _, _)) = block
-                    && let Ok((_, _, _, mut state, _)) = turret
+                if let Ok(enemy) = block
+                    && let Ok((turret, mut state)) = turret
                 {
                     state.potential_targets.remove(&enemy);
+                    potential_target_events.write(PotentialTargetChange { turret });
                 }
             }
         }
     }
+}
 
-    // 2. Select best target from potential_targets
-    for (_, transform, turret, mut state, team) in turrets.iter_mut() {
+pub fn update_best_target(
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    game_state: Res<GameState>,
+    blocks: Query<(Entity, &GlobalTransform, &Block)>,
+    mut turrets: Query<(Entity, &GlobalTransform, &Turret, &mut TurretState, &Team)>,
+    mut potential_target_events: MessageReader<PotentialTargetChange>,
+) {
+    for (_, _, _, mut state, team) in turrets.iter_mut() {
         if team.is_player() {
             let (camera, camera_transform) = *camera_query;
 
@@ -89,52 +95,57 @@ pub fn update_turret_target(
                 }
             }
         }
+    }
 
-        let turret_position = transform.translation().truncate();
+    for event in potential_target_events.read() {
+        if let Ok((_, transform, turret, mut state, _)) = turrets.get_mut(event.turret) {
+            state.potential_targets.remove(&event.turret);
 
-        let mut best_target: Option<Entity> = None;
-        let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
+            let mut best_target: Option<Entity> = None;
+            let mut closest_dist_sq = turret.range.squared();
 
-        for &entity in state.potential_targets.iter() {
-            if let Ok((_, target_transform, _)) = blocks.get(entity) {
-                let target_pos_actual = target_transform.translation().truncate();
-                let dist_sq = turret_position.distance_squared(target_pos_actual);
+            for &entity in state.potential_targets.iter() {
+                if let Ok((_, target_transform, _)) = blocks.get(entity) {
+                    let target_pos_actual = target_transform.translation().truncate();
+                    let turret_position = transform.translation().truncate();
+                    let dist_sq = turret_position.distance_squared(target_pos_actual);
 
-                if dist_sq > turret.range * turret.range {
-                    continue;
-                }
-
-                match turret.strategy {
-                    TargetingStrategy::Closest => {
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
-                        }
+                    if dist_sq > turret.range * turret.range {
+                        continue;
                     }
-                    TargetingStrategy::MostHP => {
-                        // Placeholder logic
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
+
+                    match turret.strategy {
+                        TargetingStrategy::Closest => {
+                            if dist_sq < closest_dist_sq {
+                                closest_dist_sq = dist_sq;
+                                best_target = Some(entity);
+                            }
                         }
-                    }
-                    TargetingStrategy::EnemyBullet => {
-                        // Placeholder logic
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
+                        TargetingStrategy::MostHP => {
+                            // Placeholder logic
+                            if dist_sq < closest_dist_sq {
+                                closest_dist_sq = dist_sq;
+                                best_target = Some(entity);
+                            }
+                        }
+                        TargetingStrategy::EnemyBullet => {
+                            // Placeholder logic
+                            if dist_sq < closest_dist_sq {
+                                closest_dist_sq = dist_sq;
+                                best_target = Some(entity);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if let Some(entity) = best_target {
-            state.target = Some(entity);
-            state.active = true;
-        } else {
-            state.target = None;
-            state.active = false;
+            if let Some(entity) = best_target {
+                state.target = Some(entity);
+                state.active = true;
+            } else {
+                state.target = None;
+                state.active = false;
+            }
         }
     }
 }

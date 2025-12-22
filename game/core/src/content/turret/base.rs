@@ -24,3 +24,8 @@ pub struct TurretState {
     pub target: Option<Entity>,
     pub shoot_at: Option<Vec2>,
 }
+
+#[derive(Message)]
+pub struct PotentialTargetChange {
+    pub turret: Entity,
+}

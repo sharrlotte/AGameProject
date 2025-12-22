@@ -1,14 +1,14 @@
 pub mod base;
-pub mod physic;
+pub mod system;
 
 use bevy::prelude::*;
 
 use crate::SceneState;
 use crate::components::entity_type::EntityType;
 use crate::content::bullet::base::LifetimePlugin;
-use crate::content::bullet::physic::{
-    destroy_out_of_range_bullet, handle_bullet_collisions, handle_bullets, handle_burst_shot,
-    handle_missile_radar, handle_missiles, handle_single_shot,
+use crate::content::bullet::system::{
+    destroy_out_of_range_bullet, handle_bullets, handle_burst_shot, handle_missiles,
+    handle_single_shot,
 };
 
 pub struct BulletPlugin;
@@ -18,9 +18,7 @@ impl Plugin for BulletPlugin {
         app.add_systems(
             FixedUpdate,
             (
-                handle_bullet_collisions,
                 handle_missiles,
-                handle_missile_radar,
                 handle_bullets,
                 handle_single_shot,
                 handle_burst_shot,

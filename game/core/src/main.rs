@@ -16,6 +16,7 @@ use crate::content::turret::TurretPlugin;
 use crate::save::SavePlugin;
 use crate::save::base::SchematicData;
 use crate::save::io::load_saved_schematics;
+use crate::world::physic::PhysicPlugin;
 
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 #[cfg(debug_assertions)]
@@ -83,6 +84,7 @@ fn main() {
         BlockPlugin,
         DamagePlugin,
         HanabiPlugin,
+        PhysicPlugin,
     ));
 
     #[cfg(debug_assertions)]
@@ -92,8 +94,6 @@ fn main() {
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
         );
     }
-
-    app.insert_resource(Time::<Fixed>::from_hz(60.0));
 
     app.run();
 }

@@ -311,6 +311,7 @@ pub fn render_block_component(
                 Sensor,
                 Collider::ball(f.range),
                 CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
+                ActiveEvents::COLLISION_EVENTS,
                 ColliderMassProperties::Mass(0.0),
                 Sprite {
                     image: f.image.clone(),
