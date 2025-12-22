@@ -26,7 +26,7 @@ impl Plugin for BulletPlugin {
         )
         .add_systems(
             PostUpdate,
-            (handle_despawn_bullet,).run_if(in_state(SceneState::Game)),
+            handle_despawn_bullet.run_if(in_state(SceneState::Game)),
         )
         .add_systems(OnEnter(SceneState::Home), cleanup_bullets);
     }

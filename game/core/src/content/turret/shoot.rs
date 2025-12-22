@@ -81,11 +81,7 @@ pub fn spawn_bullet(
                     },
                     Damage { damage: *damage },
                     Sprite {
-                        color: if team.is_player() {
-                            Color::srgb(0.0, 10.0, 0.0)
-                        } else {
-                            Color::srgb(10.0, 0.0, 0.0)
-                        },
+                        color: team.color(10.0),
                         custom_size: Some(Vec2::new(2.0, 50.0)),
                         ..default()
                     },
@@ -128,11 +124,7 @@ pub fn spawn_bullet(
                         target: None,
                     },
                     Sprite {
-                        color: if team.is_player() {
-                            Color::srgb(8.0, 0.0, 10.0)
-                        } else {
-                            Color::srgb(8.0, 10.0, 0.0)
-                        },
+                        color: team.color(10.0),
                         custom_size: Some(Vec2::new(5.0, 50.0)),
                         ..default()
                     },

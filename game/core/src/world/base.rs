@@ -320,7 +320,6 @@ pub fn render_block_component(
                 Sprite {
                     image: assets.load(&f.sprite),
                     custom_size: Some(get_block_size(def)),
-                    color: Color::srgb(1.005, 1.005, 1.005),
                     ..default()
                 },
                 Transform::from_translation(f.offset.extend(f.z)),
@@ -354,7 +353,6 @@ pub fn render_block_component(
                 Sprite {
                     image: assets.load(&f.sprite),
                     custom_size: Some(get_block_size(def)),
-                    color: Color::srgb(1.005, 1.005, 1.005),
                     ..default()
                 },
                 Transform::from_translation(f.offset.extend(f.z)),

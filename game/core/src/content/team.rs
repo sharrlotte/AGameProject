@@ -2,14 +2,43 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::Group;
 use serde::{Deserialize, Serialize};
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+const COLORS: [Color; 16] = [
+    Color::srgb(1.0, 0.0, 0.0),    // red
+    Color::srgb(0.0, 1.0, 0.0),    // green
+    Color::srgb(0.0, 0.0, 1.0),    // blue
+    Color::srgb(1.0, 1.0, 0.0),    // yellow
+    Color::srgb(1.0, 0.5, 0.0),    // orange
+    Color::srgb(0.5, 0.0, 0.5),    // purple
+    Color::srgb(0.0, 1.0, 1.0),    // cyan
+    Color::srgb(1.0, 0.0, 1.0),    // magenta
+    Color::srgb(0.75, 1.0, 0.0),   // lime
+    Color::srgb(1.0, 0.75, 0.8),   // pink
+    Color::srgb(0.0, 0.5, 0.5),    // teal
+    Color::srgb(0.6, 0.4, 0.2),    // brown
+    Color::srgb(0.5, 0.5, 0.5),    // gray
+    Color::srgb(1.0, 1.0, 1.0),    // white
+    Color::srgb(0.0, 0.0, 0.0),    // black
+    Color::srgb(0.75, 0.75, 0.75), // silver
+];
+
+#[derive(Component, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
 pub struct Team {
     pub id: u8,
+    color: Color,
+}
+
+impl PartialEq for Team {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 impl Default for Team {
     fn default() -> Self {
-        Self { id: 0 }
+        Self {
+            id: 0,
+            color: COLORS[0],
+        }
     }
 }
 impl Team {
@@ -29,7 +58,23 @@ impl Team {
     pub fn new(id: u8) -> Self {
         // Limit to 16 teams (0-15) because we use bits 16-31 for hitboxes.
         assert!(id < 16, "Team ID must be less than 16");
-        Self { id }
+        Self {
+            id,
+            color: COLORS[id as usize],
+        }
+    }
+
+    pub fn color(&self, multiplier: f32) -> Color {
+        if multiplier == 1.0 {
+            return self.color;
+        }
+
+        let mut rgba = self.color.to_srgba();
+        rgba.red *= multiplier;
+        rgba.green *= multiplier;
+        rgba.blue *= multiplier;
+
+        return Color::srgba(rgba.red, rgba.green, rgba.blue, rgba.alpha);
     }
 
     /// Group for Ship Hulls (Physical)

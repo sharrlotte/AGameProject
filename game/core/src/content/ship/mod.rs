@@ -17,6 +17,7 @@ use crate::{GameState, SceneState};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
+use rand::Rng;
 use rand::seq::IndexedRandom;
 
 pub struct ShipPlugin;
@@ -97,7 +98,7 @@ fn check_player_ship(
     }
 }
 
-const ENEMIES: usize = 1;
+const ENEMIES: usize = 10;
 
 fn check_enemy_ship(
     mut commands: Commands,
@@ -111,6 +112,8 @@ fn check_enemy_ship(
 
     let missing = ENEMIES - ships.iter().len();
     let mut rng = rand::rng();
+
+    let team_id = rng.random_range(1..10);
 
     for _ in 0..missing {
         let schematics = load_saved_schematics();
@@ -128,7 +131,7 @@ fn check_enemy_ship(
             &mut commands,
             &registry,
             &assets,
-            Team::new(1),
+            Team::new(team_id),
             Transform::from_translation(position.extend(0.0)),
         );
     }

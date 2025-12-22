@@ -72,7 +72,6 @@ pub fn handle_despawn_bullet(
     for (entity, bullet, global_transform) in query.iter_mut() {
         if bullet.range < (bullet.shooted_at - global_transform.translation().truncate()).length() {
             commands.entity(entity).insert(Death);
-            continue;
         }
     }
 }
