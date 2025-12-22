@@ -1,7 +1,10 @@
 mod background;
 
+use std::time::Duration;
+
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
 
 use crate::content::bullet::base::Bullet;
 use crate::content::ship::base::{PlayerShipController, Ship};
@@ -26,8 +29,8 @@ impl Plugin for GamePlugin {
                 (
                     camera_follow,
                     camera_zoom,
-                    update_fps,
                     update_turret_control_mode_button,
+                    update_fps.run_if(on_timer(Duration::from_millis(100))),
                 )
                     .run_if(in_state(SceneState::Game)),
             )

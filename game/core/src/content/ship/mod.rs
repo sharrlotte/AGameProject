@@ -76,8 +76,8 @@ fn check_player_ship(
         };
 
         let position = random_vec2_step(
-            Vec2::new(-10000.0, -10000.0),
-            Vec2::new(10000.0, 10000.0),
+            Vec2::new(-5000.0, -5000.0),
+            Vec2::new(5000.0, 5000.0),
             500.0,
         );
 
@@ -112,8 +112,8 @@ fn check_enemy_ship(
         };
 
         let position = random_vec2_step(
-            Vec2::new(-10000.0, -10000.0),
-            Vec2::new(10000.0, 10000.0),
+            Vec2::new(-5000.0, -5000.0),
+            Vec2::new(5000.0, 5000.0),
             500.0,
         );
 
@@ -140,7 +140,6 @@ fn check_rebuild_ship_collider(
 ) {
     for event in events.read() {
         let Ok((entity, mut ship, _)) = ships.get_mut(event.ship_id) else {
-            warn!("Ship {} not found!", event.ship_id);
             continue;
         };
 
