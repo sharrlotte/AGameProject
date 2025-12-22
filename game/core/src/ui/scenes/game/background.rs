@@ -1,15 +1,15 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::AppState;
+use crate::SceneState;
 
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Game), setup_background)
-            .add_systems(Update, update_background.run_if(in_state(AppState::Game)))
-            .add_systems(OnExit(AppState::Game), cleanup_background);
+        app.add_systems(OnEnter(SceneState::Game), setup_background)
+            .add_systems(Update, update_background.run_if(in_state(SceneState::Game)))
+            .add_systems(OnEnter(SceneState::Home), cleanup_background);
     }
 }
 
@@ -19,9 +19,17 @@ pub struct BackgroundImage;
 #[derive(Resource)]
 pub struct BackgroundConfig;
 
-fn setup_background(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_background(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    query: Query<(), With<BackgroundImage>>,
+) {
+    if !query.is_empty() {
+        return;
+    }
+
     // Load the single background image
-    let texture_handle = asset_server.load("textures/background/background1.png");
+    let texture_handle = assets.load("textures/background/background1.png");
 
     commands.insert_resource(BackgroundConfig);
 
@@ -52,10 +60,10 @@ fn update_background(
 ) {
     let (mut transform, sprite) = bg_transform.into_inner();
     let (camera_transform, _projection) = *camera_query;
-    let camera_pos = camera_transform.translation.truncate();
+    let camera_position = camera_transform.translation.truncate();
 
-    let parallax_factor = 0.95;
-    let target_pos = camera_pos * parallax_factor;
+    let parallax_factor = 0.98;
+    let target_position = camera_position * parallax_factor;
     let mut base_scale = 2.0; // Default fallback
 
     if let Some(image) = images.get(&sprite.image) {
@@ -84,8 +92,8 @@ fn update_background(
         }
     }
 
-    transform.translation.x = target_pos.x;
-    transform.translation.y = target_pos.y;
+    transform.translation.x = target_position.x;
+    transform.translation.y = target_position.y;
     transform.translation.z = -100.0;
 
     transform.scale = Vec3::new(base_scale, base_scale, 1.0);

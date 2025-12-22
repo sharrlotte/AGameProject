@@ -1,110 +1,110 @@
-use crate::content::{
-    structures::ship::Enemy,
-    team::Team,
-    turret::{AIFireController, PlayerFireController, TargetingStrategy, TurretController},
-};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-pub fn update_player_fire_controller(
-    mut query: Query<(&mut TurretController, &GlobalTransform), With<PlayerFireController>>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    window: Single<&Window>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-) {
-    let (camera, camera_transform) = *camera_query;
-
-    if let Some(cursor_position) = window.cursor_position() {
-        if let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-            for (mut targeter, _) in query.iter_mut() {
-                targeter.target_pos = Some(world_position);
-                targeter.active = mouse_input.pressed(MouseButton::Left);
-            }
-        }
-    }
-}
+use crate::{
+    GameState, TurretControl,
+    content::{
+        block::base::{Block, TargetingStrategy},
+        team::Team,
+        turret::base::{Turret, TurretState},
+    },
+};
 
 pub fn update_turret_target(
-    mut turret_query: Query<
-        (Entity, &GlobalTransform, &mut TurretController, &Team),
-        With<AIFireController>,
-    >,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    game_state: Res<GameState>,
+
     mut collision_events: MessageReader<CollisionEvent>,
-    sensors: Query<Entity, With<TurretController>>,
-    enemies: Query<Entity, With<Enemy>>,
-    global_transforms: Query<&GlobalTransform>,
+    mut turrets: Query<(Entity, &GlobalTransform, &Turret, &mut TurretState, &Team)>,
+    mut blocks: Query<(Entity, &GlobalTransform, &Block)>,
 ) {
     for event in collision_events.read() {
         match event {
             CollisionEvent::Started(e1, e2, _flags) => {
                 // Check if e1 or e2 is a DetectionRange sensor
-                let sensor_enemy = match (
-                    sensors.get(*e1).is_ok(),
-                    enemies.get(*e1).is_ok(),
-                    sensors.get(*e2).is_ok(),
-                    enemies.get(*e2).is_ok(),
+                let (turret, block) = match (
+                    turrets.contains(*e1),
+                    blocks.contains(*e1),
+                    turrets.contains(*e2),
+                    blocks.contains(*e2),
                 ) {
-                    (true, false, false, true) => Some((e1, e2)), // e1 = sensor, e2 = enemy
-                    (false, true, true, false) => Some((e2, e1)), // e2 = sensor, e1 = enemy
-                    _ => None,
+                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    _ => continue,
                 };
 
-                if let Some((sensor, enemy)) = sensor_enemy {
-                    // 👇 Now you know who is who
-                    println!("Sensor {:?} detected enemy {:?}", sensor, enemy);
-                    // Add enemy to potential targets
-                    if let Ok((_, _, mut targeter, _)) = turret_query.get_mut(*sensor) {
-                        targeter.potential_targets.insert(*enemy);
-                    }
+                // Add enemy to potential targets
+                if let Ok((enemy, _, _)) = block
+                    && let Ok((_, _, _, mut state, _)) = turret
+                {
+                    state.potential_targets.insert(enemy);
                 }
             }
             CollisionEvent::Stopped(e1, e2, _flags) => {
-                // Check if e1 or e2 is a DetectionRange sensor
-                let sensor_enemy = match (
-                    sensors.get(*e1).is_ok(),
-                    enemies.get(*e1).is_ok(),
-                    sensors.get(*e2).is_ok(),
-                    enemies.get(*e2).is_ok(),
+                let (turret, block) = match (
+                    turrets.contains(*e1),
+                    blocks.contains(*e1),
+                    turrets.contains(*e2),
+                    blocks.contains(*e2),
                 ) {
-                    (true, false, false, true) => Some((e1, e2)), // e1 = sensor, e2 = enemy
-                    (false, true, true, false) => Some((e2, e1)), // e2 = sensor, e1 = enemy
-                    _ => None,
+                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    _ => continue,
                 };
 
-                if let Some((sensor, enemy)) = sensor_enemy {
-                    // 👇 Now you know who is who
-                    println!("Sensor {:?} end detected enemy {:?}", sensor, enemy);
-                    // Add enemy to potential targets
-                    if let Ok((_, _, mut targeter, _)) = turret_query.get_mut(*sensor) {
-                        targeter.potential_targets.remove(enemy);
-                    }
+                if let Ok((enemy, _, _)) = block
+                    && let Ok((_, _, _, mut state, _)) = turret
+                {
+                    state.potential_targets.remove(&enemy);
                 }
             }
         }
     }
 
     // 2. Select best target from potential_targets
-    for (_turret_entity, turret_transform, mut targeter, _turret_team) in turret_query.iter_mut() {
-        let turret_pos = turret_transform.translation().truncate();
+    for (_, transform, turret, mut state, team) in turrets.iter_mut() {
+        if team.is_player() {
+            let (camera, camera_transform) = *camera_query;
+
+            if let Some(cursor_position) = window.cursor_position() {
+                if let Ok(world_position) =
+                    camera.viewport_to_world_2d(camera_transform, cursor_position)
+                {
+                    match game_state.turret_control {
+                        TurretControl::Auto => {}
+                        TurretControl::Manual => {
+                            state.shoot_at = Some(world_position);
+                            state.active = mouse_input.pressed(MouseButton::Left);
+                            continue;
+                        }
+                        TurretControl::Hold => {
+                            if mouse_input.pressed(MouseButton::Left) {
+                                state.shoot_at = Some(world_position);
+                                state.active = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let turret_position = transform.translation().truncate();
+
         let mut best_target: Option<Entity> = None;
         let mut closest_dist_sq = f32::MAX; // Use MAX to ensure we check all valid targets within logical range
 
-        // Clean up invalid entities
-        targeter
-            .potential_targets
-            .retain(|e| global_transforms.contains(*e));
-
-        for &entity in targeter.potential_targets.iter() {
-            if let Ok(target_transform) = global_transforms.get(entity) {
+        for &entity in state.potential_targets.iter() {
+            if let Ok((_, target_transform, _)) = blocks.get(entity) {
                 let target_pos_actual = target_transform.translation().truncate();
-                let dist_sq = turret_pos.distance_squared(target_pos_actual);
+                let dist_sq = turret_position.distance_squared(target_pos_actual);
 
-                // Optional: Double check range (physics might be slightly loose or delayed)
-                if dist_sq > targeter.range * targeter.range {
+                if dist_sq > turret.range * turret.range {
                     continue;
                 }
 
-                match targeter.strategy {
+                match turret.strategy {
                     TargetingStrategy::Closest => {
                         if dist_sq < closest_dist_sq {
                             closest_dist_sq = dist_sq;
@@ -130,16 +130,53 @@ pub fn update_turret_target(
         }
 
         if let Some(entity) = best_target {
-            if let Ok(target_pos) = global_transforms
-                .get(entity)
-                .map(|op| op.translation().truncate())
-            {
-                targeter.target_pos = Some(target_pos);
-                targeter.active = true;
-            } else {
-                targeter.target_pos = None;
-                targeter.active = false;
+            state.target = Some(entity);
+            state.active = true;
+        } else {
+            state.target = None;
+            state.active = false;
+        }
+    }
+}
+
+pub fn system_turret_tracking(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &GlobalTransform, &Turret, &TurretState)>,
+    transforms: Query<&GlobalTransform>,
+) {
+    for (mut transform, global_transform, turret, state) in &mut query {
+        let mut target_position: Option<Vec2> = None;
+        if let Some(shoot_at) = state.shoot_at {
+            target_position = Some(shoot_at);
+        } else if let Some(target) = state.target {
+            if let Ok(position) = transforms.get(target) {
+                target_position = Some(position.translation().truncate());
             }
+        }
+
+        if let Some(shoot_at_position) = target_position {
+            let current_position = global_transform.translation().truncate();
+            let diff = shoot_at_position - current_position;
+            let dist_sq = diff.length_squared();
+
+            if dist_sq < 0.0001 {
+                continue;
+            }
+
+            let forward: Vec2 = global_transform.up().truncate();
+
+            let to_target = shoot_at_position - global_transform.translation().truncate();
+
+            if to_target.length_squared() < 0.0001 {
+                continue;
+            }
+
+            let target_dir = to_target.normalize();
+            let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+            let max_turn = turret.turn_speed * time.delta_secs();
+            let turn = angle_error.clamp(-max_turn, max_turn);
+
+            transform.rotate_z(turn);
         }
     }
 }
