@@ -1,13 +1,13 @@
-use std::{f32::consts::PI, time::Duration};
+use std::f32::consts::PI;
 
 use crate::content::{ship::base::Ship, team::Team};
-use bevy::{prelude::*, time::common_conditions::on_timer};
+use bevy::prelude::*;
 
 pub struct IndicatorsPlugin;
 
 impl Plugin for IndicatorsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, draw_indicators.run_if(on_timer(Duration::from_millis(50))));
+        app.add_systems(Update, draw_indicators);
     }
 }
 
@@ -71,8 +71,9 @@ fn draw_indicators(
                 let v2 = transform_point(p2);
                 let v3 = transform_point(p3);
 
-                // Draw outline (Gizmos don't support solid fill natively yet)
-                gizmos.linestrip_2d(vec![v1, v2, v3, v1], color);
+                let points = [v1, v2, v3, v1];
+
+                gizmos.linestrip_2d(points, color);
             }
         }
     }

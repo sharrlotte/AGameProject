@@ -40,7 +40,8 @@ impl Plugin for ShipPlugin {
             )
             .add_systems(
                 Update,
-                (check_player_ship, check_enemy_ship).run_if(on_timer(Duration::from_millis(100))),
+                (check_player_ship, check_enemy_ship)
+                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
             )
             .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);
