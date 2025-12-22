@@ -230,4 +230,43 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             }),
         ],
     });
+   
+    registry.register(BlockDef {
+        name: "Spectre Turret".into(),
+        block_type: BlockType::Spectre,
+        block_group: BlockGroup::Turret,
+        mass: 15.0,
+        health: 600.0,
+        shape: BlockShape::filled(1, 1),
+        cost: 150,
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: load("textures/blocks/block-2.png".into()),
+                offset: Vec2::ZERO,
+                z: 0.0,
+                animated: false,
+            }),
+            BlockComponent::Turret(TurretComponent {
+                range: 20000.0,
+                turn_speed: 4.0,
+                strategy: TargetingStrategy::Closest,
+                image: load("textures/blocks/spectre.png".into()),
+                offset: Vec2::ZERO,
+                z: 0.1,
+                animated: false,
+                barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
+                shooting_pattern: ShootPattern::Burst(BurstShootPattern {
+                    fire_rate: 0.55,
+                    delay: 0.55,
+                    amount: 12,
+                    projectile: ShootingProjectile::Bullet {
+                        speed: 4000.0,
+                        damage: 20.0,
+                        lifetime: 15.0,
+                        piercing: 2,
+                    },
+                }),
+            }),
+        ],
+    });
 }

@@ -20,6 +20,7 @@ pub enum BlockType {
     Core,
     LazerTurret,
     Swarmer,
+    Spectre,
 
     // Real
     BlockScrap,
