@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
@@ -16,7 +14,9 @@ use crate::{
                 BurstShootPatternState, ContinuousShootPatternState, GridPosition, Health,
                 ShipIdComponent, ShootPattern, SingleShootPatternState, Thruster,
                 ThrusterComponent,
-            }, radar::Radar, registry::BlockRegistry
+            },
+            radar::Radar,
+            registry::BlockRegistry,
         },
         ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState},
         team::Team,

@@ -7,6 +7,7 @@ use crate::content::block::base::{
     BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
 };
+use crate::content::block::radar::Radar;
 use crate::content::bullet::base::Lifetime;
 use crate::content::team::Team;
 use crate::content::turret::base::{Turret, TurretState};
@@ -268,12 +269,9 @@ pub fn spawn_bullet(
                 .id();
 
             if target.is_none() {
-                // commands.entity(missile).insert((
-                //     Collider::ball(*lock_range),
-                //     CollisionGroups::new(team.radar_group(), team.radar_filter()),
-                //     ActiveEvents::COLLISION_EVENTS,
-                //     Sensor,
-                // ));
+                commands
+                    .entity(missile)
+                    .insert((Radar::new(*lock_range, 1.0),));
             }
 
             let hit_box = commands
@@ -294,6 +292,30 @@ pub fn spawn_bullet(
                 .id();
 
             commands.entity(missile).add_child(hit_box);
+        }
+    }
+}
+
+pub fn handle_missile_radar_target(
+    mut missile_radars: Query<(&mut Missile, &Radar), Without<Death>>,
+) {
+    'outer: for (mut missile, radar) in missile_radars.iter_mut() {
+        if let Some(current) = missile.target {
+            if radar.targets.is_empty() {
+                missile.target = None;
+                continue 'outer;
+            }
+
+            for target in radar.targets.iter() {
+                if current == *target {
+                    continue 'outer;
+                }
+            }
+            missile.target = Some(*radar.targets.first().expect("How does this event happend"));
+        } else {
+            if let Some(target) = radar.targets.first() {
+                missile.target = Some(*target);
+            }
         }
     }
 }
