@@ -14,15 +14,17 @@ use uuid::Uuid;
 use crate::{
     content::{
         block::{
-            base::{Block, BlockState, BlockType, Health, SingleShootPatternState},
-            registry::BlockRegistry,
+            component::{Block, BlockData, BlockState, BlockType, Health, SingleShootPatternState},
+            resource::BlockRegistry,
+            turret::component::TurretState,
         },
-        ship::base::ShipState,
+        ship::component::{ShipData, ShipState},
         team::Team,
-        turret::base::TurretState,
     },
-    save::base::{LoadWorldEvent, SaveWorldEvent, SchematicBlockData, SchematicData},
-    world::base::{BlockData, ShipData, render_block_base},
+    save::{
+        component::{SchematicBlockData, SchematicData},
+        message::{LoadWorldEvent, SaveWorldEvent},
+    },
 };
 
 pub fn save_dir() -> PathBuf {
@@ -363,14 +365,7 @@ pub fn handle_load_world_event(
                     continue;
                 };
 
-                let block = render_block_base(
-                    &mut commands,
-                    ship,
-                    def,
-                    block_data.id,
-                    block_data.position,
-                    ship_data.team,
-                );
+                let block = block_data.spawn(&mut commands, def, ship, ship_data.team);
 
                 ids.insert(block_data.id, block);
             }

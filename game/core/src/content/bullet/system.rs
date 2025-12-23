@@ -1,19 +1,19 @@
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 
-use crate::components::damage::Damage;
-use crate::components::entity_type::EntityType;
-use crate::content::block::base::{
+use crate::common::damage::component::Damage;
+use crate::common::entity_type::EntityType;
+use crate::content::block::component::{
     BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
 };
-use crate::content::block::radar::Radar;
-use crate::content::bullet::base::Lifetime;
+use crate::content::block::radar::component::Radar;
+use crate::content::block::turret::component::{Turret, TurretState};
+use crate::content::bullet::component::Lifetime;
 use crate::content::team::Team;
-use crate::content::turret::base::{Turret, TurretState};
 use crate::{
-    components::death::Death,
-    content::bullet::base::{Bullet, Missile, MissileHitbox},
+    common::death::component::Death,
+    content::bullet::component::{Bullet, Missile, MissileHitbox},
 };
 use bevy_rapier2d::prelude::*;
 
@@ -211,7 +211,7 @@ pub fn spawn_bullet(
                     Damage { damage: *damage },
                     Sprite {
                         color: team.color(5.0),
-                        custom_size: Some(Vec2::new(2.0, 50.0)),
+                        custom_size: Some(Vec2::new(4.0, 50.0)),
                         ..default()
                     },
                     Transform {
@@ -256,7 +256,7 @@ pub fn spawn_bullet(
                     },
                     Sprite {
                         color: team.color(5.0),
-                        custom_size: Some(Vec2::new(4.0, 50.0)),
+                        custom_size: Some(Vec2::new(8.0, 50.0)),
                         ..default()
                     },
                     Transform {
@@ -317,5 +317,29 @@ pub fn handle_missile_radar_target(
                 missile.target = Some(*target);
             }
         }
+    }
+}
+
+pub fn update_bullet_lifetime(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Lifetime)>,
+) {
+    for (entity, mut lifetime) in query.iter_mut() {
+        lifetime.tick(&time);
+
+        if lifetime.timer().is_finished() {
+            let Ok(mut commands) = commands.get_entity(entity) else {
+                continue;
+            };
+
+            commands.insert(Death);
+        }
+    }
+}
+
+pub fn cleanup_bullets(mut commands: Commands, bullets: Query<Entity, With<EntityType>>) {
+    for entity in &bullets {
+        commands.entity(entity).insert(Death);
     }
 }

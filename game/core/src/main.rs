@@ -1,21 +1,23 @@
-mod components;
+mod common;
 mod constant;
 mod content;
+mod resource;
 mod save;
+mod scene;
 mod ui;
 mod utils;
 mod world;
 
-use crate::components::damage::DamagePlugin;
-use crate::components::death::DeathPlugin;
-use crate::content::block::BlockPlugin;
-use crate::content::block::registry::BlockRegistry;
-use crate::content::bullet::BulletPlugin;
-use crate::content::ship::ShipPlugin;
-use crate::content::turret::TurretPlugin;
-use crate::save::SavePlugin;
-use crate::save::base::SchematicData;
+use crate::common::damage::plugin::DamagePlugin;
+use crate::common::death::plugin::DeathPlugin;
+use crate::content::plugin::ContentPlugin;
+use crate::save::component::SchematicData;
 use crate::save::io::load_saved_schematics;
+use crate::save::plugin::SavePlugin;
+use crate::scene::game::plugin::GameScenePlugin;
+use crate::scene::home::HomeScenePlugin;
+use crate::scene::pause::PauseScenePlugin;
+use crate::scene::ship_editor::plugin::ShipEditorPlugin;
 use crate::world::physic::PhysicPlugin;
 
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
@@ -32,7 +34,6 @@ use bevy::{
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
-use ui::{GamePlugin, HomePlugin, PausePlugin, ShipEditorPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
@@ -63,7 +64,6 @@ fn main() {
             .in_fixed_schedule(),
     )
     .add_plugins(RapierDebugRenderPlugin::default())
-    .init_resource::<BlockRegistry>()
     .init_resource::<GameState>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
@@ -72,19 +72,16 @@ fn main() {
         FrameTimeDiagnosticsPlugin::new(1000),
         EntityCountDiagnosticsPlugin::new(1000),
         //
-        HomePlugin,
-        GamePlugin,
-        PausePlugin,
+        GameScenePlugin,
+        HomeScenePlugin,
+        PauseScenePlugin,
         ShipEditorPlugin,
-        ShipPlugin,
-        TurretPlugin,
-        BulletPlugin,
         DeathPlugin,
         SavePlugin,
-        BlockPlugin,
         DamagePlugin,
         HanabiPlugin,
         PhysicPlugin,
+        ContentPlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(30.0));
 

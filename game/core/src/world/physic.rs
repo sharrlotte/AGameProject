@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    components::{damage::Damage, death::Death},
-    content::bullet::base::{Bullet, Lifetime, MissileHitbox},
+    common::{damage::component::Damage, death::component::Death},
+    content::bullet::component::{Bullet, Lifetime, MissileHitbox},
 };
 pub struct PhysicPlugin;
 
@@ -60,15 +60,15 @@ fn handle_missile_collision(
         .remove::<ActiveEvents>();
 
     commands.spawn((
+        hitbox.team,
         Transform::from(*transform),
         Lifetime::new(0.1),
-        Damage {
-            damage: hitbox.blast_damage,
-        },
         Collider::ball(hitbox.blast_radius),
         CollisionGroups::new(hitbox.team.bullet_group(), hitbox.team.bullet_filter()),
         ActiveEvents::COLLISION_EVENTS,
         Sensor,
-        hitbox.team,
+        Damage {
+            damage: hitbox.blast_damage,
+        },
     ));
 }

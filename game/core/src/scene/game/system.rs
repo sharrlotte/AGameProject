@@ -1,0 +1,186 @@
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::input::mouse::MouseWheel;
+use bevy::prelude::*;
+
+use crate::content::bullet::component::Bullet;
+use crate::content::ship::component::{PlayerShipController, Ship};
+use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
+use crate::scene::game::component::{FpsText, TurretControlModeButton, TurretControlModeText};
+use crate::{GameState, TurretControl};
+
+pub fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Query<&mut Text, With<FpsText>>) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(value) = fps.smoothed() {
+            for mut t in text.iter_mut() {
+                t.0 = format!("FPS: {value:.2}",);
+            }
+        }
+    }
+}
+
+pub fn setup_game(
+    mut commands: Commands,
+    game_state: Res<GameState>,
+    fps_query: Query<(), With<FpsText>>,
+) {
+    if fps_query.is_empty() {
+        commands.spawn((
+            Text::new("FPS: N/A"),
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+            FpsText,
+        ));
+    }
+
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        })
+        .with_children(|container| {
+            let text = match game_state.turret_control {
+                TurretControl::Manual => "Turret Control: Manual",
+                TurretControl::Auto => "Turret Control: Automatic",
+                TurretControl::Hold => "Turret Control: Hold",
+            };
+
+            container
+                .spawn((
+                    Node {
+                        padding: UiRect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Button,
+                    TurretControlModeButton,
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                ))
+                .with_children(|button| {
+                    button.spawn((
+                        Text::new(text),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        TurretControlModeText,
+                    ));
+                });
+
+            container.spawn((
+                Text::new("FPS: N/A"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node { ..default() },
+                FpsText,
+            ));
+        });
+}
+
+pub fn update_turret_control_mode_button(
+    mut game_state: ResMut<GameState>,
+    mut button_query: Query<&Interaction, (Changed<Interaction>, With<TurretControlModeButton>)>,
+    mut text_query: Query<&mut Text, With<TurretControlModeText>>,
+) {
+    let Ok(interaction) = button_query.single_mut() else {
+        return;
+    };
+
+    let Ok(mut text) = text_query.single_mut() else {
+        return;
+    };
+
+    if *interaction == Interaction::Pressed {
+        game_state.turret_control = game_state.turret_control.next();
+
+        let mod_string = match game_state.turret_control {
+            TurretControl::Manual => "Turret Control: Manual",
+            TurretControl::Auto => "Turret Control: Automatic",
+            TurretControl::Hold => "Turret Control: Hold",
+        };
+        text.0 = mod_string.to_string();
+    }
+}
+
+pub fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+}
+
+pub fn cleanup_game_entities(
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>,
+    bullets: Query<Entity, With<Bullet>>,
+    backgrounds: Query<Entity, With<BackgroundImage>>,
+) {
+    for entity in &ships {
+        commands.entity(entity).despawn();
+    }
+
+    for entity in &bullets {
+        commands.entity(entity).despawn();
+    }
+
+    for entity in &backgrounds {
+        commands.entity(entity).despawn();
+    }
+
+    commands.remove_resource::<BackgroundConfig>();
+}
+
+pub fn camera_follow(
+    player_query: Query<(&Transform, &Ship), (With<PlayerShipController>, Without<Camera2d>)>,
+    mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShipController>)>,
+    time: Res<Time>,
+) {
+    if player_query.is_empty() {
+        return;
+    }
+
+    let (ship_transform, ship) = player_query.iter().next().unwrap();
+
+    let target = ship_transform
+        .transform_point(ship.center.extend(0.0))
+        .truncate();
+
+    let current = camera_transform.translation.truncate();
+
+    let smooth_speed = 10.0;
+    let t = 1.0 - (-smooth_speed * time.delta_secs());
+    let new_position = current.lerp(target, t);
+
+    camera_transform.translation.x = new_position.x;
+    camera_transform.translation.y = new_position.y;
+}
+
+pub fn camera_zoom(
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut camera_query: Query<&mut Projection, With<Camera2d>>,
+) {
+    for event in mouse_wheel_events.read() {
+        for mut projection in camera_query.iter_mut() {
+            if let Projection::Orthographic(ortho) = &mut *projection {
+                let zoom_speed = 0.1;
+                ortho.scale -= event.y * zoom_speed * ortho.scale;
+                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+            }
+        }
+    }
+}
