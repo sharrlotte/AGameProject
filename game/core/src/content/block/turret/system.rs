@@ -26,24 +26,24 @@ pub fn update_turret_target(
         if team.is_player() {
             let (camera, camera_transform) = *camera_query;
 
-            if let Some(cursor_position) = window.cursor_position() {
-                if let Ok(world_position) =
+            if let Some(cursor_position) = window.cursor_position()
+                && let Ok(world_position) =
                     camera.viewport_to_world_2d(camera_transform, cursor_position)
-                {
-                    match game_state.turret_control {
-                        TurretControl::Auto => {}
-                        TurretControl::Manual => {
+            {
+                match game_state.turret_control {
+                    TurretControl::Manual => {
+                        state.shoot_at = Some(world_position);
+                        state.active = mouse_input.pressed(MouseButton::Left);
+                        continue;
+                    }
+                    TurretControl::Hold => {
+                        if mouse_input.pressed(MouseButton::Left) {
                             state.shoot_at = Some(world_position);
-                            state.active = mouse_input.pressed(MouseButton::Left);
+                            state.active = true;
                             continue;
                         }
-                        TurretControl::Hold => {
-                            if mouse_input.pressed(MouseButton::Left) {
-                                state.shoot_at = Some(world_position);
-                                state.active = true;
-                            }
-                        }
                     }
+                    TurretControl::Auto => {}
                 }
             }
         }

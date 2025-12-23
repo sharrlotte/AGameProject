@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::GameState;
 use crate::content::bullet::component::Bullet;
 use crate::content::ship::component::Ship;
+use crate::content::team::Team;
 use crate::resource::TurretControl;
 use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
 use crate::scene::game::component::{
@@ -48,7 +49,7 @@ pub fn handle_ship_button_click(
 
 pub fn update_ship_buttons(
     mut commands: Commands,
-    ships: Query<(Entity, &Ship)>,
+    ships: Query<(Entity, &Ship, &Team)>,
     mut ship_list: Query<Entity, With<ShipList>>,
 ) {
     let Ok(ship_list_entity) = ship_list.single_mut() else {
@@ -57,7 +58,11 @@ pub fn update_ship_buttons(
 
     commands.entity(ship_list_entity).despawn_children();
 
-    for (entity, ship) in ships.iter() {
+    for (entity, ship, team) in ships.iter() {
+        if !team.is_player() {
+            continue;
+        }
+
         commands
             .entity(ship_list_entity)
             .with_children(|container| {

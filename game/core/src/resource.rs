@@ -19,7 +19,7 @@ pub enum PauseState {
     Paused,
 }
 
-#[derive(Default, PartialEq, Clone)]
+#[derive(Default, PartialEq, Clone, Debug)]
 pub enum TurretControl {
     #[default]
     Auto,
@@ -37,7 +37,7 @@ impl TurretControl {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct GameState {
     pub current_ship: Option<SchematicData>,
     pub turret_control: TurretControl,
