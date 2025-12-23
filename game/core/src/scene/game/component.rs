@@ -8,3 +8,11 @@ pub struct TurretControlModeButton;
 
 #[derive(Component)]
 pub struct TurretControlModeText;
+
+#[derive(Component)]
+pub struct ShipButton(pub Entity);
+
+#[derive(Component)]
+pub struct ShipList;
+
+

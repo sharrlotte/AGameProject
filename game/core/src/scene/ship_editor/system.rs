@@ -668,7 +668,7 @@ pub fn process_input(
                 1.0
             };
 
-            let pan_speed = scale * 0.5;
+            let pan_speed: f32 = scale * 0.5;
 
             for event in mouse_motion_events.read() {
                 transform.translation.x -= event.delta.x * pan_speed;

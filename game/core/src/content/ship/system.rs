@@ -8,7 +8,7 @@ use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;
 use crate::scene::game::resource::GameVars;
 use crate::utils::random::random_vec2_step;
-use bevy::input::mouse::MouseWheel;
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 use rand::Rng;
@@ -108,20 +108,25 @@ pub fn check_rebuild_ship_collider(
 pub fn control_ship(
     state: Res<GameVars>,
     time: Res<Time>,
-    ships: Query<(
-        Entity,
-        &mut AIShipController,
-        &mut ExternalForce,
-        &Velocity,
-        &Transform,
-        &Ship,
-        &Team,
-    ), Without<Camera2d>>,
+    ships: Query<
+        (
+            Entity,
+            &mut AIShipController,
+            &mut ExternalForce,
+            &Velocity,
+            &Transform,
+            &Ship,
+            &Team,
+        ),
+        Without<Camera2d>,
+    >,
     ships2: Query<(Entity, &GlobalTransform, &Ship, &Team)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     global_transforms: Query<&Transform, Without<Camera2d>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut mouse_motion_events: MessageReader<MouseMotion>,
 ) {
     for event in mouse_wheel_events.read() {
         for (_, mut projection) in camera.iter_mut() {
@@ -178,6 +183,23 @@ pub fn control_ship(
 
                     camera_transform.translation.x = new_position.x;
                     camera_transform.translation.y = new_position.y;
+                }
+            }
+        } else {
+            if mouse.pressed(MouseButton::Left)
+                && let Ok((mut transform, projection)) = camera.single_mut()
+            {
+                let scale = if let Projection::Orthographic(ortho) = &*projection {
+                    ortho.scale
+                } else {
+                    1.0
+                };
+
+                let pan_speed: f32 = scale * 0.5;
+
+                for event in mouse_motion_events.read() {
+                    transform.translation.x -= event.delta.x * pan_speed;
+                    transform.translation.y += event.delta.y * pan_speed;
                 }
             }
         }

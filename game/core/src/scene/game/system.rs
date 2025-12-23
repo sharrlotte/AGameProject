@@ -6,7 +6,10 @@ use crate::content::bullet::component::Bullet;
 use crate::content::ship::component::Ship;
 use crate::resource::TurretControl;
 use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
-use crate::scene::game::component::{FpsText, TurretControlModeButton, TurretControlModeText};
+use crate::scene::game::component::{
+    FpsText, ShipButton, ShipList, TurretControlModeButton, TurretControlModeText,
+};
+use crate::scene::game::resource::GameVars;
 
 pub fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Query<&mut Text, With<FpsText>>) {
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -15,6 +18,66 @@ pub fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Query<&mut Text,
                 t.0 = format!("FPS: {value:.2}",);
             }
         }
+    }
+}
+
+pub fn handle_ship_button_click(
+    mut interaction: Query<(&Interaction, &ShipButton), (Changed<Interaction>, With<Button>)>,
+    mut state: ResMut<GameVars>,
+) {
+    for (interaction, ship_button) in interaction.iter_mut() {
+        if *interaction == Interaction::Pressed {
+            if let Some(controlling) = state.controlling
+                && controlling == ship_button.0
+            {
+                state.controlling = None;
+            } else {
+                state.controlling = Some(ship_button.0);
+            }
+
+            if let Some(following) = state.following
+                && following == ship_button.0
+            {
+                state.following = None;
+            } else {
+                state.following = Some(ship_button.0);
+            }
+        }
+    }
+}
+
+pub fn update_ship_buttons(
+    mut commands: Commands,
+    ships: Query<(Entity, &Ship)>,
+    mut ship_list: Query<Entity, With<ShipList>>,
+) {
+    let Ok(ship_list_entity) = ship_list.single_mut() else {
+        return;
+    };
+
+    commands.entity(ship_list_entity).despawn_children();
+
+    for (entity, ship) in ships.iter() {
+        commands
+            .entity(ship_list_entity)
+            .with_children(|container| {
+                container.spawn((
+                    Text::new(format!("Ship: {}", ship.id)),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Node {
+                        padding: UiRect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Button,
+                    ShipButton(entity),
+                ));
+            });
     }
 }
 
@@ -40,6 +103,17 @@ pub fn setup_game(
             FpsText,
         ));
     }
+
+    commands.spawn((
+        ShipList,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(60.0),
+            left: Val::Px(10.0),
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+    ));
 
     commands
         .spawn(Node {
