@@ -64,12 +64,12 @@ pub fn update_ship_buttons(
                 container.spawn((
                     Text::new(format!("Ship: {}", ship.id)),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: 8.0,
                         ..default()
                     },
                     TextColor(Color::WHITE),
                     Node {
-                        padding: UiRect::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(2.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
