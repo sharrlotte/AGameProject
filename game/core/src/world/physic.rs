@@ -66,7 +66,7 @@ fn handle_missile_collision(
 
     commands.spawn((
         Transform::from(*transform),
-        Lifetime::new(1.0),
+        Lifetime::new(0.1),
         Damage {
             damage: hitbox.blast_damage,
         },

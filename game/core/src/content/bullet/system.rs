@@ -268,10 +268,9 @@ pub fn spawn_bullet(
                 .id();
 
             if target.is_none() {
-                //TODO: FIX perf
                 // commands.entity(missile).insert((
                 //     Collider::ball(*lock_range),
-                //     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                //     CollisionGroups::new(team.radar_group(), team.radar_filter()),
                 //     ActiveEvents::COLLISION_EVENTS,
                 //     Sensor,
                 // ));

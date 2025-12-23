@@ -2,6 +2,7 @@ mod background;
 
 use std::time::Duration;
 
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
@@ -47,10 +48,11 @@ struct TurretControlModeButton;
 #[derive(Component)]
 struct TurretControlModeText;
 
-fn update_fps(time: Res<Time>, mut text: Single<&mut Text, With<FpsText>>) {
-    let fps = 1.0 / time.delta_secs();
-    if fps.is_finite() {
-        text.0 = format!("FPS: {:.0}", fps);
+fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Single<&mut Text, With<FpsText>>) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(value) = fps.smoothed() {
+            text.0 = format!("FPS: {value:.2}",);
+        }
     }
 }
 
@@ -205,7 +207,7 @@ fn camera_follow(
     let current = camera_transform.translation.truncate();
 
     let smooth_speed = 10.0;
-    let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
+    let t = 1.0 - (-smooth_speed * time.delta_secs());
     let new_position = current.lerp(target, t);
 
     camera_transform.translation.x = new_position.x;

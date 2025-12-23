@@ -29,20 +29,19 @@ impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ComponentState>()
             .add_systems(
+                Update,
+                (process_input, player_ship_controller).run_if(in_state(SceneState::Game)),
+            )
+            .add_systems(
                 FixedUpdate,
-                (
-                    player_ship_controller,
-                    ai_ship_controller,
-                    process_input,
-                )
+                (ai_ship_controller, check_rebuild_ship_collider)
                     .run_if(in_state(SceneState::Game)),
             )
             .add_systems(
                 FixedUpdate,
                 (check_player_ship, check_enemy_ship)
-                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
+                    .run_if(on_timer(Duration::from_secs(1)).and(in_state(SceneState::Game))),
             )
-            .add_systems(FixedUpdate, check_rebuild_ship_collider)
             .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);
     }
@@ -80,8 +79,8 @@ fn check_player_ship(
         };
 
         let position = random_vec2_step(
-            Vec2::new(-50000.0, -50000.0),
-            Vec2::new(50000.0, 50000.0),
+            Vec2::new(-10000.0, -10000.0),
+            Vec2::new(10000.0, 10000.0),
             5000.0,
         );
 

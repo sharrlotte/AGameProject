@@ -1,5 +1,5 @@
 use bevy::{
-    app::{App, FixedUpdate, Plugin},
+    app::{App, FixedUpdate, Plugin, FixedPostUpdate},
     ecs::{
         component::Component,
         entity::Entity,
@@ -31,7 +31,7 @@ impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<DamageEvent>()
             .add_systems(FixedUpdate, handle_damage_collisions)
-            .add_systems(FixedUpdate, handle_damage_events);
+            .add_systems(FixedPostUpdate, handle_damage_events);
     }
 }
 

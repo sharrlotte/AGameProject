@@ -109,6 +109,8 @@ pub fn update_best_target(
 
             for &entity in state.potential_targets.iter() {
                 //TODO: FIX perf
+                best_target = Some(entity);
+                break;
                 if let Ok((_, target_transform, _)) = ships.get(entity) {
                     let target_pos_actual = target_transform.translation().truncate();
                     let turret_position = transform.translation().truncate();
@@ -161,6 +163,7 @@ pub fn system_turret_tracking(
 ) {
     for (mut transform, global_transform, turret, state) in &mut query {
         let mut target_position: Option<Vec2> = None;
+
         if let Some(shoot_at) = state.shoot_at {
             target_position = Some(shoot_at);
         } else if let Some(target) = state.target {
