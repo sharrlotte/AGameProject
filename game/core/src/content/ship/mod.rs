@@ -80,9 +80,9 @@ fn check_player_ship(
         };
 
         let position = random_vec2_step(
-            Vec2::new(-5000.0, -5000.0),
-            Vec2::new(5000.0, 5000.0),
-            500.0,
+            Vec2::new(-50000.0, -50000.0),
+            Vec2::new(50000.0, 50000.0),
+            5000.0,
         );
 
         ship.to_ship_data().spawn(
@@ -116,8 +116,8 @@ fn check_enemy_ship(
         };
 
         let position = random_vec2_step(
-            Vec2::new(-5000.0, -5000.0),
-            Vec2::new(5000.0, 5000.0),
+            Vec2::new(-10000.0, -10000.0),
+            Vec2::new(10000.0, 10000.0),
             500.0,
         );
 
@@ -132,7 +132,7 @@ fn check_enemy_ship(
 
 fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
     for entity in &ships {
-        commands.entity(entity).despawn();
+        commands.entity(entity).insert(Death);
     }
 }
 

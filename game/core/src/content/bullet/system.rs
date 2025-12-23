@@ -36,7 +36,7 @@ pub fn destroy_out_of_range_bullet(
                 .truncate()
                 .distance_squared(bullet.shooted_at)
         {
-            commands.entity(entity).despawn();
+            commands.entity(entity).insert(Death);
         }
     }
 }
@@ -209,7 +209,7 @@ pub fn spawn_bullet(
                     },
                     Damage { damage: *damage },
                     Sprite {
-                        color: team.color(10.0),
+                        color: team.color(5.0),
                         custom_size: Some(Vec2::new(2.0, 50.0)),
                         ..default()
                     },
@@ -218,8 +218,8 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    Collider::ball(5.0),
-                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                    Collider::ball(2.0),
+                    CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     *team,
@@ -254,8 +254,8 @@ pub fn spawn_bullet(
                         target,
                     },
                     Sprite {
-                        color: team.color(10.0),
-                        custom_size: Some(Vec2::new(5.0, 50.0)),
+                        color: team.color(5.0),
+                        custom_size: Some(Vec2::new(4.0, 50.0)),
                         ..default()
                     },
                     Transform {
@@ -268,18 +268,19 @@ pub fn spawn_bullet(
                 .id();
 
             if target.is_none() {
-                commands.entity(missile).insert((
-                    Collider::ball(*lock_range),
-                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
-                    ActiveEvents::COLLISION_EVENTS,
-                    Sensor,
-                ));
+                //TODO: FIX perf
+                // commands.entity(missile).insert((
+                //     Collider::ball(*lock_range),
+                //     CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                //     ActiveEvents::COLLISION_EVENTS,
+                //     Sensor,
+                // ));
             }
 
             let hit_box = commands
                 .spawn((
                     Collider::ball(5.0),
-                    CollisionGroups::new(team.get_bullet_group(), team.get_bullet_filter()),
+                    CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     Damage { damage: *damage },

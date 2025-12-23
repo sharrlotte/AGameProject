@@ -154,13 +154,17 @@ impl ShipData {
                 team,
             ))
             .insert((
+                collider,
                 RigidBody::Dynamic,
                 Velocity::zero(),
                 ExternalForce::default(),
                 ExternalImpulse::default(),
                 ReadMassProperties::default(),
                 Restitution::coefficient(0.05),
-                ColliderMassProperties::Density(1.0),
+                CollisionGroups::new(team.ship_group(), team.ship_filter()),
+                ColliderMassProperties::Mass(mass),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::all(),
                 Damping {
                     linear_damping: 0.7,
                     angular_damping: 0.9,
@@ -194,12 +198,6 @@ impl ShipData {
                 }
             }
         }
-
-        commands.entity(ship).insert((
-            collider,
-            CollisionGroups::new(team.get_hull_group(), team.get_hull_filter()),
-            ColliderMassProperties::Mass(mass),
-        ));
 
         return ship;
     }
@@ -244,9 +242,11 @@ pub fn render_block_base(
             team,
             Visibility::Visible,
             GridPosition(position),
+            ActiveEvents::COLLISION_EVENTS,
             Collider::cuboid(half_size.x, half_size.y),
-            CollisionGroups::new(team.get_block_group(), team.get_block_filter()),
+            CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
             ColliderMassProperties::Mass(0.0),
+            Sensor,
             Block {
                 id,
                 rotation: 0,
@@ -310,7 +310,7 @@ pub fn render_block_component(
                 },
                 Sensor,
                 Collider::ball(f.range),
-                CollisionGroups::new(team.get_radar_group(), team.get_radar_filter()),
+                CollisionGroups::new(team.radar_group(), team.radar_filter()),
                 ActiveEvents::COLLISION_EVENTS,
                 ColliderMassProperties::Mass(0.0),
                 Sprite {

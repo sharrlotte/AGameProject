@@ -4,6 +4,7 @@ pub mod system;
 use bevy::prelude::*;
 
 use crate::SceneState;
+use crate::components::death::Death;
 use crate::components::entity_type::EntityType;
 use crate::content::bullet::base::LifetimePlugin;
 use crate::content::bullet::system::{
@@ -36,6 +37,6 @@ impl Plugin for BulletPlugin {
 
 fn cleanup(mut commands: Commands, bullets: Query<Entity, With<EntityType>>) {
     for entity in &bullets {
-        commands.entity(entity).despawn();
+        commands.entity(entity).insert(Death);
     }
 }

@@ -4,7 +4,8 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     GameState, TurretControl,
     content::{
-        block::base::{Block, TargetingStrategy},
+        block::base::TargetingStrategy,
+        ship::base::Ship,
         team::Team,
         turret::base::{PotentialTargetChange, Turret, TurretState},
     },
@@ -13,20 +14,21 @@ use crate::{
 pub fn update_turret_target(
     mut collision_events: MessageReader<CollisionEvent>,
     mut turrets: Query<(Entity, &mut TurretState), With<Turret>>,
-    mut blocks: Query<Entity, With<Block>>,
+    mut ships: Query<Entity, With<Ship>>,
     mut potential_target_events: MessageWriter<PotentialTargetChange>,
 ) {
+
     for event in collision_events.read() {
         match event {
             CollisionEvent::Started(e1, e2, _flags) => {
                 let (turret, block) = match (
                     turrets.contains(*e1),
-                    blocks.contains(*e1),
+                    ships.contains(*e1),
                     turrets.contains(*e2),
-                    blocks.contains(*e2),
+                    ships.contains(*e2),
                 ) {
-                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
-                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    (true, _, _, true) => (turrets.get_mut(*e1), ships.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), ships.get_mut(*e1)), // e2 = sensor, e1 = enemy
                     _ => continue,
                 };
 
@@ -41,12 +43,12 @@ pub fn update_turret_target(
             CollisionEvent::Stopped(e1, e2, _flags) => {
                 let (turret, block) = match (
                     turrets.contains(*e1),
-                    blocks.contains(*e1),
+                    ships.contains(*e1),
                     turrets.contains(*e2),
-                    blocks.contains(*e2),
+                    ships.contains(*e2),
                 ) {
-                    (true, _, _, true) => (turrets.get_mut(*e1), blocks.get_mut(*e2)), // e1 = sensor, e2 = enemy
-                    (_, true, true, _) => (turrets.get_mut(*e2), blocks.get_mut(*e1)), // e2 = sensor, e1 = enemy
+                    (true, _, _, true) => (turrets.get_mut(*e1), ships.get_mut(*e2)), // e1 = sensor, e2 = enemy
+                    (_, true, true, _) => (turrets.get_mut(*e2), ships.get_mut(*e1)), // e2 = sensor, e1 = enemy
                     _ => continue,
                 };
 
@@ -66,7 +68,7 @@ pub fn update_best_target(
     mouse_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     game_state: Res<GameState>,
-    blocks: Query<(Entity, &GlobalTransform, &Block)>,
+    ships: Query<(Entity, &GlobalTransform, &Ship)>,
     mut turrets: Query<(Entity, &GlobalTransform, &Turret, &mut TurretState, &Team)>,
     mut potential_target_events: MessageReader<PotentialTargetChange>,
 ) {
@@ -99,13 +101,15 @@ pub fn update_best_target(
 
     for event in potential_target_events.read() {
         if let Ok((_, transform, turret, mut state, _)) = turrets.get_mut(event.turret) {
-            state.potential_targets.remove(&event.turret);
+            // state.potential_targets.remove(&event.turret);
 
             let mut best_target: Option<Entity> = None;
+
             let mut closest_dist_sq = turret.range.squared();
 
             for &entity in state.potential_targets.iter() {
-                if let Ok((_, target_transform, _)) = blocks.get(entity) {
+                //TODO: FIX perf
+                if let Ok((_, target_transform, _)) = ships.get(entity) {
                     let target_pos_actual = target_transform.translation().truncate();
                     let turret_position = transform.translation().truncate();
                     let dist_sq = turret_position.distance_squared(target_pos_actual);

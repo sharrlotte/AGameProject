@@ -20,10 +20,6 @@ pub fn handle_collisions(
     mut missile_radars: Query<(Entity, &mut Missile), Without<Death>>,
     missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
 ) {
-    if collision_events.len() > 0 {
-        info!("Collision event: {}", collision_events.len());
-    }
-
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
             if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e1) {
@@ -76,8 +72,8 @@ fn handle_missile_collision(
         },
         Collider::ball(hitbox.blast_radius),
         CollisionGroups::new(
-            hitbox.team.get_bullet_group(),
-            hitbox.team.get_bullet_filter(),
+            hitbox.team.bullet_group(),
+            hitbox.team.bullet_filter(),
         ),
         ActiveEvents::COLLISION_EVENTS,
         Sensor,

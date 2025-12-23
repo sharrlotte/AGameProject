@@ -204,7 +204,7 @@ fn camera_follow(
 
     let current = camera_transform.translation.truncate();
 
-    let smooth_speed = 20.0;
+    let smooth_speed = 10.0;
     let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
     let new_position = current.lerp(target, t);
 

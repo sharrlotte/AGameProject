@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use bevy::{prelude::*, time::common_conditions::on_timer};
+use bevy::prelude::*;
 
 pub mod base;
 pub mod targeting;
@@ -26,8 +24,7 @@ impl Plugin for TurretPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (update_turret_target, update_best_target)
-                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
+                (update_turret_target, update_best_target).run_if(in_state(SceneState::Game)),
             );
     }
 }
