@@ -106,7 +106,6 @@ pub fn check_rebuild_ship_collider(
 }
 
 pub fn control_ship(
-    state: Res<GameVars>,
     time: Res<Time>,
     ships: Query<
         (
@@ -127,6 +126,7 @@ pub fn control_ship(
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
+    mut state: ResMut<GameVars>,
 ) {
     for event in mouse_wheel_events.read() {
         for (_, mut projection) in camera.iter_mut() {
@@ -164,6 +164,18 @@ pub fn control_ship(
         }
     }
 
+    if let Some(following) = state.following {
+        if ships.get(following).is_err() {
+            state.following = None;
+        }
+    }
+
+    if let Some(controlling) = state.controlling {
+        if ships.get(controlling).is_err() {
+            state.controlling = None;
+        }
+    }
+
     for (entity, mut controller, mut force, velocity, transform, ship, team) in ships {
         let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
         let turn_speed = ship.turn_speed * TURN_SPEED_FACTOR;
@@ -186,6 +198,10 @@ pub fn control_ship(
                 }
             }
         } else {
+            if mouse.just_pressed(MouseButton::Left) {
+                mouse_motion_events.clear();
+            }
+
             if mouse.pressed(MouseButton::Left)
                 && let Ok((mut transform, projection)) = camera.single_mut()
             {

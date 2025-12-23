@@ -10,7 +10,8 @@ use crate::{
         },
         ship::component::Ship,
         team::Team,
-    }, resource::TurretControl,
+    },
+    resource::TurretControl,
 };
 
 pub fn update_turret_target(
@@ -53,8 +54,6 @@ pub fn update_turret_target(
 
         for &entity in radar.targets.iter() {
             //TODO: FIX perf
-            best_target = Some(entity);
-            break;
             if let Ok((_, target_transform, _)) = ships.get(entity) {
                 let target_pos_actual = target_transform.translation().truncate();
                 let turret_position = transform.translation().truncate();
