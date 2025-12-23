@@ -26,6 +26,8 @@ pub const GROUP_BULLET: Group = Group::GROUP_2; // bullet
 pub const GROUP_RADAR: Group = Group::GROUP_3; // radar sensor
 // bits 16–31 reserved for block hitbox per-team
 
+pub const DEFAULT_TEAM_ID: u8 = 0;
+
 #[derive(Component, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
 pub struct Team {
     pub id: u8,
@@ -34,7 +36,7 @@ pub struct Team {
 
 impl Default for Team {
     fn default() -> Self {
-        Self::new(0)
+        Self::new(DEFAULT_TEAM_ID)
     }
 }
 
@@ -54,7 +56,7 @@ impl Team {
     }
 
     pub fn is_player(&self) -> bool {
-        self.id == 0
+        self.id == DEFAULT_TEAM_ID
     }
 
     pub fn color(&self, multiplier: f32) -> Color {

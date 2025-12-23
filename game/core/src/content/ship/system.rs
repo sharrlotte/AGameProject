@@ -3,15 +3,17 @@ use crate::constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR};
 use crate::content::block::component::BlockType;
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
-use crate::content::ship::component::{AIShipController, PlayerShipController, Ship};
-use crate::content::team::Team;
-use crate::resource::GameState;
+use crate::content::ship::component::{AIShipController, Ship};
+use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;
+use crate::scene::game::resource::GameVars;
 use crate::utils::random::random_vec2_step;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 use rand::Rng;
 use rand::seq::IndexedRandom;
+use std::collections::HashMap;
 use std::f32::consts::PI;
 
 use bevy::math::FloatPow;
@@ -19,52 +21,20 @@ use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
 
-pub fn check_player_ship(
-    mut commands: Commands,
-    ships: Query<&PlayerShipController>,
-    vars: Res<GameState>,
-    registry: Res<BlockRegistry>,
-) {
-    if ships.iter().len() == 0 {
-        let ship = if let Some(ship) = &vars.current_ship {
-            ship
-        } else {
-            warn!("No ship loaded in GameState!");
-            return;
-        };
+const SHIPS: usize = 20;
 
-        let position = random_vec2_step(
-            Vec2::new(-10000.0, -10000.0),
-            Vec2::new(10000.0, 10000.0),
-            5000.0,
-        );
-
-        ship.to_ship_data().spawn(
-            &mut commands,
-            &registry,
-            Team::new(0),
-            Transform::from_translation(position.extend(0.0)),
-        );
-    }
-}
-
-const ENEMIES: usize = 20;
-
-pub fn check_enemy_ship(
-    mut commands: Commands,
-    ships: Query<&AIShipController>,
-    registry: Res<BlockRegistry>,
-) {
-    if ships.iter().len() > ENEMIES {
+pub fn check_ship(mut commands: Commands, ships: Query<&Ship>, registry: Res<BlockRegistry>) {
+    if ships.iter().len() > SHIPS {
         return;
     }
 
-    let missing = ENEMIES - ships.iter().len();
+    let missing = SHIPS - ships.iter().len();
     let mut rng = rand::rng();
+    let schematics = load_saved_schematics();
 
     for _ in 0..missing {
-        let team_id = rng.random_range(1..10);
-        let schematics = load_saved_schematics();
+        let team_id = rng.random_range(0..5);
+
         let Some(schematic) = schematics.choose(&mut rng) else {
             continue;
         };
@@ -116,6 +86,7 @@ pub fn check_rebuild_ship_collider(
             collider,
             thrust_power,
             turn_speed,
+            size,
         } = registry.blocks_stats(&ship.blocks);
 
         commands.entity(entity).remove::<Collider>().insert((
@@ -128,80 +99,147 @@ pub fn check_rebuild_ship_collider(
                 thrust_power,
                 turn_speed,
                 radar_range: 3000.0,
+                size,
             },
         ));
     }
 }
 
-pub fn player_ship_controller(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut ExternalForce, &Transform, &Ship), With<PlayerShipController>>,
-) {
-    for (mut force, transform, ship) in query.iter_mut() {
-        let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
-        let turn_speed = ship.turn_speed * TURN_SPEED_FACTOR;
-
-        let mut linear_force = Vec2::ZERO;
-        let mut torque = 0.0;
-
-        let forward = transform.local_y().truncate(); // Assuming +Y is forward
-        let right = transform.local_x().truncate();
-
-        if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
-            linear_force += forward * thrust_power;
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
-            linear_force -= forward * thrust_power;
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
-            torque += turn_speed;
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight) {
-            torque -= turn_speed;
-        }
-
-        // Strafe
-        if keyboard_input.pressed(KeyCode::KeyQ) {
-            linear_force -= right * thrust_power;
-        }
-        if keyboard_input.pressed(KeyCode::KeyE) {
-            linear_force += right * thrust_power;
-        }
-
-        force.force = linear_force;
-        force.torque = torque;
-    }
-}
-
-pub fn ai_ship_controller(
-    mut query: Query<(
+pub fn control_ship(
+    state: Res<GameVars>,
+    time: Res<Time>,
+    ships: Query<(
+        Entity,
         &mut AIShipController,
         &mut ExternalForce,
         &Velocity,
         &Transform,
         &Ship,
         &Team,
-    )>,
-    ships: Query<(Entity, &Transform, &Ship, &Team)>,
-    global_transforms: Query<&Transform>,
+    ), Without<Camera2d>>,
+    ships2: Query<(Entity, &GlobalTransform, &Ship, &Team)>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    global_transforms: Query<&Transform, Without<Camera2d>>,
+    mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
 ) {
-    for (mut controller, mut force, velocity, transform, ship, team) in query.iter_mut() {
+    for event in mouse_wheel_events.read() {
+        for (_, mut projection) in camera.iter_mut() {
+            if let Projection::Orthographic(ortho) = &mut *projection {
+                let zoom_speed = 0.1;
+                ortho.scale -= event.y * zoom_speed * ortho.scale;
+                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+            }
+        }
+    }
+
+    let mut maps: HashMap<
+        u8,
+        (
+            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
+            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
+        ),
+    > = HashMap::new();
+
+    for ship in ships2 {
+        let value = maps.get_mut(&ship.3.id);
+
+        if let Some((ally, enemy)) = value {
+            if ship.3.id == DEFAULT_TEAM_ID {
+                ally.push(ship);
+            } else {
+                enemy.push(ship);
+            }
+        } else {
+            if ship.3.id == DEFAULT_TEAM_ID {
+                maps.insert(ship.3.id, (vec![ship], Vec::new()));
+            } else {
+                maps.insert(ship.3.id, (Vec::new(), vec![ship]));
+            }
+        }
+    }
+
+    for (entity, mut controller, mut force, velocity, transform, ship, team) in ships {
         let thrust_power = ship.thrust_power * THRUST_POWER_FACTOR;
         let turn_speed = ship.turn_speed * TURN_SPEED_FACTOR;
 
-        let enemy_ships: Vec<(Entity, &Transform, &Ship, &Team)> = ships
-            .iter()
-            .filter(|(_, _, _, other_team)| other_team.id != team.id)
-            .collect();
+        if let Some(following) = state.following {
+            if following == entity {
+                let target = transform
+                    .transform_point(ship.center.extend(0.0))
+                    .truncate();
 
-        let in_range: Vec<(Entity, &Transform, &Ship, &Team)> = enemy_ships
-            .into_iter()
-            .filter(|(_, enemy_transform, _, _)| {
-                enemy_transform
-                    .translation
+                for (mut camera_transform, _) in camera.iter_mut() {
+                    let current = camera_transform.translation.truncate();
+
+                    let smooth_speed = 10.0;
+                    let t = 1.0 - (-smooth_speed * time.delta_secs());
+                    let new_position = current.lerp(target, t);
+
+                    camera_transform.translation.x = new_position.x;
+                    camera_transform.translation.y = new_position.y;
+                }
+            }
+        }
+
+        if let Some(controlling) = state.controlling {
+            if controlling == entity {
+                let mut linear_force = Vec2::ZERO;
+                let mut torque = 0.0;
+
+                let forward = transform.local_y().truncate(); // Assuming +Y is forward
+                let right = transform.local_x().truncate();
+
+                if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp)
+                {
+                    linear_force += forward * thrust_power;
+                }
+
+                if keyboard_input.pressed(KeyCode::KeyS)
+                    || keyboard_input.pressed(KeyCode::ArrowDown)
+                {
+                    linear_force -= forward * thrust_power;
+                }
+
+                if keyboard_input.pressed(KeyCode::KeyA)
+                    || keyboard_input.pressed(KeyCode::ArrowLeft)
+                {
+                    torque += turn_speed;
+                }
+
+                if keyboard_input.pressed(KeyCode::KeyD)
+                    || keyboard_input.pressed(KeyCode::ArrowRight)
+                {
+                    torque -= turn_speed;
+                }
+
+                // Strafe
+                if keyboard_input.pressed(KeyCode::KeyQ) {
+                    linear_force -= right * thrust_power;
+                }
+                if keyboard_input.pressed(KeyCode::KeyE) {
+                    linear_force += right * thrust_power;
+                }
+
+                force.force = linear_force;
+                force.torque = torque;
+
+                continue;
+            }
+        }
+
+        if !controller.timer.tick(time.delta()).just_finished() {
+            continue;
+        }
+
+        let (ally, enemy) = maps.get(&team.id).expect("How this is possible");
+
+        let in_range: Vec<_> = enemy
+            .iter()
+            .filter(|other| {
+                other
+                    .1
+                    .translation()
                     .truncate()
                     .distance(transform.translation.truncate())
                     <= ship.radar_range
@@ -214,6 +252,10 @@ pub fn ai_ship_controller(
                     controller.next(AIShipBehavior::Chase {
                         target: in_range[0].0,
                     });
+                } else {
+                    if let Some(a) = ally.first() {
+                        controller.next(AIShipBehavior::Chase { target: a.0 });
+                    }
                 }
             }
             AIShipBehavior::Chase { target } => {

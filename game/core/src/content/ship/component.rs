@@ -23,19 +23,18 @@ pub struct Ship {
     pub turn_speed: f32,
     pub radar_range: f32,
     pub blocks: Vec<BlockData>,
+    pub size: Vec2,
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone, Serialize, Deserialize)]
 pub struct ShipState;
 
 #[derive(Component)]
-pub struct PlayerShipController;
-
-#[derive(Component)]
 pub struct AIShipController {
     last_behavior: AIShipBehavior,
     behavior: AIShipBehavior,
     initial_behavior: AIShipBehavior,
+    pub timer: Timer,
 }
 
 impl AIShipController {
@@ -44,6 +43,7 @@ impl AIShipController {
             last_behavior: initial_behavior,
             behavior: initial_behavior,
             initial_behavior,
+            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
         }
     }
 
@@ -125,6 +125,7 @@ impl ShipData {
             collider,
             thrust_power,
             turn_speed,
+            size,
         } = registry.blocks_stats(&self.blocks);
 
         let ship = commands
@@ -136,6 +137,7 @@ impl ShipData {
                     thrust_power,
                     turn_speed,
                     radar_range: 3000.0,
+                    size,
                 },
                 ShipState {},
                 Visibility::Visible,
@@ -155,7 +157,6 @@ impl ShipData {
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::all(),
-                PlayerShipController,
                 AIShipController::new(AIShipBehavior::Idle),
                 Damping {
                     linear_damping: 0.7,

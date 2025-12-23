@@ -23,6 +23,7 @@ pub struct ShipCalculatedStat {
     pub collider: Collider,
     pub thrust_power: f32,
     pub turn_speed: f32,
+    pub size: Vec2,
 }
 
 impl BlockRegistry {
@@ -80,11 +81,23 @@ impl BlockRegistry {
         let mut thrust_power: f32 = 1000.0;
         let mut turn_speed: f32 = 250.0;
 
+        let mut max_x: f32 = 0.0;
+        let mut max_y: f32 = 0.0;
+        let mut min_x: f32 = 0.0;
+        let mut min_y: f32 = 0.0;
+
         for block in blocks {
             let Some(def) = self.get(&block.block_type) else {
                 warn!("Block type {:?} not found in registry", block.block_type);
                 continue;
             };
+
+            let size = def.get_pixel_size();
+
+            max_x = max_x.max((block.position.x as f32) * GRID_SIZE + size.x);
+            max_y = max_y.max((block.position.y as f32) * GRID_SIZE + size.y);
+            min_x = min_x.min((block.position.x as f32) * GRID_SIZE);
+            min_y = min_y.min((block.position.y as f32) * GRID_SIZE);
 
             mass += def.mass;
 
@@ -111,6 +124,7 @@ impl BlockRegistry {
             mass,
             center: center,
             collider: self.build_ship_voxel_collider_2d(&blocks),
+            size: Vec2::new(max_x - min_x, max_y - min_y),
         };
     }
 }

@@ -1,10 +1,9 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::GameState;
 use crate::content::bullet::component::Bullet;
-use crate::content::ship::component::{PlayerShipController, Ship};
+use crate::content::ship::component::Ship;
 use crate::resource::TurretControl;
 use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
 use crate::scene::game::component::{FpsText, TurretControlModeButton, TurretControlModeText};
@@ -144,44 +143,4 @@ pub fn cleanup_game_entities(
     }
 
     commands.remove_resource::<BackgroundConfig>();
-}
-
-pub fn camera_follow(
-    player_query: Query<(&Transform, &Ship), (With<PlayerShipController>, Without<Camera2d>)>,
-    mut camera_transform: Single<&mut Transform, (With<Camera2d>, Without<PlayerShipController>)>,
-    time: Res<Time>,
-) {
-    if player_query.is_empty() {
-        return;
-    }
-
-    let (ship_transform, ship) = player_query.iter().next().unwrap();
-
-    let target = ship_transform
-        .transform_point(ship.center.extend(0.0))
-        .truncate();
-
-    let current = camera_transform.translation.truncate();
-
-    let smooth_speed = 10.0;
-    let t = 1.0 - (-smooth_speed * time.delta_secs());
-    let new_position = current.lerp(target, t);
-
-    camera_transform.translation.x = new_position.x;
-    camera_transform.translation.y = new_position.y;
-}
-
-pub fn camera_zoom(
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
-    mut camera_query: Query<&mut Projection, With<Camera2d>>,
-) {
-    for event in mouse_wheel_events.read() {
-        for mut projection in camera_query.iter_mut() {
-            if let Projection::Orthographic(ortho) = &mut *projection {
-                let zoom_speed = 0.1;
-                ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(0.1, 5.0);
-            }
-        }
-    }
 }
