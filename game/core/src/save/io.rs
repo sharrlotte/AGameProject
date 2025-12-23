@@ -383,7 +383,6 @@ pub fn handle_load_world_event(
             };
 
             commands.entity(*parent).insert(TurretState {
-                potential_targets: HashSet::new(),
                 active: turret_data.state.active,
                 target: turret_data.state.target,
                 shoot_at: turret_data.state.shoot_at,

@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 use crate::content::block::base::{ShootPattern, TargetingStrategy};
 
@@ -16,16 +15,7 @@ pub struct Turret {
 
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 pub struct TurretState {
-    #[reflect(ignore)]
-    #[serde(skip)]
-    pub potential_targets: HashSet<Entity>,
-
     pub active: bool,
     pub target: Option<Entity>,
     pub shoot_at: Option<Vec2>,
-}
-
-#[derive(Message)]
-pub struct PotentialTargetChange {
-    pub turret: Entity,
 }

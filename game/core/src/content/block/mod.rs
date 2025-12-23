@@ -1,5 +1,6 @@
 pub mod base;
 pub mod registry;
+pub mod radar;
 
 use bevy::prelude::*;
 use uuid::Uuid;
@@ -8,8 +9,7 @@ use crate::{
     components::{damage::DamageEvent, death::Death},
     constant::GRID_SIZE,
     content::block::{
-        base::{Block, BlockType, Health, ShipIdComponent},
-        registry::{BlockRegistry, register_default_blocks},
+        base::{Block, BlockType, Health, ShipIdComponent}, radar::radar_scan, registry::{BlockRegistry, register_default_blocks}
     },
 };
 
@@ -18,6 +18,7 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BlockDestroyedEvent>()
+            .add_systems(FixedUpdate, radar_scan)
             .add_systems(Last, (handle_block_damage_event, handle_flash_overlay))
             .add_systems(Last, handle_block_destroy)
             .add_systems(PreStartup, register_default_blocks);

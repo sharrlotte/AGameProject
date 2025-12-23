@@ -16,8 +16,7 @@ use crate::{
                 BurstShootPatternState, ContinuousShootPatternState, GridPosition, Health,
                 ShipIdComponent, ShootPattern, SingleShootPatternState, Thruster,
                 ThrusterComponent,
-            },
-            registry::BlockRegistry,
+            }, radar::Radar, registry::BlockRegistry
         },
         ship::base::{AIShipBehavior, AIShipController, PlayerShipController, Ship, ShipState},
         team::Team,
@@ -303,16 +302,11 @@ pub fn render_block_component(
                     shooting_pattern: f.shooting_pattern.clone(),
                 },
                 TurretState {
-                    potential_targets: HashSet::default(),
                     active: false,
                     target: None,
                     shoot_at: None,
                 },
-                Sensor,
-                Collider::ball(f.range),
-                CollisionGroups::new(team.radar_group(), team.radar_filter()),
-                ActiveEvents::COLLISION_EVENTS,
-                ColliderMassProperties::Mass(0.0),
+                Radar::new(f.range, 1.0),
                 Sprite {
                     image: f.image.clone(),
                     custom_size: Some(get_block_size(def)),
