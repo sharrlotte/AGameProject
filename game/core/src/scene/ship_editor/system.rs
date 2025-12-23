@@ -1021,6 +1021,7 @@ pub fn load_initial_ship(
     let filename = &ship_names[0].filename;
 
     despawn_ship(&mut commands, &placed_blocks);
+
     spawn_ship(
         &mut commands,
         &mut editor,
@@ -1197,7 +1198,7 @@ pub fn spawn_placed_block(
         }
     }
 
-    return base;
+    return block;
 }
 
 pub fn remove_block_at(
