@@ -1,7 +1,7 @@
 use bevy::{math::FloatPow, prelude::*};
 
 use crate::{
-    GameState, TurretControl,
+    GameState,
     content::{
         block::{
             component::TargetingStrategy,
@@ -10,7 +10,7 @@ use crate::{
         },
         ship::component::Ship,
         team::Team,
-    },
+    }, resource::TurretControl,
 };
 
 pub fn update_turret_target(

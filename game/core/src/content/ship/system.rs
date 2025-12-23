@@ -1,4 +1,3 @@
-use crate::GameState;
 use crate::common::death::component::Death;
 use crate::constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR};
 use crate::content::block::component::BlockType;
@@ -6,6 +5,7 @@ use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
 use crate::content::ship::component::{AIShipController, PlayerShipController, Ship};
 use crate::content::team::Team;
+use crate::resource::GameState;
 use crate::save::io::load_saved_schematics;
 use crate::utils::random::random_vec2_step;
 use bevy::prelude::*;

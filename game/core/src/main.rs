@@ -4,6 +4,7 @@ mod content;
 mod resource;
 mod save;
 mod scene;
+mod system;
 mod ui;
 mod utils;
 mod world;
@@ -11,26 +12,22 @@ mod world;
 use crate::common::damage::plugin::DamagePlugin;
 use crate::common::death::plugin::DeathPlugin;
 use crate::content::plugin::ContentPlugin;
-use crate::save::component::SchematicData;
-use crate::save::io::load_saved_schematics;
+use crate::resource::{GameState, PauseState, SceneState};
 use crate::save::plugin::SavePlugin;
 use crate::scene::game::plugin::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::ship_editor::plugin::ShipEditorPlugin;
+use crate::system::{load_current_ship, setup_camera};
 use crate::world::physic::PhysicPlugin;
 
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
 
-use bevy::post_process::bloom::BloomCompositeMode;
+use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
-use bevy::{
-    core_pipeline::tonemapping::{DebandDither, Tonemapping},
-    post_process::bloom::Bloom,
-    prelude::*,
-};
+
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
@@ -69,9 +66,8 @@ fn main() {
     .init_state::<PauseState>()
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
-        FrameTimeDiagnosticsPlugin::new(1000),
-        EntityCountDiagnosticsPlugin::new(1000),
-        //
+        FrameTimeDiagnosticsPlugin::new(100),
+        EntityCountDiagnosticsPlugin::new(100),
         GameScenePlugin,
         HomeScenePlugin,
         PauseScenePlugin,
@@ -94,71 +90,4 @@ fn main() {
     }
 
     app.run();
-}
-
-fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            clear_color: ClearColorConfig::Custom(Color::BLACK),
-            ..default()
-        },
-        Tonemapping::TonyMcMapface,
-        Bloom {
-            intensity: 0.3,
-            low_frequency_boost: 0.5,
-            low_frequency_boost_curvature: 0.5,
-            high_pass_frequency: 1.0,
-            composite_mode: BloomCompositeMode::Additive,
-            ..default()
-        },
-        DebandDither::Enabled,
-    ));
-}
-
-#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
-pub enum SceneState {
-    #[default]
-    Home,
-    Game,
-    ShipEditor,
-}
-
-#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
-pub enum PauseState {
-    #[default]
-    Playing,
-    Paused,
-}
-
-#[derive(Default, PartialEq, Clone)]
-pub enum TurretControl {
-    #[default]
-    Auto,
-    Manual,
-    Hold,
-}
-
-impl TurretControl {
-    pub fn next(&mut self) -> Self {
-        match self {
-            Self::Auto => Self::Manual,
-            Self::Manual => Self::Hold,
-            Self::Hold => Self::Auto,
-        }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct GameState {
-    pub current_ship: Option<SchematicData>,
-    pub turret_control: TurretControl,
-}
-
-fn load_current_ship(mut state: ResMut<GameState>) {
-    let ships = load_saved_schematics();
-
-    if let Some(ship) = ships.first() {
-        state.current_ship = Some(ship.clone());
-    }
 }

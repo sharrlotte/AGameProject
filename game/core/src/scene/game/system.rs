@@ -2,11 +2,12 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
+use crate::GameState;
 use crate::content::bullet::component::Bullet;
 use crate::content::ship::component::{PlayerShipController, Ship};
+use crate::resource::TurretControl;
 use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
 use crate::scene::game::component::{FpsText, TurretControlModeButton, TurretControlModeText};
-use crate::{GameState, TurretControl};
 
 pub fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Query<&mut Text, With<FpsText>>) {
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
