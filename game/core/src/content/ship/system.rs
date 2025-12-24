@@ -595,6 +595,18 @@ pub fn update_ship_behavior(
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
                 let distance = current_postion.distance_squared(*position);
 
+                if angle_diff.abs() < PI / 30.0 {
+                    continue;
+                }
+
+                gizmos.line_2d(
+                    current_postion,
+                    position.clone(),
+                    Color::srgb(0.0, 1.0, 1.0),
+                );
+
+                gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
+
                 let force_multiplier = if distance > radius.squared() {
                     1.0
                 } else {
@@ -607,11 +619,23 @@ pub fn update_ship_behavior(
                     -*turn_speed
                 };
 
-                if velocity.angvel.abs() > PI / 4.0 {
-                    torque *= PI / 4.0 / velocity.angvel.abs();
+                if (torque < 0.0 && velocity.angvel < 0.0)
+                    || (torque > 0.0 && velocity.angvel > 0.0)
+                {
+                    if velocity.angvel.abs() > PI / 4.0 {
+                        torque *= PI / 4.0 / velocity.angvel.abs();
+                    }
                 }
 
                 force.torque = torque;
+
+                let speed = velocity.linvel.length();
+                let stopping_distance = speed * speed / (2.0 * thrust_power * force_multiplier);
+
+                if stopping_distance >= distance {
+                    force.force = Vec2::ZERO;
+                    return;
+                }
 
                 if angle_diff.abs() < PI / 3.0 {
                     if distance <= *radius {
@@ -620,23 +644,21 @@ pub fn update_ship_behavior(
                         force.force = forward * thrust_power * force_multiplier;
                     }
                 }
-
-                gizmos.arrow(
-                    current_postion.extend(0.0),
-                    current_postion.extend(0.0) + direction.extend(0.0) * 500.0,
-                    Color::srgb(0.0, 1.0, 0.0),
-                );
             }
             ShipBehavior::GoAround { position, radius } => {
                 let in_range = current_postion.distance(*position) <= *radius;
-                let direction = (position - current_postion).normalize_or_zero();
+
+                let direction = (position - current_postion).normalize_or_zero().perp();
                 let position_on_ring = current_postion + direction * radius;
                 let mut next_position = position_on_ring;
 
                 if in_range {
-                    next_position = position_on_ring
-                        + Vec2::new(direction.y, -direction.x) * radius / radius.sqrt();
+                    next_position = position_on_ring + direction.perp() * radius.sqrt();
                 }
+
+                gizmos.line_2d(current_postion, next_position, Color::srgb(0.0, 1.0, 0.0));
+
+                gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
 
                 let direction = (next_position - current_postion).normalize_or_zero();
 

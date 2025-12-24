@@ -173,8 +173,8 @@ impl ShipData {
                 AIShipController::new(AIShipBehavior::Regroup),
                 Damping {
                     linear_damping: 0.9,
-                    angular_damping: 0.99,
-                },
+                    angular_damping: 0.999,
+                },  
             ))
             .id();
 
