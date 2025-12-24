@@ -139,7 +139,8 @@ impl BlockRegistry {
 }
 
 pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<AssetServer>) {
-    let load = |image: String| -> Handle<Image> { assets.load(image) };
+    let image = |image: String| -> Handle<Image> { assets.load(format!("textures/{image}")) };
+    let sound = |sound: String| -> Handle<AudioSource> { assets.load(format!("audio/{sound}")) };
 
     registry.register(BlockDef {
         name: "Standard Hull".into(),
@@ -150,7 +151,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 5,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/surge-wall-large.png".into()),
+            image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -166,7 +167,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 50,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/thruster.png".into()),
+            image: image("blocks/thruster.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -183,7 +184,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/surge-wall-large.png".into()),
+            image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -199,7 +200,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 150,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/surge-wall-large.png".into()),
+            image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -216,13 +217,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: load("textures/blocks/core-nucleus.png".into()),
+                image: image("blocks/core-nucleus.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
             }),
             BlockComponent::Sprite(SpriteComponent {
-                image: load("textures/blocks/core-nucleus-team.png".into()),
+                image: image("blocks/core-nucleus-team.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
@@ -240,7 +241,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: load("textures/blocks/block-2.png".into()),
+                image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
@@ -250,7 +251,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 turn_speed: 4.0,
                 barrels: vec![Vec2::new(0.0, 0.0)],
                 strategy: TargetingStrategy::Closest,
-                image: load("textures/blocks/lancer.png".into()),
+                image: image("blocks/lancer.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
@@ -278,7 +279,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/block-scrap.png".into()),
+            image: image("blocks/block-scrap.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -294,7 +295,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: load("textures/blocks/block-steel.png".into()),
+            image: image("blocks/block-steel.png".into()),
             offset: Vec2::ZERO,
             z: 0.0,
             animated: false,
@@ -311,7 +312,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: load("textures/blocks/block-2.png".into()),
+                image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
@@ -320,7 +321,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 20000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
-                image: load("textures/blocks/swarmer.png".into()),
+                image: image("blocks/swarmer.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,
@@ -350,7 +351,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: load("textures/blocks/block-2.png".into()),
+                image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.0,
                 animated: false,
@@ -359,7 +360,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 20000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
-                image: load("textures/blocks/spectre.png".into()),
+                image: image("blocks/spectre.png".into()),
                 offset: Vec2::ZERO,
                 z: 0.1,
                 animated: false,

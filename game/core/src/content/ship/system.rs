@@ -130,12 +130,22 @@ pub fn check_rebuild_ship_collider(
 
 pub fn update_ship_ui(
     mut commands: Commands,
-    ui_roots: Query<(Entity, &ShipUIRoot)>,
-    ships: Query<(Entity, &Ship, &AIShipController, &ShipBehavior)>,
+    mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
+    ships: Query<(
+        Entity,
+        &Ship,
+        &AIShipController,
+        &ShipBehavior,
+        &GlobalTransform,
+    )>,
 ) {
-    for (ui_entity, ui_root) in &ui_roots {
+    for (ui_entity, ui_root, mut transform) in ui_roots.iter_mut() {
+        transform.rotate(Quat::IDENTITY);
+
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior)) => {
+            Ok((ship, _, controller, behavior, global_transform)) => {
+                transform.rotation = global_transform.rotation().inverse();
+
                 commands.entity(ui_entity).insert((
                     Text2d::new(format!(
                         "Ship: {}\nAI: {:#?}\nBehavior: {:?}",
@@ -147,7 +157,6 @@ pub fn update_ship_ui(
                         font_size: 9.0,
                         ..default()
                     },
-                    Transform::from_rotation(Quat::IDENTITY),
                 ));
             }
             Err(_) => {
