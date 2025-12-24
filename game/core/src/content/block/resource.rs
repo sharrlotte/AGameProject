@@ -260,7 +260,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
-                range: 20000.0,
+                range: 12000.0,
                 turn_speed: 4.0,
                 barrels: vec![Vec2::new(0.0, 0.0)],
                 strategy: TargetingStrategy::Closest,
@@ -332,7 +332,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
-                range: 20000.0,
+                range: 6000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/swarmer.png".into()),
@@ -345,7 +345,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Missile {
                         speed: 3000.0,
                         damage: 10.0,
-                        lifetime: 5.0,
+                        lifetime: 10.0,
                         lock_range: 6000.0,
                         blast_damage: 10.0,
                         blast_radius: 128.0,
@@ -371,7 +371,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
-                range: 20000.0,
+                range: 10000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/spectre.png".into()),

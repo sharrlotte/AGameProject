@@ -60,9 +60,9 @@ fn setup(mut commands: Commands) {
     // FAR stars
     spawn_parallax_layer(
         &mut commands,
-        600,
+        1500,
         0.01,
-        8000.0,
+        24000.0,
         2.0,
         Color::srgb(0.7, 0.7, 0.8),
         1,
@@ -71,9 +71,9 @@ fn setup(mut commands: Commands) {
     // MID dust
     spawn_parallax_layer(
         &mut commands,
-        300,
+        900,
         0.03,
-        6000.0,
+        18000.0,
         3.2,
         Color::srgb(0.8, 0.8, 0.8),
         2,
@@ -82,9 +82,9 @@ fn setup(mut commands: Commands) {
     // NEAR debris
     spawn_parallax_layer(
         &mut commands,
-        120,
+        320,
         0.06,
-        5000.0,
+        15000.0,
         4.5,
         Color::srgb(1.0, 1.0, 1.0),
         3,
