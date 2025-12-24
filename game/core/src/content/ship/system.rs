@@ -162,16 +162,16 @@ pub fn update_ship_ui(
 
 pub fn player_control_ship(
     time: Res<Time>,
-    mut ships: Query<(&mut ExternalForce, &Transform, &Ship), Without<Camera2d>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
+    mut ships: Query<(&mut ExternalForce, &Transform, &Ship), Without<Camera2d>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut state: ResMut<GameVars>,
 ) {
     for event in mouse_wheel_events.read() {
-        for (_, mut projection) in camera.iter_mut() {
+        if let Ok((_, mut projection)) = camera.single_mut() {
             if let Projection::Orthographic(ortho) = &mut *projection {
                 let zoom_speed = 0.1;
                 ortho.scale -= event.y * zoom_speed * ortho.scale;
@@ -187,12 +187,12 @@ pub fn player_control_ship(
                     .transform_point(ship.core_position.extend(0.0))
                     .truncate();
 
-                for (mut camera_transform, _) in camera.iter_mut() {
+                if let Ok((mut camera_transform, _)) = camera.single_mut() {
                     let current = camera_transform.translation.truncate();
                     let smooth_speed = 1.0;
 
-                    if target.distance(current) >= smooth_speed {
-                        let t = 1.0 - (-smooth_speed * time.delta_secs());
+                    if target.distance(current) >= smooth_speed * 2.0 {
+                        let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
                         let new_position = current.lerp(target, t);
 
                         camera_transform.translation.x = new_position.x;
@@ -226,7 +226,7 @@ pub fn player_control_ship(
             }
         }
 
-        for (mut camera_transform, projection) in camera.iter_mut() {
+        if let Ok((mut camera_transform, projection)) = camera.single_mut() {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale
             } else {
