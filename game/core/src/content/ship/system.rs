@@ -412,7 +412,7 @@ pub fn control_ship(
 
         match controller.current() {
             AIShipBehavior::Regroup => {
-                if let Some(a) = ally.first() {
+                if let Some(a) = ally.last() {
                     let is_in_range = transform
                         .translation
                         .truncate()
@@ -437,7 +437,7 @@ pub fn control_ship(
                         target: best_enemy.0,
                     });
                 } else {
-                    if let Some(a) = ally.first() {
+                    if let Some(a) = ally.last() {
                         controller.next(AIShipBehavior::Follow {
                             target: a.0,
                             radius: (a.2.size.length() + ship.size.length()) * 2.0,
@@ -472,7 +472,7 @@ pub fn control_ship(
                 if rng.random_bool(0.5) {
                     controller.next(AIShipBehavior::Idle);
                 } else if rng.random_bool(0.5) {
-                    if let Some(a) = ally.first() {
+                    if let Some(a) = ally.last() {
                         controller.next(AIShipBehavior::Guard {
                             target: a.0,
                             radius: (a.2.size.length() + ship.size.length()) * 2.0,
