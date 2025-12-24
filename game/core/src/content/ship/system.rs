@@ -143,16 +143,11 @@ pub fn update_ship_ui(
         transform.rotate(Quat::IDENTITY);
 
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior, global_transform)) => {
+            Ok((ship, _, _, _, global_transform)) => {
                 transform.rotation = global_transform.rotation().inverse();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!(
-                        "Ship: {}\nAI: {:#?}\nBehavior: {:?}",
-                        ship,
-                        controller.current(),
-                        behavior
-                    )),
+                    Text2d::new(format!("Ship: {ship}")),
                     TextFont {
                         font_size: 9.0,
                         ..default()
