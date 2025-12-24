@@ -417,14 +417,14 @@ pub fn control_ship(
                         .translation
                         .truncate()
                         .distance(a.1.translation().truncate())
-                        <= (a.2.size.length() * ship.size.length()) * 2.0;
+                        <= (a.2.size.length() + ship.size.length()) * 2.0;
 
                     if is_in_range {
                         controller.next(AIShipBehavior::Wander);
                     } else {
                         commands.entity(entity).insert(ShipBehavior::Approach {
                             position: a.1.translation().truncate() + a.2.center,
-                            radius: (a.2.size.length() * ship.size.length()) * 2.0,
+                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
                         });
                     }
                 } else {
@@ -438,7 +438,10 @@ pub fn control_ship(
                     });
                 } else {
                     if let Some(a) = ally.first() {
-                        controller.next(AIShipBehavior::Chase { target: a.0 });
+                        controller.next(AIShipBehavior::Follow {
+                            target: a.0,
+                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
+                        });
                     }
                 }
             }
@@ -472,7 +475,7 @@ pub fn control_ship(
                     if let Some(a) = ally.first() {
                         controller.next(AIShipBehavior::Guard {
                             target: a.0,
-                            radius: (a.2.size.length() * ship.size.length()) * 2.0,
+                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
                         });
                     }
                 } else {
