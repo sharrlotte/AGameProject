@@ -234,7 +234,7 @@ pub fn player_control_ship(
                 1.0
             };
 
-            let pan_speed = 30.0 * scale * boost * time.delta_secs();
+            let pan_speed = 60.0 * scale * boost * time.delta_secs();
 
             if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
                 camera_transform.translation.y += 1.0 * pan_speed;
