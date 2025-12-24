@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     PauseState, SceneState,
+    resource::SettingState,
     content::{bullet::component::Bullet, ship::component::Ship},
     save::{io::save_dir, message::{LoadWorldEvent, SaveWorldEvent}},
 };
@@ -27,6 +28,7 @@ impl Plugin for PauseScenePlugin {
 #[derive(Component)]
 enum PauseButton {
     Resume,
+    Settings,
     Home,
     Save,
     Load,
@@ -103,6 +105,34 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Resume"),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+
+            // Settings Button
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(10.0)),
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    PauseButton::Settings,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Settings"),
                         TextFont {
                             font_size: 20.0,
                             ..default()
@@ -230,6 +260,7 @@ fn handle_pause_buttons(
     >,
     mut app_state: ResMut<NextState<SceneState>>,
     mut game_state: ResMut<NextState<PauseState>>,
+    mut setting_state: ResMut<NextState<SettingState>>,
     mut exit: MessageWriter<AppExit>,
     mut save_events: MessageWriter<SaveWorldEvent>,
     mut load_events: MessageWriter<LoadWorldEvent>,
@@ -244,6 +275,9 @@ fn handle_pause_buttons(
                 match button_type {
                     PauseButton::Resume => {
                         game_state.set(PauseState::Playing);
+                    }
+                    PauseButton::Settings => {
+                         setting_state.set(SettingState::Open);
                     }
                     PauseButton::Home => {
                         game_state.set(PauseState::Playing);

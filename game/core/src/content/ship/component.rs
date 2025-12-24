@@ -5,26 +5,27 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    common::entity_type::EntityType,
-    content::{
+    common::entity_type::EntityType, constant::LAYER_SHIP_UI, content::{
         block::{
             component::BlockData,
             resource::{BlockRegistry, ShipCalculatedStat},
         },
         team::Team,
-    },
+    }
 };
 
 #[derive(Component, Debug, Default)]
 pub struct Ship {
     pub id: Uuid,
+    pub blocks: Vec<BlockData>,
+
     pub thrust_power: f32,
     pub turn_speed: f32,
-    pub radar_range: f32,
-    pub blocks: Vec<BlockData>,
     pub core_position: Vec2,
     pub center: Vec2,
     pub size: Vec2,
+    pub max_range: f32,
+    pub min_range: f32,
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone, Serialize, Deserialize)]
@@ -134,6 +135,8 @@ impl ShipData {
             turn_speed,
             size,
             core_position,
+            min_range,
+            max_range,
         } = registry.blocks_stats(&self.blocks);
 
         let ship = commands
@@ -145,8 +148,9 @@ impl ShipData {
                     center,
                     thrust_power,
                     turn_speed,
-                    radar_range: 3000.0,
                     size,
+                    max_range,
+                    min_range,
                 },
                 ShipState {},
                 Visibility::Visible,
@@ -184,7 +188,7 @@ impl ShipData {
             .spawn((
                 ShipUIRoot { ship },
                 Visibility::Visible,
-                Transform::from_translation(Vec2::ZERO.extend(200.0)),
+                Transform::from_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
             ))
             .id();
 

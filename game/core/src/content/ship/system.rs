@@ -16,7 +16,7 @@ use rand::seq::IndexedRandom;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use bevy::math::{FloatPow, VectorSpace};
+use bevy::math::FloatPow;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
@@ -111,6 +111,8 @@ pub fn check_rebuild_ship_collider(
             turn_speed,
             size,
             core_position,
+            min_range,
+            max_range,
         } = registry.blocks_stats(&ship.blocks);
 
         commands.entity(entity).remove::<Collider>().insert((
@@ -123,8 +125,9 @@ pub fn check_rebuild_ship_collider(
                 center,
                 thrust_power,
                 turn_speed,
-                radar_range: 3000.0,
                 size,
+                min_range,
+                max_range,
             },
         ));
     }
@@ -145,15 +148,17 @@ pub fn update_ship_ui(
         transform.rotate(Quat::IDENTITY);
 
         match ships.get(ui_root.ship) {
-            Ok((ship, _, _, _, global_transform)) => {
+            Ok((ship, _, controller, _, global_transform)) => {
                 transform.rotation = global_transform.rotation().inverse();
+                let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}")),
+                    Text2d::new(format!("Ship: {ship}\nC: {:?}", current)),
                     TextFont {
-                        font_size: 9.0,
+                        font_size: 90.0,
                         ..default()
                     },
+                    Transform::from_translation(Vec2::ZERO.extend(1000.0)),
                 ));
             }
             Err(_) => {
@@ -265,6 +270,7 @@ pub fn player_control_ship(
             Ok((mut force, transform, ship)) => {
                 let thrust_power = ship.thrust_power;
                 let turn_speed = ship.turn_speed;
+
                 let mut linear_force = Vec2::ZERO;
                 let mut torque = 0.0;
 
@@ -390,7 +396,7 @@ pub fn control_ship(
                     .translation()
                     .truncate()
                     .distance(transform.translation.truncate())
-                    <= ship.radar_range
+                    <= ship.max_range
             })
             .collect();
 
@@ -434,7 +440,7 @@ pub fn control_ship(
                 if let Ok(position) = position {
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: position,
-                        radius: ship.size.length(),
+                        radius: ship.min_range,
                     });
                 } else {
                     controller.previous();
@@ -541,6 +547,7 @@ pub fn update_ship_behavior(
         &Velocity,
     )>,
     state: Res<GameVars>,
+    mut gizmos: Gizmos,
 ) {
     for (entity, ship, behavior, transform, mut force, velocity) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
@@ -563,15 +570,14 @@ pub fn update_ship_behavior(
                 let direction = (position - current_postion).normalize_or_zero();
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
-                let distance = current_postion.distance(*position);
+                let distance = current_postion.distance_squared(*position);
 
                 let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
-                let force_multiplier = if distance > radius.squared().squared() {
+
+                let force_multiplier = if distance > radius.squared() {
                     1.0
-                } else if distance > radius.squared() {
-                    0.5
                 } else {
-                    0.1
+                    (distance / radius.squared()).squared()
                 };
 
                 let torque: f32 = (if angle_diff > 0.0 {
@@ -593,6 +599,12 @@ pub fn update_ship_behavior(
                         force.force = direction * thrust_power * force_multiplier;
                     }
                 }
+
+                gizmos.arrow(
+                    current_postion.extend(0.0),
+                    position.extend(0.0),
+                    Color::srgb(0.0, 1.0, 0.0),
+                );
             }
             ShipBehavior::GoAround { position, radius } => {
                 let in_range = current_postion.distance(*position) <= *radius;
@@ -612,12 +624,10 @@ pub fn update_ship_behavior(
                 let distance = current_postion.distance(next_position);
 
                 let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
-                let force_multiplier = if distance > radius.squared().squared() {
+                let force_multiplier = if distance > radius.squared() {
                     1.0
-                } else if distance > radius.squared() {
-                    0.5
                 } else {
-                    0.1
+                    (distance / radius.squared()).squared()
                 };
 
                 let torque: f32 = (if angle_diff > 0.0 {
@@ -639,6 +649,12 @@ pub fn update_ship_behavior(
                         force.force = direction * thrust_power * force_multiplier;
                     }
                 }
+
+                gizmos.arrow(
+                    current_postion.extend(0.0),
+                    next_position.extend(0.0),
+                    Color::srgb(0.0, 1.0, 0.0),
+                );
             }
         }
     }

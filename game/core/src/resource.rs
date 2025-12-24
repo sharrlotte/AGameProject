@@ -19,6 +19,13 @@ pub enum PauseState {
     Paused,
 }
 
+#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
+pub enum SettingState {
+    #[default]
+    Closed,
+    Open,
+}
+
 #[derive(Default, PartialEq, Clone, Debug)]
 pub enum TurretControl {
     #[default]

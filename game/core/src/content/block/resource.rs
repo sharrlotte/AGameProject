@@ -27,6 +27,8 @@ pub struct ShipCalculatedStat {
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub size: Vec2,
+    pub min_range: f32,
+    pub max_range: f32,
 }
 
 impl BlockRegistry {
@@ -89,6 +91,9 @@ impl BlockRegistry {
         let mut min_x: i32 = 0;
         let mut min_y: i32 = 0;
 
+        let mut min_range: f32 = f32::MAX;
+        let mut max_range: f32 = f32::MIN;
+
         for block in blocks {
             let Some(def) = self.get(&block.block_type) else {
                 warn!("Block type {:?} not found in registry", block.block_type);
@@ -117,6 +122,10 @@ impl BlockRegistry {
                         thrust_power += force;
                         turn_speed += torque;
                     }
+                    BlockComponent::Turret(TurretComponent { range, .. }) => {
+                        min_range = min_range.min(*range);
+                        max_range = max_range.max(*range);
+                    }
                     _ => {}
                 }
             }
@@ -127,6 +136,8 @@ impl BlockRegistry {
             turn_speed: turn_speed * TURN_SPEED_FACTOR,
             mass,
             core_position: core_position,
+            min_range,
+            max_range,
             collider: self.build_ship_voxel_collider_2d(&blocks),
             size: Vec2::new(
                 (max_x - min_x) as f32 * GRID_SIZE,

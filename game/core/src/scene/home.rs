@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::SceneState;
+use crate::{SceneState, resource::SettingState};
 
 pub struct HomeScenePlugin;
 
@@ -158,6 +158,7 @@ fn handle_home_buttons(
         (Changed<Interaction>, With<Button>),
     >,
     mut next_state: ResMut<NextState<SceneState>>,
+    mut next_setting_state: ResMut<NextState<SettingState>>,
     // Use AppExit event directly to avoid EventWriter deprecation/method issues
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -173,7 +174,7 @@ fn handle_home_buttons(
                         next_state.set(SceneState::ShipEditor);
                     }
                     HomeButton::Settings => {
-                        // TODO: Implement settings screen
+                        next_setting_state.set(SettingState::Open);
                     }
                     HomeButton::Exit => {
                         exit.write(AppExit::Success);
