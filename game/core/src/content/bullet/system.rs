@@ -161,7 +161,7 @@ pub fn handle_burst_shot(
             continue;
         }
 
-        spawn_bullet(
+        let bullet = spawn_bullet(
             &mut commands,
             transform,
             team,
@@ -170,6 +170,13 @@ pub fn handle_burst_shot(
             &shoot_pattern.projectile,
             turret_state.target,
         );
+
+        if let Some(shoot_sound) = &shoot_pattern.shoot_sound {
+            commands.entity(bullet).insert((
+                AudioPlayer::new(shoot_sound.clone()),
+                PlaybackSettings::REMOVE.with_spatial(true),
+            ));
+        }
 
         shoot_pattern_state.last_barrel_fired_at = time.elapsed_secs();
         shoot_pattern_state.current_amount -= 1;
@@ -185,7 +192,7 @@ pub fn spawn_bullet(
     range: f32,
     projectile: &ShootingProjectile,
     target: Option<Entity>,
-) {
+) -> Entity {
     let rotation = turret_transform.rotation();
     let world_offset = rotation * barrel_position.extend(100.0);
     let spawn_position = turret_transform.translation() + world_offset;
@@ -231,6 +238,8 @@ pub fn spawn_bullet(
             if (*piercing) > 0 {
                 commands.entity(bullet).insert(Sensor);
             }
+
+            return bullet;
         }
         ShootingProjectile::Beam { .. } => {
             todo!("Beam implementation");
@@ -293,6 +302,8 @@ pub fn spawn_bullet(
                 .id();
 
             commands.entity(missile).add_child(hit_box);
+
+            return missile;
         }
     }
 }

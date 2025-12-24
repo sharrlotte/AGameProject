@@ -251,6 +251,7 @@ pub struct BurstShootPattern {
     pub delay: f32,
     pub amount: i8,
     pub projectile: ShootingProjectile,
+    pub shoot_sound: Option<Handle<AudioSource>>
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]

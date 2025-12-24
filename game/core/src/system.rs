@@ -25,9 +25,9 @@ pub fn setup_camera(mut commands: Commands) {
             ..default()
         },
         DebandDither::Enabled,
+        SpatialListener::new(400.0),
     ));
 }
-
 
 pub fn load_current_ship(mut state: ResMut<GameState>) {
     let ships = load_saved_schematics();

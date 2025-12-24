@@ -11,16 +11,19 @@ mod world;
 
 use crate::common::damage::plugin::DamagePlugin;
 use crate::common::death::plugin::DeathPlugin;
+use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::resource::{GameState, PauseState, SceneState};
 use crate::save::plugin::SavePlugin;
 use crate::scene::game::plugin::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::pause::PauseScenePlugin;
+use crate::scene::setting::plugin::SettingScenePlugin;
 use crate::scene::ship_editor::plugin::ShipEditorPlugin;
 use crate::system::{load_current_ship, setup_camera};
 use crate::world::physic::PhysicPlugin;
 
+use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
@@ -37,14 +40,21 @@ use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "AGameProject".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
-            ..Default::default()
-        }),
-        ..Default::default()
-    }))
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "AGameProject".to_string(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .set(AudioPlugin {
+                default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
+                ..default()
+            }),
+    )
     .add_plugins(
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0)
             .with_custom_initialization(
@@ -78,6 +88,7 @@ fn main() {
         HanabiPlugin,
         PhysicPlugin,
         ContentPlugin,
+        SettingScenePlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(30.0));
 
