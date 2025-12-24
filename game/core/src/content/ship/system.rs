@@ -160,27 +160,14 @@ pub fn update_ship_ui(
     }
 }
 
-pub fn control_ship(
+pub fn player_control_ship(
     time: Res<Time>,
-    ships: Query<
-        (
-            Entity,
-            &mut AIShipController,
-            &mut ExternalForce,
-            &Transform,
-            &Ship,
-            &Team,
-        ),
-        Without<Camera2d>,
-    >,
-    ships2: Query<(Entity, &GlobalTransform, &Ship, &Team)>,
+    mut ships: Query<(&mut ExternalForce, &Transform, &Ship), Without<Camera2d>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    global_transforms: Query<&Transform, Without<Camera2d>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    mut commands: Commands,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
-    mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
+    mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut state: ResMut<GameVars>,
 ) {
     for event in mouse_wheel_events.read() {
@@ -193,50 +180,9 @@ pub fn control_ship(
         }
     }
 
-    let mut maps: HashMap<
-        u8,
-        (
-            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
-            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
-        ),
-    > = HashMap::new();
-
-    for ship in ships2 {
-        let value = maps.get_mut(&ship.3.id);
-
-        if let Some((ally, enemy)) = value {
-            if ship.3.id == DEFAULT_TEAM_ID {
-                ally.push(ship);
-            } else {
-                enemy.push(ship);
-            }
-        } else {
-            if ship.3.id == DEFAULT_TEAM_ID {
-                maps.insert(ship.3.id, (vec![ship], Vec::new()));
-            } else {
-                maps.insert(ship.3.id, (Vec::new(), vec![ship]));
-            }
-        }
-    }
-
     if let Some(following) = state.following {
-        if ships.get(following).is_err() {
-            state.following = None;
-        }
-    }
-
-    if let Some(controlling) = state.controlling {
-        if ships.get(controlling).is_err() {
-            state.controlling = None;
-        }
-    }
-
-    for (entity, mut controller, mut force, transform, ship, team) in ships {
-        let thrust_power = ship.thrust_power;
-        let turn_speed = ship.turn_speed;
-
-        if let Some(following) = state.following {
-            if following == entity {
+        match ships.get(following) {
+            Ok((_, transform, ship)) => {
                 let target = transform
                     .transform_point(ship.core_position.extend(0.0))
                     .truncate();
@@ -244,7 +190,7 @@ pub fn control_ship(
                 for (mut camera_transform, _) in camera.iter_mut() {
                     let current = camera_transform.translation.truncate();
 
-                    let smooth_speed = 10.0;
+                    let smooth_speed = 1.0;
                     let t = 1.0 - (-smooth_speed * time.delta_secs());
                     let new_position = current.lerp(target, t);
 
@@ -252,31 +198,70 @@ pub fn control_ship(
                     camera_transform.translation.y = new_position.y;
                 }
             }
-        } else {
-            if mouse.just_pressed(MouseButton::Left) {
-                mouse_motion_events.clear();
+            Err(_) => {
+                state.following = None;
             }
+        }
+    } else {
+        if mouse.just_pressed(MouseButton::Left) {
+            mouse_motion_events.clear();
+        }
 
-            if mouse.pressed(MouseButton::Left)
-                && let Ok((mut transform, projection)) = camera.single_mut()
-            {
-                let scale = if let Projection::Orthographic(ortho) = &*projection {
-                    ortho.scale
-                } else {
-                    1.0
-                };
+        if mouse.pressed(MouseButton::Left)
+            && let Ok((mut transform, projection)) = camera.single_mut()
+        {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
 
-                let pan_speed: f32 = scale * 0.5;
+            let pan_speed: f32 = scale * 0.5;
 
-                for event in mouse_motion_events.read() {
-                    transform.translation.x -= event.delta.x * pan_speed;
-                    transform.translation.y += event.delta.y * pan_speed;
-                }
+            for event in mouse_motion_events.read() {
+                transform.translation.x -= event.delta.x * pan_speed;
+                transform.translation.y += event.delta.y * pan_speed;
             }
         }
 
-        if let Some(controlling) = state.controlling {
-            if controlling == entity {
+        for (mut camera_transform, projection) in camera.iter_mut() {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+
+            let boost = if keyboard_input.pressed(KeyCode::ShiftLeft) {
+                3.0
+            } else {
+                1.0
+            };
+
+            let pan_speed = 30.0 * scale * boost * time.delta_secs();
+
+            if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
+                camera_transform.translation.y += 1.0 * pan_speed;
+            } else if keyboard_input.pressed(KeyCode::KeyS)
+                || keyboard_input.pressed(KeyCode::ArrowDown)
+            {
+                camera_transform.translation.y -= 1.0 * pan_speed;
+            }
+
+            if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
+                camera_transform.translation.x -= 1.0 * pan_speed;
+            } else if keyboard_input.pressed(KeyCode::KeyD)
+                || keyboard_input.pressed(KeyCode::ArrowRight)
+            {
+                camera_transform.translation.x += 1.0 * pan_speed;
+            }
+        }
+    }
+
+    if let Some(controlling) = state.controlling {
+        match ships.get_mut(controlling) {
+            Ok((mut force, transform, ship)) => {
+                let thrust_power = ship.thrust_power;
+                let turn_speed = ship.turn_speed;
                 let mut linear_force = Vec2::ZERO;
                 let mut torque = 0.0;
 
@@ -316,47 +301,70 @@ pub fn control_ship(
 
                 force.force = linear_force;
                 force.torque = torque;
+            }
+            Err(_) => {
+                state.controlling = None;
+            }
+        }
+    } else {
+    }
+}
 
-                continue;
+pub fn control_ship(
+    time: Res<Time>,
+    ships: Query<
+        (
+            Entity,
+            &mut AIShipController,
+            &mut ExternalForce,
+            &Transform,
+            &Ship,
+            &Team,
+        ),
+        Without<Camera2d>,
+    >,
+    ships2: Query<(Entity, &GlobalTransform, &Ship, &Team)>,
+    global_transforms: Query<&Transform, Without<Camera2d>>,
+    state: ResMut<GameVars>,
+    mut commands: Commands,
+) {
+    let mut maps: HashMap<
+        u8,
+        (
+            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
+            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
+        ),
+    > = HashMap::new();
+
+    for ship in ships2 {
+        let value = maps.get_mut(&ship.3.id);
+
+        if let Some((ally, enemy)) = value {
+            if ship.3.id == DEFAULT_TEAM_ID {
+                ally.push(ship);
+            } else {
+                enemy.push(ship);
             }
         } else {
-            if state.following.is_none() {
-                for (mut camera_transform, projection) in camera.iter_mut() {
-                    let scale = if let Projection::Orthographic(ortho) = &*projection {
-                        ortho.scale
-                    } else {
-                        1.0
-                    };
-
-                    let boost = if keyboard_input.pressed(KeyCode::ShiftLeft) {
-                        3.0
-                    } else {
-                        1.0
-                    };
-
-                    let pan_speed = 30.0 * scale * boost * time.delta_secs();
-
-                    if keyboard_input.pressed(KeyCode::KeyW)
-                        || keyboard_input.pressed(KeyCode::ArrowUp)
-                    {
-                        camera_transform.translation.y += 1.0 * pan_speed;
-                    } else if keyboard_input.pressed(KeyCode::KeyS)
-                        || keyboard_input.pressed(KeyCode::ArrowDown)
-                    {
-                        camera_transform.translation.y -= 1.0 * pan_speed;
-                    }
-
-                    if keyboard_input.pressed(KeyCode::KeyA)
-                        || keyboard_input.pressed(KeyCode::ArrowLeft)
-                    {
-                        camera_transform.translation.x -= 1.0 * pan_speed;
-                    } else if keyboard_input.pressed(KeyCode::KeyD)
-                        || keyboard_input.pressed(KeyCode::ArrowRight)
-                    {
-                        camera_transform.translation.x += 1.0 * pan_speed;
-                    }
-                }
+            if ship.3.id == DEFAULT_TEAM_ID {
+                maps.insert(ship.3.id, (vec![ship], Vec::new()));
+            } else {
+                maps.insert(ship.3.id, (Vec::new(), vec![ship]));
             }
+        }
+    }
+
+    for (entity, mut controller, _, transform, ship, team) in ships {
+        if let Some(following) = state.following
+            && following == entity
+        {
+            continue;
+        }
+
+        if let Some(controlling) = state.controlling
+            && controlling == entity
+        {
+            continue;
         }
 
         if !controller.timer.tick(time.delta()).just_finished() {
@@ -386,7 +394,7 @@ pub fn control_ship(
             AIShipBehavior::Regroup => {
                 if let Some(a) = ally.first() {
                     commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: a.1.translation().truncate(),
+                        position: a.1.translation().truncate() + a.2.center,
                         radius: a.2.size.length() * 2.0,
                     });
                 } else {
@@ -411,7 +419,7 @@ pub fn control_ship(
 
                 if let Ok(position) = position {
                     commands.entity(entity).insert(ShipBehavior::Approach {
-                        position,
+                        position: position,
                         radius: ship.size.length(),
                     });
                 } else {
@@ -503,7 +511,6 @@ pub fn update_ship_behavior(
         &Velocity,
     )>,
     state: Res<GameVars>,
-    mut gizmos: Gizmos,
 ) {
     for (entity, ship, behavior, transform, mut force, velocity) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
@@ -527,18 +534,6 @@ pub fn update_ship_behavior(
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
                 let distance = current_postion.distance(*position);
-
-                gizmos.arrow(
-                    current_postion.extend(0.0),
-                    position.extend(0.0),
-                    Color::srgb(1.0, 1.0, 0.0),
-                );
-
-                gizmos.arrow(
-                    current_postion.extend(0.0),
-                    (current_postion + direction * 1000.0).extend(0.0),
-                    Color::srgb(1.0, 0.0, 0.0),
-                );
 
                 let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
                 let force_multiplier = if distance > radius.squared().squared() {

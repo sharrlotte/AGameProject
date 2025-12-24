@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::SceneState;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::system::{
-    check_rebuild_ship_collider, check_ship, cleanup_ships, control_ship, update_ship_behavior, update_ship_ui
+    check_rebuild_ship_collider, check_ship, cleanup_ships, control_ship, player_control_ship, update_ship_behavior, update_ship_ui
 };
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
@@ -14,7 +14,7 @@ impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (control_ship, update_ship_ui).run_if(in_state(SceneState::Game)),
+            (control_ship,player_control_ship, update_ship_ui).run_if(in_state(SceneState::Game)),
         )
         .add_systems(
             FixedUpdate,
