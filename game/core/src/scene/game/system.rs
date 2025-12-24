@@ -12,11 +12,21 @@ use crate::scene::game::component::{
 };
 use crate::scene::game::resource::GameVars;
 
-pub fn update_fps(diagnostics: Res<DiagnosticsStore>, mut text: Query<&mut Text, With<FpsText>>) {
+pub fn update_fps(
+    diagnostics: Res<DiagnosticsStore>,
+    mut text: Query<&mut Text, With<FpsText>>,
+    camera: Query<&GlobalTransform, With<Camera2d>>,
+) {
+    let position = camera
+        .single()
+        .expect("No camera attached")
+        .translation()
+        .truncate();
+
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(value) = fps.smoothed() {
             for mut t in text.iter_mut() {
-                t.0 = format!("FPS: {value:.2}",);
+                t.0 = format!("FPS: {value:.2}, {position}",);
             }
         }
     }
@@ -99,29 +109,7 @@ pub fn update_ship_buttons(
     }
 }
 
-pub fn setup_game(
-    mut commands: Commands,
-    game_state: Res<GameState>,
-    fps_query: Query<(), With<FpsText>>,
-) {
-    if fps_query.is_empty() {
-        commands.spawn((
-            Text::new("FPS: N/A"),
-            TextFont {
-                font_size: 20.0,
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
-            FpsText,
-        ));
-    }
-
+pub fn setup_game(mut commands: Commands, game_state: Res<GameState>) {
     commands.spawn((
         ShipList,
         Node {
@@ -150,21 +138,21 @@ pub fn setup_game(
             container
                 .spawn((
                     Node {
-                        padding: UiRect::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(5.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
                     Button,
                     TurretControlModeButton,
-                    BorderRadius::all(Val::Px(10.0)),
+                    BorderRadius::all(Val::Px(5.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
                 .with_children(|button| {
                     button.spawn((
                         Text::new(text),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: 10.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -175,7 +163,7 @@ pub fn setup_game(
             container.spawn((
                 Text::new("FPS: N/A"),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: 10.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),

@@ -142,7 +142,7 @@ pub fn update_ship_ui(
                 commands.entity(ui_entity).insert((
                     Text2d::new(format!("Ship: {}\nAI: {:#?}\nBehavior: {:?}", ship, controller.current(), behavior)),
                     TextFont {
-                        font_size: 30.0,
+                        font_size: 9.0,
                         ..default()
                     },
                     Transform::from_rotation(Quat::IDENTITY),
