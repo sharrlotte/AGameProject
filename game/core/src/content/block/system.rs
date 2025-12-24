@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     common::{damage::message::DamageEvent, death::component::Death},
-    constant::{FLASH_OVERLAY_COLOR, GRID_SIZE},
+    constant::FLASH_OVERLAY_COLOR,
     content::block::{
         component::{Block, Health, ShipIdComponent},
         message::BlockDestroyedEvent,

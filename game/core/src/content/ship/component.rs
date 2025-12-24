@@ -18,11 +18,12 @@ use crate::{
 #[derive(Component, Debug, Default)]
 pub struct Ship {
     pub id: Uuid,
-    pub center: Vec2,
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub radar_range: f32,
     pub blocks: Vec<BlockData>,
+    pub core_position: Vec2,
+    pub center: Vec2,
     pub size: Vec2,
 }
 
@@ -126,6 +127,7 @@ impl ShipData {
             thrust_power,
             turn_speed,
             size,
+            core_position,
         } = registry.blocks_stats(&self.blocks);
 
         let ship = commands
@@ -133,6 +135,7 @@ impl ShipData {
                 Ship {
                     id: self.id,
                     blocks: self.blocks.clone(),
+                    core_position,
                     center,
                     thrust_power,
                     turn_speed,

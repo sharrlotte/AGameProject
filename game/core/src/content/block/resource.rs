@@ -19,6 +19,7 @@ pub struct BlockRegistry {
 
 pub struct ShipCalculatedStat {
     pub mass: f32,
+    pub core_position: Vec2,
     pub center: Vec2,
     pub collider: Collider,
     pub thrust_power: f32,
@@ -77,7 +78,7 @@ impl BlockRegistry {
 
     pub fn blocks_stats(&self, blocks: &[BlockData]) -> ShipCalculatedStat {
         let mut mass: f32 = 0.0;
-        let mut center = Vec2::ZERO;
+        let mut core_position = Vec2::ZERO;
         let mut thrust_power: f32 = 1000.0;
         let mut turn_speed: f32 = 250.0;
 
@@ -104,7 +105,7 @@ impl BlockRegistry {
             if def.block_group == BlockGroup::Core {
                 let size = def.shape.size.as_vec2();
                 let offset = size * GRID_SIZE * 0.5;
-                center = block.position.as_vec2() * GRID_SIZE + offset;
+                core_position = block.position.as_vec2() * GRID_SIZE + offset;
             }
 
             for component in &def.components {
@@ -122,9 +123,10 @@ impl BlockRegistry {
             thrust_power,
             turn_speed,
             mass,
-            center: center,
+            core_position: core_position,
             collider: self.build_ship_voxel_collider_2d(&blocks),
             size: Vec2::new(max_x - min_x, max_y - min_y),
+            center: Vec2::new((max_x + min_x) * 0.5, (max_y + min_y) * 0.5),
         };
     }
 }

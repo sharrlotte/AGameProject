@@ -22,7 +22,7 @@ fn draw_indicators(
     let window_size = Vec2::new(window.width(), window.height());
 
     for (ship_transform, team, ship) in &ships {
-        let ship_position = ship_transform.transform_point(ship.center.extend(0.0));
+        let ship_position = ship_transform.transform_point(ship.core_position.extend(0.0));
 
         // Project to screen to check visibility and clamp
         if let Ok(viewport_position) = camera.world_to_viewport(camera_transform, ship_position) {

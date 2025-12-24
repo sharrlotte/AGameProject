@@ -29,6 +29,8 @@ pub fn update_turret_target(
             if let Some(cursor_position) = window.cursor_position()
                 && let Ok(world_position) =
                     camera.viewport_to_world_2d(camera_transform, cursor_position)
+                && world_position.distance_squared(transform.translation().truncate())
+                    <= turret.range.squared()
             {
                 match game_state.turret_control {
                     TurretControl::Manual => {

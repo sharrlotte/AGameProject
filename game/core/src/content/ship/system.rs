@@ -87,6 +87,7 @@ pub fn check_rebuild_ship_collider(
             thrust_power,
             turn_speed,
             size,
+            core_position,
         } = registry.blocks_stats(&ship.blocks);
 
         commands.entity(entity).remove::<Collider>().insert((
@@ -95,6 +96,7 @@ pub fn check_rebuild_ship_collider(
             Ship {
                 id: ship.id,
                 blocks: ship.blocks.clone(),
+                core_position,
                 center,
                 thrust_power,
                 turn_speed,
@@ -183,7 +185,7 @@ pub fn control_ship(
         if let Some(following) = state.following {
             if following == entity {
                 let target = transform
-                    .transform_point(ship.center.extend(0.0))
+                    .transform_point(ship.core_position.extend(0.0))
                     .truncate();
 
                 for (mut camera_transform, _) in camera.iter_mut() {
