@@ -140,19 +140,19 @@ pub fn update_ship_ui(
         Entity,
         &Ship,
         &AIShipController,
-        &ShipBehavior,
+        Option<&ShipBehavior>,
         &GlobalTransform,
     )>,
 ) {
     for (ui_entity, ui_root, mut transform) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, _, global_transform)) => {
+            Ok((ship, _, controller, behavior, global_transform)) => {
                 transform.rotation = global_transform.rotation().inverse();
 
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}\nC: {:?}", current)),
+                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
                     TextFont {
                         font_size: 90.0,
                         ..default()

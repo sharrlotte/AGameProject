@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
         1500,
         0.01,
         24000.0,
-        2.0,
+        6.0,
         Color::srgb(0.7, 0.7, 0.8),
         1,
     );
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands) {
         900,
         0.03,
         18000.0,
-        3.2,
+        9.0,
         Color::srgb(0.8, 0.8, 0.8),
         2,
     );
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands) {
         320,
         0.06,
         15000.0,
-        4.5,
+        12.0,
         Color::srgb(1.0, 1.0, 1.0),
         3,
     );
