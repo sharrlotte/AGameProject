@@ -1,106 +1,118 @@
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 use crate::SceneState;
+use crate::scene::system::clean_scene_items;
 
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(SceneState::Game), setup_background)
-            .add_systems(Update, update_background.run_if(in_state(SceneState::Game)))
-            .add_systems(OnEnter(SceneState::Home), cleanup_background);
+        app.add_systems(OnEnter(SceneState::Game), setup)
+            .add_systems(Update, parallax_follow.run_if(in_state(SceneState::Game)))
+            .add_systems(OnExit(SceneState::Home), clean_scene_items);
     }
 }
 
 #[derive(Component)]
-pub struct BackgroundImage;
+struct ParallaxLayer {
+    factor: f32,  // movement multiplier (0.05..1.0)
+    radius: f32,  // wrap distance
+    offset: Vec2, // fixed random offset
+}
 
-#[derive(Resource)]
-pub struct BackgroundConfig;
-
-fn setup_background(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    query: Query<(), With<BackgroundImage>>,
+fn spawn_parallax_layer(
+    commands: &mut Commands,
+    count: usize,
+    factor: f32,
+    radius: f32,
+    size: f32,
+    color: Color,
+    seed: u64,
 ) {
-    if !query.is_empty() {
+    use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
+
+    let mut rng = SmallRng::seed_from_u64(seed);
+
+    for _ in 0..count {
+        let offset = Vec2::new(
+            rng.random_range(-radius..radius),
+            rng.random_range(-radius..radius),
+        );
+
+        commands.spawn((
+            ParallaxLayer {
+                factor,
+                radius,
+                offset,
+            },
+            Sprite {
+                color,
+                custom_size: Some(Vec2::splat(size)),
+                ..default()
+            },
+            Transform::default(),
+        ));
+    }
+}
+
+fn setup(mut commands: Commands) {
+    // FAR stars
+    spawn_parallax_layer(
+        &mut commands,
+        600,
+        0.01,
+        8000.0,
+        2.0,
+        Color::srgb(0.7, 0.7, 0.8),
+        1,
+    );
+
+    // MID dust
+    spawn_parallax_layer(
+        &mut commands,
+        300,
+        0.03,
+        6000.0,
+        3.2,
+        Color::srgb(0.8, 0.8, 0.8),
+        2,
+    );
+
+    // NEAR debris
+    spawn_parallax_layer(
+        &mut commands,
+        120,
+        0.06,
+        5000.0,
+        4.5,
+        Color::srgb(1.0, 1.0, 1.0),
+        3,
+    );
+}
+
+fn parallax_follow(
+    camera: Query<&Transform, With<Camera2d>>,
+    mut layers: Query<(&ParallaxLayer, &mut Transform), Without<Camera2d>>,
+) {
+    let Ok(transform) = camera.single() else {
         return;
+    };
+
+    let position = transform.translation.truncate();
+
+    for (layer, mut transform) in &mut layers {
+        let mut pos = position * layer.factor + layer.offset;
+
+        let r = layer.radius;
+        pos.x = wrap(pos.x, position.x - r, position.x + r);
+        pos.y = wrap(pos.y, position.y - r, position.y + r);
+
+        transform.translation = pos.extend(-layer.factor * 10.0);
     }
-
-    // Load the single background image
-    let texture_handle = assets.load("textures/background/background1.png");
-
-    commands.insert_resource(BackgroundConfig);
-
-    // Spawn a single sprite for the background
-    commands.spawn((
-        Sprite {
-            image: texture_handle,
-            color: Color::srgb(1.005, 1.005, 1.005),
-            ..default()
-        },
-        Transform::from_xyz(0.0, 0.0, -100.0), // Behind everything
-        BackgroundImage,
-    ));
 }
 
-fn cleanup_background(mut commands: Commands, query: Query<Entity, With<BackgroundImage>>) {
-    for entity in query.iter() {
-        commands.entity(entity).despawn();
-    }
-    commands.remove_resource::<BackgroundConfig>();
-}
-
-fn update_background(
-    bg_transform: Single<(&mut Transform, &Sprite), (With<BackgroundImage>, Without<Camera2d>)>,
-    camera_query: Single<(&Transform, &Projection), With<Camera2d>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    images: Res<Assets<Image>>,
-) {
-    let (mut transform, sprite) = bg_transform.into_inner();
-    let (camera_transform, projection) = *camera_query;
-    let camera_position: Vec2 = camera_transform.translation.truncate();
-
-    let parallax_factor = 0.999;
-    let target_position = camera_position * parallax_factor;
-    let mut base_scale = 1.0; // Default fallback
-
-    if let Some(image) = images.get(&sprite.image) {
-        let image_size = Vec2::new(image.width() as f32, image.height() as f32);
-        let window_size = Vec2::new(window.width(), window.height());
-
-        let scale = if let Projection::Orthographic(ortho) = &*projection {
-            ortho.scale
-        } else {
-            1.0
-        };
-
-        if image_size.x > 0.0 && image_size.y > 0.0 {
-            // Determine scale needed to cover the window exactly at 1:1 zoom
-            let width_ratio = window_size.x / image_size.x;
-            let height_ratio = window_size.y / image_size.y;
-            let cover_scale = width_ratio.max(height_ratio);
-
-            // We want 2x viewport coverage at Max Zoom (5.0)
-            // Logic:
-            // FinalScale = BaseScale * ZoomDamping
-            // FinalScale(at MaxZoom) >= CoverScale * MaxZoom * 2.0
-            // BaseScale * sqrt(MaxZoom) >= CoverScale * MaxZoom * 2.0
-            // BaseScale >= CoverScale * MaxZoom * 2.0 / sqrt(MaxZoom)
-            // BaseScale >= CoverScale * sqrt(MaxZoom) * 2.0
-
-            // Max Zoom is 5.0. sqrt(5) approx 2.236
-            // BaseScale >= CoverScale * 2.236 * 2.0 = CoverScale * 4.47
-
-            // We use 4.5 as a safe multiplier.
-            base_scale = cover_scale * scale;
-        }
-    }
-
-    transform.translation.x = target_position.x;
-    transform.translation.y = target_position.y;
-    transform.translation.z = -100.0;
-
-    transform.scale = Vec3::new(base_scale, base_scale, 1.0);
+fn wrap(value: f32, min: f32, max: f32) -> f32 {
+    let range = max - min;
+    value - ((value - min) / range).floor() * range
 }

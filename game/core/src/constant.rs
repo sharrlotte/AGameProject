@@ -11,3 +11,7 @@ pub const LAYER_BLOCK_OVERLAY: f32 = 100.0;
 pub const LAYER_BULLET: f32 = 100.0;
 pub const LAYER_TURRET_OVERLAY: f32 = 150.0;
 pub const LAYER_FLASH_OVERLAY: f32 = 200.0;
+
+
+pub const MIN_ZOOM: f32 = 0.2;
+pub const MAX_ZOOM: f32 = 10.0;

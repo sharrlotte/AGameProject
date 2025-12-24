@@ -1,4 +1,5 @@
 use crate::common::death::component::Death;
+use crate::constant::{MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::BlockType;
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
@@ -177,7 +178,7 @@ pub fn player_control_ship(
             if let Projection::Orthographic(ortho) = &mut *projection {
                 let zoom_speed = 0.1;
                 ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(0.1, 5.0);
+                ortho.scale = ortho.scale.clamp(MIN_ZOOM, MAX_ZOOM);
             }
         }
     }
