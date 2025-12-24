@@ -1,4 +1,4 @@
-use bevy::{math::VectorSpace, prelude::*};
+use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -51,6 +51,11 @@ impl AIShipController {
     pub fn next(&mut self, behavior: AIShipBehavior) {
         self.last_behavior = self.behavior;
         self.behavior = behavior;
+    }
+
+    pub fn previous(&mut self) {
+        self.behavior = self.last_behavior;
+        self.last_behavior = self.initial_behavior;
     }
 
     pub fn current(&self) -> AIShipBehavior {
@@ -197,5 +202,5 @@ pub struct ShipUIRoot {
 #[derive(Component, Debug)]
 pub enum ShipBehavior {
     Approach { position: Vec2, radius: f32 },
-    GoAround { position: Vec2 , radius: f32},
+    GoAround { position: Vec2, radius: f32 },
 }

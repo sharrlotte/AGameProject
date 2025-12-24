@@ -134,13 +134,13 @@ pub fn check_rebuild_ship_collider(
 pub fn update_ship_ui(
     mut commands: Commands,
     ui_roots: Query<(Entity, &ShipUIRoot)>,
-    ships: Query<(Entity, &Ship, &AIShipController)>,
+    ships: Query<(Entity, &Ship, &AIShipController, &ShipBehavior)>,
 ) {
     for (ui_entity, ui_root) in &ui_roots {
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller)) => {
+            Ok((ship, _, controller, behavior)) => {
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {}\nAI: {:#?}", ship, controller.current())),
+                    Text2d::new(format!("Ship: {}\nAI: {:#?}\nBehavior: {:?}", ship, controller.current(), behavior)),
                     TextFont {
                         font_size: 30.0,
                         ..default()
@@ -377,10 +377,12 @@ pub fn control_ship(
         match controller.current() {
             AIShipBehavior::Regroup => {
                 if let Some(a) = ally.first() {
-                    controller.next(AIShipBehavior::Follow {
-                        target: a.0,
-                        radius: a.2.size.length(),
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position: a.1.translation().truncate(),
+                        radius: a.2.size.length() * 2.0,
                     });
+                } else {
+                    controller.next(AIShipBehavior::Idle);
                 }
             }
             AIShipBehavior::Idle => {
@@ -405,7 +407,7 @@ pub fn control_ship(
                         radius: ship.size.length(),
                     });
                 } else {
-                    controller.reset();
+                    controller.previous();
                 }
             }
             AIShipBehavior::Wander => {}
@@ -451,7 +453,7 @@ pub fn control_ship(
                         radius,
                     });
                 } else {
-                    controller.reset();
+                    controller.previous();
                 }
             }
             AIShipBehavior::Follow { target, radius } => {
@@ -463,7 +465,7 @@ pub fn control_ship(
                         radius,
                     });
                 } else {
-                    controller.reset();
+                    controller.previous();
                 }
             }
             AIShipBehavior::Kamikaze { target } => {
@@ -476,7 +478,7 @@ pub fn control_ship(
                         radius: ship.size.length(),
                     });
                 } else {
-                    controller.reset();
+                    controller.previous();
                 }
             }
         }
@@ -493,6 +495,7 @@ pub fn update_ship_behavior(
         &Velocity,
     )>,
     state: Res<GameVars>,
+    mut gizmos: Gizmos,
 ) {
     for (entity, ship, behavior, transform, mut force, velocity) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
@@ -504,15 +507,30 @@ pub fn update_ship_behavior(
         let Ship {
             thrust_power,
             turn_speed,
+            center,
             ..
         } = ship;
 
+        let current_postion = transform.translation.truncate() + *center;
+
         match behavior {
             ShipBehavior::Approach { position, radius } => {
-                let direction = (position - transform.translation.truncate()).normalize_or_zero();
+                let direction = (position - current_postion).normalize_or_zero();
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
-                let distance = transform.translation.truncate().distance(*position);
+                let distance = current_postion.distance(*position);
+
+                gizmos.arrow(
+                    current_postion.extend(0.0),
+                    position.extend(0.0),
+                    Color::srgb(1.0, 1.0, 0.0),
+                );
+
+                gizmos.arrow(
+                    current_postion.extend(0.0),
+                    (current_postion + direction * 1000.0).extend(0.0),
+                    Color::srgb(1.0, 0.0, 0.0),
+                );
 
                 let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
                 let force_multiplier = if distance > radius.squared().squared() {
@@ -528,7 +546,7 @@ pub fn update_ship_behavior(
                 } else {
                     -*turn_speed
                 }) * (if velocity.linvel.length() > PI / 4.0 {
-                    0.1
+                    0.3
                 } else {
                     1.0
                 }) * turn_speed_multiplier;
@@ -544,9 +562,9 @@ pub fn update_ship_behavior(
                 }
             }
             ShipBehavior::GoAround { position, radius } => {
-                let in_range = transform.translation.truncate().distance(*position) <= *radius;
-                let direction = (position - transform.translation.truncate()).normalize_or_zero();
-                let position_on_ring = transform.translation.truncate() + direction * radius;
+                let in_range = current_postion.distance(*position) <= *radius;
+                let direction = (position - current_postion).normalize_or_zero();
+                let position_on_ring = current_postion + direction * radius;
                 let mut next_position = position_on_ring;
 
                 if in_range {
@@ -554,12 +572,11 @@ pub fn update_ship_behavior(
                         + Vec2::new(direction.y, -direction.x) * radius / radius.sqrt();
                 }
 
-                let direction =
-                    (next_position - transform.translation.truncate()).normalize_or_zero();
+                let direction = (next_position - current_postion).normalize_or_zero();
 
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
-                let distance = transform.translation.truncate().distance(next_position);
+                let distance = current_postion.distance(next_position);
 
                 let turn_speed_multiplier = (angle_diff.abs() / PI).clamp(0.25, 1.0);
                 let force_multiplier = if distance > radius.squared().squared() {

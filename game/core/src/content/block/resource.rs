@@ -126,7 +126,7 @@ impl BlockRegistry {
             core_position: core_position,
             collider: self.build_ship_voxel_collider_2d(&blocks),
             size: Vec2::new(max_x - min_x, max_y - min_y),
-            center: Vec2::new((max_x + min_x) * 0.5, (max_y + min_y) * 0.5),
+            center: Vec2::new((max_x - min_x) * 0.5, (max_y - min_y) * 0.5),
         };
     }
 }
