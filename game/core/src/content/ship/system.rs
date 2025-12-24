@@ -446,6 +446,11 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Chase { target } => {
+                if target == entity {
+                    controller.next(AIShipBehavior::Idle);
+                    return;
+                }
+
                 let position = global_transforms
                     .get(target)
                     .map(|transform| transform.translation.truncate());
@@ -594,10 +599,6 @@ pub fn update_ship_behavior(
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
                 let distance = current_postion.distance_squared(*position);
-
-                if angle_diff.abs() < PI / 30.0 {
-                    continue;
-                }
 
                 gizmos.line_2d(
                     current_postion,

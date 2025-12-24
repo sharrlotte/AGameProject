@@ -21,7 +21,7 @@ impl Plugin for ShipPlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    control_ship.run_if(on_timer(Duration::from_millis(200))),
+                    control_ship,
                     check_rebuild_ship_collider,
                     player_control_ship,
                 )
