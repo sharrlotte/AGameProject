@@ -511,7 +511,7 @@ pub fn update_ship_behavior(
             ..
         } = ship;
 
-        let current_postion = transform.translation.truncate() + *center;
+        let current_postion = transform.transform_point(center.extend(0.0)).truncate();
 
         match behavior {
             ShipBehavior::Approach { position, radius } => {

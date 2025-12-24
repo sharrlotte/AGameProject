@@ -82,10 +82,10 @@ impl BlockRegistry {
         let mut thrust_power: f32 = 1000.0;
         let mut turn_speed: f32 = 250.0;
 
-        let mut max_x: f32 = 0.0;
-        let mut max_y: f32 = 0.0;
-        let mut min_x: f32 = 0.0;
-        let mut min_y: f32 = 0.0;
+        let mut max_x: i32 = 0;
+        let mut max_y: i32 = 0;
+        let mut min_x: i32 = 0;
+        let mut min_y: i32 = 0;
 
         for block in blocks {
             let Some(def) = self.get(&block.block_type) else {
@@ -93,12 +93,12 @@ impl BlockRegistry {
                 continue;
             };
 
-            let size = def.get_pixel_size();
+            let size = def.shape.size;
 
-            max_x = max_x.max((block.position.x as f32) * GRID_SIZE + size.x);
-            max_y = max_y.max((block.position.y as f32) * GRID_SIZE + size.y);
-            min_x = min_x.min((block.position.x as f32) * GRID_SIZE);
-            min_y = min_y.min((block.position.y as f32) * GRID_SIZE);
+            max_x = max_x.max(block.position.x + size.x);
+            max_y = max_y.max(block.position.y + size.y);
+            min_x = min_x.min(block.position.x);
+            min_y = min_y.min(block.position.y);
 
             mass += def.mass;
 
@@ -125,8 +125,11 @@ impl BlockRegistry {
             mass,
             core_position: core_position,
             collider: self.build_ship_voxel_collider_2d(&blocks),
-            size: Vec2::new(max_x - min_x, max_y - min_y),
-            center: Vec2::new((max_x - min_x) * 0.5, (max_y - min_y) * 0.5),
+            size: Vec2::new((max_x - min_x) as f32 * GRID_SIZE, (max_y - min_y) as f32 * GRID_SIZE),
+            center: Vec2::new(
+                (max_x - min_x - 1) as f32 * 0.5 * GRID_SIZE,
+                (max_y - min_y - 1) as f32 * 0.5 * GRID_SIZE,
+            ),
         };
     }
 }

@@ -41,17 +41,17 @@ pub fn handle_ship_button_click(
             if let Some(following) = state.following
                 && following == ship_button.0
             {
-                state.following = None;
+                if let Some(controlling) = state.controlling
+                    && controlling == ship_button.0
+                {
+                    state.following = None;
+                    state.controlling = None;
+                } else {
+                    state.controlling = Some(ship_button.0);
+                }
             } else {
                 state.following = Some(ship_button.0);
-            }
-
-            if let Some(controlling) = state.controlling
-                && controlling == ship_button.0
-            {
                 state.controlling = None;
-            } else {
-                state.controlling = Some(ship_button.0);
             }
         }
     }
