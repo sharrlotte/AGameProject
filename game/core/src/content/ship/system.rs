@@ -452,7 +452,7 @@ pub fn control_ship(
 
                 if let Ok(position) = position {
                     if transform.translation.distance_squared(position.extend(0.0))
-                        <= ship.min_range
+                        >= ship.min_range
                     {
                         commands.entity(entity).insert(ShipBehavior::Approach {
                             position: position,
@@ -613,7 +613,7 @@ pub fn update_ship_behavior(
 
                 force.torque = torque;
 
-                if angle_diff.abs() < PI / 2.0 {
+                if angle_diff.abs() < PI / 3.0 {
                     if distance <= *radius {
                         force.force = Vec2::ZERO;
                     } else {
@@ -662,7 +662,7 @@ pub fn update_ship_behavior(
 
                 force.torque = torque;
 
-                if angle_diff.abs() < PI / 2.0 {
+                if angle_diff.abs() < PI / 3.0 {
                     if distance <= *radius {
                         force.force = Vec2::ZERO;
                     } else {

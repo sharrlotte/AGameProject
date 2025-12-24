@@ -275,7 +275,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Bullet {
                         speed: 5000.0,
                         damage: 20.0,
-                        lifetime: 5.0,
+                        lifetime: 10.0,
                         piercing: 0,
                     },
                     shoot_sound: None,
@@ -386,7 +386,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Bullet {
                         speed: 4000.0,
                         damage: 20.0,
-                        lifetime: 5.0,
+                        lifetime: 10.0,
                         piercing: 2,
                     },
                     shoot_sound: Some(sound("bullet/shoot-spectre.ogg".into())),
