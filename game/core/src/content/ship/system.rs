@@ -189,15 +189,13 @@ pub fn player_control_ship(
 
                 if let Ok((mut camera_transform, _)) = camera.single_mut() {
                     let current = camera_transform.translation.truncate();
-                    let smooth_speed = 1.0;
+                    let smooth_speed = 10.0;
 
-                    if target.distance(current) >= smooth_speed * 2.0 {
-                        let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
-                        let new_position = current.lerp(target, t);
+                    let t = 1.0 - (-smooth_speed * time.delta_secs()).exp();
+                    let new_position = current.lerp(target, t);
 
-                        camera_transform.translation.x = new_position.x;
-                        camera_transform.translation.y = new_position.y;
-                    }
+                    camera_transform.translation.x = new_position.x;
+                    camera_transform.translation.y = new_position.y;
                 }
             }
             Err(_) => {
