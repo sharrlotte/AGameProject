@@ -28,20 +28,20 @@ pub fn handle_ship_button_click(
 ) {
     for (interaction, ship_button) in interaction.iter_mut() {
         if *interaction == Interaction::Pressed {
-            if let Some(controlling) = state.controlling
-                && controlling == ship_button.0
-            {
-                state.controlling = None;
-            } else {
-                state.controlling = Some(ship_button.0);
-            }
-
             if let Some(following) = state.following
                 && following == ship_button.0
             {
                 state.following = None;
             } else {
                 state.following = Some(ship_button.0);
+            }
+
+            if let Some(controlling) = state.controlling
+                && controlling == ship_button.0
+            {
+                state.controlling = None;
+            } else {
+                state.controlling = Some(ship_button.0);
             }
         }
     }
@@ -51,6 +51,7 @@ pub fn update_ship_buttons(
     mut commands: Commands,
     ships: Query<(Entity, &Ship, &Team)>,
     mut ship_list: Query<Entity, With<ShipList>>,
+    state: Res<GameVars>,
 ) {
     let Ok(ship_list_entity) = ship_list.single_mut() else {
         return;
@@ -66,13 +67,25 @@ pub fn update_ship_buttons(
         commands
             .entity(ship_list_entity)
             .with_children(|container| {
+                let color = if let Some(controlling) = state.controlling
+                    && controlling == entity
+                {
+                    Color::srgb(0.0, 1.0, 0.0)
+                } else if let Some(following) = state.following
+                    && following == entity
+                {
+                    Color::srgb(0.0, 1.0, 1.0)
+                } else {
+                    Color::WHITE
+                };
+
                 container.spawn((
                     Text::new(format!("Ship: {}", ship.id)),
                     TextFont {
                         font_size: 8.0,
                         ..default()
                     },
-                    TextColor(Color::WHITE),
+                    TextColor(color),
                     Node {
                         padding: UiRect::all(Val::Px(2.0)),
                         justify_content: JustifyContent::Center,

@@ -187,7 +187,7 @@ pub fn spawn_bullet(
     target: Option<Entity>,
 ) {
     let rotation = turret_transform.rotation();
-    let world_offset = rotation * barrel_position.extend(0.0);
+    let world_offset = rotation * barrel_position.extend(100.0);
     let spawn_position = turret_transform.translation() + world_offset;
     let dir = (rotation * Vec3::Y).truncate().normalize();
 
@@ -222,6 +222,7 @@ pub fn spawn_bullet(
                     Collider::ball(2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
+                    Ccd::enabled(),
                     Sensor,
                     *team,
                 ))

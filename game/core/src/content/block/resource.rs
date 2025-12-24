@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::Collider;
 use std::collections::HashMap;
 
 use crate::{
-    constant::GRID_SIZE,
+    constant::{GRID_SIZE, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
     content::block::component::{
         BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern,
         ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy,
@@ -120,8 +120,8 @@ impl BlockRegistry {
         }
 
         return ShipCalculatedStat {
-            thrust_power,
-            turn_speed,
+            thrust_power: thrust_power * THRUST_POWER_FACTOR,
+            turn_speed: turn_speed * TURN_SPEED_FACTOR,
             mass,
             core_position: core_position,
             collider: self.build_ship_voxel_collider_2d(&blocks),
@@ -139,7 +139,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Hull,
         block_group: BlockGroup::Base,
         mass: 10.0,
-        health: 100.0,
+        health: 1000.0,
         shape: BlockShape::default(),
         cost: 5,
         components: vec![BlockComponent::Sprite(SpriteComponent {
@@ -188,7 +188,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Cockpit,
         block_group: BlockGroup::Base,
         mass: 5.0,
-        health: 600.0,
+        health: 1600.0,
         shape: BlockShape::default(),
         cost: 150,
         components: vec![BlockComponent::Sprite(SpriteComponent {
@@ -204,7 +204,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Core,
         block_group: BlockGroup::Core,
         mass: 50.0,
-        health: 600.0,
+        health: 1600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
         components: vec![
@@ -228,7 +228,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::LazerTurret,
         block_group: BlockGroup::Turret,
         mass: 15.0,
-        health: 600.0,
+        health: 1600.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
         components: vec![
@@ -267,7 +267,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::BlockScrap,
         block_group: BlockGroup::Base,
         mass: 1.0,
-        health: 800.0,
+        health: 1800.0,
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
@@ -299,7 +299,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Swarmer,
         block_group: BlockGroup::Turret,
         mass: 15.0,
-        health: 600.0,
+        health: 1800.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
         components: vec![
@@ -322,10 +322,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     fire_rate: 2.0,
                     projectile: ShootingProjectile::Missile {
                         speed: 3000.0,
-                        damage: 20.0,
+                        damage: 10.0,
                         lifetime: 5.0,
                         lock_range: 6000.0,
-                        blast_damage: 20.0,
+                        blast_damage: 10.0,
                         blast_radius: 128.0,
                     },
                 }),
@@ -338,7 +338,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Spectre,
         block_group: BlockGroup::Turret,
         mass: 15.0,
-        health: 600.0,
+        health: 3600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
         components: vec![

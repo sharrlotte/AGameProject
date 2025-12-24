@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::VectorSpace, prelude::*};
 use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,7 +44,7 @@ impl AIShipController {
             last_behavior: initial_behavior,
             behavior: initial_behavior,
             initial_behavior,
-            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
+            timer: Timer::from_seconds(1.0 / 15.0, TimerMode::Repeating),
         }
     }
 
@@ -66,7 +66,7 @@ impl AIShipController {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AIShipBehavior {
     Idle,
     Wander,
@@ -77,6 +77,7 @@ pub enum AIShipBehavior {
     Guard { target: Entity, radius: f32 },
     Follow { target: Entity, radius: f32 },
     Kamikaze { target: Entity },
+    Regroup,
 }
 
 #[derive(Component, Debug, Default, Reflect)]
@@ -160,7 +161,7 @@ impl ShipData {
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::all(),
-                AIShipController::new(AIShipBehavior::Idle),
+                AIShipController::new(AIShipBehavior::Regroup),
                 Damping {
                     linear_damping: 0.7,
                     angular_damping: 0.9,
@@ -174,6 +175,27 @@ impl ShipData {
             }
         }
 
+        let ui_root = commands
+            .spawn((
+                ShipUIRoot { ship },
+                Visibility::Visible,
+                Transform::from_translation(Vec2::ZERO.extend(200.0)),
+            ))
+            .id();
+
+        commands.entity(ship).add_child(ui_root);
+
         return ship;
     }
+}
+
+#[derive(Component, Debug)]
+pub struct ShipUIRoot {
+    pub ship: Entity,
+}
+
+#[derive(Component, Debug)]
+pub enum ShipBehavior {
+    Approach { position: Vec2, radius: f32 },
+    GoAround { position: Vec2 , radius: f32},
 }
