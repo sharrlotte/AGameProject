@@ -5,6 +5,5 @@ pub mod ship_editor;
 pub mod setting;
 
 pub mod component;
-pub mod plugin;
+pub mod system;
 
-mod system;

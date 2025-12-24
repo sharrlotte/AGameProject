@@ -18,7 +18,6 @@ use crate::save::plugin::SavePlugin;
 use crate::scene::game::plugin::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::pause::PauseScenePlugin;
-use crate::scene::plugin::ScenePlugin;
 use crate::scene::setting::plugin::SettingScenePlugin;
 use crate::scene::ship_editor::plugin::ShipEditorPlugin;
 use crate::system::{load_current_ship, setup_camera};
@@ -79,7 +78,6 @@ fn main() {
     .add_plugins((
         FrameTimeDiagnosticsPlugin::new(100),
         EntityCountDiagnosticsPlugin::new(100),
-        ScenePlugin,
         GameScenePlugin,
         HomeScenePlugin,
         PauseScenePlugin,

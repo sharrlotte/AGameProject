@@ -59,16 +59,22 @@ fn update_background(
     images: Res<Assets<Image>>,
 ) {
     let (mut transform, sprite) = bg_transform.into_inner();
-    let (camera_transform, _projection) = *camera_query;
-    let camera_position = camera_transform.translation.truncate();
+    let (camera_transform, projection) = *camera_query;
+    let camera_position: Vec2 = camera_transform.translation.truncate();
 
-    let parallax_factor = 0.98;
+    let parallax_factor = 0.999;
     let target_position = camera_position * parallax_factor;
-    let mut base_scale = 3.0; // Default fallback
+    let mut base_scale = 1.0; // Default fallback
 
     if let Some(image) = images.get(&sprite.image) {
         let image_size = Vec2::new(image.width() as f32, image.height() as f32);
         let window_size = Vec2::new(window.width(), window.height());
+
+        let scale = if let Projection::Orthographic(ortho) = &*projection {
+            ortho.scale
+        } else {
+            1.0
+        };
 
         if image_size.x > 0.0 && image_size.y > 0.0 {
             // Determine scale needed to cover the window exactly at 1:1 zoom
@@ -88,7 +94,7 @@ fn update_background(
             // BaseScale >= CoverScale * 2.236 * 2.0 = CoverScale * 4.47
 
             // We use 4.5 as a safe multiplier.
-            base_scale = cover_scale * 6.0;
+            base_scale = cover_scale * scale;
         }
     }
 
