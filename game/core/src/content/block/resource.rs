@@ -126,10 +126,13 @@ impl BlockRegistry {
             mass,
             core_position: core_position,
             collider: self.build_ship_voxel_collider_2d(&blocks),
-            size: Vec2::new((max_x - min_x) as f32 * GRID_SIZE, (max_y - min_y) as f32 * GRID_SIZE),
+            size: Vec2::new(
+                (max_x - min_x) as f32 * GRID_SIZE,
+                (max_y - min_y) as f32 * GRID_SIZE,
+            ),
             center: Vec2::new(
-                (max_x + min_x + 1) as f32 * 0.5 * GRID_SIZE,
-                (max_y + min_y + 1) as f32 * 0.5 * GRID_SIZE,
+                (max_x + min_x) as f32 * 0.5 * GRID_SIZE,
+                (max_y + min_y) as f32 * 0.5 * GRID_SIZE,
             ),
         };
     }
