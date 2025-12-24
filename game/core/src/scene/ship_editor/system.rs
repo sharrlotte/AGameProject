@@ -140,7 +140,14 @@ pub fn on_scroll_handler(
     }
 }
 
-pub fn setup_editor_ui(mut commands: Commands, registry: Res<BlockRegistry>) {
+pub fn setup_editor_ui(
+    mut commands: Commands,
+    registry: Res<BlockRegistry>,
+    mut camera: Query<&mut Transform, With<Camera2d>>,
+) {
+    if let Ok(mut transform) = camera.single_mut() {
+        transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    }
     // Root Node (Full Screen)
     commands.spawn((ShipBase, Visibility::Inherited, Transform::default()));
 

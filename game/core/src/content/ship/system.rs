@@ -10,11 +10,12 @@ use crate::utils::random::random_vec2_step;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
+use rand::Rng;
 use rand::seq::IndexedRandom;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use bevy::math::FloatPow;
+use bevy::math::{FloatPow, VectorSpace};
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
@@ -238,7 +239,7 @@ pub fn player_control_ship(
                 1.0
             };
 
-            let pan_speed = 60.0 * scale * boost * time.delta_secs();
+            let pan_speed = 180.0 * scale * boost * time.delta_secs();
 
             if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
                 camera_transform.translation.y += 1.0 * pan_speed;
@@ -336,6 +337,7 @@ pub fn control_ship(
             Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
         ),
     > = HashMap::new();
+    let mut rng = rand::rng();
 
     for ship in ships2 {
         let value = maps.get_mut(&ship.3.id);
@@ -394,10 +396,20 @@ pub fn control_ship(
         match controller.current() {
             AIShipBehavior::Regroup => {
                 if let Some(a) = ally.first() {
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: a.1.translation().truncate() + a.2.center,
-                        radius: a.2.size.length() * 2.0,
-                    });
+                    let in_range = transform
+                        .translation
+                        .truncate()
+                        .distance(a.1.translation().truncate())
+                        <= ship.size.length() * 2.0;
+
+                    if in_range {
+                        controller.next(AIShipBehavior::Wander);
+                    } else {
+                        commands.entity(entity).insert(ShipBehavior::Approach {
+                            position: a.1.translation().truncate() + a.2.center,
+                            radius: a.2.size.length() * 2.0,
+                        });
+                    }
                 } else {
                     controller.next(AIShipBehavior::Idle);
                 }
@@ -427,7 +439,23 @@ pub fn control_ship(
                     controller.previous();
                 }
             }
-            AIShipBehavior::Wander => {}
+            AIShipBehavior::Wander => {
+                if rng.random_bool(0.5) {
+                    controller.next(AIShipBehavior::Idle);
+                } else if rng.random_bool(0.5) {
+                    if let Some(a) = ally.first() {
+                        controller.next(AIShipBehavior::Guard {
+                            target: a.0,
+                            radius: ship.size.length() * 2.0,
+                        });
+                    }
+                } else {
+                    controller.next(AIShipBehavior::Patrol {
+                        around_position: Vec2::ZERO,
+                        radius: ship.size.length(),
+                    });
+                }
+            }
             AIShipBehavior::Attack { target_position } => {
                 commands.entity(entity).insert(ShipBehavior::Approach {
                     position: target_position,

@@ -2,11 +2,10 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
 use crate::GameState;
-use crate::content::bullet::component::Bullet;
 use crate::content::ship::component::Ship;
 use crate::content::team::Team;
 use crate::resource::TurretControl;
-use crate::scene::game::background::{BackgroundConfig, BackgroundImage};
+use crate::scene::component::SceneItem;
 use crate::scene::game::component::{
     FpsText, ShipButton, ShipList, TurretControlModeButton, TurretControlModeText,
 };
@@ -119,15 +118,19 @@ pub fn setup_game(mut commands: Commands, game_state: Res<GameState>) {
             flex_direction: FlexDirection::Column,
             ..default()
         },
+        SceneItem,
     ));
 
     commands
-        .spawn(Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        })
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+            SceneItem,
+        ))
         .with_children(|container| {
             let text = match game_state.turret_control {
                 TurretControl::Manual => "Turret Control: Manual",
@@ -196,31 +199,4 @@ pub fn update_turret_control_mode_button(
         };
         text.0 = mod_string.to_string();
     }
-}
-
-pub fn cleanup_game(mut commands: Commands, query: Query<Entity, With<FpsText>>) {
-    for entity in &query {
-        commands.entity(entity).despawn();
-    }
-}
-
-pub fn cleanup_game_entities(
-    mut commands: Commands,
-    ships: Query<Entity, With<Ship>>,
-    bullets: Query<Entity, With<Bullet>>,
-    backgrounds: Query<Entity, With<BackgroundImage>>,
-) {
-    for entity in &ships {
-        commands.entity(entity).despawn();
-    }
-
-    for entity in &bullets {
-        commands.entity(entity).despawn();
-    }
-
-    for entity in &backgrounds {
-        commands.entity(entity).despawn();
-    }
-
-    commands.remove_resource::<BackgroundConfig>();
 }

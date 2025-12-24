@@ -3,7 +3,9 @@ use bevy_rapier2d::prelude::Collider;
 use std::collections::HashMap;
 
 use crate::{
-    constant::{GRID_SIZE, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
+    constant::{
+        GRID_SIZE, LAYER_BLOCK, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR,
+    },
     content::block::component::{
         BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern,
         ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy,
@@ -153,7 +155,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -169,7 +171,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/thruster.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -186,7 +188,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -202,7 +204,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -219,13 +221,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             BlockComponent::Sprite(SpriteComponent {
                 image: image("blocks/core-nucleus.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.0,
+                z: LAYER_BLOCK,
                 animated: false,
             }),
             BlockComponent::Sprite(SpriteComponent {
                 image: image("blocks/core-nucleus-team.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.1,
+                z: LAYER_TURRET_OVERLAY,
                 animated: false,
             }),
         ],
@@ -243,7 +245,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             BlockComponent::Sprite(SpriteComponent {
                 image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.0,
+                z: LAYER_BLOCK,
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
@@ -253,7 +255,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/lancer.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.1,
+                z: LAYER_TURRET_OVERLAY,
                 animated: false,
                 shooting_pattern: ShootPattern::Burst(BurstShootPattern {
                     fire_rate: 3.0,
@@ -282,7 +284,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/block-scrap.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -298,7 +300,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         components: vec![BlockComponent::Sprite(SpriteComponent {
             image: image("blocks/block-steel.png".into()),
             offset: Vec2::ZERO,
-            z: 0.0,
+            z: LAYER_BLOCK,
             animated: false,
         })],
     });
@@ -315,7 +317,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             BlockComponent::Sprite(SpriteComponent {
                 image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.0,
+                z: LAYER_BLOCK,
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
@@ -324,7 +326,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/swarmer.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.1,
+                z: LAYER_TURRET_OVERLAY,
                 animated: false,
                 barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
                 shooting_pattern: ShootPattern::Single(SingleShootPattern {
@@ -354,7 +356,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             BlockComponent::Sprite(SpriteComponent {
                 image: image("blocks/block-2.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.0,
+                z: LAYER_BLOCK,
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
@@ -363,9 +365,9 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/spectre.png".into()),
                 offset: Vec2::ZERO,
-                z: 0.1,
+                z: LAYER_TURRET_OVERLAY,
                 animated: false,
-                barrels: vec![Vec2::new(32.0, 0.0), Vec2::new(-32.0, 0.0)],
+                barrels: vec![Vec2::new(32.0, 64.0), Vec2::new(-32.0, 64.0)],
                 shooting_pattern: ShootPattern::Burst(BurstShootPattern {
                     fire_rate: 0.2,
                     delay: 0.2,

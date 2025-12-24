@@ -64,7 +64,7 @@ fn update_background(
 
     let parallax_factor = 0.98;
     let target_position = camera_position * parallax_factor;
-    let mut base_scale = 2.0; // Default fallback
+    let mut base_scale = 3.0; // Default fallback
 
     if let Some(image) = images.get(&sprite.image) {
         let image_size = Vec2::new(image.width() as f32, image.height() as f32);

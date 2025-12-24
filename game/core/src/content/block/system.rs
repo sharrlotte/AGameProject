@@ -1,8 +1,8 @@
-use bevy::prelude::*;
+use bevy::{math::VectorSpace, prelude::*};
 
 use crate::{
     common::{damage::message::DamageEvent, death::component::Death},
-    constant::FLASH_OVERLAY_COLOR,
+    constant::{FLASH_OVERLAY_COLOR, LAYER_FLASH_OVERLAY},
     content::block::{
         component::{Block, Health, ShipIdComponent},
         message::BlockDestroyedEvent,
@@ -57,6 +57,7 @@ pub fn handle_block_damage_event(
                 FlashOverlay {
                     timer: Timer::from_seconds(0.1, TimerMode::Once),
                 },
+                Transform::from_translation(Vec2::ZERO.extend(LAYER_FLASH_OVERLAY)),
             ))
             .id();
 

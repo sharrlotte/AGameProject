@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use crate::common::damage::component::Damage;
 use crate::common::entity_type::EntityType;
+use crate::constant::LAYER_BULLET;
 use crate::content::block::component::{
     BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
@@ -194,7 +195,7 @@ pub fn spawn_bullet(
     target: Option<Entity>,
 ) -> Entity {
     let rotation = turret_transform.rotation();
-    let world_offset = rotation * barrel_position.extend(100.0);
+    let world_offset = rotation * barrel_position.extend(LAYER_BULLET);
     let spawn_position = turret_transform.translation() + world_offset;
     let dir = (rotation * Vec3::Y).truncate().normalize();
 
