@@ -97,6 +97,7 @@ impl BlockRegistry {
 
             max_x = max_x.max(block.position.x + size.x);
             max_y = max_y.max(block.position.y + size.y);
+
             min_x = min_x.min(block.position.x);
             min_y = min_y.min(block.position.y);
 
@@ -127,8 +128,8 @@ impl BlockRegistry {
             collider: self.build_ship_voxel_collider_2d(&blocks),
             size: Vec2::new((max_x - min_x) as f32 * GRID_SIZE, (max_y - min_y) as f32 * GRID_SIZE),
             center: Vec2::new(
-                (max_x - min_x - 1) as f32 * 0.5 * GRID_SIZE,
-                (max_y - min_y - 1) as f32 * 0.5 * GRID_SIZE,
+                (max_x + min_x + 1) as f32 * 0.5 * GRID_SIZE,
+                (max_y + min_y + 1) as f32 * 0.5 * GRID_SIZE,
             ),
         };
     }

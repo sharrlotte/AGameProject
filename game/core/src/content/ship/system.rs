@@ -140,7 +140,12 @@ pub fn update_ship_ui(
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior)) => {
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {}\nAI: {:#?}\nBehavior: {:?}", ship, controller.current(), behavior)),
+                    Text2d::new(format!(
+                        "Ship: {}\nAI: {:#?}\nBehavior: {:?}",
+                        ship,
+                        controller.current(),
+                        behavior
+                    )),
                     TextFont {
                         font_size: 9.0,
                         ..default()
@@ -315,38 +320,41 @@ pub fn control_ship(
                 continue;
             }
         } else {
-            for (mut camera_transform, projection) in camera.iter_mut() {
-                let scale = if let Projection::Orthographic(ortho) = &*projection {
-                    ortho.scale
-                } else {
-                    1.0
-                };
+            if state.following.is_none() {
+                for (mut camera_transform, projection) in camera.iter_mut() {
+                    let scale = if let Projection::Orthographic(ortho) = &*projection {
+                        ortho.scale
+                    } else {
+                        1.0
+                    };
 
-                let boost = if keyboard_input.pressed(KeyCode::ShiftLeft) {
-                    3.0
-                } else {
-                    1.0
-                };
+                    let boost = if keyboard_input.pressed(KeyCode::ShiftLeft) {
+                        3.0
+                    } else {
+                        1.0
+                    };
 
-                let pan_speed = 30.0 * scale * boost * time.delta_secs();
+                    let pan_speed = 30.0 * scale * boost * time.delta_secs();
 
-                if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp)
-                {
-                    camera_transform.translation.y += 1.0 * pan_speed;
-                } else if keyboard_input.pressed(KeyCode::KeyS)
-                    || keyboard_input.pressed(KeyCode::ArrowDown)
-                {
-                    camera_transform.translation.y -= 1.0 * pan_speed;
-                }
+                    if keyboard_input.pressed(KeyCode::KeyW)
+                        || keyboard_input.pressed(KeyCode::ArrowUp)
+                    {
+                        camera_transform.translation.y += 1.0 * pan_speed;
+                    } else if keyboard_input.pressed(KeyCode::KeyS)
+                        || keyboard_input.pressed(KeyCode::ArrowDown)
+                    {
+                        camera_transform.translation.y -= 1.0 * pan_speed;
+                    }
 
-                if keyboard_input.pressed(KeyCode::KeyA)
-                    || keyboard_input.pressed(KeyCode::ArrowLeft)
-                {
-                    camera_transform.translation.x -= 1.0 * pan_speed;
-                } else if keyboard_input.pressed(KeyCode::KeyD)
-                    || keyboard_input.pressed(KeyCode::ArrowRight)
-                {
-                    camera_transform.translation.x += 1.0 * pan_speed;
+                    if keyboard_input.pressed(KeyCode::KeyA)
+                        || keyboard_input.pressed(KeyCode::ArrowLeft)
+                    {
+                        camera_transform.translation.x -= 1.0 * pan_speed;
+                    } else if keyboard_input.pressed(KeyCode::KeyD)
+                        || keyboard_input.pressed(KeyCode::ArrowRight)
+                    {
+                        camera_transform.translation.x += 1.0 * pan_speed;
+                    }
                 }
             }
         }
