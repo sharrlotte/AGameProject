@@ -363,6 +363,10 @@ pub fn control_ship(
     }
 
     for (entity, mut controller, _, transform, ship, team) in ships {
+        if !controller.timer.tick(time.delta()).just_finished() {
+            continue;
+        }
+
         if let Some(following) = state.following
             && following == entity
         {
@@ -372,10 +376,6 @@ pub fn control_ship(
         if let Some(controlling) = state.controlling
             && controlling == entity
         {
-            continue;
-        }
-
-        if !controller.timer.tick(time.delta()).just_finished() {
             continue;
         }
 
@@ -475,7 +475,9 @@ pub fn control_ship(
             }
             AIShipBehavior::Wander => {
                 if rng.random_bool(0.5) {
-                    controller.next(AIShipBehavior::Idle);
+                    controller.next(AIShipBehavior::Attack {
+                        target_position: Vec2::ZERO,
+                    });
                 } else if rng.random_bool(0.5) {
                     if let Some(a) = ally.last() {
                         controller.next(AIShipBehavior::Guard {

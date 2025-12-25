@@ -1,13 +1,16 @@
 use bevy::math::FloatPow;
 use bevy::prelude::*;
+use bevy_rapier2d::na::Vector2;
 
 use crate::common::damage::component::Damage;
+use crate::common::damage::message::DamageEvent;
 use crate::common::entity_type::EntityType;
 use crate::constant::LAYER_BULLET;
 use crate::content::block::component::{
-    BurstShootPattern, BurstShootPatternState, ShootingProjectile, SingleShootPattern,
-    SingleShootPatternState,
+    BurstShootPattern, BurstShootPatternState, Health, LaserBeamPattern, LaserBeamPatternState,
+    ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
+use crate::content::block::radar;
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
 use crate::content::bullet::component::Lifetime;
@@ -16,6 +19,7 @@ use crate::{
     common::death::component::Death,
     content::bullet::component::{Bullet, Missile, MissileHitbox},
 };
+use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
 
 pub fn handle_bullets(
@@ -182,6 +186,96 @@ pub fn handle_burst_shot(
         shoot_pattern_state.last_barrel_fired_at = time.elapsed_secs();
         shoot_pattern_state.current_amount -= 1;
         shoot_pattern_state.current_barrel += 1;
+    }
+}
+
+pub fn handle_laser_beam(
+    time: Res<Time>,
+    rapier: ReadRapierContext,
+    healths: Query<(Entity, &Health)>,
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &GlobalTransform,
+        &Turret,
+        &mut TurretState,
+        &LaserBeamPattern,
+        &mut LaserBeamPatternState,
+        &Team,
+        &Damage,
+    )>,
+
+    mut events: MessageWriter<DamageEvent>,
+) {
+    let collision: RapierContext<'_> = rapier.single().expect("How to get rapier context?");
+
+    for (
+        entity,
+        transform,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut shoot_pattern_state,
+        team,
+        damage,
+    ) in query.iter_mut()
+    {
+        if !turret_state.active {
+            continue;
+        }
+
+        let Turret { barrels, .. } = turret;
+
+        if shoot_pattern_state.is_firing {
+            let filter = QueryFilter::from(CollisionGroups::new(
+                team.bullet_group(),
+                team.bullet_filter(),
+            ));
+
+            for barrel in barrels {
+                let origin = transform.translation().truncate()
+                    + barrel
+                    + Vec2::new(0.0, shoot_pattern.length / 2.0);
+
+                let shape = &Cuboid::new(Vector2::new(
+                    shoot_pattern.width / 2.0,
+                    shoot_pattern.length / 2.0,
+                ));
+
+                collision.intersect_shape(
+                    origin,
+                    Rot::from(transform.rotation().to_euler(EulerRot::XYZ).2),
+                    shape,
+                    filter,
+                    |entity| {
+                        if let Ok((health, _)) = healths.get(entity) {
+                            events.write(DamageEvent {
+                                attacker: entity,
+                                target: health,
+                                damage: damage.damage,
+                            });
+                        }
+                        true
+                    },
+                );
+            }
+        } else {
+            if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.duration {
+                shoot_pattern_state.is_firing = false;
+                commands
+                    .entity(entity)
+                    .insert((ColliderDisabled, Visibility::Hidden));
+                continue;
+            }
+
+            if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.cooldown {
+                shoot_pattern_state.is_firing = true;
+                commands
+                    .entity(entity)
+                    .remove::<ColliderDisabled>()
+                    .insert(Visibility::Visible);
+            }
+        }
     }
 }
 

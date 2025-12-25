@@ -5,10 +5,10 @@ use bevy::{
         message::{MessageReader, MessageWriter},
         system::{Commands, Query, Res},
     },
+    sprite::Text2d,
     text::{TextColor, TextFont},
     time::{Time, Timer, TimerMode},
     transform::components::GlobalTransform,
-    ui::widget::Text,
     utils::default,
 };
 use bevy_rapier2d::prelude::CollisionEvent;
@@ -48,7 +48,7 @@ pub fn handle_damage_events(
                 DamageText {
                     timer: Timer::from_seconds(0.5, TimerMode::Once),
                 },
-                Text::new(event.damage.to_string()),
+                Text2d::new(event.damage.to_string()),
                 TextFont {
                     font_size: 10.0,
                     ..default()

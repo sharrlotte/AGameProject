@@ -8,8 +8,8 @@ use crate::{
     },
     content::block::component::{
         BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern,
-        ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy,
-        ThrusterComponent, TurretComponent,
+        LaserBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent,
+        TargetingStrategy, ThrusterComponent, TurretComponent,
     },
 };
 
@@ -46,7 +46,11 @@ impl BlockRegistry {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &BlockDef)> {
-        self.map.iter()
+        let mut value = self.map.iter().collect::<Vec<_>>();
+
+        value.sort_by(|a, b| a.1.block_group.cmp(&b.1.block_group));
+
+        return value.into_iter();
     }
 
     pub fn blocks_to_voxel_points(&self, blocks: &[BlockData]) -> Vec<Vec2> {
@@ -390,6 +394,41 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         piercing: 2,
                     },
                     shoot_sound: Some(sound("bullet/shoot-spectre.ogg".into())),
+                }),
+            }),
+        ],
+    });
+
+    registry.register(BlockDef {
+        name: "Meltdown Turret".into(),
+        block_type: BlockType::Meldown,
+        block_group: BlockGroup::Turret,
+        mass: 15.0,
+        health: 3600.0,
+        shape: BlockShape::filled(3, 3),
+        cost: 150,
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: image("blocks/block-2.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_BLOCK,
+                animated: false,
+            }),
+            BlockComponent::Turret(TurretComponent {
+                range: 10000.0,
+                turn_speed: 2.0,
+                strategy: TargetingStrategy::Closest,
+                image: image("blocks/meltdown.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_TURRET_OVERLAY,
+                animated: false,
+                barrels: vec![Vec2::new(0.0, 64.0)],
+                shooting_pattern: ShootPattern::LaserBeam(LaserBeamPattern {
+                    cooldown: 10.0,
+                    duration: 5.0,
+                    damage: 200.0,
+                    width: 18.0,
+                    length: 10000.0,
                 }),
             }),
         ],

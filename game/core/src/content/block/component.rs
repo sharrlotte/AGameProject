@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::entity_type::EntityType,
-    constant::GRID_SIZE,
+    common::{damage::component::Damage, entity_type::EntityType},
+    constant::{GRID_SIZE, LAYER_BULLET},
     content::{
         block::{
             radar::component::Radar,
@@ -34,13 +34,14 @@ pub enum BlockType {
     LazerTurret,
     Swarmer,
     Spectre,
+    Meldown,
 
     // Real
     BlockScrap,
     BlockSteel,
 }
 
-#[derive(Component, Clone, PartialEq, Reflect, Copy)]
+#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq)]
 pub enum BlockGroup {
     Core,
     Base,
@@ -119,7 +120,7 @@ pub struct SpriteComponent {
 }
 
 impl BlockComponentSpawner for SpriteComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, _team: &Team) {
         commands.entity(base).insert((
             Sprite {
                 image: self.image.clone(),
@@ -145,7 +146,7 @@ pub struct TurretComponent {
 }
 
 impl BlockComponentSpawner for TurretComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -164,7 +165,7 @@ impl BlockComponentSpawner for TurretComponent {
             Transform::from_translation(self.offset.extend(self.z)),
         ));
 
-        self.shooting_pattern.insert(commands, base);
+        self.shooting_pattern.insert(commands, base, team);
     }
 }
 
@@ -202,11 +203,11 @@ pub enum ShootingProjectile {
 pub enum ShootPattern {
     Single(SingleShootPattern),
     Burst(BurstShootPattern),
-    Continuous(ContinuousShootPattern),
+    LaserBeam(LaserBeamPattern),
 }
 
 impl ShootPattern {
-    pub fn insert(&self, commands: &mut Commands, base: Entity) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, team: &Team) {
         match self {
             ShootPattern::Single(s) => {
                 commands
@@ -225,10 +226,34 @@ impl ShootPattern {
                     },
                 ));
             }
-            ShootPattern::Continuous(s) => {
-                commands
-                    .entity(base)
-                    .insert((s.clone(), ContinuousShootPatternState {}));
+            ShootPattern::LaserBeam(s) => {
+                let laser_beam = commands
+                    .spawn((
+                        s.clone(),
+                        LaserBeamPatternState {
+                            last_fired_at: 0.0,
+                            is_firing: false,
+                            targets: Vec::new(),
+                        },
+                        Sprite {
+                            color: team.color(5.0),
+                            custom_size: Some(Vec2::new(s.width, s.length)),
+                            ..default()
+                        },
+                        Transform::from_translation(
+                            Vec2::new(0.0, s.length / 2.0).extend(LAYER_BULLET),
+                        ),
+                        Sensor,
+                        Collider::cuboid(s.width / 2.0, s.length / 2.0),
+                        CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
+                        ColliderMassProperties::Mass(0.0),
+                        ActiveEvents::COLLISION_EVENTS,
+                        Damage { damage: s.damage },
+                        Visibility::Hidden,
+                    ))
+                    .id();
+
+                commands.entity(base).add_child(laser_beam);
             }
         }
     }
@@ -251,7 +276,7 @@ pub struct BurstShootPattern {
     pub delay: f32,
     pub amount: i8,
     pub projectile: ShootingProjectile,
-    pub shoot_sound: Option<Handle<AudioSource>>
+    pub shoot_sound: Option<Handle<AudioSource>>,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
@@ -264,10 +289,20 @@ pub struct BurstShootPatternState {
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub struct ContinuousShootPattern {}
+pub struct LaserBeamPattern {
+    pub cooldown: f32,
+    pub duration: f32,
+    pub damage: f32,
+    pub width: f32,
+    pub length: f32,
+}
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub struct ContinuousShootPatternState {}
+pub struct LaserBeamPatternState {
+    pub last_fired_at: f32,
+    pub is_firing: bool,
+    pub targets: Vec<Entity>,
+}
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockDef {
@@ -415,7 +450,7 @@ impl BlockData {
         commands.entity(ship).add_child(child);
 
         for component in &def.components {
-            component.spawn(commands, child, def, team);
+            component.spawn(commands, child, def, &team);
         }
 
         return child;
@@ -423,7 +458,7 @@ impl BlockData {
 }
 
 pub trait BlockComponentSpawner {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef);
+    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team);
 }
 
 #[derive(Component, Clone, PartialEq, Reflect)]
@@ -437,21 +472,21 @@ pub enum BlockComponent {
 }
 
 impl BlockComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: Team) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
         let component = commands
             .spawn((
                 Transform::default(),
                 GlobalTransform::default(),
                 Visibility::Inherited,
-                team,
+                *team,
             ))
             .id();
 
         commands.entity(base).add_child(component);
 
         match self {
-            Self::Sprite(sprite) => sprite.spawn(commands, component, def),
-            Self::Turret(turret) => turret.spawn(commands, component, def),
+            Self::Sprite(sprite) => sprite.spawn(commands, component, def, team),
+            Self::Turret(turret) => turret.spawn(commands, component, def, team),
             Self::Recoil(_) => {}
             Self::HeatEmitter(_) => {}
             Self::Thruster(_) => {}

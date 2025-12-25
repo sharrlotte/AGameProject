@@ -5,13 +5,6 @@ use crate::{
     common::{damage::component::Damage, death::component::Death},
     content::bullet::component::{Bullet, Lifetime, MissileHitbox},
 };
-pub struct PhysicPlugin;
-
-impl Plugin for PhysicPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, handle_collisions);
-    }
-}
 
 pub fn handle_collisions(
     mut commands: Commands,

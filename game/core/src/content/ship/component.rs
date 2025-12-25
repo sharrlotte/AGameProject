@@ -18,7 +18,6 @@ use crate::{
 pub struct Ship {
     pub id: Uuid,
     pub blocks: Vec<BlockData>,
-
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub core_position: Vec2,

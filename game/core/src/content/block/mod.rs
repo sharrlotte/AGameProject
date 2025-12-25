@@ -3,5 +3,6 @@ pub mod message;
 pub mod plugin;
 pub mod radar;
 pub mod resource;
-mod system;
 pub mod turret;
+
+mod system;
