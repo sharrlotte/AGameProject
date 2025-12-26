@@ -519,7 +519,7 @@ pub fn handle_laser(
                 });
             }
             Laser::Fired { fired_at } => {
-                const FADE_TIME: f32 = 1.0;
+                const FADE_TIME: f32 = 0.25;
 
                 if time.elapsed_secs() - *fired_at > FADE_TIME {
                     commands.entity(entity).insert(Death);
