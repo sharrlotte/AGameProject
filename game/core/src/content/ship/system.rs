@@ -624,6 +624,10 @@ pub fn update_ship_behavior(
                     }
                 }
 
+                if velocity.angvel > angle_diff {
+                    torque = -torque;
+                }
+
                 force.torque = torque;
 
                 let speed = velocity.linvel.length();
@@ -675,8 +679,8 @@ pub fn update_ship_behavior(
                     -*turn_speed
                 };
 
-                if velocity.angvel.abs() > PI / 4.0 {
-                    torque *= PI / 4.0 / velocity.angvel.abs();
+                if velocity.angvel > angle_diff {
+                    torque = -torque;
                 }
 
                 force.torque = torque;

@@ -187,7 +187,6 @@ pub enum ShootingProjectile {
         length: f32,
     },
     Laser {
-        range: f32,
         damage: f32,
         width: f32,
     },

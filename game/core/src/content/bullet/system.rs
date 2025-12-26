@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
@@ -15,7 +13,7 @@ use crate::content::block::component::{
 };
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
-use crate::content::bullet::component::Lifetime;
+use crate::content::bullet::component::{Laser, Lifetime};
 use crate::content::team::Team;
 use crate::{
     common::death::component::Death,
@@ -218,7 +216,7 @@ pub fn handle_laser_beam(
     )>,
     mut events: MessageWriter<DamageEvent>,
 ) {
-    let collision: RapierContext<'_> = rapier.single().expect("How to get rapier context?");
+    let collision = rapier.single().expect("How to get rapier context?");
 
     for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
         query.iter_mut()
@@ -238,6 +236,11 @@ pub fn handle_laser_beam(
 
                     continue;
                 }
+
+                let intensitive = (time.elapsed_secs() - *start_time)
+                    .min(1.0)
+                    .min((*start_time + shoot_pattern.duration - time.elapsed_secs()).min(1.0))
+                    * 5.0;
 
                 if !turret_state.active {
                     continue;
@@ -273,12 +276,19 @@ pub fn handle_laser_beam(
                 }
 
                 if let Some(beam) = shoot_pattern_state.beam {
-                    commands.entity(beam).insert(Visibility::Visible);
+                    commands.entity(beam).insert((
+                        Visibility::Visible,
+                        Sprite {
+                            color: team.color(intensitive),
+                            custom_size: Some(Vec2::new(shoot_pattern.width, shoot_pattern.length)),
+                            ..default()
+                        },
+                    ));
                 } else {
                     let beam = commands
                         .spawn((
                             Sprite {
-                                color: team.color(5.0),
+                                color: team.color(intensitive),
                                 custom_size: Some(Vec2::new(
                                     shoot_pattern.width,
                                     shoot_pattern.length,
@@ -321,8 +331,8 @@ pub fn spawn_bullet(
     target: Option<Entity>,
 ) -> Entity {
     let rotation = turret_transform.rotation();
-    let world_offset = rotation * barrel_position.extend(LAYER_BULLET);
-    let spawn_position = turret_transform.translation() + world_offset;
+    let offset = rotation * barrel_position.extend(LAYER_BULLET);
+    let spawn_position = turret_transform.translation() + offset;
     let dir = (rotation * Vec3::Y).truncate().normalize();
 
     match &projectile {
@@ -370,8 +380,22 @@ pub fn spawn_bullet(
 
             return bullet;
         }
-        ShootingProjectile::Laser { .. } => {
-            todo!("Beam implementation");
+        ShootingProjectile::Laser { damage, width, .. } => {
+            let bullet = commands
+                .spawn((
+                    EntityType::Projectile,
+                    Laser::Init {
+                        width: *width,
+                        length: range,
+                        origin: spawn_position.truncate(),
+                        rotation,
+                    },
+                    Damage { damage: *damage },
+                    *team,
+                ))
+                .id();
+
+            return bullet;
         }
         ShootingProjectile::Missile {
             speed,
@@ -422,19 +446,90 @@ pub fn spawn_bullet(
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,
                     Damage { damage: *damage },
+                    Transform::default(),
                     MissileHitbox {
                         missile,
                         blast_damage: *blast_damage,
                         blast_radius: *blast_radius,
                         team: *team,
                     },
-                    Transform::default(),
                 ))
                 .id();
 
             commands.entity(missile).add_child(hit_box);
 
             return missile;
+        }
+    }
+}
+
+pub fn handle_laser(
+    mut commands: Commands,
+    mut events: MessageWriter<DamageEvent>,
+    mut lasers: Query<(Entity, &Laser, &Damage, &Team, Option<&mut Sprite>)>,
+    rapier: ReadRapierContext,
+    time: Res<Time>,
+) {
+    for (entity, laser, damage, team, sprite) in lasers.iter_mut() {
+        match laser {
+            Laser::Init {
+                length,
+                width,
+                origin,
+                rotation,
+            } => {
+                let dir = (*rotation * Vec3::Y).truncate().normalize();
+
+                let mut laser_length = *length;
+
+                let collision = rapier.single().expect("How to get rapier context?");
+                let filter = QueryFilter::from(CollisionGroups::new(
+                    team.bullet_group(),
+                    team.bullet_filter(),
+                ));
+
+                if let Some((target, toi)) =
+                    collision.cast_ray(*origin, dir, *length, false, filter)
+                {
+                    laser_length = toi;
+                    events.write(DamageEvent {
+                        attacker: entity,
+                        target: target,
+                        damage: damage.damage,
+                    });
+                }
+
+                commands.entity(entity).insert((
+                    Sprite {
+                        color: team.color(5.0),
+                        custom_size: Some(Vec2::new(*width, laser_length)),
+                        ..default()
+                    },
+                    Transform {
+                        translation: origin.extend(LAYER_BULLET)
+                            + *rotation
+                                * Vec2::new(*width / 2.0, laser_length / 2.0).extend(LAYER_BULLET),
+                        rotation: *rotation,
+                        ..default()
+                    },
+                ));
+
+                commands.entity(entity).insert(Laser::Fired {
+                    fired_at: time.elapsed_secs(),
+                });
+            }
+            Laser::Fired { fired_at } => {
+                const FADE_TIME: f32 = 1.0;
+
+                if time.elapsed_secs() - *fired_at > FADE_TIME {
+                    commands.entity(entity).insert(Death);
+                } else {
+                    let intensive = 5.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at));
+                    if let Some(mut sprite) = sprite {
+                        sprite.color = team.color(intensive);
+                    }
+                }
+            }
         }
     }
 }

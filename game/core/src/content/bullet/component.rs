@@ -17,6 +17,20 @@ pub struct Bullet {
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[require(Save)]
+pub enum Laser {
+    Init {
+        width: f32,
+        length: f32,
+        origin: Vec2,
+        rotation: Quat,
+    },
+    Fired {
+        fired_at: f32,
+    },
+}
+
+#[derive(Component, Debug, Clone, Reflect)]
+#[require(Save)]
 pub struct Missile {
     pub lock_range: f32,
     pub shooted_at: Vec2,

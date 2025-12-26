@@ -274,15 +274,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
                 shooting_pattern: ShootPattern::Burst(BurstShootPattern {
                     fire_rate: 3.0,
-                    delay: 0.075,
+                    delay: 0.25,
                     amount: 6,
-                    projectile: ShootingProjectile::Bullet {
-                        speed: 5000.0,
-                        damage: 20.0,
-                        lifetime: 10.0,
-                        piercing: 0,
+                    projectile: ShootingProjectile::Laser {
+                        damage: 40.0,
                         width: 6.0,
-                        length: 50.0,
                     },
                     shoot_sound: None,
                 }),
@@ -433,7 +429,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     cooldown: 10.0,
                     duration: 5.0,
                     damage: 1.0,
-                    width: 4.0,
+                    width: 24.0,
                     length: 10000.0,
                 }),
             }),
