@@ -331,6 +331,8 @@ pub fn spawn_bullet(
             damage,
             lifetime,
             piercing,
+            width,
+            length,
         } => {
             let bullet = commands
                 .spawn((
@@ -345,7 +347,7 @@ pub fn spawn_bullet(
                     Damage { damage: *damage },
                     Sprite {
                         color: team.color(5.0),
-                        custom_size: Some(Vec2::new(4.0, 50.0)),
+                        custom_size: Some(Vec2::new(*width, *length)),
                         ..default()
                     },
                     Transform {
@@ -353,7 +355,7 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    Collider::ball(2.0),
+                    Collider::ball(*width / 2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Ccd::enabled(),
@@ -368,7 +370,7 @@ pub fn spawn_bullet(
 
             return bullet;
         }
-        ShootingProjectile::Beam { .. } => {
+        ShootingProjectile::Laser { .. } => {
             todo!("Beam implementation");
         }
         ShootingProjectile::Missile {
@@ -378,6 +380,8 @@ pub fn spawn_bullet(
             lock_range,
             blast_damage,
             blast_radius,
+            width,
+            length,
         } => {
             let missile = commands
                 .spawn((
@@ -393,7 +397,7 @@ pub fn spawn_bullet(
                     },
                     Sprite {
                         color: team.color(5.0),
-                        custom_size: Some(Vec2::new(8.0, 50.0)),
+                        custom_size: Some(Vec2::new(*width, *length)),
                         ..default()
                     },
                     Transform {
@@ -413,7 +417,7 @@ pub fn spawn_bullet(
 
             let hit_box = commands
                 .spawn((
-                    Collider::ball(5.0),
+                    Collider::ball(*width / 2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,

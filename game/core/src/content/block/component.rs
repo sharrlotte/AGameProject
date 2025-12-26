@@ -183,8 +183,10 @@ pub enum ShootingProjectile {
         damage: f32,
         lifetime: f32,
         piercing: i8,
+        width: f32,
+        length: f32,
     },
-    Beam {
+    Laser {
         range: f32,
         damage: f32,
         width: f32,
@@ -196,6 +198,8 @@ pub enum ShootingProjectile {
         lock_range: f32,
         blast_damage: f32,
         blast_radius: f32,
+        width: f32,
+        length: f32,
     },
 }
 
