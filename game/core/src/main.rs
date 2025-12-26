@@ -90,13 +90,13 @@ fn main() {
     ))
     .insert_resource(Time::<Fixed>::from_hz(30.0));
 
-    #[cfg(debug_assertions)]
-    {
-        app.add_plugins(EguiPlugin::default());
-        app.add_plugins(
-            WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
-        );
-    }
+    // #[cfg(debug_assertions)]
+    // {
+    //     app.add_plugins(EguiPlugin::default());
+    //     app.add_plugins(
+    //         WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
+    //     );
+    // }
 
     app.run();
 }
