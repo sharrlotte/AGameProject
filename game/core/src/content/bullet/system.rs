@@ -221,7 +221,7 @@ pub fn handle_laser_beam(
     for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
         query.iter_mut()
     {
-        let Turret { barrels, .. } = turret;
+        let Turret { barrels, range,.. } = turret;
 
         match &mut shoot_pattern_state.shooting {
             LaserBeamPatternShootingState::Shooting { start_time } => {
@@ -255,7 +255,7 @@ pub fn handle_laser_beam(
                     let origin = transform.translation().truncate() + barrel + Vec2::new(0.0, 0.0);
 
                     let shape =
-                        &Cuboid::new(Vector2::new(shoot_pattern.width, shoot_pattern.length));
+                        &Cuboid::new(Vector2::new(shoot_pattern.width, *range));
 
                     collision.intersect_shape(
                         origin,
@@ -280,7 +280,7 @@ pub fn handle_laser_beam(
                         Visibility::Visible,
                         Sprite {
                             color: team.color(intensitive),
-                            custom_size: Some(Vec2::new(shoot_pattern.width, shoot_pattern.length)),
+                            custom_size: Some(Vec2::new(shoot_pattern.width, *range)),
                             ..default()
                         },
                     ));
@@ -291,12 +291,12 @@ pub fn handle_laser_beam(
                                 color: team.color(intensitive),
                                 custom_size: Some(Vec2::new(
                                     shoot_pattern.width,
-                                    shoot_pattern.length,
+                                    *range,
                                 )),
                                 ..default()
                             },
                             Transform::from_translation(
-                                Vec2::new(0.0, shoot_pattern.length / 2.0).extend(LAYER_BULLET),
+                                Vec2::new(0.0, *range / 2.0).extend(LAYER_BULLET),
                             ),
                             Visibility::Hidden,
                         ))

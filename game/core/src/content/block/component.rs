@@ -284,7 +284,6 @@ pub struct LaserBeamPattern {
     pub duration: f32,
     pub damage: f32,
     pub width: f32,
-    pub length: f32,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
