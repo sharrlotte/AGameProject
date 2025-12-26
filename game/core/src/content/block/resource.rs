@@ -434,4 +434,43 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             }),
         ],
     });
+
+    registry.register(BlockDef {
+        name: "Foreshadow Turret".into(),
+        block_type: BlockType::Foreshadow,
+        block_group: BlockGroup::Turret,
+        mass: 55.0,
+        health: 13600.0,
+        shape: BlockShape::filled(3, 9),
+        cost: 150,
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: image("blocks/block-2.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_BLOCK,
+                animated: false,
+            }),
+            BlockComponent::Turret(TurretComponent {
+                range: 25000.0,
+                turn_speed: 0.0,
+                strategy: TargetingStrategy::Closest,
+                image: image("blocks/foreshadow.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_TURRET_OVERLAY,
+                animated: false,
+                barrels: vec![Vec2::new(0.0, 0.0)],
+                shooting_pattern: ShootPattern::Single(SingleShootPattern {
+                    fire_rate: 10.0,
+                    projectile: ShootingProjectile::Bullet {
+                        speed: 20000.0,
+                        damage: 500.0,
+                        lifetime: 3.0,
+                        piercing: 10,
+                        width: 30.0,
+                        length: 150.0,
+                    },
+                }),
+            }),
+        ],
+    });
 }

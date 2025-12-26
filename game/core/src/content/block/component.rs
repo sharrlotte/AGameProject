@@ -35,6 +35,7 @@ pub enum BlockType {
     Swarmer,
     Spectre,
     Meldown,
+    Foreshadow,
 
     // Real
     BlockScrap,

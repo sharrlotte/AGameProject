@@ -92,8 +92,11 @@ pub fn update_turret_target(
             }
         }
 
-        if let Some(entity) = best_target && let Ok((_, target_transform, _)) = ships.get(entity) {
-            let to_target = target_transform.translation().truncate() - transform.translation().truncate();
+        if let Some(entity) = best_target
+            && let Ok((_, target_transform, _)) = ships.get(entity)
+        {
+            let to_target =
+                target_transform.translation().truncate() - transform.translation().truncate();
             let target_dir = to_target.normalize();
             let forward: Vec2 = transform.up().truncate();
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
@@ -113,6 +116,10 @@ pub fn turret_tracking(
     transforms: Query<&GlobalTransform>,
 ) {
     for (mut transform, global_transform, turret, state) in &mut query {
+        if turret.turn_speed == 0. {
+            continue;
+        }
+
         let mut target_position: Option<Vec2> = None;
 
         if let Some(shoot_at) = state.shoot_at {
