@@ -17,4 +17,4 @@ pub const LAYER_SHIP_UI: f32 = 300.0;
 pub const MIN_ZOOM: f32 = 0.2;
 pub const MAX_ZOOM: f32 = 30.0;
 
-pub const MAX_SHIPS: usize = 50;
+pub const MAX_SHIPS: usize = 16;
