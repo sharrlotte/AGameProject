@@ -169,7 +169,7 @@ impl ShipData {
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::all(),
-                AIShipController::new(AIShipBehavior::Regroup),
+                AIShipController::new(AIShipBehavior::Idle),
                 Damping {
                     linear_damping: 0.9,
                     angular_damping: 0.999,

@@ -1,5 +1,5 @@
 use crate::common::death::component::Death;
-use crate::constant::{MAX_ZOOM, MIN_ZOOM};
+use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::BlockType;
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
@@ -21,14 +21,12 @@ use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
 
-const SHIPS: usize = 20;
-
 pub fn check_ship(
     mut commands: Commands,
     ships: Query<(&Ship, &Team)>,
     registry: Res<BlockRegistry>,
 ) {
-    if ships.iter().len() > SHIPS {
+    if ships.iter().len() >= MAX_SHIPS {
         return;
     }
 
@@ -37,7 +35,7 @@ pub fn check_ship(
 
     let mut maps: HashMap<u8, u8> = HashMap::new();
 
-    for i in 0..5 {
+    for i in 0..2 {
         maps.insert(i, 0);
     }
 
@@ -50,7 +48,7 @@ pub fn check_ship(
     }
 
     let mut least_team_id = DEFAULT_TEAM_ID;
-    let mut least_count: u8 = SHIPS as u8;
+    let mut least_count: u8 = MAX_SHIPS as u8;
 
     for (team_id, count) in maps.iter() {
         if *count < least_count {
@@ -64,9 +62,9 @@ pub fn check_ship(
     };
 
     let position = random_vec2_step(
-        Vec2::new(-50000.0, -50000.0),
-        Vec2::new(50000.0, 50000.0),
-        5000.0,
+        Vec2::new(-10000.0, -10000.0),
+        Vec2::new(10000.0, 10000.0),
+        1000.0,
     );
 
     schematic.to_ship_data().spawn(
@@ -432,22 +430,18 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Idle => {
-                if let Some(best_enemy) = best_enemy {
-                    controller.next(AIShipBehavior::Chase {
-                        target: best_enemy.0,
-                    });
+                if let Some(enemy) = enemy.first() {
+                    controller.next(AIShipBehavior::Chase { target: enemy.0 });
                 } else {
-                    if let Some(a) = ally.last() {
-                        controller.next(AIShipBehavior::Follow {
-                            target: a.0,
-                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
-                        });
-                    }
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position: Vec2::ZERO,
+                        radius: ship.min_range * 0.9,
+                    });
                 }
             }
             AIShipBehavior::Chase { target } => {
                 if target == entity {
-                    controller.next(AIShipBehavior::Idle);
+                    controller.next(AIShipBehavior::Regroup);
                     return;
                 }
 

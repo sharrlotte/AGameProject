@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
@@ -7,10 +9,10 @@ use crate::common::damage::message::DamageEvent;
 use crate::common::entity_type::EntityType;
 use crate::constant::LAYER_BULLET;
 use crate::content::block::component::{
-    BurstShootPattern, BurstShootPatternState, Health, LaserBeamPattern, LaserBeamPatternState,
-    ShootingProjectile, SingleShootPattern, SingleShootPatternState,
+    BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
+    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, ShootingProjectile,
+    SingleShootPattern, SingleShootPatternState,
 };
-use crate::content::block::radar;
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
 use crate::content::bullet::component::Lifetime;
@@ -146,46 +148,57 @@ pub fn handle_burst_shot(
 
         let Turret { barrels, range, .. } = turret;
 
-        if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
-            shoot_pattern_state.is_bursting = true;
-            shoot_pattern_state.current_amount = shoot_pattern.amount;
-            shoot_pattern_state.last_fired_at = time.elapsed_secs();
-        } else if !shoot_pattern_state.is_bursting {
-            continue;
+        match &mut shoot_pattern_state.shooting {
+            BurstShootPatternShootingState::Shooting {
+                current_barrel,
+                last_barrel_fired_at,
+                current_amount,
+            } => {
+                if *current_amount <= 0 {
+                    shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
+                        last_fired_at: time.elapsed_secs(),
+                    };
+                    continue;
+                }
+
+                if time.elapsed_secs() < *last_barrel_fired_at + shoot_pattern.delay {
+                    continue;
+                }
+
+                let barrel_index = *current_barrel % barrels.len();
+                let barrel_position = barrels[barrel_index];
+
+                let bullet = spawn_bullet(
+                    &mut commands,
+                    transform,
+                    team,
+                    barrel_position,
+                    *range,
+                    &shoot_pattern.projectile,
+                    turret_state.target,
+                );
+
+                if let Some(shoot_sound) = &shoot_pattern.shoot_sound {
+                    commands.entity(bullet).insert((
+                        AudioPlayer::new(shoot_sound.clone()),
+                        PlaybackSettings::REMOVE.with_spatial(true),
+                    ));
+                }
+
+                *last_barrel_fired_at = time.elapsed_secs();
+                *current_amount -= 1;
+                *current_barrel += 1;
+            }
+            BurstShootPatternShootingState::Cooldown { last_fired_at } => {
+                if time.elapsed_secs() >= *last_fired_at + shoot_pattern.fire_rate {
+                    shoot_pattern_state.shooting = BurstShootPatternShootingState::Shooting {
+                        current_barrel: 0,
+                        last_barrel_fired_at: 0.0,
+                        current_amount: shoot_pattern.amount,
+                    };
+                }
+            }
         }
-
-        if time.elapsed_secs() < shoot_pattern_state.last_barrel_fired_at + shoot_pattern.delay {
-            continue;
-        }
-
-        let barrel_index = shoot_pattern_state.current_barrel % barrels.len();
-        let barrel_position = barrels[barrel_index];
-
-        if shoot_pattern_state.current_amount <= 0 {
-            shoot_pattern_state.is_bursting = false;
-            continue;
-        }
-
-        let bullet = spawn_bullet(
-            &mut commands,
-            transform,
-            team,
-            barrel_position,
-            *range,
-            &shoot_pattern.projectile,
-            turret_state.target,
-        );
-
-        if let Some(shoot_sound) = &shoot_pattern.shoot_sound {
-            commands.entity(bullet).insert((
-                AudioPlayer::new(shoot_sound.clone()),
-                PlaybackSettings::REMOVE.with_spatial(true),
-            ));
-        }
-
-        shoot_pattern_state.last_barrel_fired_at = time.elapsed_secs();
-        shoot_pattern_state.current_amount -= 1;
-        shoot_pattern_state.current_barrel += 1;
     }
 }
 
@@ -202,80 +215,100 @@ pub fn handle_laser_beam(
         &LaserBeamPattern,
         &mut LaserBeamPatternState,
         &Team,
-        &Damage,
     )>,
-
     mut events: MessageWriter<DamageEvent>,
 ) {
     let collision: RapierContext<'_> = rapier.single().expect("How to get rapier context?");
 
-    for (
-        entity,
-        transform,
-        turret,
-        turret_state,
-        shoot_pattern,
-        mut shoot_pattern_state,
-        team,
-        damage,
-    ) in query.iter_mut()
+    for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
+        query.iter_mut()
     {
-        if !turret_state.active {
-            continue;
-        }
-
         let Turret { barrels, .. } = turret;
 
-        if shoot_pattern_state.is_firing {
-            let filter = QueryFilter::from(CollisionGroups::new(
-                team.bullet_group(),
-                team.bullet_filter(),
-            ));
+        match &mut shoot_pattern_state.shooting {
+            LaserBeamPatternShootingState::Shooting { start_time } => {
+                if time.elapsed_secs() >= *start_time + shoot_pattern.duration {
+                    shoot_pattern_state.shooting = LaserBeamPatternShootingState::Cooldown {
+                        last_fired_at: time.elapsed_secs(),
+                    };
 
-            for barrel in barrels {
-                let origin = transform.translation().truncate()
-                    + barrel
-                    + Vec2::new(0.0, shoot_pattern.length / 2.0);
+                    if let Some(beam) = shoot_pattern_state.beam {
+                        commands.entity(beam).insert(Visibility::Hidden);
+                    }
 
-                let shape = &Cuboid::new(Vector2::new(
-                    shoot_pattern.width / 2.0,
-                    shoot_pattern.length / 2.0,
+                    continue;
+                }
+
+                if !turret_state.active {
+                    continue;
+                }
+
+                let filter = QueryFilter::from(CollisionGroups::new(
+                    team.bullet_group(),
+                    team.bullet_filter(),
                 ));
 
-                collision.intersect_shape(
-                    origin,
-                    Rot::from(transform.rotation().to_euler(EulerRot::XYZ).2),
-                    shape,
-                    filter,
-                    |entity| {
-                        if let Ok((health, _)) = healths.get(entity) {
-                            events.write(DamageEvent {
-                                attacker: entity,
-                                target: health,
-                                damage: damage.damage,
-                            });
-                        }
-                        true
-                    },
-                );
-            }
-        } else {
-            if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.duration {
-                shoot_pattern_state.is_firing = false;
-                commands
-                    .entity(entity)
-                    .insert((ColliderDisabled, Visibility::Hidden));
-                continue;
-            }
+                for barrel in barrels {
+                    let origin = transform.translation().truncate() + barrel + Vec2::new(0.0, 0.0);
 
-            if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.cooldown {
-                shoot_pattern_state.is_firing = true;
-                commands
-                    .entity(entity)
-                    .remove::<ColliderDisabled>()
-                    .insert(Visibility::Visible);
+                    let shape =
+                        &Cuboid::new(Vector2::new(shoot_pattern.width, shoot_pattern.length));
+
+                    collision.intersect_shape(
+                        origin,
+                        transform.rotation().to_euler(EulerRot::XYZ).2,
+                        shape,
+                        filter,
+                        |entity| {
+                            if let Ok((health, _)) = healths.get(entity) {
+                                events.write(DamageEvent {
+                                    attacker: entity,
+                                    target: health,
+                                    damage: shoot_pattern.damage,
+                                });
+                                info!("Laser beam hit entity: {:?}", entity);
+                            }
+                            true
+                        },
+                    );
+                }
+
+                if let Some(beam) = shoot_pattern_state.beam {
+                    commands.entity(beam).insert(Visibility::Visible);
+                } else {
+                    let beam = commands
+                        .spawn((
+                            Sprite {
+                                color: team.color(5.0),
+                                custom_size: Some(Vec2::new(
+                                    shoot_pattern.width,
+                                    shoot_pattern.length,
+                                )),
+                                ..default()
+                            },
+                            Transform::from_translation(
+                                Vec2::new(0.0, shoot_pattern.length / 2.0).extend(LAYER_BULLET),
+                            ),
+                            Visibility::Hidden,
+                        ))
+                        .id();
+
+                    shoot_pattern_state.beam = Some(beam);
+                    commands.entity(entity).add_child(beam);
+                }
             }
-        }
+            LaserBeamPatternShootingState::Cooldown { last_fired_at } => {
+                if !turret_state.active {
+                    continue;
+                }
+
+                if time.elapsed_secs() >= *last_fired_at + shoot_pattern.cooldown {
+                    shoot_pattern_state.shooting = LaserBeamPatternShootingState::Shooting {
+                        start_time: time.elapsed_secs(),
+                    };
+                }
+            }
+        };
     }
 }
 

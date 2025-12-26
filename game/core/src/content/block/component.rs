@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::{damage::component::Damage, entity_type::EntityType},
-    constant::{GRID_SIZE, LAYER_BULLET},
+    common::entity_type::EntityType,
+    constant::GRID_SIZE,
     content::{
         block::{
             radar::component::Radar,
@@ -218,42 +218,20 @@ impl ShootPattern {
                 commands.entity(base).insert((
                     s.clone(),
                     BurstShootPatternState {
-                        last_fired_at: 0.0,
-                        current_barrel: 0,
-                        last_barrel_fired_at: 0.0,
-                        current_amount: 0,
-                        is_bursting: false,
+                        shooting: BurstShootPatternShootingState::Cooldown { last_fired_at: 0.0 },
                     },
                 ));
             }
             ShootPattern::LaserBeam(s) => {
-                let laser_beam = commands
-                    .spawn((
-                        s.clone(),
-                        LaserBeamPatternState {
-                            last_fired_at: 0.0,
-                            is_firing: false,
-                            targets: Vec::new(),
-                        },
-                        Sprite {
-                            color: team.color(5.0),
-                            custom_size: Some(Vec2::new(s.width, s.length)),
-                            ..default()
-                        },
-                        Transform::from_translation(
-                            Vec2::new(0.0, s.length / 2.0).extend(LAYER_BULLET),
-                        ),
-                        Sensor,
-                        Collider::cuboid(s.width / 2.0, s.length / 2.0),
-                        CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
-                        ColliderMassProperties::Mass(0.0),
-                        ActiveEvents::COLLISION_EVENTS,
-                        Damage { damage: s.damage },
-                        Visibility::Hidden,
-                    ))
-                    .id();
-
-                commands.entity(base).add_child(laser_beam);
+                commands.entity(base).insert((
+                    team.clone(),
+                    s.clone(),
+                    LaserBeamPatternState {
+                        targets: Vec::new(),
+                        beam: None,
+                        shooting: LaserBeamPatternShootingState::Cooldown { last_fired_at: 0.0 },
+                    },
+                ));
             }
         }
     }
@@ -279,13 +257,22 @@ pub struct BurstShootPattern {
     pub shoot_sound: Option<Handle<AudioSource>>,
 }
 
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+
+pub enum BurstShootPatternShootingState {
+    Shooting {
+        current_barrel: usize,
+        last_barrel_fired_at: f32,
+        current_amount: i8,
+    },
+    Cooldown {
+        last_fired_at: f32,
+    },
+}
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct BurstShootPatternState {
-    pub is_bursting: bool,
-    pub last_fired_at: f32,
-    pub current_barrel: usize,
-    pub last_barrel_fired_at: f32,
-    pub current_amount: i8,
+    pub shooting: BurstShootPatternShootingState,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
@@ -297,11 +284,17 @@ pub struct LaserBeamPattern {
     pub length: f32,
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+pub enum LaserBeamPatternShootingState {
+    Shooting { start_time: f32 },
+    Cooldown { last_fired_at: f32 },
+}
+
+#[derive(Component, Debug, Clone, PartialEq)]
 pub struct LaserBeamPatternState {
-    pub last_fired_at: f32,
-    pub is_firing: bool,
     pub targets: Vec<Entity>,
+    pub beam: Option<Entity>,
+    pub shooting: LaserBeamPatternShootingState,
 }
 
 #[derive(Clone, PartialEq, Reflect)]
