@@ -8,7 +8,7 @@ use bevy::{
     sprite::Text2d,
     text::{TextColor, TextFont},
     time::{Time, Timer, TimerMode},
-    transform::components::GlobalTransform,
+    transform::components::{GlobalTransform, Transform},
     utils::default,
 };
 use bevy_rapier2d::prelude::CollisionEvent;
@@ -44,7 +44,7 @@ pub fn handle_damage_events(
             health.health -= event.damage;
 
             commands.spawn((
-                transform.clone(),
+                Transform::from_translation(transform.translation().truncate().extend(1000.0)),
                 DamageText {
                     timer: Timer::from_seconds(0.5, TimerMode::Once),
                 },

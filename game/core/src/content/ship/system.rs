@@ -145,8 +145,6 @@ pub fn update_ship_ui(
     for (ui_entity, ui_root, mut transform) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior, global_transform)) => {
-                transform.rotation = global_transform.rotation().inverse();
-
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
@@ -155,7 +153,7 @@ pub fn update_ship_ui(
                         font_size: 90.0,
                         ..default()
                     },
-                    Transform::default(),
+                    Transform::from_rotation(global_transform.rotation().inverse()),
                 ));
             }
             Err(_) => {}
