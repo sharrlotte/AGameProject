@@ -35,7 +35,7 @@ pub fn check_ship(
 
     let mut maps: HashMap<u8, u8> = HashMap::new();
 
-    for i in 0..4 {
+    for i in 0..2 {
         maps.insert(i, 0);
     }
 

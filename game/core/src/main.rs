@@ -69,7 +69,7 @@ fn main() {
             )
             .in_fixed_schedule(),
     )
-    .add_plugins(RapierDebugRenderPlugin::default())
+    // .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<GameState>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()

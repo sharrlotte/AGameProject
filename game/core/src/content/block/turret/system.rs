@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{math::FloatPow, prelude::*};
 
 use crate::{
@@ -90,9 +92,14 @@ pub fn update_turret_target(
             }
         }
 
-        if let Some(entity) = best_target {
+        if let Some(entity) = best_target && let Ok((_, target_transform, _)) = ships.get(entity) {
+            let to_target = target_transform.translation().truncate() - transform.translation().truncate();
+            let target_dir = to_target.normalize();
+            let forward: Vec2 = transform.up().truncate();
+            let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+
             state.target = Some(entity);
-            state.active = true;
+            state.active = angle_error.abs() < PI / 4.0;
         } else {
             state.target = None;
             state.active = false;
@@ -134,7 +141,7 @@ pub fn turret_tracking(
             }
 
             let target_dir = to_target.normalize();
-            let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+            let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
             let max_turn = turret.turn_speed * time.delta_secs();
             let turn = angle_error.clamp(-max_turn, max_turn);
 
