@@ -59,7 +59,7 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
         }
     }
 
-    while schematics.len() < 3 {
+    while schematics.len() < 5 {
         let timetamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

@@ -171,8 +171,8 @@ impl ShipData {
                 ActiveCollisionTypes::all(),
                 AIShipController::new(AIShipBehavior::Idle),
                 Damping {
-                    linear_damping: 0.9,
-                    angular_damping: 0.999,
+                    linear_damping: 0.8,
+                    angular_damping: 0.8,
                 },  
             ))
             .id();
