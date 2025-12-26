@@ -346,13 +346,13 @@ pub fn control_ship(
         let value = maps.get_mut(&ship.3.id);
 
         if let Some((ally, enemy)) = value {
-            if ship.3.id == DEFAULT_TEAM_ID {
+            if ship.3.id == ship.3.id {
                 ally.push(ship);
             } else {
                 enemy.push(ship);
             }
         } else {
-            if ship.3.id == DEFAULT_TEAM_ID {
+            if ship.3.id == ship.3.id {
                 maps.insert(ship.3.id, (vec![ship], Vec::new()));
             } else {
                 maps.insert(ship.3.id, (Vec::new(), vec![ship]));
@@ -430,8 +430,8 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Idle => {
-                if let Some(enemy) = enemy.first() {
-                    controller.next(AIShipBehavior::Chase { target: enemy.0 });
+                if let Some(e) = best_enemy {
+                    controller.next(AIShipBehavior::Chase { target: e.0 });
                 } else {
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: Vec2::ZERO,

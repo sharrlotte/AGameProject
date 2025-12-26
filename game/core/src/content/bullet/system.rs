@@ -266,7 +266,6 @@ pub fn handle_laser_beam(
                                     target: health,
                                     damage: shoot_pattern.damage,
                                 });
-                                info!("Laser beam hit entity: {:?}", entity);
                             }
                             true
                         },
