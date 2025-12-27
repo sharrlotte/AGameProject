@@ -191,8 +191,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Thruster(ThrusterComponent {
-                force: 1000.0,
-                torque: 350.0,
+                force: 200.0,
+                torque: 50.0,
             }),
         ],
     });
