@@ -175,16 +175,16 @@ pub fn update_ship_ui(
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior, global_transform)) => {
-                let current = controller.current();
+                // let current = controller.current();
 
-                commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
-                    TextFont {
-                        font_size: 90.0,
-                        ..default()
-                    },
-                    Transform::from_rotation(global_transform.rotation().inverse()),
-                ));
+                // commands.entity(ui_entity).insert((
+                //     Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
+                //     TextFont {
+                //         font_size: 90.0,
+                //         ..default()
+                //     },
+                //     Transform::from_rotation(global_transform.rotation().inverse()),
+                // ));
             }
             Err(_) => {}
         }
@@ -615,13 +615,13 @@ pub fn update_ship_behavior(
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance(*position);
 
-                gizmos.line_2d(
-                    current_postion,
-                    position.clone(),
-                    Color::srgb(0.0, 1.0, 1.0),
-                );
+                // gizmos.line_2d(
+                //     current_postion,
+                //     position.clone(),
+                //     Color::srgb(0.0, 1.0, 1.0),
+                // );
 
-                gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
+                // gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
 
                 let force_multiplier = if distance > *radius {
                     1.0

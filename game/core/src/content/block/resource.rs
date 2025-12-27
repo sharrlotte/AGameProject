@@ -494,7 +494,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             }),
             BlockComponent::Turret(TurretComponent {
                 range: 25000.0,
-                turn_speed: 0.04,
+                turn_speed: 0.0,
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/foreshadow.png".into()),
                 offset: Vec2::ZERO,
@@ -504,7 +504,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 shooting_pattern: ShootPattern::Single(SingleShootPattern {
                     fire_rate: 10.0,
                     projectile: ShootingProjectile::Bullet {
-                        speed: 20000.0,
+                        speed: 10000.0,
                         damage: 5000.0,
                         lifetime: 30.0,
                         piercing: 10,

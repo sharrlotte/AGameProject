@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
@@ -73,6 +75,11 @@ pub fn handle_missiles(
 
                 let target_dir = to_target.normalize();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+
+                if angle_error.abs() > PI / 2.0 {
+                    continue;
+                }
+
                 let max_turn = 1.5 * time.delta_secs();
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
@@ -221,7 +228,7 @@ pub fn handle_laser_beam(
     for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
         query.iter_mut()
     {
-        let Turret { barrels, range,.. } = turret;
+        let Turret { barrels, range, .. } = turret;
 
         match &mut shoot_pattern_state.shooting {
             LaserBeamPatternShootingState::Shooting { start_time } => {
@@ -254,8 +261,7 @@ pub fn handle_laser_beam(
                 for barrel in barrels {
                     let origin = transform.translation().truncate() + barrel + Vec2::new(0.0, 0.0);
 
-                    let shape =
-                        &Cuboid::new(Vector2::new(shoot_pattern.width, *range));
+                    let shape = &Cuboid::new(Vector2::new(shoot_pattern.width, *range));
 
                     collision.intersect_shape(
                         origin,
@@ -289,10 +295,7 @@ pub fn handle_laser_beam(
                         .spawn((
                             Sprite {
                                 color: team.color(intensitive),
-                                custom_size: Some(Vec2::new(
-                                    shoot_pattern.width,
-                                    *range,
-                                )),
+                                custom_size: Some(Vec2::new(shoot_pattern.width, *range)),
                                 ..default()
                             },
                             Transform::from_translation(
