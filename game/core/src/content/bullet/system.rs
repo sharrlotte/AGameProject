@@ -76,7 +76,7 @@ pub fn handle_missiles(
                 let target_dir = to_target.normalize();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
-                let max_turn = 1.5 * time.delta_secs();
+                let max_turn = 2.0 * time.delta_secs();
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
                 transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
@@ -246,7 +246,7 @@ pub fn handle_laser_beam(
                 let intensitive = (time.elapsed_secs() - *start_time)
                     .min(1.0)
                     .min((*start_time + shoot_pattern.duration - time.elapsed_secs()).min(1.0))
-                    * 5.0;
+                    * 10.0;
 
                 if !turret_state.active {
                     continue;
@@ -526,7 +526,7 @@ pub fn handle_laser(
                 if time.elapsed_secs() - *fired_at > FADE_TIME {
                     commands.entity(entity).insert(Death);
                 } else {
-                    let intensive = 5.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at));
+                    let intensive = 10.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at));
                     if let Some(mut sprite) = sprite {
                         sprite.color = team.color(intensive);
                     }

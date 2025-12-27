@@ -629,13 +629,11 @@ pub fn update_ship_behavior(
                     -*turn_speed
                 };
 
-                if velocity.angvel > PI / 4.0 {
-                    if (torque < 0.0 && velocity.angvel < 0.0)
-                        || (torque > 0.0 && velocity.angvel > 0.0)
-                    {
-                        if velocity.angvel.abs() > PI / 4.0 {
-                            torque = -torque / 2.0;
-                        }
+                if (torque < 0.0 && velocity.angvel < 0.0)
+                    || (torque > 0.0 && velocity.angvel > 0.0)
+                {
+                    if velocity.angvel.abs() > PI / 4.0 {
+                        torque = -torque / 2.0;
                     }
                 }
 
@@ -644,10 +642,6 @@ pub fn update_ship_behavior(
                 if angle_diff.abs() < PI / 3.0 {
                     if distance > *radius {
                         force.force = forward * thrust_power * force_multiplier;
-                    } else {
-                        force.force = (forward * thrust_power * force_multiplier)
-                            .rotate(Vec2::from_angle(PI))
-                            / 2.0;
                     }
                 }
             }

@@ -102,7 +102,7 @@ impl BlockRegistry {
             }
         }
 
-        for block in blocks {            
+        for block in blocks {
             if visited.contains(&block.id) {
                 continue;
             }
@@ -140,7 +140,7 @@ impl BlockRegistry {
 
                 let size = def.shape.size;
 
-                for y in [-1, size.y + 1] {
+                for y in [0, size.y] {
                     for x in 0..size.x {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {
@@ -151,7 +151,7 @@ impl BlockRegistry {
                     }
                 }
 
-                for x in [-1, size.x + 1] {
+                for x in [0, size.x] {
                     for y in 0..size.y {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {

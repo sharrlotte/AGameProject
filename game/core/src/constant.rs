@@ -1,6 +1,6 @@
 use bevy::color::Color;
 
-pub const GRID_SIZE: f32 = 64.0;
+pub const GRID_SIZE: f32 = 32.0;
 pub const SMALL_GRID_SIZE: f32 = 6.0;
 
 pub const FLASH_OVERLAY_COLOR: Color = Color::srgba(5.0, 5.0, 5.0, 0.8);
