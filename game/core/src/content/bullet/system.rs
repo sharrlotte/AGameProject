@@ -76,15 +76,14 @@ pub fn handle_missiles(
                 let target_dir = to_target.normalize();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
-                if angle_error.abs() > PI / 2.0 {
-                    continue;
-                }
-
                 let max_turn = 1.5 * time.delta_secs();
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
-                transform.rotate_z(turn);
                 transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
+
+                if angle_error.abs() < PI / 2.0 {
+                    transform.rotate_z(turn);
+                }
 
                 continue;
             };

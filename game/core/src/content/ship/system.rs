@@ -360,32 +360,29 @@ pub fn control_ship(
     state: ResMut<GameVars>,
     mut commands: Commands,
 ) {
-    let mut maps: HashMap<
-        u8,
-        (
-            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
-            Vec<(Entity, &GlobalTransform, &Ship, &Team)>,
-        ),
-    > = HashMap::new();
+    let mut teams: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &Team)>> = HashMap::new();
+    let mut enemies: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &Team)>> = HashMap::new();
 
     let mut rng = rand::rng();
 
     for ship in ships2 {
-        let value = maps.get_mut(&ship.3.id);
+        let value = teams.get_mut(&ship.3.id);
 
-        if let Some((ally, enemy)) = value {
-            if ship.3.id == ship.3.id {
-                ally.push(ship);
-            } else {
-                enemy.push(ship);
-            }
+        if let Some(team) = value {
+            team.push(ship);
         } else {
-            if ship.3.id == ship.3.id {
-                maps.insert(ship.3.id, (vec![ship], Vec::new()));
-            } else {
-                maps.insert(ship.3.id, (Vec::new(), vec![ship]));
-            }
+            teams.insert(ship.3.id, vec![ship]);
         }
+    }
+
+    for (team_id, _) in teams.iter() {
+        let mut enemy: Vec<(Entity, &GlobalTransform, &Ship, &Team)> = Vec::new();
+
+        for (_, enemy_team) in teams.iter().filter(|f| f.0 != team_id) {
+            enemy.extend(enemy_team.iter());
+        }
+
+        enemies.insert(*team_id, enemy);
     }
 
     for (entity, mut controller, _, transform, ship, team) in ships {
@@ -405,24 +402,21 @@ pub fn control_ship(
             continue;
         }
 
-        let (ally_with_self, enemy) = maps.get(&team.id).expect("How this is possible");
+        let team = teams.get(&team.id).expect("How this is possible");
 
-        let ally = ally_with_self
+        let ally = team
             .iter()
             .filter(|other| other.0 != entity)
             .collect::<Vec<_>>();
 
-        let in_range: Vec<_> = enemy
-            .iter()
-            .filter(|other| {
-                other
-                    .1
-                    .translation()
-                    .truncate()
-                    .distance(transform.translation.truncate())
-                    <= ship.max_range
-            })
-            .collect();
+        let mut in_range = enemies.values().flatten().filter(|other| {
+            other
+                .1
+                .translation()
+                .truncate()
+                .distance(transform.translation.truncate())
+                <= ship.max_range
+        });
 
         match controller.current() {
             AIShipBehavior::Regroup => {
@@ -446,7 +440,7 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Idle => {
-                if let Some(e) = enemy.first() {
+                if let Some(e) = in_range.next() {
                     controller.next(AIShipBehavior::Chase { target: e.0 });
                 } else {
                     commands.entity(entity).insert(ShipBehavior::Approach {
