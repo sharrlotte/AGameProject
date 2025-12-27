@@ -9,10 +9,7 @@ use crate::{
     },
     content::{
         block::component::{
-            BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType,
-            BurstShootPattern, LaserBeamPattern, ShootPattern, ShootingProjectile,
-            SingleShootPattern, SpriteComponent, TargetingStrategy, ThrusterComponent,
-            TurretComponent,
+            BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern, LaserBeamPattern, PullingBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy, ThrusterComponent, TurretComponent
         },
         ship::component::{Ship, ShipFragment},
     },
@@ -102,7 +99,7 @@ impl BlockRegistry {
             }
         }
 
-        for block in blocks {            
+        for block in blocks {
             if visited.contains(&block.id) {
                 continue;
             }
@@ -337,7 +334,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/block-scrap.png".into()),
+            image: image("blocks/block-iron.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
             animated: false,
@@ -515,4 +512,80 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             }),
         ],
     });
+
+    registry.register(BlockDef {
+        name: "Colaris Turret".into(),
+        block_type: BlockType::Colaris,
+        block_group: BlockGroup::Turret,
+        mass: 50.0,
+        health: 13600.0,
+        shape: BlockShape::filled(1, 1),
+        cost: 150,
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: image("blocks/block-2.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_BLOCK,
+                animated: false,
+            }),
+            BlockComponent::Turret(TurretComponent {
+                range: 12000.0,
+                turn_speed: 2.0,
+                strategy: TargetingStrategy::Closest,
+                image: image("blocks/colaris.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_TURRET_OVERLAY,
+                animated: false,
+                barrels: vec![Vec2::new(0.0, 0.0)],
+                shooting_pattern: ShootPattern::Burst(BurstShootPattern {
+                    fire_rate: 2.0,
+                    delay: 0.2,
+                    amount: 12,
+                    shoot_sound: None,
+                    projectile: ShootingProjectile::Bullet {
+                        speed: 4000.0,
+                        damage: 10.0,
+                        lifetime: 10.0,
+                        piercing: 0,
+                        width: 3.0,
+                        length: 8.0,
+                    },
+                }),
+            }),
+        ],
+    });
+
+    registry.register(BlockDef {
+        name: "Paralax Turret".into(),
+        block_type: BlockType::Paralax,
+        block_group: BlockGroup::Turret,
+        mass: 50.0,
+        health: 13600.0,
+        shape: BlockShape::filled(1, 1),
+        cost: 150,
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: image("blocks/block-2.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_BLOCK,
+                animated: false,
+            }),
+            BlockComponent::Turret(TurretComponent {
+                range: 12000.0,
+                turn_speed: 2.0,
+                strategy: TargetingStrategy::Closest,
+                image: image("blocks/colaris.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_TURRET_OVERLAY,
+                animated: false,
+                barrels: vec![Vec2::new(0.0, 0.0)],
+                shooting_pattern: ShootPattern::PullingBeam(PullingBeamPattern {
+                   width: 5.0,
+                }),
+            }),
+        ],
+    });
+
+
+
 }

@@ -10,12 +10,13 @@ use crate::common::entity_type::EntityType;
 use crate::constant::LAYER_BULLET;
 use crate::content::block::component::{
     BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
-    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, ShootingProjectile,
-    SingleShootPattern, SingleShootPatternState,
+    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
+    PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
 use crate::content::bullet::component::{Laser, Lifetime};
+use crate::content::ship::component::Ship;
 use crate::content::team::Team;
 use crate::{
     common::death::component::Death,
@@ -320,6 +321,40 @@ pub fn handle_laser_beam(
                 }
             }
         };
+    }
+}
+
+pub fn handle_pulling_beam(
+    rapier: ReadRapierContext,
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &GlobalTransform,
+        &Turret,
+        &mut TurretState,
+        &PullingBeamPattern,
+        &mut PullingBeamPatternState,
+        &Team,
+        Option<&Radar>,
+    )>,
+    mut ships: Query<(&Ship, &mut ExternalForce)>,
+) {
+    let collision = rapier.single().expect("How to get rapier context?");
+
+    for (
+        entity,
+        transform,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut shoot_pattern_state,
+        team,
+        radar,
+    ) in query.iter_mut()
+    {
+        let Turret { barrels, range, .. } = turret;
+
+        
     }
 }
 

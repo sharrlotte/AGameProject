@@ -36,6 +36,8 @@ pub enum BlockType {
     Spectre,
     Meldown,
     Foreshadow,
+    Colaris,
+    Paralax,
 
     // Real
     BlockScrap,
@@ -208,6 +210,7 @@ pub enum ShootPattern {
     Single(SingleShootPattern),
     Burst(BurstShootPattern),
     LaserBeam(LaserBeamPattern),
+    PullingBeam(PullingBeamPattern),
 }
 
 impl ShootPattern {
@@ -235,6 +238,13 @@ impl ShootPattern {
                         beam: None,
                         shooting: LaserBeamPatternShootingState::Cooldown { last_fired_at: 0.0 },
                     },
+                ));
+            }
+            ShootPattern::PullingBeam(s) => {
+                commands.entity(base).insert((
+                    team.clone(),
+                    s.clone(),
+                    PullingBeamPatternState { beam: None },
                 ));
             }
         }
@@ -285,6 +295,16 @@ pub struct LaserBeamPattern {
     pub duration: f32,
     pub damage: f32,
     pub width: f32,
+}
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct PullingBeamPattern {
+    pub width: f32,
+}
+
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+pub struct PullingBeamPatternState {
+    pub beam: Option<Entity>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
