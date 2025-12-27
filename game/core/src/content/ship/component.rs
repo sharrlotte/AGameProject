@@ -5,16 +5,18 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    common::entity_type::EntityType, constant::LAYER_SHIP_UI, content::{
+    common::entity_type::EntityType,
+    constant::LAYER_SHIP_UI,
+    content::{
         block::{
             component::BlockData,
             resource::{BlockRegistry, ShipCalculatedStat},
         },
         team::Team,
-    }
+    },
 };
 
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Clone)]
 pub struct Ship {
     pub id: Uuid,
     pub blocks: Vec<BlockData>,
@@ -25,6 +27,18 @@ pub struct Ship {
     pub size: Vec2,
     pub max_range: f32,
     pub min_range: f32,
+    pub mass: f32,
+}
+
+#[derive(Component, Debug, Default, Clone)]
+pub struct ShipFragment {
+    pub mass: f32,
+    pub blocks: Vec<BlockData>,
+}
+
+#[derive(Component, Debug, Default, Clone)]
+pub struct Blocks {
+    pub blocks: Vec<BlockData>,
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone, Serialize, Deserialize)]
@@ -125,35 +139,26 @@ impl ShipData {
         registry: &BlockRegistry,
         team: Team,
         transform: Transform,
-    ) -> Entity {
-        let ShipCalculatedStat {
-            mass,
-            center,
-            collider,
-            thrust_power,
-            turn_speed,
-            size,
-            core_position,
-            min_range,
-            max_range,
-        } = registry.blocks_stats(&self.blocks);
+    ) -> Option<Entity> {
+        let ShipCalculatedStat { ship, .. } = registry.blocks_stats(&self.blocks);
+
+        let Some(ship) = ship else {
+            return None;
+        };
+
+        let shipc = ship.clone();
+        let Ship { mass, blocks, .. } = ship;
+        let collider = registry.build_ship_voxel_collider_2d(&blocks);
 
         let ship = commands
             .spawn((
-                Ship {
-                    id: self.id,
-                    blocks: self.blocks.clone(),
-                    core_position,
-                    center,
-                    thrust_power,
-                    turn_speed,
-                    size,
-                    max_range,
-                    min_range,
-                },
+                shipc,
                 ShipState {},
                 Visibility::Visible,
                 EntityType::Ship,
+                Blocks {
+                    blocks: blocks.clone(),
+                },
                 transform,
                 team,
             ))
@@ -173,11 +178,11 @@ impl ShipData {
                 Damping {
                     linear_damping: 0.8,
                     angular_damping: 0.8,
-                },  
+                },
             ))
             .id();
 
-        for block_data in &self.blocks {
+        for block_data in &blocks {
             if let Some(def) = registry.get(&block_data.block_type) {
                 block_data.spawn(&mut commands, def, ship, team);
             }
@@ -193,7 +198,7 @@ impl ShipData {
 
         commands.entity(ship).add_child(ui_root);
 
-        return ship;
+        return Some(ship);
     }
 }
 

@@ -16,3 +16,5 @@ pub struct ShipButton(pub Entity);
 pub struct ShipList;
 
 
+#[derive(Component)]
+pub struct BlockButton(pub Entity);

@@ -26,7 +26,7 @@ impl Plugin for GameScenePlugin {
                 (
                     update_fps,
                     update_turret_control_mode_button,
-                    update_ship_buttons.run_if(on_timer(Duration::from_millis(100))),
+                    update_ship_buttons.run_if(on_timer(Duration::from_millis(200))),
                     handle_ship_button_click,
                 )
                     .run_if(in_state(SceneState::Game)),

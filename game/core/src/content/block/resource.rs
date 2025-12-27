@@ -1,15 +1,20 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 use bevy_rapier2d::prelude::Collider;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use crate::{
     constant::{
         GRID_SIZE, LAYER_BLOCK, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR,
     },
-    content::block::component::{
-        BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern,
-        LaserBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent,
-        TargetingStrategy, ThrusterComponent, TurretComponent,
+    content::{
+        block::component::{
+            BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType,
+            BurstShootPattern, LaserBeamPattern, ShootPattern, ShootingProjectile,
+            SingleShootPattern, SpriteComponent, TargetingStrategy, ThrusterComponent,
+            TurretComponent,
+        },
+        ship::component::{Ship, ShipFragment},
     },
 };
 
@@ -20,15 +25,8 @@ pub struct BlockRegistry {
 }
 
 pub struct ShipCalculatedStat {
-    pub mass: f32,
-    pub core_position: Vec2,
-    pub center: Vec2,
-    pub collider: Collider,
-    pub thrust_power: f32,
-    pub turn_speed: f32,
-    pub size: Vec2,
-    pub min_range: f32,
-    pub max_range: f32,
+    pub ship: Option<Ship>,
+    pub fragments: Vec<ShipFragment>,
 }
 
 impl BlockRegistry {
@@ -85,18 +83,10 @@ impl BlockRegistry {
     }
 
     pub fn blocks_stats(&self, blocks: &[BlockData]) -> ShipCalculatedStat {
-        let mut mass: f32 = 0.0;
-        let mut core_position = Vec2::ZERO;
-        let mut thrust_power: f32 = 1000.0;
-        let mut turn_speed: f32 = 250.0;
-
-        let mut max_x: i32 = 0;
-        let mut max_y: i32 = 0;
-        let mut min_x: i32 = 0;
-        let mut min_y: i32 = 0;
-
-        let mut min_range: f32 = f32::MAX;
-        let mut max_range: f32 = f32::MIN;
+        let mut visited: HashSet<Uuid> = HashSet::new();
+        let mut cell_map: HashMap<IVec2, &BlockData> = HashMap::new();
+        let mut ship: Option<Ship> = None;
+        let mut fragments: Vec<ShipFragment> = Vec::new();
 
         for block in blocks {
             let Some(def) = self.get(&block.block_type) else {
@@ -104,54 +94,133 @@ impl BlockRegistry {
                 continue;
             };
 
-            let size = def.shape.size;
-
-            max_x = max_x.max(block.position.x + size.x);
-            max_y = max_y.max(block.position.y + size.y);
-
-            min_x = min_x.min(block.position.x);
-            min_y = min_y.min(block.position.y);
-
-            mass += def.mass;
-
-            if def.block_group == BlockGroup::Core {
-                let size = def.shape.size.as_vec2();
-                let offset = size * GRID_SIZE * 0.5;
-                core_position = block.position.as_vec2() * GRID_SIZE + offset;
-            }
-
-            for component in &def.components {
-                match component {
-                    BlockComponent::Thruster(ThrusterComponent { force, torque }) => {
-                        thrust_power += force;
-                        turn_speed += torque;
-                    }
-                    BlockComponent::Turret(TurretComponent { range, .. }) => {
-                        min_range = min_range.min(*range);
-                        max_range = max_range.max(*range);
-                    }
-                    _ => {}
+            for y in 0..def.shape.size.y {
+                for x in 0..def.shape.size.x {
+                    let cell = IVec2::new(x, y) + block.position;
+                    cell_map.entry(cell).insert_entry(block);
                 }
             }
         }
 
-        return ShipCalculatedStat {
-            thrust_power: thrust_power * THRUST_POWER_FACTOR,
-            turn_speed: turn_speed * TURN_SPEED_FACTOR,
-            mass,
-            core_position: core_position,
-            min_range,
-            max_range,
-            collider: self.build_ship_voxel_collider_2d(&blocks),
-            size: Vec2::new(
-                (max_x - min_x) as f32 * GRID_SIZE,
-                (max_y - min_y) as f32 * GRID_SIZE,
-            ),
-            center: Vec2::new(
-                (max_x + min_x) as f32 * 0.5 * GRID_SIZE,
-                (max_y + min_y) as f32 * 0.5 * GRID_SIZE,
-            ),
-        };
+        for block in blocks {            
+            if visited.contains(&block.id) {
+                continue;
+            }
+
+            let mut mass: f32 = 0.0;
+            let mut core_position = None;
+            let mut thrust_power: f32 = 1000.0;
+            let mut turn_speed: f32 = 250.0;
+
+            let mut max_x: i32 = 0;
+            let mut max_y: i32 = 0;
+            let mut min_x: i32 = 0;
+            let mut min_y: i32 = 0;
+
+            let mut min_range: f32 = 100.0;
+            let mut max_range: f32 = 1000.0;
+
+            let mut queue: Vec<&BlockData> = Vec::new();
+            let mut current_blocks: Vec<BlockData> = Vec::new();
+
+            queue.push(block);
+
+            while let Some(block) = queue.pop() {
+                if visited.contains(&block.id) {
+                    continue;
+                }
+
+                current_blocks.push(block.clone());
+                visited.insert(block.id);
+
+                let Some(def) = self.get(&block.block_type) else {
+                    warn!("Block type {:?} not found in registry", block.block_type);
+                    continue;
+                };
+
+                let size = def.shape.size;
+
+                for y in [-1, size.y + 1] {
+                    for x in 0..size.x {
+                        let cell = IVec2::new(x, y) + block.position;
+                        let Some(neighbor) = cell_map.get(&cell) else {
+                            continue;
+                        };
+
+                        queue.push(*neighbor);
+                    }
+                }
+
+                for x in [-1, size.x + 1] {
+                    for y in 0..size.y {
+                        let cell = IVec2::new(x, y) + block.position;
+                        let Some(neighbor) = cell_map.get(&cell) else {
+                            continue;
+                        };
+
+                        queue.push(*neighbor);
+                    }
+                }
+
+                max_x = max_x.max(block.position.x + size.x);
+                max_y = max_y.max(block.position.y + size.y);
+
+                min_x = min_x.min(block.position.x);
+                min_y = min_y.min(block.position.y);
+
+                mass += def.mass;
+
+                if def.block_group == BlockGroup::Core {
+                    let size = def.shape.size.as_vec2();
+                    let offset = size * GRID_SIZE * 0.5;
+                    core_position = Some(block.position.as_vec2() * GRID_SIZE + offset);
+                }
+
+                for component in &def.components {
+                    match component {
+                        BlockComponent::Thruster(ThrusterComponent { force, torque }) => {
+                            thrust_power += force;
+                            turn_speed += torque;
+                        }
+                        BlockComponent::Turret(TurretComponent { range, .. }) => {
+                            min_range = min_range.min(*range);
+                            max_range = max_range.max(*range);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if let Some(core_position) = core_position {
+                ship = Some(Ship {
+                    id: block.id,
+                    blocks: current_blocks,
+                    thrust_power: thrust_power * THRUST_POWER_FACTOR,
+                    turn_speed: turn_speed * TURN_SPEED_FACTOR,
+                    core_position,
+                    size: Vec2::new(
+                        (max_x - min_x) as f32 * GRID_SIZE,
+                        (max_y - min_y) as f32 * GRID_SIZE,
+                    ),
+                    center: Vec2::new(
+                        (max_x + min_x) as f32 * 0.5 * GRID_SIZE,
+                        (max_y + min_y) as f32 * 0.5 * GRID_SIZE,
+                    ),
+                    max_range,
+                    min_range,
+                    mass,
+                });
+            } else {
+                if current_blocks.len() > 0 {
+                    fragments.push(ShipFragment {
+                        blocks: current_blocks,
+                        mass,
+                    });
+                }
+            }
+        }
+
+        return ShipCalculatedStat { ship, fragments };
     }
 }
 
@@ -179,7 +248,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Small Ion Thruster".into(),
         block_type: BlockType::ThrusterSmall,
         block_group: BlockGroup::Base,
-        mass: 25.0,
+        mass: 10.0,
         health: 5000.0,
         shape: BlockShape::default(),
         cost: 50,
@@ -191,43 +260,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Thruster(ThrusterComponent {
-                force: 200.0,
-                torque: 50.0,
+                force: 1000.0,
+                torque: 500.0,
             }),
         ],
-    });
-
-    registry.register(BlockDef {
-        name: "Micro Fusion Reactor".into(),
-        block_type: BlockType::ReactorSmall,
-        block_group: BlockGroup::Base,
-
-        mass: 1.0,
-        health: 800.0,
-        shape: BlockShape::default(),
-        cost: 200,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/surge-wall-large.png".into()),
-            offset: Vec2::ZERO,
-            z: LAYER_BLOCK,
-            animated: false,
-        })],
-    });
-
-    registry.register(BlockDef {
-        name: "Command Cockpit".into(),
-        block_type: BlockType::Cockpit,
-        block_group: BlockGroup::Base,
-        mass: 5.0,
-        health: 1600.0,
-        shape: BlockShape::default(),
-        cost: 150,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/surge-wall-large.png".into()),
-            offset: Vec2::ZERO,
-            z: LAYER_BLOCK,
-            animated: false,
-        })],
     });
 
     registry.register(BlockDef {
@@ -258,7 +294,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Lazer Turret".into(),
         block_type: BlockType::LazerTurret,
         block_group: BlockGroup::Turret,
-        mass: 15.0,
+        mass: 7.0,
         health: 1600.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
@@ -296,7 +332,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Scrap Block".into(),
         block_type: BlockType::BlockScrap,
         block_group: BlockGroup::Base,
-        mass: 1.0,
+        mass: 10.0,
         health: 1800.0,
         shape: BlockShape::default(),
         cost: 200,
@@ -312,7 +348,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Steel Block".into(),
         block_type: BlockType::BlockSteel,
         block_group: BlockGroup::Base,
-        mass: 2.0,
+        mass: 8.0,
         health: 1600.0,
         shape: BlockShape::default(),
         cost: 200,
@@ -328,7 +364,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Swarmer Turret".into(),
         block_type: BlockType::Swarmer,
         block_group: BlockGroup::Turret,
-        mass: 15.0,
+        mass: 8.0,
         health: 1800.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
@@ -369,7 +405,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Spectre Turret".into(),
         block_type: BlockType::Spectre,
         block_group: BlockGroup::Turret,
-        mass: 15.0,
+        mass: 16.0,
         health: 3600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
@@ -411,7 +447,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Meltdown Turret".into(),
         block_type: BlockType::Meldown,
         block_group: BlockGroup::Turret,
-        mass: 15.0,
+        mass: 20.0,
         health: 3600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
@@ -445,7 +481,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         name: "Foreshadow Turret".into(),
         block_type: BlockType::Foreshadow,
         block_group: BlockGroup::Turret,
-        mass: 55.0,
+        mass: 50.0,
         health: 13600.0,
         shape: BlockShape::filled(3, 9),
         cost: 150,
@@ -470,7 +506,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     projectile: ShootingProjectile::Bullet {
                         speed: 20000.0,
                         damage: 500.0,
-                        lifetime: 3.0,
+                        lifetime: 30.0,
                         piercing: 10,
                         width: 30.0,
                         length: 350.0,

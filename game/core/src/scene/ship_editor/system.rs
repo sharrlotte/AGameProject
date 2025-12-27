@@ -1284,8 +1284,10 @@ pub fn spawn_ship(
 ) {
     let ships = load_saved_schematics();
 
+    editor.grid = ShipGrid::new();
+    editor.filename = filename.to_string();
+
     if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.filename == filename) {
-        editor.grid = ShipGrid::new();
         editor.filename = ship_to_load.filename;
 
         if ship_to_load.blocks.is_empty() {
@@ -1306,6 +1308,6 @@ pub fn spawn_ship(
             }
         }
     } else {
-        error!("Ship {} not found", filename);
+        error!("Ship {} data not found", filename);
     }
 }

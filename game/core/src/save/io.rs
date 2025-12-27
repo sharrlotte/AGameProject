@@ -357,17 +357,19 @@ pub fn handle_load_world_event(
                 Transform::default(),
             );
 
-            ids.insert(ship_data.id, ship);
+            if let Some(ship) = ship {
+                ids.insert(ship_data.id, ship);
 
-            for block_data in &data.blocks {
-                let Some(def) = registry.get(&block_data.block_type) else {
-                    warn!("Failed to get block def: {:?}", block_data.block_type);
-                    continue;
-                };
+                for block_data in &data.blocks {
+                    let Some(def) = registry.get(&block_data.block_type) else {
+                        warn!("Failed to get block def: {:?}", block_data.block_type);
+                        continue;
+                    };
 
-                let block = block_data.spawn(&mut commands, def, ship, ship_data.team);
+                    let block = block_data.spawn(&mut commands, def, ship, ship_data.team);
 
-                ids.insert(block_data.id, block);
+                    ids.insert(block_data.id, block);
+                }
             }
         }
 

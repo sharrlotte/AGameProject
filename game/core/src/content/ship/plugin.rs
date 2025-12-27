@@ -13,7 +13,7 @@ pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_ship_ui.run_if(in_state(SceneState::Game)))
+        app.add_systems(FixedUpdate, update_ship_ui.run_if(in_state(SceneState::Game)))
             .add_systems(
                 PostUpdate,
                 update_ship_behavior.run_if(in_state(SceneState::Game)),

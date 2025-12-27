@@ -395,7 +395,7 @@ pub struct Weapon {
     pub range: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct BlockData {
     pub id: Uuid,
     pub position: IVec2,

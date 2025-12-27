@@ -1,9 +1,9 @@
 use crate::common::death::component::Death;
 use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
-use crate::content::block::component::BlockType;
+use crate::content::block::component::{Block, BlockType};
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
-use crate::content::ship::component::{AIShipController, Ship, ShipBehavior, ShipUIRoot};
+use crate::content::ship::component::{AIShipController, Blocks, Ship, ShipBehavior, ShipUIRoot};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;
 use crate::scene::game::resource::GameVars;
@@ -13,10 +13,11 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, ColliderMassProperties};
 use rand::Rng;
 use rand::seq::IndexedRandom;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
+use uuid::Uuid;
 
-use bevy::math::FloatPow;
+use bevy::math::{FloatPow, VectorSpace};
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
@@ -62,8 +63,8 @@ pub fn check_ship(
     };
 
     let position = random_vec2_step(
-        Vec2::new(-10000.0, -10000.0),
-        Vec2::new(10000.0, 10000.0),
+        Vec2::new(-40000.0, -40000.0),
+        Vec2::new(40000.0, 40000.0),
         1000.0,
     );
 
@@ -84,11 +85,12 @@ pub fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
 pub fn check_rebuild_ship_collider(
     mut commands: Commands,
     mut events: MessageReader<BlockDestroyedEvent>,
-    mut ships: Query<(Entity, &mut Ship, &Team)>,
+    mut blocks: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
+    ship_blocks: Query<(Entity, &Block)>,
     registry: Res<BlockRegistry>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut ship, _)) = ships.get_mut(event.ship_id) else {
+        let Ok((entity, mut blocks, _, _)) = blocks.get_mut(event.ship_id) else {
             continue;
         };
 
@@ -99,35 +101,63 @@ pub fn check_rebuild_ship_collider(
             }
         }
 
-        ship.blocks.retain_mut(|f| f.id != event.block_id);
+        blocks.blocks.retain_mut(|f| f.id != event.block_id);
 
-        let ShipCalculatedStat {
-            mass,
-            center,
-            collider,
-            thrust_power,
-            turn_speed,
-            size,
-            core_position,
-            min_range,
-            max_range,
-        } = registry.blocks_stats(&ship.blocks);
+        let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&blocks.blocks);
 
-        commands.entity(entity).remove::<Collider>().insert((
-            collider,
-            ColliderMassProperties::Mass(mass),
-            Ship {
-                id: ship.id,
-                blocks: ship.blocks.clone(),
-                core_position,
-                center,
-                thrust_power,
-                turn_speed,
-                size,
-                min_range,
-                max_range,
-            },
-        ));
+        if let Some(ship) = ship {
+            let collider = registry.build_ship_voxel_collider_2d(&ship.blocks);
+
+            commands.entity(entity).remove::<Collider>().insert((
+                ship.clone(),
+                collider,
+                ColliderMassProperties::Mass(ship.mass),
+            ));
+        }
+
+        let delete_blocks: HashSet<Uuid> = fragments
+            .iter()
+            .flat_map(|f| f.blocks.iter().map(|b| b.id))
+            .collect();
+
+        for (ship_entity, block) in ship_blocks.iter() {
+            if delete_blocks.contains(&block.id) {
+                commands.entity(ship_entity).insert(Death);
+            }
+        }
+
+        // for fragment in fragments {
+
+        // let collider = registry.build_ship_voxel_collider_2d(&fragment.blocks);
+
+        // commands
+        //     .spawn((
+        //         fragment.clone(),
+        //         transform.clone(),
+        //         team.clone(),
+        //         Blocks {
+        //             blocks: fragment.blocks,
+        //         },
+        //     ))
+        //     .insert((
+        //         collider,
+        //         RigidBody::Dynamic,
+        //         Velocity::zero(),
+        //         ExternalForce::default(),
+        //         ExternalImpulse::default(),
+        //         ReadMassProperties::default(),
+        //         Restitution::coefficient(0.05),
+        //         CollisionGroups::new(team.ship_group(), team.ship_filter()),
+        //         ColliderMassProperties::Mass(fragment.mass),
+        //         ActiveEvents::COLLISION_EVENTS,
+        //         ActiveCollisionTypes::all(),
+        //         AIShipController::new(AIShipBehavior::Idle),
+        //         Damping {
+        //             linear_damping: 0.8,
+        //             angular_damping: 0.8,
+        //         },
+        //     ));
+        // }
     }
 }
 
@@ -394,18 +424,6 @@ pub fn control_ship(
             })
             .collect();
 
-        let best_enemy = in_range.iter().min_by(|a, b| {
-            a.1.translation()
-                .truncate()
-                .distance_squared(transform.translation.truncate())
-                .partial_cmp(
-                    &b.1.translation()
-                        .truncate()
-                        .distance_squared(transform.translation.truncate()),
-                )
-                .expect("Odering failed?")
-        });
-
         match controller.current() {
             AIShipBehavior::Regroup => {
                 if let Some(a) = ally.last() {
@@ -428,12 +446,12 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Idle => {
-                if let Some(e) = best_enemy {
+                if let Some(e) = enemy.first() {
                     controller.next(AIShipBehavior::Chase { target: e.0 });
                 } else {
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: Vec2::ZERO,
-                        radius: ship.min_range * 0.9,
+                        radius: ship.size.length() * 2.0,
                     });
                 }
             }
@@ -462,7 +480,10 @@ pub fn control_ship(
                         });
                     }
                 } else {
-                    controller.next(AIShipBehavior::Regroup);
+                    commands.entity(entity).insert(ShipBehavior::GoAround {
+                        position: Vec2::ZERO,
+                        radius: ship.min_range * 0.9,
+                    });
                 }
             }
             AIShipBehavior::Wander => {
@@ -592,7 +613,7 @@ pub fn update_ship_behavior(
                 let direction = (position - current_postion).normalize_or_zero();
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_postion.distance_squared(*position);
+                let distance = current_postion.distance(*position);
 
                 gizmos.line_2d(
                     current_postion,
@@ -602,10 +623,10 @@ pub fn update_ship_behavior(
 
                 gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
 
-                let force_multiplier = if distance > radius.squared() {
+                let force_multiplier = if distance > *radius {
                     1.0
                 } else {
-                    (distance / radius.squared()).squared()
+                    (distance / radius).squared()
                 };
 
                 let mut torque: f32 = if angle_diff > 0.0 {
@@ -619,26 +640,20 @@ pub fn update_ship_behavior(
                         || (torque > 0.0 && velocity.angvel > 0.0)
                     {
                         if velocity.angvel.abs() > PI / 4.0 {
-                            torque = -torque;
+                            torque = -torque / 2.0;
                         }
                     }
                 }
 
                 force.torque = torque;
 
-                let speed = velocity.linvel.length();
-                let stopping_distance = speed * speed / (2.0 * thrust_power * force_multiplier);
-
-                if stopping_distance >= distance {
-                    force.force = Vec2::ZERO;
-                    return;
-                }
-
                 if angle_diff.abs() < PI / 3.0 {
-                    if distance <= *radius {
-                        force.force = Vec2::ZERO;
-                    } else {
+                    if distance > *radius {
                         force.force = forward * thrust_power * force_multiplier;
+                    } else {
+                        force.force = (forward * thrust_power * force_multiplier)
+                            .rotate(Vec2::from_angle(PI))
+                            / 2.0;
                     }
                 }
             }
