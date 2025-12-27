@@ -50,10 +50,10 @@ pub fn handle_damage_events(
                 },
                 Text2d::new(event.damage.to_string()),
                 TextFont {
-                    font_size: 10.0,
+                    font_size: 50.0,
                     ..default()
                 },
-                TextColor(Color::WHITE),
+                TextColor(Color::srgb(1.0, 0.0, 0.0)),
             ));
         }
     }

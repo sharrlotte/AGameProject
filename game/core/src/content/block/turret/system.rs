@@ -22,6 +22,7 @@ pub fn update_turret_target(
     window: Single<&Window>,
     game_state: Res<GameState>,
     ships: Query<(Entity, &GlobalTransform, &Ship)>,
+    blocks: Query<(Entity, &Children)>,
     mut turrets: Query<(&GlobalTransform, &Turret, &mut TurretState, &Team, &Radar)>,
 ) {
     for (transform, turret, mut state, team, radar) in turrets.iter_mut() {
@@ -102,7 +103,12 @@ pub fn update_turret_target(
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
             state.target = Some(entity);
-            state.active = angle_error.abs() < PI / 4.0;
+
+            if turret.turn_speed == 0. {
+                state.active = angle_error.abs() < PI / 16.0;
+            } else {
+                state.active = angle_error.abs() < PI / 4.0;
+            }
         } else {
             state.target = None;
             state.active = false;
@@ -113,7 +119,7 @@ pub fn update_turret_target(
 pub fn turret_tracking(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &GlobalTransform, &Turret, &TurretState)>,
-    transforms: Query<&GlobalTransform>,
+    transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
     for (mut transform, global_transform, turret, state) in &mut query {
         if turret.turn_speed == 0. {
@@ -125,8 +131,8 @@ pub fn turret_tracking(
         if let Some(shoot_at) = state.shoot_at {
             target_position = Some(shoot_at);
         } else if let Some(target) = state.target {
-            if let Ok(position) = transforms.get(target) {
-                target_position = Some(position.translation().truncate());
+            if let Ok((ship, position)) = transforms.get(target) {
+                target_position = Some(position.transform_point(ship.core_position.extend(0.0)).truncate());
             }
         }
 

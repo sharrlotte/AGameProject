@@ -142,7 +142,7 @@ pub fn update_ship_ui(
         &GlobalTransform,
     )>,
 ) {
-    for (ui_entity, ui_root, mut transform) in ui_roots.iter_mut() {
+    for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior, global_transform)) => {
                 let current = controller.current();
@@ -591,7 +591,7 @@ pub fn update_ship_behavior(
             ShipBehavior::Approach { position, radius } => {
                 let direction = (position - current_postion).normalize_or_zero();
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
-                let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
+                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance_squared(*position);
 
                 gizmos.line_2d(
@@ -614,16 +614,14 @@ pub fn update_ship_behavior(
                     -*turn_speed
                 };
 
-                if (torque < 0.0 && velocity.angvel < 0.0)
-                    || (torque > 0.0 && velocity.angvel > 0.0)
-                {
-                    if velocity.angvel.abs() > PI / 4.0 {
-                        torque *= PI / 4.0 / velocity.angvel.abs();
+                if velocity.angvel > PI / 4.0 {
+                    if (torque < 0.0 && velocity.angvel < 0.0)
+                        || (torque > 0.0 && velocity.angvel > 0.0)
+                    {
+                        if velocity.angvel.abs() > PI / 4.0 {
+                            torque = -torque;
+                        }
                     }
-                }
-
-                if velocity.angvel > angle_diff {
-                    torque = -torque;
                 }
 
                 force.torque = torque;
@@ -662,7 +660,7 @@ pub fn update_ship_behavior(
                 let direction = (next_position - current_postion).normalize_or_zero();
 
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
-                let angle_diff = angle - transform.rotation.to_euler(EulerRot::XYZ).2;
+                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance(next_position);
 
                 let force_multiplier = if distance > radius.squared() {
@@ -693,4 +691,14 @@ pub fn update_ship_behavior(
             }
         }
     }
+}
+
+fn wrap_angle(mut a: f32) -> f32 {
+    while a > PI {
+        a -= 2.0 * PI;
+    }
+    while a < -PI {
+        a += 2.0 * PI;
+    }
+    a
 }
