@@ -88,7 +88,7 @@ fn main() {
         ContentPlugin,
         SettingScenePlugin,
     ))
-    .insert_resource(Time::<Fixed>::from_hz(30.0));
+    .insert_resource(Time::<Fixed>::from_hz(60.0));
 
     // #[cfg(debug_assertions)]
     // {

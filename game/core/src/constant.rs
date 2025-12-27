@@ -4,8 +4,8 @@ pub const GRID_SIZE: f32 = 64.0;
 pub const SMALL_GRID_SIZE: f32 = 6.0;
 
 pub const FLASH_OVERLAY_COLOR: Color = Color::srgba(5.0, 5.0, 5.0, 0.8);
-pub const THRUST_POWER_FACTOR: f32 = 140.0;
-pub const TURN_SPEED_FACTOR: f32 = 10000.0;
+pub const THRUST_POWER_FACTOR: f32 = 50.0;
+pub const TURN_SPEED_FACTOR: f32 = 3000.0;
 pub const AUDIO_SCALE: f32 = 1. / 8000.0;
 
 pub const LAYER_BLOCK: f32 = 10.0;
