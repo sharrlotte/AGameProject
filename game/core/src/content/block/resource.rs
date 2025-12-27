@@ -102,15 +102,15 @@ impl BlockRegistry {
             }
         }
 
-        for block in blocks {
+        for block in blocks {            
             if visited.contains(&block.id) {
                 continue;
             }
 
             let mut mass: f32 = 0.0;
             let mut core_position = None;
-            let mut thrust_power: f32 = 1000.0;
-            let mut turn_speed: f32 = 250.0;
+            let mut thrust_power: f32 = 300.0;
+            let mut turn_speed: f32 = 80.0;
 
             let mut max_x: i32 = 0;
             let mut max_y: i32 = 0;
@@ -140,7 +140,7 @@ impl BlockRegistry {
 
                 let size = def.shape.size;
 
-                for y in [0, size.y] {
+                for y in [-1, size.y + 1] {
                     for x in 0..size.x {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {
@@ -151,7 +151,7 @@ impl BlockRegistry {
                     }
                 }
 
-                for x in [0, size.x] {
+                for x in [-1, size.x + 1] {
                     for y in 0..size.y {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {
@@ -271,7 +271,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         block_type: BlockType::Core,
         block_group: BlockGroup::Core,
         mass: 50.0,
-        health: 10000.0,
+        health: 5000.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
         components: vec![
@@ -393,7 +393,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         lock_range: 6000.0,
                         blast_damage: 10.0,
                         blast_radius: 128.0,
-                        width: 25.0,
+                        width: 12.0,
                         length: 60.0,
                     },
                 }),
@@ -471,7 +471,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     cooldown: 10.0,
                     duration: 5.0,
                     damage: 1.0,
-                    width: 24.0,
+                    width: 18.0,
                 }),
             }),
         ],
@@ -493,7 +493,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Turret(TurretComponent {
-                range: 25000.0,
+                range: 45000.0,
                 turn_speed: 0.0,
                 strategy: TargetingStrategy::Closest,
                 image: image("blocks/foreshadow.png".into()),
