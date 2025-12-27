@@ -183,12 +183,18 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 5000.0,
         shape: BlockShape::default(),
         cost: 50,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/thruster.png".into()),
-            offset: Vec2::ZERO,
-            z: LAYER_BLOCK,
-            animated: false,
-        })],
+        components: vec![
+            BlockComponent::Sprite(SpriteComponent {
+                image: image("blocks/thruster.png".into()),
+                offset: Vec2::ZERO,
+                z: LAYER_BLOCK,
+                animated: false,
+            }),
+            BlockComponent::Thruster(ThrusterComponent {
+                force: 1000.0,
+                torque: 350.0,
+            }),
+        ],
     });
 
     registry.register(BlockDef {
@@ -467,7 +473,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         lifetime: 3.0,
                         piercing: 10,
                         width: 30.0,
-                        length: 150.0,
+                        length: 350.0,
                     },
                 }),
             }),
