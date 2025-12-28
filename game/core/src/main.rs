@@ -59,7 +59,7 @@ fn main() {
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0)
             .with_custom_initialization(
                 RapierContextInitialization::InitializeDefaultRapierContext {
-                    integration_parameters: IntegrationParameters::default(),
+                    integration_parameters: IntegrationParameters { ..default() },
                     rapier_configuration: RapierConfiguration {
                         gravity: Vec2::ZERO,
                         physics_pipeline_active: true,
@@ -92,13 +92,13 @@ fn main() {
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));
 
-    // #[cfg(debug_assertions)]
-    // {
-    //     app.add_plugins(EguiPlugin::default());
-    //     app.add_plugins(
-    //         WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
-    //     );
-    // }
+    #[cfg(debug_assertions)]
+    {
+        app.add_plugins(EguiPlugin::default());
+        app.add_plugins(
+            WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
+        );
+    }
 
     app.run();
 }

@@ -332,7 +332,7 @@ impl BlockData {
                 ColliderMassProperties::Mass(0.0),
                 Sensor,
                 Block {
-                    id: self.id,
+                    id: Uuid::now_v7(),
                     block_type: self.block_type,
                     rotation: self.rotation,
                     position: self.position,

@@ -1,5 +1,5 @@
 use crate::common::death::component::Death;
-use crate::constant::{DROP_COLLECT_RADIUS, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
+use crate::constant::{DROP_COLLECT_RADIUS, LINEAR_DAMPING, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::{Block, ShipIdComponent};
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{
@@ -491,9 +491,7 @@ pub fn control_ship(
                     .map(|transform| transform.translation.truncate());
 
                 if let Ok(position) = global_position {
-                    if transform.translation.distance_squared(position.extend(0.0))
-                        >= ship.min_range
-                    {
+                    if transform.translation.distance(position.extend(0.0)) >= ship.min_range {
                         commands.entity(entity).insert(ShipBehavior::Approach {
                             position: position,
                             radius: ship.min_range * 0.9,
@@ -669,10 +667,15 @@ pub fn update_ship_behavior(
 
                 force.torque = torque;
 
-                if angle_diff.abs() < PI / 3.0 {
-                    if distance > *radius {
-                        force.force = forward * thrust_power * force_multiplier;
-                    }
+                let speed = velocity.linvel.length();
+                let stop_distance = speed / LINEAR_DAMPING;
+
+                if distance <= stop_distance {
+                    force.force = Vec2::ZERO;
+                } else if angle_diff.abs() < PI / 3.0 && distance > *radius {
+                    force.force = forward * thrust_power * force_multiplier;
+                } else {
+                    force.force = Vec2::ZERO;
                 }
             }
             ShipBehavior::GoAround { position, radius } => {
@@ -769,9 +772,7 @@ pub fn collect_drop(
 
                 if distance <= DROP_COLLECT_RADIUS.sqrt() {
                     match drop_component {
-                        DropComponent::Item(item) => {
-                            info!("Collect item: {:?}", item);
-                        }
+                        DropComponent::Item(item) => {}
                     }
 
                     commands.entity(drop_entity).despawn();

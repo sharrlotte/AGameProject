@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     common::entity_type::EntityType,
-    constant::LAYER_SHIP_UI,
+    constant::{ANGULAR_DAMPING, LAYER_SHIP_UI, LINEAR_DAMPING},
     content::{
         block::{
             component::BlockData,
@@ -149,7 +149,9 @@ impl ShipData {
             return None;
         };
 
-        let shipc = data.data.clone();
+        let mut shipc = data.data.clone();
+        shipc.id = Uuid::now_v7();
+
         let Ship { mass, .. } = data.data;
         let collider = registry.build_ship_voxel_collider_2d(&data.blocks);
 
@@ -183,8 +185,8 @@ impl ShipData {
                 ActiveCollisionTypes::all(),
                 AIShipController::new(AIShipBehavior::Idle),
                 Damping {
-                    linear_damping: 0.8,
-                    angular_damping: 0.8,
+                    linear_damping: LINEAR_DAMPING,
+                    angular_damping: ANGULAR_DAMPING,
                 },
             ))
             .id();
