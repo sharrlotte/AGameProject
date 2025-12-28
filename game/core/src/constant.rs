@@ -1,6 +1,6 @@
 use bevy::color::Color;
 
-pub const GRID_SIZE: f32 = 32.0;
+pub const GRID_SIZE: f32 = 16.0;
 pub const SMALL_GRID_SIZE: f32 = 6.0;
 pub const DROP_SIZE: f32 = 10.0;
 
