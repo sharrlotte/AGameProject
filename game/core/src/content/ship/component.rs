@@ -19,7 +19,6 @@ use crate::{
 #[derive(Component, Debug, Default, Clone)]
 pub struct Ship {
     pub id: Uuid,
-    pub blocks: Vec<BlockData>,
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub core_position: Vec2,
@@ -146,13 +145,13 @@ impl ShipData {
     ) -> Option<Entity> {
         let ShipCalculatedStat { ship, .. } = registry.blocks_stats(&self.blocks);
 
-        let Some(ship) = ship else {
+        let Some(data) = ship else {
             return None;
         };
 
-        let shipc = ship.data.clone();
-        let Ship { mass, blocks, .. } = ship.data;
-        let collider = registry.build_ship_voxel_collider_2d(&blocks);
+        let shipc = data.data.clone();
+        let Ship { mass, .. } = data.data;
+        let collider = registry.build_ship_voxel_collider_2d(&data.blocks);
 
         let ship = commands
             .spawn((
@@ -161,11 +160,11 @@ impl ShipData {
                 Visibility::Visible,
                 EntityType::Ship,
                 Blocks {
-                    blocks: blocks.clone(),
+                    blocks: data.blocks.clone(),
                 },
                 BoundingBox {
-                    size: ship.size,
-                    center: ship.center,
+                    size: data.size,
+                    center: data.center,
                 },
                 transform,
                 team,
@@ -190,7 +189,7 @@ impl ShipData {
             ))
             .id();
 
-        for block_data in &blocks {
+        for block_data in &data.blocks {
             if let Some(def) = registry.get(&block_data.block_type) {
                 block_data.spawn(&mut commands, def, ship, team);
             }

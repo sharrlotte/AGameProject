@@ -404,7 +404,7 @@ pub fn spawn_bullet(
                         rotation,
                         ..default()
                     },
-                    Collider::ball(*width / 2.0),
+                    Collider::cuboid(*width / 2.0, *length / 2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Ccd::enabled(),
@@ -480,7 +480,7 @@ pub fn spawn_bullet(
 
             let hit_box = commands
                 .spawn((
-                    Collider::ball(*width / 2.0),
+                    Collider::cuboid(*width / 2.0, *length / 2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
                     Sensor,

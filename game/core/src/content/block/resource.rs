@@ -166,6 +166,7 @@ pub struct ShipCalculatedData {
     pub data: Ship,
     pub size: Vec2,
     pub center: Vec2,
+    pub blocks: Vec<BlockData>,
 }
 
 pub struct ShipCalculatedStat {
@@ -347,7 +348,6 @@ impl BlockRegistry {
                     ),
                     data: Ship {
                         id: block.id,
-                        blocks: current_blocks,
                         thrust_power: thrust_power * THRUST_POWER_FACTOR,
                         turn_speed: turn_speed * TURN_SPEED_FACTOR,
                         core_position,
@@ -355,6 +355,7 @@ impl BlockRegistry {
                         min_range,
                         mass,
                     },
+                    blocks: current_blocks,
                 });
             } else {
                 if current_blocks.len() > 0 {
@@ -565,7 +566,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         damage: 10.0,
                         lifetime: 10.0,
                         lock_range: 6000.0,
-                        blast_damage: 10.0,
+                        blast_damage: 30.0,
                         blast_radius: 128.0,
                         width: 12.0,
                         length: 60.0,
@@ -690,12 +691,12 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 shooting_pattern: ShootPattern::Single(SingleShootPattern {
                     fire_rate: 10.0,
                     projectile: ShootingProjectile::Bullet {
-                        speed: 10000.0,
+                        speed: 20000.0,
                         damage: 5000.0,
                         lifetime: 30.0,
                         piercing: 10,
                         width: 30.0,
-                        length: 350.0,
+                        length: 1000.0,
                     },
                 }),
             }),
@@ -737,11 +738,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     shoot_sound: None,
                     projectile: ShootingProjectile::Bullet {
                         speed: 4000.0,
-                        damage: 10.0,
+                        damage: 30.0,
                         lifetime: 10.0,
                         piercing: 0,
-                        width: 3.0,
-                        length: 8.0,
+                        width: 5.0,
+                        length: 12.0,
                     },
                 }),
             }),

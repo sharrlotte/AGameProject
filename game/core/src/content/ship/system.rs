@@ -1,6 +1,6 @@
 use crate::common::death::component::Death;
 use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
-use crate::content::block::component::Block;
+use crate::content::block::component::{Block, ShipIdComponent};
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, BlockType, DropEvent, ShipCalculatedStat};
 use crate::content::ship::component::{
@@ -87,13 +87,13 @@ pub fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
 pub fn check_rebuild_ship_collider(
     mut commands: Commands,
     mut events: MessageReader<BlockDestroyedEvent>,
-    mut blocks: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
-    ship_blocks: Query<(Entity, &Block)>,
+    mut ships: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
+    ship_blocks: Query<(Entity, &Block, &ShipIdComponent)>,
     registry: Res<BlockRegistry>,
     mut drop_writer: MessageWriter<DropEvent>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut ship_block, transform, _)) = blocks.get_mut(event.ship) else {
+        let Ok((entity, mut ship_block, transform, _)) = ships.get_mut(event.ship) else {
             continue;
         };
 
@@ -104,34 +104,29 @@ pub fn check_rebuild_ship_collider(
             }
         }
 
+        ship_block.blocks.retain(|f| &f.id != &event.block_id);
+
         let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
 
-        if let Some(ship) = ship {
-            let collider = registry.build_ship_voxel_collider_2d(&ship.data.blocks);
-
-            commands.entity(entity).remove::<Collider>().insert((
-                ship.data.clone(),
-                collider,
-                Blocks {
-                    blocks: ship.data.blocks,
-                },
-                ColliderMassProperties::Mass(ship.data.mass),
-            ));
-        }
-
-        let mut delete_blocks: HashSet<Uuid> = fragments
+        let delete_blocks: HashSet<Uuid> = fragments
             .iter()
             .flat_map(|f| f.blocks.iter().map(|b| b.id))
             .collect();
 
-        delete_blocks.insert(event.block_id);
+        ship_block.blocks.retain(|f| !delete_blocks.contains(&f.id));
 
-        ship_block
-            .blocks
-            .retain_mut(|f| !delete_blocks.contains(&f.id));
+        if let Some(ship) = ship {
+            let collider = registry.build_ship_voxel_collider_2d(&ship_block.blocks);
 
-        for (block_entity, block) in ship_blocks.iter() {
-            if delete_blocks.contains(&block.id) {
+            commands.entity(entity).remove::<Collider>().insert((
+                ship.data.clone(),
+                collider,
+                ColliderMassProperties::Mass(ship.data.mass),
+            ));
+        }
+
+        for (block_entity, block, ship_id) in ship_blocks.iter() {
+            if delete_blocks.contains(&block.id) && ship_id.id == entity {
                 commands.entity(block_entity).insert(Death);
             }
         }
@@ -644,7 +639,7 @@ pub fn update_ship_behavior(
                 gizmos.line_2d(
                     current_postion,
                     position.clone(),
-                    Color::srgb(0.0, 1.0, 1.0),
+                    Color::srgba(0.0, 1.0, 1.0, 0.5),
                 );
 
                 gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
@@ -688,7 +683,11 @@ pub fn update_ship_behavior(
                     next_position = position_on_ring + direction.perp() * radius.sqrt();
                 }
 
-                gizmos.line_2d(current_postion, next_position, Color::srgb(0.0, 1.0, 0.0));
+                gizmos.line_2d(
+                    current_postion,
+                    next_position,
+                    Color::srgba(0.0, 1.0, 0.0, 0.5),
+                );
 
                 gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
 
