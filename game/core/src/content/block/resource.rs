@@ -103,20 +103,20 @@ impl Default for BlockShape {
     }
 }
 
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Clone, PartialEq, Reflect, Debug)]
 pub struct ItemDrop {
     pub item_type: ItemType,
     pub amount: u32,
 }
 
 #[derive(Component, Clone, PartialEq, Reflect)]
-pub enum Drop {
+pub enum DropComponent {
     Item(ItemDrop),
 }
 
 #[derive(Message, Clone, PartialEq, Reflect)]
 pub struct DropEvent {
-    pub drop: Drop,
+    pub drop: DropComponent,
     pub position: Vec2,
 }
 
@@ -131,7 +131,7 @@ pub struct BlockDef {
     pub shape: BlockShape,
     pub cost: u32,
     pub components: Vec<BlockComponent>,
-    pub drops: Vec<Drop>,
+    pub drops: Vec<DropComponent>,
 }
 
 impl BlockDef {
@@ -389,7 +389,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             z: LAYER_BLOCK,
             animated: false,
         })],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -415,7 +415,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 torque: 100.0,
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -447,7 +447,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 torque: 40.0,
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -489,7 +489,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -509,7 +509,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             z: LAYER_BLOCK,
             animated: false,
         })],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -529,7 +529,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             z: LAYER_BLOCK,
             animated: false,
         })],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -574,7 +574,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -620,7 +620,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -658,7 +658,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -701,7 +701,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -747,7 +747,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],
@@ -780,7 +780,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 shooting_pattern: ShootPattern::PullingBeam(PullingBeamPattern { width: 5.0 }),
             }),
         ],
-        drops: vec![Drop::Item(ItemDrop {
+        drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
             amount: 10,
         })],

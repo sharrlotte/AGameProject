@@ -1,8 +1,10 @@
 use crate::common::death::component::Death;
-use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
+use crate::constant::{DROP_COLLECT_RADIUS, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::{Block, ShipIdComponent};
 use crate::content::block::message::BlockDestroyedEvent;
-use crate::content::block::resource::{BlockRegistry, BlockType, DropEvent, ShipCalculatedStat};
+use crate::content::block::resource::{
+    BlockRegistry, BlockType, DropComponent, DropEvent, ShipCalculatedStat,
+};
 use crate::content::ship::component::{
     AIShipController, Blocks, BoundingBox, Ship, ShipBehavior, ShipUIRoot,
 };
@@ -93,7 +95,7 @@ pub fn check_rebuild_ship_collider(
     mut drop_writer: MessageWriter<DropEvent>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut ship_block, transform, _)) = ships.get_mut(event.ship) else {
+        let Ok((entity, mut ship_block, transform, team)) = ships.get_mut(event.ship) else {
             continue;
         };
 
@@ -130,21 +132,23 @@ pub fn check_rebuild_ship_collider(
             }
         }
 
-        for fragment in fragments {
-            for block in &fragment.blocks {
-                let Some(def) = registry.get(&block.block_type) else {
-                    continue;
-                };
+        if !team.is_player() {
+            for fragment in fragments {
+                for block in &fragment.blocks {
+                    let Some(def) = registry.get(&block.block_type) else {
+                        continue;
+                    };
 
-                let position = transform
-                    .transform_point(block.position_pixel().extend(0.0))
-                    .truncate();
+                    let position = transform
+                        .transform_point(block.position_pixel().extend(0.0))
+                        .truncate();
 
-                for drop in &def.drops {
-                    drop_writer.write(DropEvent {
-                        position: position,
-                        drop: drop.clone(),
-                    });
+                    for drop in &def.drops {
+                        drop_writer.write(DropEvent {
+                            position: position,
+                            drop: drop.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -734,4 +738,45 @@ fn wrap_angle(mut a: f32) -> f32 {
         a += 2.0 * PI;
     }
     a
+}
+
+pub fn collect_drop(
+    mut commands: Commands,
+    ships: Query<(&GlobalTransform, &Team), With<Ship>>,
+    mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
+    time: Res<Time>,
+) {
+    let mut collected: HashSet<Entity> = HashSet::new();
+
+    for (ship_transform, ship_team) in ships.iter() {
+        if !ship_team.is_player() {
+            continue;
+        }
+
+        for (drop_entity, mut drop_transform, drop_component) in drops.iter_mut() {
+            if collected.contains(&drop_entity) {
+                continue;
+            }
+
+            let dir = ship_transform.translation() - drop_transform.translation;
+            let distance = dir.length();
+
+            if distance <= DROP_COLLECT_RADIUS {
+                drop_transform.translation +=
+                    DROP_COLLECT_RADIUS * dir.normalize_or_zero() * time.delta_secs() * 3.0;
+
+                collected.insert(drop_entity);
+
+                if distance <= DROP_COLLECT_RADIUS.sqrt() {
+                    match drop_component {
+                        DropComponent::Item(item) => {
+                            info!("Collect item: {:?}", item);
+                        }
+                    }
+
+                    commands.entity(drop_entity).despawn();
+                }
+            }
+        }
+    }
 }

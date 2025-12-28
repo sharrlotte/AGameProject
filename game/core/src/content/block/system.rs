@@ -11,9 +11,9 @@ use crate::{
         block::{
             component::{Block, Health, ShipIdComponent},
             message::BlockDestroyedEvent,
-            resource::{BlockRegistry, Drop, DropEvent},
+            resource::{BlockRegistry, DropComponent, DropEvent},
         },
-        item::resource::ItemRegistry,
+        item::resource::ItemRegistry, team::Team,
     },
 };
 
@@ -21,10 +21,17 @@ pub fn handle_block_destroy(
     mut commands: Commands,
     mut writer: MessageWriter<BlockDestroyedEvent>,
     mut drop_writer: MessageWriter<DropEvent>,
-    mut query: Query<(Entity, &Health, &Block, &ShipIdComponent, &GlobalTransform)>,
+    mut query: Query<(
+        Entity,
+        &Health,
+        &Block,
+        &ShipIdComponent,
+        &GlobalTransform,
+        &Team,
+    )>,
     registry: Res<BlockRegistry>,
 ) {
-    for (entity, health, block, ship_id, transform) in query.iter_mut() {
+    for (entity, health, block, ship_id, transform, team) in query.iter_mut() {
         if health.health <= 0.0 {
             writer.write(BlockDestroyedEvent {
                 block_type: block.block_type,
@@ -37,11 +44,13 @@ pub fn handle_block_destroy(
                 continue;
             };
 
-            for drop in def.drops.iter() {
-                drop_writer.write(DropEvent {
-                    drop: drop.clone(),
-                    position: transform.translation().truncate(),
-                });
+            if !team.is_player() {
+                for drop in def.drops.iter() {
+                    drop_writer.write(DropEvent {
+                        drop: drop.clone(),
+                        position: transform.translation().truncate(),
+                    });
+                }
             }
         }
     }
@@ -105,7 +114,7 @@ pub fn handle_drop(
 ) {
     for event in events.read() {
         let rarity = match &event.drop {
-            Drop::Item(item) => item_registry.get(&item.item_type).map(|f| f.rarity),
+            DropComponent::Item(item) => item_registry.get(&item.item_type).map(|f| f.rarity),
         };
 
         commands.spawn((

@@ -30,11 +30,11 @@ pub fn handle_damage_events(
             health.health -= event.damage;
 
             commands.spawn((
-                Transform::from_translation(transform.translation().truncate().extend(1000.0)),
+                Transform::from_translation(transform.translation().truncate().extend(1000000.0)),
                 Lifetime::seconds(1.5),
                 Text2d::new(event.damage.to_string()),
                 TextFont {
-                    font_size: 500.0,
+                    font_size: 20.0,
                     ..default()
                 },
                 TextColor(Color::srgb(1.0, 0.0, 0.0)),
