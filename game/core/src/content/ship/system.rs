@@ -97,13 +97,6 @@ pub fn check_rebuild_ship_collider(
             continue;
         };
 
-        if let Some(block) = registry.get(&event.block_type) {
-            if block.block_type == BlockType::Core {
-                commands.entity(entity).insert(Death);
-                continue;
-            }
-        }
-
         ship_block.blocks.retain(|f| &f.id != &event.block_id);
 
         let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
@@ -114,6 +107,12 @@ pub fn check_rebuild_ship_collider(
             .collect();
 
         ship_block.blocks.retain(|f| !delete_blocks.contains(&f.id));
+
+        if let Some(block) = registry.get(&event.block_type) {
+            if block.block_type == BlockType::Core {
+                commands.entity(entity).insert(Death);
+            }
+        }
 
         if let Some(ship) = ship {
             let collider = registry.build_ship_voxel_collider_2d(&ship_block.blocks);
