@@ -425,21 +425,25 @@ pub fn control_ship(
             continue;
         }
 
-        let team = teams.get(&team.id).expect("How this is possible");
-
-        let ally = team
+        let ally = teams
+            .get(&team.id)
+            .expect("How this is possible")
             .iter()
             .filter(|other| other.0 != entity)
             .collect::<Vec<_>>();
 
-        let mut in_range = enemies.values().flatten().filter(|other| {
-            other
-                .1
-                .translation()
-                .truncate()
-                .distance(transform.translation.truncate())
-                <= ship.max_range
-        });
+        let mut in_range = enemies
+            .get(&team.id)
+            .expect("How this is possible")
+            .iter()
+            .filter(|other| {
+                other
+                    .1
+                    .translation()
+                    .truncate()
+                    .distance(transform.translation.truncate())
+                    <= ship.max_range
+            });
 
         match controller.current() {
             AIShipBehavior::Regroup => {
@@ -474,15 +478,14 @@ pub fn control_ship(
             }
             AIShipBehavior::Chase { target } => {
                 if target == entity {
-                    controller.next(AIShipBehavior::Regroup);
-                    return;
+                    panic!("Chase self");
                 }
 
-                let position = global_transforms
+                let global_position = global_transforms
                     .get(target)
                     .map(|transform| transform.translation.truncate());
 
-                if let Ok(position) = position {
+                if let Ok(position) = global_position {
                     if transform.translation.distance_squared(position.extend(0.0))
                         >= ship.min_range
                     {
@@ -666,11 +669,11 @@ pub fn update_ship_behavior(
                 }
             }
             ShipBehavior::GoAround { position, radius } => {
-                let in_range = current_postion.distance(*position) <= *radius;
-
-                let direction = (position - current_postion).normalize_or_zero().perp();
-                let position_on_ring = current_postion + direction * radius;
+                let direction = (position - current_postion).normalize_or_zero();
+                let position_on_ring = position + direction * radius;
                 let mut next_position = position_on_ring;
+
+                let in_range = current_postion.distance(position_on_ring) <= radius.sqrt();
 
                 if in_range {
                     next_position = position_on_ring + direction.perp() * radius.sqrt();

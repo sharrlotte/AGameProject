@@ -255,7 +255,7 @@ impl BlockRegistry {
             let mut min_x: i32 = 0;
             let mut min_y: i32 = 0;
 
-            let mut min_range: f32 = 100.0;
+            let mut min_range: f32 = 10000.0;
             let mut max_range: f32 = 1000.0;
 
             let mut queue: Vec<&BlockData> = Vec::new();
