@@ -684,7 +684,7 @@ pub fn update_ship_behavior(
                 let position_on_ring = position + direction * radius;
                 let mut next_position = position_on_ring;
 
-                let in_range = current_postion.distance(position_on_ring) <= radius.sqrt();
+                let in_range = current_postion.distance(position_on_ring) <= *radius;
 
                 if in_range {
                     next_position = position_on_ring + direction.perp() * radius / 2.0;
@@ -708,7 +708,7 @@ pub fn update_ship_behavior(
                 let force_multiplier = if distance > *radius {
                     1.0
                 } else {
-                    (distance / radius).squared()
+                    distance / radius
                 };
 
                 let torque_multiplier: f32 = (angle_diff.abs() / velocity.angvel.abs())
