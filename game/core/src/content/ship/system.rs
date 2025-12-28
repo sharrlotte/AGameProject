@@ -2,7 +2,7 @@ use crate::common::death::component::Death;
 use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::Block;
 use crate::content::block::message::BlockDestroyedEvent;
-use crate::content::block::resource::{BlockRegistry, BlockType, ShipCalculatedStat};
+use crate::content::block::resource::{BlockRegistry, BlockType, DropEvent, ShipCalculatedStat};
 use crate::content::ship::component::{AIShipController, Blocks, Ship, ShipBehavior, ShipUIRoot};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;
@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use uuid::Uuid;
 
-use bevy::math::{FloatPow, VectorSpace};
+use bevy::math::FloatPow;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::ship::component::AIShipBehavior;
@@ -88,22 +88,23 @@ pub fn check_rebuild_ship_collider(
     mut blocks: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
     ship_blocks: Query<(Entity, &Block)>,
     registry: Res<BlockRegistry>,
+    mut drop_writer: MessageWriter<DropEvent>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut blocks, _, _)) = blocks.get_mut(event.ship_id) else {
+        let Ok((entity, mut ship_block, transform, _)) = blocks.get_mut(event.ship) else {
             continue;
         };
 
-        if let Some(block) = registry.get(&event.block) {
+        if let Some(block) = registry.get(&event.block_type) {
             if block.block_type == BlockType::Core {
                 commands.entity(entity).insert(Death);
                 continue;
             }
         }
 
-        blocks.blocks.retain_mut(|f| f.id != event.block_id);
+        ship_block.blocks.retain_mut(|f| f.id != event.block_id);
 
-        let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&blocks.blocks);
+        let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
 
         if let Some(ship) = ship {
             let collider = registry.build_ship_voxel_collider_2d(&ship.blocks);
@@ -126,7 +127,22 @@ pub fn check_rebuild_ship_collider(
             }
         }
 
-        // for fragment in fragments {
+        for fragment in fragments {
+            for block in &fragment.blocks {
+                let Some(def) = registry.get(&block.block_type) else {
+                    continue;
+                };
+
+                let position =  transform.transform_point(block.position_pixel().extend(0.0)).truncate();
+
+                for drop in &def.drops {
+                    drop_writer.write(DropEvent {
+                        position: position,
+                        drop: drop.clone(),
+                    });
+                }
+            }
+        }
 
         // let collider = registry.build_ship_voxel_collider_2d(&fragment.blocks);
 
@@ -609,13 +625,13 @@ pub fn update_ship_behavior(
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance(*position);
 
-                // gizmos.line_2d(
-                //     current_postion,
-                //     position.clone(),
-                //     Color::srgb(0.0, 1.0, 1.0),
-                // );
+                gizmos.line_2d(
+                    current_postion,
+                    position.clone(),
+                    Color::srgb(0.0, 1.0, 1.0),
+                );
 
-                // gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
+                gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
 
                 let force_multiplier = if distance > *radius {
                     1.0

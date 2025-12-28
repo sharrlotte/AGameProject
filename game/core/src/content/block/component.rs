@@ -5,13 +5,16 @@ use uuid::Uuid;
 
 use crate::{
     common::entity_type::EntityType,
+    constant::GRID_SIZE,
     content::{
         block::{
-            radar::component::Radar, resource::{BlockDef, BlockType}, turret::component::{Turret, TurretState}
-        }, team::Team
+            radar::component::Radar,
+            resource::{BlockDef, BlockType},
+            turret::component::{Turret, TurretState},
+        },
+        team::Team,
     },
 };
-
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct RecoilComponent {
@@ -234,7 +237,6 @@ pub struct LaserBeamPatternState {
     pub shooting: LaserBeamPatternShootingState,
 }
 
-
 #[derive(Component, Clone, PartialEq)]
 pub struct Block {
     pub id: Uuid,
@@ -304,6 +306,10 @@ pub struct BlockData {
 }
 
 impl BlockData {
+    pub fn position_pixel(&self) -> Vec2 {
+        self.position.as_vec2() * GRID_SIZE
+    }
+
     pub fn spawn(
         &self,
         commands: &mut Commands,

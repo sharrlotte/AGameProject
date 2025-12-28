@@ -4,7 +4,28 @@ use bevy::prelude::*;
 
 #[derive(Debug, Reflect, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum ItemType {
-    Steel
+    Steel,
+}
+
+#[derive(Debug, Reflect, Copy, Clone)]
+pub enum Rarity {
+    Common,
+    Uncommon,
+    Rare,
+    Epic,
+    Legendary,
+}
+
+impl Rarity {
+    pub fn color(&self) -> Color {
+        match self {
+            Rarity::Common => Color::srgb(5.0, 5.0, 5.0),
+            Rarity::Uncommon => Color::srgb(2.5, 5.0, 2.5),
+            Rarity::Rare => Color::srgb(2.5, 2.5, 5.0),
+            Rarity::Epic => Color::srgb(5.0, 2.5, 5.0),
+            Rarity::Legendary => Color::srgb(5.0, 5.0, 2.5),
+        }
+    }
 }
 
 #[derive(Debug, Reflect, Hash, Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
@@ -22,6 +43,7 @@ pub struct ItemRegistry {
 pub struct ItemDef {
     pub item_type: ItemType,
     pub item_group: ItemGroup,
+    pub rarity: Rarity,
     pub name: String,
 }
 
@@ -52,6 +74,7 @@ pub fn register_default_items(mut registry: ResMut<ItemRegistry>) {
     registry.register(ItemDef {
         item_type: ItemType::Steel,
         item_group: ItemGroup::Resource,
+        rarity: Rarity::Common,
         name: "steal".to_string(),
     });
 }

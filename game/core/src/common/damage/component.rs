@@ -7,9 +7,3 @@ use crate::save::component::Save;
 pub struct Damage {
     pub damage: f32,
 }
-
-#[derive(Component, Debug)]
-pub struct DamageText {
-    pub timer: Timer,
-}
-

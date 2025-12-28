@@ -3,36 +3,22 @@ use bevy::{
     ecs::{
         entity::Entity,
         message::{MessageReader, MessageWriter},
-        system::{Commands, Query, Res},
+        system::{Commands, Query},
     },
     sprite::Text2d,
     text::{TextColor, TextFont},
-    time::{Time, Timer, TimerMode},
     transform::components::{GlobalTransform, Transform},
     utils::default,
 };
 use bevy_rapier2d::prelude::CollisionEvent;
 
 use crate::{
-    common::damage::{
-        component::{Damage, DamageText},
-        message::DamageEvent,
+    common::{
+        damage::{component::Damage, message::DamageEvent},
+        lifetime::component::Lifetime,
     },
     content::block::component::Health,
 };
-
-pub fn clear_damage_text(
-    mut commands: Commands,
-    mut damage_texts: Query<(Entity, &mut DamageText)>,
-    time: Res<Time>,
-) {
-    for (entity, mut damage_text) in damage_texts.iter_mut() {
-        damage_text.timer.tick(time.delta());
-        if damage_text.timer.is_finished() {
-            commands.entity(entity).despawn();
-        }
-    }
-}
 
 pub fn handle_damage_events(
     mut commands: Commands,
@@ -45,12 +31,10 @@ pub fn handle_damage_events(
 
             commands.spawn((
                 Transform::from_translation(transform.translation().truncate().extend(1000.0)),
-                DamageText {
-                    timer: Timer::from_seconds(0.5, TimerMode::Once),
-                },
+                Lifetime::seconds(1.5),
                 Text2d::new(event.damage.to_string()),
                 TextFont {
-                    font_size: 50.0,
+                    font_size: 500.0,
                     ..default()
                 },
                 TextColor(Color::srgb(1.0, 0.0, 0.0)),

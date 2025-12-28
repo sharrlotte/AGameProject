@@ -6,7 +6,7 @@ use crate::content::block::resource::BlockType;
 
 #[derive(Message, Debug, Clone)]
 pub struct BlockDestroyedEvent {
-    pub block: BlockType,
+    pub block_type: BlockType,
     pub block_id: Uuid,
-    pub ship_id: Entity,
+    pub ship: Entity,
 }

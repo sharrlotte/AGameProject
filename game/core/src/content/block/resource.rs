@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    common::lifetime::component::Lifetime, constant::{
-        DROP_DESPAWN_IN_SECONDS, DROP_SIZE, GRID_SIZE, LAYER_BLOCK, LAYER_DROP, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR
-    }, content::{
+    constant::{
+        GRID_SIZE, LAYER_BLOCK, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR,
+    },
+    content::{
         block::component::{
             BlockComponent, BlockData, BurstShootPattern, LaserBeamPattern, PullingBeamPattern,
             ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent,
@@ -15,7 +16,7 @@ use crate::{
         },
         item::resource::ItemType,
         ship::component::{Ship, ShipFragment},
-    }
+    },
 };
 
 pub const FACE_RIGHT: u8 = 0b0001; // +X
@@ -113,23 +114,10 @@ pub enum Drop {
     Item(ItemDrop),
 }
 
-impl Drop {
-    pub fn spawn(&self, commands: &mut Commands, position: Vec2) -> Entity {
-        let drop = commands
-            .spawn((
-                self.clone(),
-                Transform::from_translation(position.extend(LAYER_DROP)),
-                Sprite {
-                    color: Color::srgb(0.8, 0.8, 0.8),
-                    custom_size: Some(Vec2::new(DROP_SIZE, DROP_SIZE)),
-                    ..default()
-                },
-                Lifetime::seconds(DROP_DESPAWN_IN_SECONDS),
-            ))
-            .id();
-
-        return drop;
-    }
+#[derive(Message, Clone, PartialEq, Reflect)]
+pub struct DropEvent {
+    pub drop: Drop,
+    pub position: Vec2,
 }
 
 #[derive(Clone, PartialEq, Reflect)]
@@ -259,8 +247,8 @@ impl BlockRegistry {
 
             let mut mass: f32 = 0.0;
             let mut core_position = None;
-            let mut thrust_power: f32 = 300.0;
-            let mut turn_speed: f32 = 80.0;
+            let mut thrust_power: f32 = 0.0;
+            let mut turn_speed: f32 = 0.0;
 
             let mut max_x: i32 = 0;
             let mut max_y: i32 = 0;
@@ -414,8 +402,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
             BlockComponent::Thruster(ThrusterComponent {
-                force: 1000.0,
-                torque: 500.0,
+                force: 200.0,
+                torque: 100.0,
             }),
         ],
         drops: vec![Drop::Item(ItemDrop {
@@ -444,6 +432,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
+            }),
+            BlockComponent::Thruster(ThrusterComponent {
+                force: 100.0,
+                torque: 40.0,
             }),
         ],
         drops: vec![Drop::Item(ItemDrop {
