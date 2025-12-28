@@ -306,6 +306,15 @@ pub struct BlockData {
 }
 
 impl BlockData {
+    pub fn new(&self) -> Self {
+        Self {
+            id: Uuid::now_v7(),
+            position: self.position,
+            block_type: self.block_type,
+            rotation: self.rotation,
+        }
+    }
+
     pub fn position_pixel(&self) -> Vec2 {
         self.position.as_vec2() * GRID_SIZE
     }
@@ -332,7 +341,7 @@ impl BlockData {
                 ColliderMassProperties::Mass(0.0),
                 Sensor,
                 Block {
-                    id: Uuid::now_v7(),
+                    id: self.id,
                     block_type: self.block_type,
                     rotation: self.rotation,
                     position: self.position,

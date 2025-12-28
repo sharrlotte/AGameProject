@@ -136,6 +136,13 @@ pub struct ShipData {
 }
 
 impl ShipData {
+    pub fn new(&self) -> ShipData {
+        Self {
+            id: Uuid::now_v7(),
+            blocks: self.blocks.iter().map(|f| f.new()).collect(),
+        }
+    }
+
     pub fn spawn(
         &self,
         mut commands: &mut Commands,
@@ -149,9 +156,7 @@ impl ShipData {
             return None;
         };
 
-        let mut shipc = data.data.clone();
-        shipc.id = Uuid::now_v7();
-
+        let shipc = data.data.clone();
         let Ship { mass, .. } = data.data;
         let collider = registry.build_ship_voxel_collider_2d(&data.blocks);
 

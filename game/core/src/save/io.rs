@@ -350,7 +350,7 @@ pub fn handle_load_world_event(
                 blocks,
             };
 
-            let ship = data.spawn(
+            let ship = data.new().spawn(
                 &mut commands,
                 &registry,
                 ship_data.team,
