@@ -680,7 +680,7 @@ pub fn update_ship_behavior(
                 }
             }
             ShipBehavior::GoAround { position, radius } => {
-                let direction = (position - current_postion).normalize_or_zero();
+                let direction = (current_postion - position).normalize_or_zero();
                 let position_on_ring = position + direction * radius;
                 let mut next_position = position_on_ring;
 
