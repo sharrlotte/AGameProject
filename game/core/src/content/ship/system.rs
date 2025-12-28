@@ -102,8 +102,6 @@ pub fn check_rebuild_ship_collider(
             }
         }
 
-        ship_block.blocks.retain_mut(|f| f.id != event.block_id);
-
         let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
 
         if let Some(ship) = ship {
@@ -112,6 +110,9 @@ pub fn check_rebuild_ship_collider(
             commands.entity(entity).remove::<Collider>().insert((
                 ship.clone(),
                 collider,
+                Blocks {
+                    blocks: ship.blocks,
+                },
                 ColliderMassProperties::Mass(ship.mass),
             ));
         }
@@ -121,9 +122,13 @@ pub fn check_rebuild_ship_collider(
             .flat_map(|f| f.blocks.iter().map(|b| b.id))
             .collect();
 
-        for (ship_entity, block) in ship_blocks.iter() {
+        ship_block
+            .blocks
+            .retain_mut(|f| f.id != event.block_id && !delete_blocks.contains(&f.id));
+
+        for (block_entity, block) in ship_blocks.iter() {
             if delete_blocks.contains(&block.id) {
-                commands.entity(ship_entity).insert(Death);
+                commands.entity(block_entity).insert(Death);
             }
         }
 
@@ -133,7 +138,9 @@ pub fn check_rebuild_ship_collider(
                     continue;
                 };
 
-                let position =  transform.transform_point(block.position_pixel().extend(0.0)).truncate();
+                let position = transform
+                    .transform_point(block.position_pixel().extend(0.0))
+                    .truncate();
 
                 for drop in &def.drops {
                     drop_writer.write(DropEvent {
@@ -191,16 +198,16 @@ pub fn update_ship_ui(
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior, global_transform)) => {
-                // let current = controller.current();
+                let current = controller.current();
 
-                // commands.entity(ui_entity).insert((
-                //     Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
-                //     TextFont {
-                //         font_size: 90.0,
-                //         ..default()
-                //     },
-                //     Transform::from_rotation(global_transform.rotation().inverse()),
-                // ));
+                commands.entity(ui_entity).insert((
+                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
+                    TextFont {
+                        font_size: 90.0,
+                        ..default()
+                    },
+                    Transform::from_rotation(global_transform.rotation().inverse()),
+                ));
             }
             Err(_) => {}
         }
@@ -447,7 +454,7 @@ pub fn control_ship(
                         controller.next(AIShipBehavior::Wander);
                     } else {
                         commands.entity(entity).insert(ShipBehavior::Approach {
-                            position: a.1.translation().truncate() + a.2.center,
+                            position: a.1.transform_point(a.2.center.extend(0.0)).truncate(),
                             radius: (a.2.size.length() + ship.size.length()) * 2.0,
                         });
                     }
@@ -490,10 +497,7 @@ pub fn control_ship(
                         });
                     }
                 } else {
-                    commands.entity(entity).insert(ShipBehavior::GoAround {
-                        position: Vec2::ZERO,
-                        radius: ship.min_range * 0.9,
-                    });
+                    controller.next(AIShipBehavior::Idle);
                 }
             }
             AIShipBehavior::Wander => {
