@@ -607,12 +607,12 @@ pub fn update_ship_behavior(
         &ShipBehavior,
         &Transform,
         &mut ExternalForce,
-        &Velocity,
+        &mut Velocity,
     )>,
     state: Res<GameVars>,
     mut gizmos: Gizmos,
 ) {
-    for (entity, ship, size, behavior, transform, mut force, velocity) in ships.iter_mut() {
+    for (entity, ship, size, behavior, transform, mut force, mut velocity) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
             && controlling == entity
         {
@@ -651,24 +651,25 @@ pub fn update_ship_behavior(
                     (distance / radius).squared()
                 };
 
+                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angvel.abs())
+                    .clamp(0.0, 1.0)
+                    .squared();
+
                 let mut torque: f32 = if angle_diff > 0.0 {
                     *turn_speed
                 } else {
-                    -*turn_speed
-                };
+                    -turn_speed
+                } * torque_multiplier;
 
-                if (torque < 0.0 && velocity.angvel < 0.0)
-                    || (torque > 0.0 && velocity.angvel > 0.0)
-                {
-                    if velocity.angvel.abs() > PI / 4.0 {
-                        torque = -torque / 2.0;
-                    }
+                if angle_diff.abs() < 0.01 && velocity.angvel.abs() < 0.01 {
+                    torque = 0.0;
+                    velocity.angvel = 0.0;
                 }
 
                 force.torque = torque;
 
                 let speed = velocity.linvel.length();
-                let stop_distance = speed / LINEAR_DAMPING;
+                let stop_distance = speed * speed / (2.0 * LINEAR_DAMPING);
 
                 if distance <= stop_distance {
                     force.force = Vec2::ZERO;
@@ -709,11 +710,13 @@ pub fn update_ship_behavior(
                     (distance / radius.squared()).squared()
                 };
 
+                let torque_multiplier: f32 = (angle_diff.abs() / (PI / 8.0)).clamp(0.0, 1.0);
+
                 let mut torque: f32 = if angle_diff > 0.0 {
                     *turn_speed
                 } else {
                     -*turn_speed
-                };
+                } * torque_multiplier;
 
                 if velocity.angvel > angle_diff {
                     torque = -torque;

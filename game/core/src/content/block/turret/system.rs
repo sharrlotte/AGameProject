@@ -98,7 +98,7 @@ pub fn update_turret_target(
         {
             let to_target =
                 target_transform.translation().truncate() - transform.translation().truncate();
-            let target_dir = to_target.normalize();
+            let target_dir = to_target.normalize_or_zero();
             let forward: Vec2 = transform.up().truncate();
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
@@ -153,7 +153,7 @@ pub fn turret_tracking(
                 continue;
             }
 
-            let target_dir = to_target.normalize();
+            let target_dir = to_target.normalize_or_zero();
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
             let max_turn = turret.turn_speed * time.delta_secs();
             let turn = angle_error.clamp(-max_turn, max_turn);

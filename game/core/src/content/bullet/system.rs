@@ -77,7 +77,7 @@ pub fn handle_missiles(
                     continue;
                 }
 
-                let target_dir = to_target.normalize();
+                let target_dir = to_target.normalize_or_zero();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
                 let max_turn = 2.0 * time.delta_secs();
@@ -372,7 +372,7 @@ pub fn spawn_bullet(
     let rotation = turret_transform.rotation();
     let offset = rotation * barrel_position.extend(LAYER_BULLET);
     let spawn_position = turret_transform.translation() + offset;
-    let dir = (rotation * Vec3::Y).truncate().normalize();
+    let dir = (rotation * Vec3::Y).truncate().normalize_or_zero();
 
     match &projectile {
         ShootingProjectile::Bullet {
@@ -517,7 +517,7 @@ pub fn handle_laser(
                 origin,
                 rotation,
             } => {
-                let dir = (*rotation * Vec3::Y).truncate().normalize();
+                let dir = (*rotation * Vec3::Y).truncate().normalize_or_zero();
 
                 let mut laser_length = *length;
 

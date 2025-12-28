@@ -25,4 +25,4 @@ pub const DROP_DESPAWN_IN_SECONDS: f32 = 5.0 * 60.0;
 pub const DROP_COLLECT_RADIUS: f32 = 1000.0;
 
 pub const LINEAR_DAMPING: f32 = 0.9;
-pub const ANGULAR_DAMPING: f32 = 0.9;
+pub const ANGULAR_DAMPING: f32 = 0.999;
