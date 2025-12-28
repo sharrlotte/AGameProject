@@ -5,7 +5,7 @@ use crate::GameState;
 use crate::constant::{GRID_SIZE, SMALL_GRID_SIZE};
 use crate::content::block::component::{Block, Health, ShipIdComponent};
 use crate::content::block::resource::BlockRegistry;
-use crate::content::ship::component::Ship;
+use crate::content::ship::component::{BoundingBox, Ship};
 use crate::content::team::Team;
 use crate::resource::TurretControl;
 use crate::scene::component::SceneItem;
@@ -61,7 +61,7 @@ pub fn handle_ship_button_click(
 
 pub fn update_ship_buttons(
     mut commands: Commands,
-    ships: Query<(Entity, &Ship, &Team)>,
+    ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
     mut ship_list: Query<Entity, With<ShipList>>,
     block_list: Query<(Entity, &Block, &Health, &ShipIdComponent)>,
     state: Res<GameVars>,
@@ -75,12 +75,12 @@ pub fn update_ship_buttons(
 
     let mut player_ships = ships
         .iter()
-        .filter(|(_, _, team)| team.is_player())
+        .filter(|(_, _, _, team)| team.is_player())
         .collect::<Vec<_>>();
 
     player_ships.sort_by(|a, b| a.1.id.cmp(&b.1.id));
 
-    for (entity, ship, _) in player_ships.iter() {
+    for (entity, _, bbox, _) in player_ships.iter() {
         commands.entity(ship_list).with_children(|container| {
             let color: Color = if let Some(controlling) = state.controlling
                 && controlling == *entity
@@ -99,8 +99,8 @@ pub fn update_ship_buttons(
                     Node {
                         position_type: PositionType::Relative,
                         width: Val::Percent(100.0),
-                        min_width: Val::Px((ship.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                        height: Val::Px((ship.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         margin: UiRect::all(Val::Px(4.0)),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()

@@ -17,7 +17,7 @@ use crate::content::block::component::{
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
 use crate::content::bullet::component::Laser;
-use crate::content::ship::component::Ship;
+use crate::content::ship::component::{BoundingBox, Ship};
 use crate::content::team::Team;
 use crate::{
     common::death::component::Death,
@@ -53,7 +53,7 @@ pub fn destroy_out_of_range_bullet(
 
 pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
-    targets: Query<&GlobalTransform>,
+    targets: Query<(&GlobalTransform, &BoundingBox)>,
     time: Res<Time>,
 ) {
     for (mut missile, mut transform, global) in missiles.iter_mut() {
@@ -67,9 +67,11 @@ pub fn handle_missiles(
         let current_speed = missile.speed * eased;
 
         if let Some(target) = missile.target {
-            if let Ok(target_gt) = targets.get(target) {
-                let to_target =
-                    target_gt.translation().truncate() - global.translation().truncate();
+            if let Ok((target_gt, target_bbox)) = targets.get(target) {
+                let to_target = target_gt
+                    .transform_point(target_bbox.center.extend(0.0))
+                    .truncate()
+                    - global.translation().truncate();
 
                 if to_target.length_squared() < 0.0001 {
                     continue;

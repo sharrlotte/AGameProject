@@ -3,7 +3,9 @@ use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::component::Block;
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{BlockRegistry, BlockType, DropEvent, ShipCalculatedStat};
-use crate::content::ship::component::{AIShipController, Blocks, Ship, ShipBehavior, ShipUIRoot};
+use crate::content::ship::component::{
+    AIShipController, Blocks, BoundingBox, Ship, ShipBehavior, ShipUIRoot,
+};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;
 use crate::scene::game::resource::GameVars;
@@ -105,26 +107,28 @@ pub fn check_rebuild_ship_collider(
         let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
 
         if let Some(ship) = ship {
-            let collider = registry.build_ship_voxel_collider_2d(&ship.blocks);
+            let collider = registry.build_ship_voxel_collider_2d(&ship.data.blocks);
 
             commands.entity(entity).remove::<Collider>().insert((
-                ship.clone(),
+                ship.data.clone(),
                 collider,
                 Blocks {
-                    blocks: ship.blocks,
+                    blocks: ship.data.blocks,
                 },
-                ColliderMassProperties::Mass(ship.mass),
+                ColliderMassProperties::Mass(ship.data.mass),
             ));
         }
 
-        let delete_blocks: HashSet<Uuid> = fragments
+        let mut delete_blocks: HashSet<Uuid> = fragments
             .iter()
             .flat_map(|f| f.blocks.iter().map(|b| b.id))
             .collect();
 
+        delete_blocks.insert(event.block_id);
+
         ship_block
             .blocks
-            .retain_mut(|f| f.id != event.block_id && !delete_blocks.contains(&f.id));
+            .retain_mut(|f| !delete_blocks.contains(&f.id));
 
         for (block_entity, block) in ship_blocks.iter() {
             if delete_blocks.contains(&block.id) {
@@ -374,32 +378,35 @@ pub fn control_ship(
             &mut ExternalForce,
             &Transform,
             &Ship,
+            &BoundingBox,
             &Team,
         ),
         Without<Camera2d>,
     >,
-    ships2: Query<(Entity, &GlobalTransform, &Ship, &Team)>,
+    ships2: Query<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>,
     global_transforms: Query<&Transform, Without<Camera2d>>,
     state: ResMut<GameVars>,
     mut commands: Commands,
 ) {
-    let mut teams: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &Team)>> = HashMap::new();
-    let mut enemies: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &Team)>> = HashMap::new();
+    let mut teams: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>> =
+        HashMap::new();
+    let mut enemies: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>> =
+        HashMap::new();
 
     let mut rng = rand::rng();
 
     for ship in ships2 {
-        let value = teams.get_mut(&ship.3.id);
+        let value = teams.get_mut(&ship.4.id);
 
         if let Some(team) = value {
             team.push(ship);
         } else {
-            teams.insert(ship.3.id, vec![ship]);
+            teams.insert(ship.4.id, vec![ship]);
         }
     }
 
     for (team_id, _) in teams.iter() {
-        let mut enemy: Vec<(Entity, &GlobalTransform, &Ship, &Team)> = Vec::new();
+        let mut enemy = Vec::new();
 
         for (_, enemy_team) in teams.iter().filter(|f| f.0 != team_id) {
             enemy.extend(enemy_team.iter());
@@ -408,7 +415,7 @@ pub fn control_ship(
         enemies.insert(*team_id, enemy);
     }
 
-    for (entity, mut controller, _, transform, ship, team) in ships {
+    for (entity, mut controller, _, transform, ship, bbox, team) in ships {
         if !controller.timer.tick(time.delta()).just_finished() {
             continue;
         }
@@ -452,14 +459,14 @@ pub fn control_ship(
                         .translation
                         .truncate()
                         .distance(a.1.translation().truncate())
-                        <= (a.2.size.length() + ship.size.length()) * 2.0;
+                        <= (a.3.size.length() + bbox.size.length()) * 2.0;
 
                     if is_in_range {
                         controller.next(AIShipBehavior::Wander);
                     } else {
                         commands.entity(entity).insert(ShipBehavior::Approach {
-                            position: a.1.transform_point(a.2.center.extend(0.0)).truncate(),
-                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
+                            position: a.1.transform_point(a.3.center.extend(0.0)).truncate(),
+                            radius: (a.3.size.length() + bbox.size.length()) * 2.0,
                         });
                     }
                 } else {
@@ -472,7 +479,7 @@ pub fn control_ship(
                 } else {
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: Vec2::ZERO,
-                        radius: ship.size.length() * 2.0,
+                        radius: bbox.size.length() * 2.0,
                     });
                 }
             }
@@ -512,20 +519,20 @@ pub fn control_ship(
                     if let Some(a) = ally.last() {
                         controller.next(AIShipBehavior::Guard {
                             target: a.0,
-                            radius: (a.2.size.length() + ship.size.length()) * 2.0,
+                            radius: (a.3.size.length() + bbox.size.length()) * 2.0,
                         });
                     }
                 } else {
                     controller.next(AIShipBehavior::Patrol {
                         around_position: Vec2::ZERO,
-                        radius: ship.size.length() * 10.0,
+                        radius: bbox.size.length() * 10.0,
                     });
                 }
             }
             AIShipBehavior::Attack { target_position } => {
                 commands.entity(entity).insert(ShipBehavior::Approach {
                     position: target_position,
-                    radius: ship.size.length(),
+                    radius: bbox.size.length(),
                 });
             }
             AIShipBehavior::Flee { from } => {
@@ -542,7 +549,7 @@ pub fn control_ship(
 
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: op_position,
-                        radius: ship.size.length(),
+                        radius: bbox.size.length(),
                     });
                 }
             }
@@ -586,7 +593,7 @@ pub fn control_ship(
 
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: target_pos_actual,
-                        radius: ship.size.length(),
+                        radius: bbox.size.length(),
                     });
                 } else {
                     controller.previous();
@@ -600,6 +607,7 @@ pub fn update_ship_behavior(
     mut ships: Query<(
         Entity,
         &Ship,
+        &BoundingBox,
         &ShipBehavior,
         &Transform,
         &mut ExternalForce,
@@ -608,7 +616,7 @@ pub fn update_ship_behavior(
     state: Res<GameVars>,
     mut gizmos: Gizmos,
 ) {
-    for (entity, ship, behavior, transform, mut force, velocity) in ships.iter_mut() {
+    for (entity, ship, size, behavior, transform, mut force, velocity) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
             && controlling == entity
         {
@@ -618,9 +626,10 @@ pub fn update_ship_behavior(
         let Ship {
             thrust_power,
             turn_speed,
-            center,
             ..
         } = ship;
+
+        let center = size.center;
 
         let current_postion = transform.transform_point(center.extend(0.0)).truncate();
         let forward = transform.local_y().truncate();

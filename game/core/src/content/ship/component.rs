@@ -23,11 +23,15 @@ pub struct Ship {
     pub thrust_power: f32,
     pub turn_speed: f32,
     pub core_position: Vec2,
-    pub center: Vec2,
-    pub size: Vec2,
     pub max_range: f32,
     pub min_range: f32,
     pub mass: f32,
+}
+
+#[derive(Component, Debug, Default, Clone)]
+pub struct BoundingBox {
+    pub size: Vec2,
+    pub center: Vec2,
 }
 
 #[derive(Component, Debug, Default, Clone)]
@@ -146,8 +150,8 @@ impl ShipData {
             return None;
         };
 
-        let shipc = ship.clone();
-        let Ship { mass, blocks, .. } = ship;
+        let shipc = ship.data.clone();
+        let Ship { mass, blocks, .. } = ship.data;
         let collider = registry.build_ship_voxel_collider_2d(&blocks);
 
         let ship = commands
@@ -158,6 +162,10 @@ impl ShipData {
                 EntityType::Ship,
                 Blocks {
                     blocks: blocks.clone(),
+                },
+                BoundingBox {
+                    size: ship.size,
+                    center: ship.center,
                 },
                 transform,
                 team,

@@ -105,9 +105,9 @@ pub fn update_turret_target(
             state.target = Some(entity);
 
             if turret.turn_speed == 0. {
-                state.active = angle_error.abs() < PI / 16.0;
+                state.active = angle_error.abs() < PI / 64.0;
             } else {
-                state.active = angle_error.abs() < PI / 4.0;
+                state.active = angle_error.abs() < PI / 32.0;
             }
         } else {
             state.target = None;

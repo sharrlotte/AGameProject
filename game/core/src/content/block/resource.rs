@@ -162,8 +162,14 @@ pub struct BlockRegistry {
     map: HashMap<BlockType, BlockDef>,
 }
 
+pub struct ShipCalculatedData {
+    pub data: Ship,
+    pub size: Vec2,
+    pub center: Vec2,
+}
+
 pub struct ShipCalculatedStat {
-    pub ship: Option<Ship>,
+    pub ship: Option<ShipCalculatedData>,
     pub fragments: Vec<ShipFragment>,
 }
 
@@ -223,7 +229,7 @@ impl BlockRegistry {
     pub fn blocks_stats(&self, blocks: &[BlockData]) -> ShipCalculatedStat {
         let mut visited: HashSet<Uuid> = HashSet::new();
         let mut cell_map: HashMap<IVec2, &BlockData> = HashMap::new();
-        let mut ship: Option<Ship> = None;
+        let mut ship: Option<ShipCalculatedData> = None;
         let mut fragments: Vec<ShipFragment> = Vec::new();
 
         for block in blocks {
@@ -330,12 +336,7 @@ impl BlockRegistry {
             }
 
             if let Some(core_position) = core_position {
-                ship = Some(Ship {
-                    id: block.id,
-                    blocks: current_blocks,
-                    thrust_power: thrust_power * THRUST_POWER_FACTOR,
-                    turn_speed: turn_speed * TURN_SPEED_FACTOR,
-                    core_position,
+                ship = Some(ShipCalculatedData {
                     size: Vec2::new(
                         (max_x - min_x) as f32 * GRID_SIZE,
                         (max_y - min_y) as f32 * GRID_SIZE,
@@ -344,9 +345,16 @@ impl BlockRegistry {
                         (max_x + min_x) as f32 * 0.5 * GRID_SIZE,
                         (max_y + min_y) as f32 * 0.5 * GRID_SIZE,
                     ),
-                    max_range,
-                    min_range,
-                    mass,
+                    data: Ship {
+                        id: block.id,
+                        blocks: current_blocks,
+                        thrust_power: thrust_power * THRUST_POWER_FACTOR,
+                        turn_speed: turn_speed * TURN_SPEED_FACTOR,
+                        core_position,
+                        max_range,
+                        min_range,
+                        mass,
+                    },
                 });
             } else {
                 if current_blocks.len() > 0 {

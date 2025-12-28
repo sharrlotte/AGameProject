@@ -20,5 +20,5 @@ pub const LAYER_SHIP_UI: f32 = 300.0;
 pub const MIN_ZOOM: f32 = 0.2;
 pub const MAX_ZOOM: f32 = 30.0;
 
-pub const MAX_SHIPS: usize = 2;
+pub const MAX_SHIPS: usize = 6;
 pub const DROP_DESPAWN_IN_SECONDS: f32 = 5.0 * 60.0;
