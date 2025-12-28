@@ -11,6 +11,7 @@ mod world;
 
 use crate::common::damage::plugin::DamagePlugin;
 use crate::common::death::plugin::DeathPlugin;
+use crate::common::lifetime::plugin::LifetimePlugin;
 use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::resource::{GameState, PauseState, SceneState};
@@ -87,6 +88,7 @@ fn main() {
         HanabiPlugin,
         ContentPlugin,
         SettingScenePlugin,
+        LifetimePlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));
 

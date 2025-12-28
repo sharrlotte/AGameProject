@@ -169,7 +169,7 @@ impl ShipData {
                 ExternalForce::default(),
                 ExternalImpulse::default(),
                 ReadMassProperties::default(),
-                Restitution::coefficient(0.05),
+                Restitution::coefficient(0.005),
                 CollisionGroups::new(team.ship_group(), team.ship_filter()),
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,

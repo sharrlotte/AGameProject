@@ -5,99 +5,13 @@ use uuid::Uuid;
 
 use crate::{
     common::entity_type::EntityType,
-    constant::GRID_SIZE,
     content::{
         block::{
-            radar::component::Radar,
-            turret::component::{Turret, TurretState},
-        },
-        team::Team,
+            radar::component::Radar, resource::{BlockDef, BlockType}, turret::component::{Turret, TurretState}
+        }, team::Team
     },
 };
 
-pub const FACE_RIGHT: u8 = 0b0001; // +X
-pub const FACE_LEFT: u8 = 0b0010; // -X
-pub const FACE_UP: u8 = 0b0100; // +Y
-pub const FACE_DOWN: u8 = 0b1000; // -Y
-pub const FACE_ALL: u8 = 0b1111;
-
-#[derive(Component, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, Eq, Hash, Copy)]
-pub enum BlockType {
-    Hull,
-    Frame,
-    ThrusterSmall,
-    ThrusterLarge,
-    ReactorSmall,
-    WeaponLaser,
-    Cockpit,
-    Core,
-    LazerTurret,
-    Swarmer,
-    Spectre,
-    Meldown,
-    Foreshadow,
-    Colaris,
-    Paralax,
-
-    // Real
-    BlockScrap,
-    BlockSteel,
-}
-
-#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq)]
-pub enum BlockGroup {
-    Core,
-    Base,
-    Turret,
-}
-
-#[derive(Clone, PartialEq, Reflect)]
-pub struct BlockVoxel {
-    pub position: IVec2,
-    pub connectable_faces: u8,
-}
-
-impl Default for BlockVoxel {
-    fn default() -> Self {
-        Self {
-            position: IVec2::ZERO,
-            connectable_faces: FACE_ALL,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Reflect)]
-pub struct BlockShape {
-    pub size: IVec2,
-    pub voxels: Vec<BlockVoxel>,
-}
-
-impl BlockShape {
-    pub fn filled(width: i32, height: i32) -> Self {
-        let mut voxels = Vec::with_capacity((width * height) as usize);
-        for y in 0..height {
-            for x in 0..width {
-                voxels.push(BlockVoxel {
-                    position: IVec2::new(x, y),
-                    connectable_faces: FACE_ALL,
-                });
-            }
-        }
-        Self {
-            size: IVec2::new(width, height),
-            voxels,
-        }
-    }
-}
-
-impl Default for BlockShape {
-    fn default() -> Self {
-        Self {
-            size: IVec2::ONE,
-            voxels: vec![BlockVoxel::default()],
-        }
-    }
-}
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct RecoilComponent {
@@ -320,40 +234,6 @@ pub struct LaserBeamPatternState {
     pub shooting: LaserBeamPatternShootingState,
 }
 
-#[derive(Clone, PartialEq, Reflect)]
-pub struct BlockDef {
-    pub name: String,
-    pub block_type: BlockType,
-    pub block_group: BlockGroup,
-    pub mass: f32,
-    pub health: f32,
-    // Better shape data type for complex voxel structures
-    pub shape: BlockShape,
-    pub cost: u32,
-    pub components: Vec<BlockComponent>,
-}
-
-impl BlockDef {
-    pub fn get_block_size(&self) -> Vec2 {
-        return self.shape.size.as_vec2();
-    }
-
-    pub fn get_pixel_size(&self) -> Vec2 {
-        return self.get_block_size() * GRID_SIZE;
-    }
-
-    pub fn to_transform(&self, position: IVec2) -> Transform {
-        let anchor_position = Vec3::new(
-            position.x as f32 * GRID_SIZE,
-            position.y as f32 * GRID_SIZE,
-            0.0,
-        );
-
-        let position = anchor_position + (self.get_pixel_size() / 2.0).extend(0.0);
-
-        return Transform::from_translation(position);
-    }
-}
 
 #[derive(Component, Clone, PartialEq)]
 pub struct Block {

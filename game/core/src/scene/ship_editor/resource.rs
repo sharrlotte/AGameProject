@@ -1,7 +1,9 @@
 use bevy::{ecs::resource::Resource, math::IVec2};
 
-use crate::{content::{block::component::BlockType, ship::component::ShipGrid}, save::component::SchematicData, scene::ship_editor::component::EditorTab};
-
+use crate::{
+    content::{block::resource::BlockType, ship::component::ShipGrid}, save::component::SchematicData,
+    scene::ship_editor::component::EditorTab,
+};
 
 #[derive(Resource, Default)]
 pub struct EditorState {

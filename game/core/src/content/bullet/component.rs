@@ -1,8 +1,5 @@
+use bevy::ecs::{component::Component, entity::Entity};
 use bevy::prelude::*;
-use bevy::{
-    ecs::{component::Component, entity::Entity},
-    time::Timer,
-};
 
 use crate::{content::team::Team, save::component::Save};
 
@@ -46,24 +43,4 @@ pub struct MissileHitbox {
     pub blast_damage: f32,
     pub blast_radius: f32,
     pub team: Team,
-}
-
-#[derive(Component, Debug, Clone)]
-pub struct Lifetime {
-    timer: Timer,
-}
-
-impl Lifetime {
-    pub fn new(duration: f32) -> Self {
-        Self {
-            timer: Timer::from_seconds(duration, TimerMode::Once),
-        }
-    }
-    pub fn timer(&self) -> &Timer {
-        &self.timer
-    }
-
-    pub fn tick(&mut self, time: &Time) {
-        self.timer.tick(time.delta());
-    }
 }

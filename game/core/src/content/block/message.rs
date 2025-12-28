@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use uuid::Uuid;
 
-use crate::content::block::component::BlockType;
+use crate::content::block::resource::BlockType;
+
 
 #[derive(Message, Debug, Clone)]
 pub struct BlockDestroyedEvent {

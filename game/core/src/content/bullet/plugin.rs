@@ -5,7 +5,9 @@ use crate::{
     content::bullet::{
         physic::handle_collisions,
         system::{
-            cleanup_bullets, destroy_out_of_range_bullet, handle_bullets, handle_burst_shot, handle_laser, handle_laser_beam, handle_missile_radar_target, handle_missiles, handle_single_shot, update_bullet_lifetime
+            cleanup_bullets, destroy_out_of_range_bullet, handle_bullets, handle_burst_shot,
+            handle_laser, handle_laser_beam, handle_missile_radar_target, handle_missiles,
+            handle_single_shot,
         },
     },
 };
@@ -24,7 +26,6 @@ impl Plugin for BulletPlugin {
                 handle_missile_radar_target,
                 handle_laser_beam,
                 destroy_out_of_range_bullet,
-                update_bullet_lifetime,
                 handle_collisions,
             )
                 .run_if(in_state(SceneState::Game)),

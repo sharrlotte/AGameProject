@@ -13,9 +13,10 @@ use crate::{
 pub fn handle_block_destroy(
     mut commands: Commands,
     mut writer: MessageWriter<BlockDestroyedEvent>,
-    mut query: Query<(Entity, &Health, &Block, &ShipIdComponent)>,
+    mut query: Query<(Entity, &Health, &Block, &ShipIdComponent, &GlobalTransform)>,
+    registry: Res<BlockRegistry>,
 ) {
-    for (entity, health, block, ship_id) in query.iter_mut() {
+    for (entity, health, block, ship_id, transform) in query.iter_mut() {
         if health.health <= 0.0 {
             writer.write(BlockDestroyedEvent {
                 block: block.block_type,
@@ -23,6 +24,14 @@ pub fn handle_block_destroy(
                 block_id: block.id,
             });
             commands.entity(entity).insert(Death);
+
+            let Some(def) = registry.get(&block.block_type) else {
+                continue;
+            };
+
+            for drop in def.drops.iter() {
+                drop.spawn(&mut commands, transform.translation().truncate());
+            }
         }
     }
 }

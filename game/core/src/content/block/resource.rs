@@ -1,19 +1,172 @@
 use bevy::{platform::collections::HashSet, prelude::*};
 use bevy_rapier2d::prelude::Collider;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    constant::{
-        GRID_SIZE, LAYER_BLOCK, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR,
-    },
-    content::{
+    common::lifetime::component::Lifetime, constant::{
+        DROP_DESPAWN_IN_SECONDS, DROP_SIZE, GRID_SIZE, LAYER_BLOCK, LAYER_DROP, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR, TURN_SPEED_FACTOR
+    }, content::{
         block::component::{
-            BlockComponent, BlockData, BlockDef, BlockGroup, BlockShape, BlockType, BurstShootPattern, LaserBeamPattern, PullingBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent, TargetingStrategy, ThrusterComponent, TurretComponent
+            BlockComponent, BlockData, BurstShootPattern, LaserBeamPattern, PullingBeamPattern,
+            ShootPattern, ShootingProjectile, SingleShootPattern, SpriteComponent,
+            TargetingStrategy, ThrusterComponent, TurretComponent,
         },
+        item::resource::ItemType,
         ship::component::{Ship, ShipFragment},
-    },
+    }
 };
+
+pub const FACE_RIGHT: u8 = 0b0001; // +X
+pub const FACE_LEFT: u8 = 0b0010; // -X
+pub const FACE_UP: u8 = 0b0100; // +Y
+pub const FACE_DOWN: u8 = 0b1000; // -Y
+pub const FACE_ALL: u8 = 0b1111;
+
+#[derive(Component, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, Eq, Hash, Copy)]
+pub enum BlockType {
+    Hull,
+    Frame,
+    ThrusterSmall,
+    ThrusterLarge,
+    ReactorSmall,
+    WeaponLaser,
+    Cockpit,
+    Core,
+    LazerTurret,
+    Swarmer,
+    Spectre,
+    Meldown,
+    Foreshadow,
+    Colaris,
+    Paralax,
+
+    // Real
+    BlockScrap,
+    BlockSteel,
+}
+
+#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq)]
+pub enum BlockGroup {
+    Core,
+    Base,
+    Turret,
+}
+
+#[derive(Clone, PartialEq, Reflect)]
+pub struct BlockVoxel {
+    pub position: IVec2,
+    pub connectable_faces: u8,
+}
+
+impl Default for BlockVoxel {
+    fn default() -> Self {
+        Self {
+            position: IVec2::ZERO,
+            connectable_faces: FACE_ALL,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Reflect)]
+pub struct BlockShape {
+    pub size: IVec2,
+    pub voxels: Vec<BlockVoxel>,
+}
+
+impl BlockShape {
+    pub fn filled(width: i32, height: i32) -> Self {
+        let mut voxels = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                voxels.push(BlockVoxel {
+                    position: IVec2::new(x, y),
+                    connectable_faces: FACE_ALL,
+                });
+            }
+        }
+        Self {
+            size: IVec2::new(width, height),
+            voxels,
+        }
+    }
+}
+
+impl Default for BlockShape {
+    fn default() -> Self {
+        Self {
+            size: IVec2::ONE,
+            voxels: vec![BlockVoxel::default()],
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Reflect)]
+pub struct ItemDrop {
+    pub item_type: ItemType,
+    pub amount: u32,
+}
+
+#[derive(Component, Clone, PartialEq, Reflect)]
+pub enum Drop {
+    Item(ItemDrop),
+}
+
+impl Drop {
+    pub fn spawn(&self, commands: &mut Commands, position: Vec2) -> Entity {
+        let drop = commands
+            .spawn((
+                self.clone(),
+                Transform::from_translation(position.extend(LAYER_DROP)),
+                Sprite {
+                    color: Color::srgb(0.8, 0.8, 0.8),
+                    custom_size: Some(Vec2::new(DROP_SIZE, DROP_SIZE)),
+                    ..default()
+                },
+                Lifetime::seconds(DROP_DESPAWN_IN_SECONDS),
+            ))
+            .id();
+
+        return drop;
+    }
+}
+
+#[derive(Clone, PartialEq, Reflect)]
+pub struct BlockDef {
+    pub name: String,
+    pub block_type: BlockType,
+    pub block_group: BlockGroup,
+    pub mass: f32,
+    pub health: f32,
+    // Better shape data type for complex voxel structures
+    pub shape: BlockShape,
+    pub cost: u32,
+    pub components: Vec<BlockComponent>,
+    pub drops: Vec<Drop>,
+}
+
+impl BlockDef {
+    pub fn get_block_size(&self) -> Vec2 {
+        return self.shape.size.as_vec2();
+    }
+
+    pub fn get_pixel_size(&self) -> Vec2 {
+        return self.get_block_size() * GRID_SIZE;
+    }
+
+    pub fn to_transform(&self, position: IVec2) -> Transform {
+        let anchor_position = Vec3::new(
+            position.x as f32 * GRID_SIZE,
+            position.y as f32 * GRID_SIZE,
+            0.0,
+        );
+
+        let position = anchor_position + (self.get_pixel_size() / 2.0).extend(0.0);
+
+        return Transform::from_translation(position);
+    }
+}
 
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
@@ -239,6 +392,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             z: LAYER_BLOCK,
             animated: false,
         })],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -261,6 +418,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 torque: 500.0,
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -285,6 +446,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -323,6 +488,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -339,6 +508,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             z: LAYER_BLOCK,
             animated: false,
         })],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -354,6 +527,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
             animated: false,
+        })],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
         })],
     });
 
@@ -396,6 +573,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -438,6 +619,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -472,6 +657,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -511,6 +700,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -553,6 +746,10 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
 
     registry.register(BlockDef {
@@ -579,13 +776,12 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
                 barrels: vec![Vec2::new(0.0, 0.0)],
-                shooting_pattern: ShootPattern::PullingBeam(PullingBeamPattern {
-                   width: 5.0,
-                }),
+                shooting_pattern: ShootPattern::PullingBeam(PullingBeamPattern { width: 5.0 }),
             }),
         ],
+        drops: vec![Drop::Item(ItemDrop {
+            item_type: ItemType::Steel,
+            amount: 10,
+        })],
     });
-
-
-
 }

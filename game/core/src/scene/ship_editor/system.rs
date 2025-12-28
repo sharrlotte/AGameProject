@@ -11,11 +11,8 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{
-            component::{
-                Block, BlockComponent, BlockDef, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
-                FACE_UP,
-            },
-            resource::BlockRegistry,
+            component::{Block, BlockComponent},
+            resource::{BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP},
         },
         ship::component::{Ship, ShipGrid},
     },

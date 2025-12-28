@@ -1,8 +1,8 @@
 use crate::common::death::component::Death;
 use crate::constant::{MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
-use crate::content::block::component::{Block, BlockType};
+use crate::content::block::component::Block;
 use crate::content::block::message::BlockDestroyedEvent;
-use crate::content::block::resource::{BlockRegistry, ShipCalculatedStat};
+use crate::content::block::resource::{BlockRegistry, BlockType, ShipCalculatedStat};
 use crate::content::ship::component::{AIShipController, Blocks, Ship, ShipBehavior, ShipUIRoot};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::save::io::load_saved_schematics;

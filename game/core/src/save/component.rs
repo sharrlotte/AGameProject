@@ -2,10 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::content::{
-    block::component::{BlockData, BlockType},
-    ship::component::ShipData,
-};
+use crate::content::{block::{component::BlockData, resource::BlockType}, ship::component::ShipData};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct SchematicBlockData {

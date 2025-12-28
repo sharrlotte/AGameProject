@@ -7,6 +7,7 @@ use bevy_rapier2d::na::Vector2;
 use crate::common::damage::component::Damage;
 use crate::common::damage::message::DamageEvent;
 use crate::common::entity_type::EntityType;
+use crate::common::lifetime::component::Lifetime;
 use crate::constant::LAYER_BULLET;
 use crate::content::block::component::{
     BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
@@ -15,7 +16,7 @@ use crate::content::block::component::{
 };
 use crate::content::block::radar::component::Radar;
 use crate::content::block::turret::component::{Turret, TurretState};
-use crate::content::bullet::component::{Laser, Lifetime};
+use crate::content::bullet::component::Laser;
 use crate::content::ship::component::Ship;
 use crate::content::team::Team;
 use crate::{
@@ -353,8 +354,6 @@ pub fn handle_pulling_beam(
     ) in query.iter_mut()
     {
         let Turret { barrels, range, .. } = turret;
-
-        
     }
 }
 
@@ -384,7 +383,7 @@ pub fn spawn_bullet(
             let bullet = commands
                 .spawn((
                     EntityType::Projectile,
-                    Lifetime::new(*lifetime),
+                    Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
                         range,
@@ -447,7 +446,7 @@ pub fn spawn_bullet(
             let missile = commands
                 .spawn((
                     EntityType::Projectile,
-                    Lifetime::new(*lifetime),
+                    Lifetime::seconds(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
@@ -591,24 +590,6 @@ pub fn handle_missile_radar_target(
             if let Some(target) = radar.targets.first() {
                 missile.target = Some(*target);
             }
-        }
-    }
-}
-
-pub fn update_bullet_lifetime(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut Lifetime)>,
-) {
-    for (entity, mut lifetime) in query.iter_mut() {
-        lifetime.tick(&time);
-
-        if lifetime.timer().is_finished() {
-            let Ok(mut commands) = commands.get_entity(entity) else {
-                continue;
-            };
-
-            commands.insert(Death);
         }
     }
 }

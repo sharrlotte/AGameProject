@@ -14,8 +14,8 @@ use uuid::Uuid;
 use crate::{
     content::{
         block::{
-            component::{Block, BlockData, BlockState, BlockType, Health, SingleShootPatternState},
-            resource::BlockRegistry,
+            component::{Block, BlockData, BlockState, Health, SingleShootPatternState},
+            resource::{BlockRegistry, BlockType},
             turret::component::TurretState,
         },
         ship::component::{ShipData, ShipState},
