@@ -375,7 +375,7 @@ impl BlockRegistry {
 }
 
 pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<AssetServer>) {
-    let image = |image: String| -> Handle<Image> { assets.load(format!("textures/{image}")) };
+    let image = |image: String| -> Handle<Image> { assets.load(format!("texture/{image}")) };
     let sound = |sound: String| -> Handle<AudioSource> { assets.load(format!("audio/{sound}")) };
 
     registry.register(BlockDef {
@@ -387,7 +387,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 5,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/surge-wall-large.png".into()),
+            image: image("block/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
             animated: false,
@@ -408,7 +408,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 50,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/thruster.png".into()),
+                image: image("block/thruster.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -434,13 +434,13 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/core-nucleus.png".into()),
+                image: image("block/core-nucleus.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/core-nucleus-team.png".into()),
+                image: image("block/core-nucleus-team.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -462,7 +462,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -472,7 +472,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 turn_speed: 4.0,
                 barrels: vec![Vec2::new(0.0, 0.0)],
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/lancer.png".into()),
+                image: image("block/lancer.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -503,7 +503,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/block-iron.png".into()),
+            image: image("block/block-iron.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
             animated: false,
@@ -523,7 +523,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         shape: BlockShape::default(),
         cost: 200,
         components: vec![BlockComponent::Sprite(SpriteComponent {
-            image: image("blocks/block-steel.png".into()),
+            image: image("block/block-steel.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
             animated: false,
@@ -544,7 +544,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -553,7 +553,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 6000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/swarmer.png".into()),
+                image: image("block/swarmer.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -589,7 +589,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -598,7 +598,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 10000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/spectre.png".into()),
+                image: image("block/spectre.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -635,7 +635,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -644,7 +644,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 5000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/meltdown.png".into()),
+                image: image("block/meltdown.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -673,7 +673,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -682,7 +682,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 45000.0,
                 turn_speed: 0.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/foreshadow.png".into()),
+                image: image("block/foreshadow.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -716,7 +716,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -725,7 +725,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 12000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/colaris.png".into()),
+                image: image("block/colaris.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
@@ -762,7 +762,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         cost: 150,
         components: vec![
             BlockComponent::Sprite(SpriteComponent {
-                image: image("blocks/block-2.png".into()),
+                image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
@@ -771,7 +771,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 range: 12000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,
-                image: image("blocks/colaris.png".into()),
+                image: image("block/colaris.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
