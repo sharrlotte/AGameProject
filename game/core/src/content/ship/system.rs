@@ -67,8 +67,8 @@ pub fn check_ship(
     };
 
     let position = random_vec2_step(
-        Vec2::new(-40000.0, -40000.0),
-        Vec2::new(40000.0, 40000.0),
+        Vec2::new(-10000.0, -10000.0),
+        Vec2::new(10000.0, 10000.0),
         1000.0,
     );
 
@@ -687,7 +687,7 @@ pub fn update_ship_behavior(
                 let in_range = current_postion.distance(position_on_ring) <= radius.sqrt();
 
                 if in_range {
-                    next_position = position_on_ring + direction.perp() * radius.sqrt();
+                    next_position = position_on_ring + direction.perp() * radius / 2.0;
                 }
 
                 gizmos.line_2d(
@@ -696,6 +696,7 @@ pub fn update_ship_behavior(
                     Color::srgba(0.0, 1.0, 0.0, 0.5),
                 );
 
+                gizmos.circle_2d(*position, *radius, Color::srgb(1.0, 1.0, 0.0));
                 gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
 
                 let direction = (next_position - current_postion).normalize_or_zero();
@@ -704,32 +705,31 @@ pub fn update_ship_behavior(
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance(next_position);
 
-                let force_multiplier = if distance > radius.squared() {
+                let force_multiplier = if distance > *radius {
                     1.0
                 } else {
-                    (distance / radius.squared()).squared()
+                    (distance / radius).squared()
                 };
 
-                let torque_multiplier: f32 = (angle_diff.abs() / (PI / 8.0)).clamp(0.0, 1.0);
+                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angvel.abs())
+                    .clamp(0.0, 1.0)
+                    .squared();
 
                 let mut torque: f32 = if angle_diff > 0.0 {
                     *turn_speed
                 } else {
-                    -*turn_speed
+                    -turn_speed
                 } * torque_multiplier;
 
-                if velocity.angvel > angle_diff {
-                    torque = -torque;
+                if angle_diff.abs() < 0.01 && velocity.angvel.abs() < 0.01 {
+                    torque = 0.0;
+                    velocity.angvel = 0.0;
                 }
 
                 force.torque = torque;
 
                 if angle_diff.abs() < PI / 3.0 {
-                    if distance <= *radius {
-                        force.force = Vec2::ZERO;
-                    } else {
-                        force.force = forward * thrust_power * force_multiplier;
-                    }
+                    force.force = forward * thrust_power * force_multiplier;
                 }
             }
         }
