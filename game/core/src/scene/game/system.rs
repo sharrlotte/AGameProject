@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::GameState;
 use crate::constant::{GRID_SIZE, SMALL_GRID_SIZE};
-use crate::content::block::component::{Block, Health, ShipIdComponent};
+use crate::content::block::component::{Block, Health, BlockOwner};
 use crate::content::block::resource::BlockRegistry;
 use crate::content::ship::component::{BoundingBox, Ship};
 use crate::content::team::Team;
@@ -63,7 +63,7 @@ pub fn update_ship_buttons(
     mut commands: Commands,
     ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
     mut ship_list: Query<Entity, With<ShipList>>,
-    block_list: Query<(Entity, &Block, &Health, &ShipIdComponent)>,
+    block_list: Query<(Entity, &Block, &Health, &BlockOwner)>,
     state: Res<GameVars>,
     registry: Res<BlockRegistry>,
 ) {
@@ -117,7 +117,7 @@ pub fn update_ship_buttons(
 
                     for (_, block, _, _) in block_list
                         .iter()
-                        .filter(|(_, _, _, ship_id)| ship_id.id == *entity)
+                        .filter(|(_, _, _, owner)| owner.id == *entity)
                     {
                         if block.position.x < offset_x {
                             offset_x = block.position.x;
@@ -130,7 +130,7 @@ pub fn update_ship_buttons(
 
                     for (block_entity, block, health, _) in block_list
                         .iter()
-                        .filter(|(_, _, _, ship_id)| ship_id.id == *entity)
+                        .filter(|(_, _, _, owner)| owner.id == *entity)
                     {
                         let Some(def) = registry.get(&block.block_type) else {
                             continue;

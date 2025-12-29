@@ -1,6 +1,6 @@
 use crate::common::death::component::Death;
 use crate::constant::{DROP_COLLECT_RADIUS, LINEAR_DAMPING, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
-use crate::content::block::component::{Block, ShipIdComponent};
+use crate::content::block::component::{Block, BlockOwner};
 use crate::content::block::message::BlockDestroyedEvent;
 use crate::content::block::resource::{
     BlockRegistry, BlockType, DropComponent, DropEvent, ShipCalculatedStat,
@@ -90,7 +90,7 @@ pub fn check_rebuild_ship_collider(
     mut commands: Commands,
     mut events: MessageReader<BlockDestroyedEvent>,
     mut ships: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
-    ship_blocks: Query<(Entity, &Block, &ShipIdComponent)>,
+    ship_blocks: Query<(Entity, &Block, &BlockOwner)>,
     registry: Res<BlockRegistry>,
     mut drop_writer: MessageWriter<DropEvent>,
 ) {
@@ -126,8 +126,8 @@ pub fn check_rebuild_ship_collider(
             ));
         }
 
-        for (block_entity, block, ship_id) in ship_blocks.iter() {
-            if delete_blocks.contains(&block.id) && ship_id.id == entity {
+        for (block_entity, block, owner) in ship_blocks.iter() {
+            if delete_blocks.contains(&block.id) && owner.id == entity {
                 commands.entity(block_entity).insert(Death);
             }
         }

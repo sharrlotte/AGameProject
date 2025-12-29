@@ -251,7 +251,7 @@ pub struct BlockState {
 }
 
 #[derive(Component, Clone, PartialEq)]
-pub struct ShipIdComponent {
+pub struct BlockOwner {
     pub id: Entity,
 }
 
@@ -353,7 +353,7 @@ impl BlockData {
                     health: def.health,
                     max_health: def.health,
                 },
-                ShipIdComponent { id: ship },
+                BlockOwner { id: ship },
                 EntityType::Block,
             ))
             .id();

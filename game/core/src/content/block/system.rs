@@ -9,11 +9,12 @@ use crate::{
     },
     content::{
         block::{
-            component::{Block, Health, ShipIdComponent},
+            component::{Block, BlockOwner, Health},
             message::BlockDestroyedEvent,
             resource::{BlockRegistry, DropComponent, DropEvent},
         },
-        item::resource::ItemRegistry, team::Team,
+        item::resource::ItemRegistry,
+        team::Team,
     },
 };
 
@@ -25,18 +26,18 @@ pub fn handle_block_destroy(
         Entity,
         &Health,
         &Block,
-        &ShipIdComponent,
+        &BlockOwner,
         &GlobalTransform,
         &Team,
     )>,
     registry: Res<BlockRegistry>,
 ) {
-    for (entity, health, block, ship_id, transform, team) in query.iter_mut() {
+    for (entity, health, block, owner, transform, team) in query.iter_mut() {
         if health.health <= 0.0 {
             writer.write(BlockDestroyedEvent {
                 block_type: block.block_type,
                 block_id: block.id,
-                ship: ship_id.id,
+                ship: owner.id,
             });
             commands.entity(entity).insert(Death);
 
