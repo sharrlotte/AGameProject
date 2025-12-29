@@ -64,11 +64,13 @@ pub struct EnergyConsumerComponent {
     pub rate: f32,
 }
 
-impl BlockComponentSpawner for EnergyConsumerComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, _def: &BlockDef, _team: &Team) {
+impl EnergyConsumerComponent {
+    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
         commands.entity(base).insert((
             PowerUsageBase { value: self.rate },
             PowerUsageComputed::default(),
+            BlockOwner { id: ship },
+            ComponentOwner { id: base },
         ));
     }
 }
@@ -81,8 +83,8 @@ pub struct SpriteComponent {
     pub animated: bool,
 }
 
-impl BlockComponentSpawner for SpriteComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, _team: &Team) {
+impl SpriteComponent {
+    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Sprite {
                 image: self.image.clone(),
@@ -90,6 +92,8 @@ impl BlockComponentSpawner for SpriteComponent {
                 ..default()
             },
             Transform::from_translation(self.offset.extend(self.z)),
+            BlockOwner { id: ship },
+            ComponentOwner { id: base },
         ));
     }
 }
@@ -107,8 +111,15 @@ pub struct TurretComponent {
     pub animated: bool,
 }
 
-impl BlockComponentSpawner for TurretComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
+impl TurretComponent {
+    fn spawn(
+        &self,
+        commands: &mut Commands,
+        ship: Entity,
+        base: Entity,
+        def: &BlockDef,
+        team: &Team,
+    ) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -130,6 +141,8 @@ impl BlockComponentSpawner for TurretComponent {
                 ..default()
             },
             Transform::from_translation(self.offset.extend(self.z)),
+            BlockOwner { id: ship },
+            ComponentOwner { id: base },
         ));
 
         self.shooting_pattern.insert(commands, base, team);
@@ -344,8 +357,8 @@ pub struct ThrusterComponent {
     pub torque: f32,
 }
 
-impl BlockComponentSpawner for ThrusterComponent {
-    fn spawn(&self, commands: &mut Commands, base: Entity, _def: &BlockDef, _team: &Team) {
+impl ThrusterComponent {
+    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
         commands.entity(base).insert((
             ThrustPowerBase {
                 value: self.force * THRUST_POWER_FACTOR,
@@ -356,6 +369,8 @@ impl BlockComponentSpawner for ThrusterComponent {
             },
             RotateSpeedComputed::default(),
             BlockEfficiency::default(),
+            BlockOwner { id: ship },
+            ComponentOwner { id: base },
         ));
     }
 }
@@ -431,15 +446,11 @@ impl BlockData {
         commands.entity(ship).add_child(child);
 
         for component in &def.components {
-            component.spawn(commands, child, def, &team);
+            component.spawn(commands, ship, child, def, &team);
         }
 
         return child;
     }
-}
-
-pub trait BlockComponentSpawner {
-    fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team);
 }
 
 #[derive(Component, Clone, PartialEq, Reflect)]
@@ -454,7 +465,14 @@ pub enum BlockComponent {
 }
 
 impl BlockComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        ship: Entity,
+        base: Entity,
+        def: &BlockDef,
+        team: &Team,
+    ) {
         let component = commands
             .spawn((
                 Transform::default(),
@@ -467,12 +485,12 @@ impl BlockComponent {
         commands.entity(base).add_child(component);
 
         match self {
-            Self::Sprite(sprite) => sprite.spawn(commands, component, def, team),
-            Self::Turret(turret) => turret.spawn(commands, component, def, team),
+            Self::Sprite(sprite) => sprite.spawn(commands, ship, component, def),
+            Self::Turret(turret) => turret.spawn(commands, ship, component, def, team),
             Self::Recoil(_) => {}
             Self::HeatEmitter(_) => {}
-            Self::Thruster(thruster) => thruster.spawn(commands, component, def, team),
-            Self::EnergyConsumer(consumer) => consumer.spawn(commands, component, def, team),
+            Self::Thruster(thruster) => thruster.spawn(commands, ship, component),
+            Self::EnergyConsumer(consumer) => consumer.spawn(commands, ship, component),
             Self::EfficiencyProvider(provider) => {
                 commands.entity(component).insert(*provider);
             }
@@ -595,7 +613,7 @@ pub struct BlockDef {
     pub block_group: BlockGroup,
     pub mass: f32,
     pub health: f32,
-    // Better shape data type for complex voxel structures
+    // TODO: Better shape data type for complex voxel structures
     pub shape: BlockShape,
     pub cost: u32,
     pub components: Vec<BlockComponent>,
@@ -722,8 +740,6 @@ impl BlockRegistry {
 
             let mut mass: f32 = 0.0;
             let mut core_position = None;
-            let mut thrust_power: f32 = 0.0;
-            let mut turn_speed: f32 = 0.0;
 
             let mut max_x: i32 = 0;
             let mut max_y: i32 = 0;
@@ -791,10 +807,6 @@ impl BlockRegistry {
 
                 for component in &def.components {
                     match component {
-                        BlockComponent::Thruster(ThrusterComponent { force, torque }) => {
-                            thrust_power += force;
-                            turn_speed += torque;
-                        }
                         BlockComponent::Turret(TurretComponent { range, .. }) => {
                             min_range = min_range.min(*range);
                             max_range = max_range.max(*range);

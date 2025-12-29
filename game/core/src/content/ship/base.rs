@@ -1,5 +1,5 @@
 use bevy::input::mouse::{MouseMotion, MouseWheel};
-use bevy::math::FloatPow;
+use bevy::math::{FloatPow, VectorSpace};
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_rapier2d::prelude::*;
@@ -18,7 +18,7 @@ use crate::content::block::base::{
     DropEvent, ShipCalculatedStat,
 };
 use crate::content::ship::indicators::IndicatorsPlugin;
-use crate::content::ship::stat::{ComputedShipStats, update_ship_stats};
+use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::resource::{GameVars, SceneState};
 use crate::save::io::load_saved_schematics;
@@ -253,8 +253,7 @@ impl Plugin for ShipPlugin {
             )
             .add_systems(
                 FixedPreUpdate,
-                update_ship_stats
-                    .run_if(in_state(SceneState::Game)),
+                update_stats.run_if(in_state(SceneState::Game)),
             )
             .add_systems(
                 FixedUpdate,
@@ -445,24 +444,21 @@ pub fn update_ship_ui(
         &AIShipController,
         Option<&ShipBehavior>,
         &GlobalTransform,
-        &ComputedShipStats,
     )>,
 ) {
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior, global_transform, stats)) => {
+            Ok((ship, _, controller, behavior, global_transform)) => {
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!(
-                        "Ship: {ship}\nC: {:?}\nB: {:?},\n{:?}",
-                        current, behavior, stats
-                    )),
+                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
                     TextFont {
-                        font_size: 90.0,
+                        font_size: 30.0,
                         ..default()
                     },
-                    Transform::from_rotation(global_transform.rotation().inverse()),
+                    Transform::from_rotation(global_transform.rotation().inverse())
+                        .with_translation(Vec2::ZERO.extend(10000.0)),
                 ));
             }
             Err(_) => {}
@@ -572,7 +568,7 @@ pub fn player_control_ship(
 
     if let Some(controlling) = state.controlling {
         match ships.get_mut(controlling) {
-            Ok((mut force, transform, ship, stats)) => {
+            Ok((mut force, transform, _, stats)) => {
                 let thrust_power = stats.thrust_power;
                 let turn_speed = stats.rotate_speed;
 
@@ -870,9 +866,7 @@ pub fn update_ship_behavior(
     state: Res<GameVars>,
     mut gizmos: Gizmos,
 ) {
-    for (entity, ship, size, behavior, transform, mut force, mut velocity, stats) in
-        ships.iter_mut()
-    {
+    for (entity, _, size, behavior, transform, mut force, mut velocity, stats) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
             && controlling == entity
         {

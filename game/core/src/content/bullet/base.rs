@@ -311,7 +311,7 @@ pub fn handle_laser_beam(
                     .min(1.0)
                     .min((*start_time + shoot_pattern.duration - time.elapsed_secs()).min(1.0))
                     * 10.0)
-                    .max(1.0);
+                    .max(0.5);
 
                 if !turret_state.active {
                     continue;
@@ -623,7 +623,7 @@ pub fn handle_laser(
                 if time.elapsed_secs() - *fired_at > FADE_TIME {
                     commands.entity(entity).insert(Death);
                 } else {
-                    let intensive = 10.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at)).max(1.0);
+                    let intensive = 10.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at)).max(0.5);
 
                     if let Some(mut sprite) = sprite {
                         sprite.color = team.color(intensive);
