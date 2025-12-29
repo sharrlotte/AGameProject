@@ -8,6 +8,9 @@ use crate::content::{
     ship::stat::ComputedShipStats,
 };
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EfficiencyUpdateSet;
+
 pub struct StatsPlugin;
 
 impl Plugin for StatsPlugin {
@@ -20,11 +23,12 @@ impl Plugin for StatsPlugin {
                 update_power_usage_stats,
                 update_efficiency_base_on_power_usage,
             )
+                .in_set(EfficiencyUpdateSet)
                 .chain(),
         )
         .add_systems(
-            FixedPreUpdate,
-            (update_thrust_power_stats, update_rotate_speed_stats),
+            FixedFirst,
+            (update_thrust_power_stats, update_rotate_speed_stats).after(EfficiencyUpdateSet),
         );
     }
 }

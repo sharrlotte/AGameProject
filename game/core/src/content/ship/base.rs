@@ -252,7 +252,7 @@ impl Plugin for ShipPlugin {
                 update_ship_behavior.run_if(in_state(SceneState::Game)),
             )
             .add_systems(
-                FixedUpdate,
+                FixedPreUpdate,
                 update_ship_stats
                     .run_if(in_state(SceneState::Game)),
             )
