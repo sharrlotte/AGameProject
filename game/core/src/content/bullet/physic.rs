@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::{
-    common::{damage::component::Damage, death::component::Death, lifetime::component::Lifetime},
-    content::bullet::component::{Bullet, MissileHitbox},
-};
+use crate::{common::{damage::Damage, death::Death, lifetime::Lifetime}, content::bullet::base::{Bullet, MissileHitbox}};
 
 pub fn handle_collisions(
     mut commands: Commands,

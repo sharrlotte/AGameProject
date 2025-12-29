@@ -1,8 +1,9 @@
-use bevy::{ecs::resource::Resource, state::state::States};
+use bevy::{
+    ecs::{component::Component, entity::Entity, resource::Resource},
+    state::state::States,
+};
 
-use crate::save::component::SchematicData;
-
-
+use crate::save::io::SchematicData;
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
 pub enum SceneState {
@@ -11,6 +12,9 @@ pub enum SceneState {
     Game,
     ShipEditor,
 }
+
+#[derive(Component, Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
+pub struct SceneEntity(pub SceneState);
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
 pub enum PauseState {
@@ -45,7 +49,9 @@ impl TurretControl {
 }
 
 #[derive(Resource, Default, Debug)]
-pub struct GameState {
+pub struct GameVars {
     pub current_ship: Option<SchematicData>,
     pub turret_control: TurretControl,
+    pub controlling: Option<Entity>,
+    pub following: Option<Entity>,
 }

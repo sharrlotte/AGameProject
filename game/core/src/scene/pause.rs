@@ -1,11 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{
-    PauseState, SceneState,
-    resource::SettingState,
-    content::{bullet::component::Bullet, ship::component::Ship},
-    save::{io::save_dir, message::{LoadWorldEvent, SaveWorldEvent}},
-};
+use crate::{content::{bullet::base::Bullet, ship::base::Ship}, resource::{PauseState, SceneState, SettingState}, save::io::{LoadWorldEvent, SaveWorldEvent, save_dir}};
 
 pub struct PauseScenePlugin;
 
@@ -277,7 +272,7 @@ fn handle_pause_buttons(
                         game_state.set(PauseState::Playing);
                     }
                     PauseButton::Settings => {
-                         setting_state.set(SettingState::Open);
+                        setting_state.set(SettingState::Open);
                     }
                     PauseButton::Home => {
                         game_state.set(PauseState::Playing);

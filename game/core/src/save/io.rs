@@ -11,21 +11,66 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::{
-    content::{
-        block::{
-            component::{Block, BlockData, BlockState, Health, SingleShootPatternState},
-            resource::{BlockRegistry, BlockType},
-            turret::component::TurretState,
-        },
-        ship::component::{ShipData, ShipState},
-        team::Team,
-    },
-    save::{
-        component::{SchematicBlockData, SchematicData},
-        message::{LoadWorldEvent, SaveWorldEvent},
-    },
+use crate::content::{
+    block::{
+        base::{Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState},
+        turret::TurretState,
+    }, ship::base::{ShipData, ShipState}, team::Team
 };
+
+#[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
+pub struct SchematicBlockData {
+    pub id: Uuid,
+    pub position: IVec2,
+    pub block_type: BlockType,
+    pub rotation: u8,
+}
+
+impl SchematicBlockData {
+    pub fn to_block_data(&self) -> BlockData {
+        BlockData {
+            id: self.id,
+            position: self.position,
+            block_type: self.block_type,
+            rotation: self.rotation,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SchematicData {
+    pub id: Uuid,
+    pub filename: String,
+    pub name: String,
+    pub blocks: Vec<SchematicBlockData>,
+}
+
+impl SchematicData {
+    pub fn to_ship_data(&self) -> ShipData {
+        ShipData {
+            id: self.id,
+            blocks: self
+                .blocks
+                .clone()
+                .into_iter()
+                .map(|b| b.to_block_data())
+                .collect(),
+        }
+        .new()
+    }
+}
+#[derive(Component, Default)]
+pub struct Save {}
+
+#[derive(Message)]
+pub struct SaveWorldEvent {
+    pub path: PathBuf,
+}
+
+#[derive(Message)]
+pub struct LoadWorldEvent {
+    pub path: PathBuf,
+}
 
 pub fn save_dir() -> PathBuf {
     let project_dirs = ProjectDirs::from(
@@ -389,5 +434,21 @@ pub fn handle_load_world_event(
         spawn_components(&mut commands, &ids, transforms);
         spawn_components(&mut commands, &ids, healths);
         spawn_components(&mut commands, &ids, shoot_patterns.single);
+    }
+}
+
+pub struct SavePlugin;
+
+impl Plugin for SavePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<SaveWorldEvent>()
+            .add_message::<LoadWorldEvent>()
+            .add_systems(
+                Update,
+                (
+                    handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
+                    handle_load_world_event.run_if(on_message::<LoadWorldEvent>),
+                ),
+            );
     }
 }

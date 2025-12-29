@@ -5,7 +5,7 @@ use bevy::{
     post_process::bloom::Bloom,
 };
 
-use crate::resource::GameState;
+use crate::resource::{GameVars, SceneEntity, SceneState};
 use crate::save::io::load_saved_schematics;
 
 pub fn setup_camera(mut commands: Commands) {
@@ -29,10 +29,28 @@ pub fn setup_camera(mut commands: Commands) {
     ));
 }
 
-pub fn load_current_ship(mut state: ResMut<GameState>) {
+pub fn load_current_ship(mut state: ResMut<GameVars>) {
     let ships = load_saved_schematics();
 
     if let Some(ship) = ships.first() {
         state.current_ship = Some(ship.clone());
+    }
+}
+
+pub fn clean_state_item(
+    mut commands: Commands,
+    mut events: MessageReader<StateTransitionEvent<SceneState>>,
+    mut scene_entities: Query<(Entity, &SceneEntity)>,
+) {
+    for event in events.read() {
+        let Some(exited) = event.exited else {
+            continue;
+        };
+
+        for (entity, scene_entity) in scene_entities.iter_mut() {
+            if scene_entity.0 == exited {
+                commands.entity(entity).despawn();
+            }
+        }
     }
 }

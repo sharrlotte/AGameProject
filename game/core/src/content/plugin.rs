@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 use crate::content::{
-    block::plugin::BlockPlugin, bullet::plugin::BulletPlugin, item::plugin::ItemPlugin, ship::plugin::ShipPlugin
+    block::base::BlockPlugin, bullet::base::BulletPlugin, item::base::ItemPlugin,
+    ship::base::ShipPlugin,
 };
 
 pub struct ContentPlugin;

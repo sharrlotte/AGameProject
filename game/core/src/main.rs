@@ -9,31 +9,29 @@ mod ui;
 mod utils;
 mod world;
 
-use crate::common::damage::plugin::DamagePlugin;
-use crate::common::death::plugin::DeathPlugin;
-use crate::common::lifetime::plugin::LifetimePlugin;
+use crate::common::damage::DamagePlugin;
+use crate::common::death::DeathPlugin;
+use crate::common::lifetime::LifetimePlugin;
 use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
-use crate::resource::{GameState, PauseState, SceneState};
-use crate::save::plugin::SavePlugin;
-use crate::scene::game::plugin::GameScenePlugin;
+use crate::resource::{GameVars, PauseState, SceneState};
+use crate::save::io::SavePlugin;
+use crate::scene::editor::ShipEditorPlugin;
+use crate::scene::game::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::pause::PauseScenePlugin;
-use crate::scene::setting::plugin::SettingScenePlugin;
-use crate::scene::ship_editor::plugin::ShipEditorPlugin;
-use crate::system::{load_current_ship, setup_camera};
-
+use crate::scene::setting::SettingScenePlugin;
+use crate::system::{clean_state_item, load_current_ship, setup_camera};
 use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
-#[cfg(debug_assertions)]
-use bevy::input::common_conditions::input_toggle_active;
-
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
-
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
+
+#[cfg(debug_assertions)]
+use bevy::input::common_conditions::input_toggle_active;
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
@@ -71,7 +69,7 @@ fn main() {
             .in_fixed_schedule(),
     )
     // .add_plugins(RapierDebugRenderPlugin::default())
-    .init_resource::<GameState>()
+    .init_resource::<GameVars>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .add_systems(Startup, (setup_camera, load_current_ship))
@@ -90,12 +88,12 @@ fn main() {
         SettingScenePlugin,
         LifetimePlugin,
     ))
-    .insert_resource(Time::<Fixed>::from_hz(60.0));
+    .insert_resource(Time::<Fixed>::from_hz(60.0))
+    .add_systems(PreUpdate, clean_state_item);
 
     #[cfg(debug_assertions)]
     {
-        app.add_plugins(EguiPlugin::default());
-        app.add_plugins(
+        app.add_plugins(EguiPlugin::default()).add_plugins(
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
         );
     }

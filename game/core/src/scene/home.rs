@@ -1,14 +1,16 @@
 use bevy::prelude::*;
 
-use crate::{SceneState, resource::SettingState};
+use crate::resource::{SceneEntity, SceneState, SettingState};
 
 pub struct HomeScenePlugin;
 
 impl Plugin for HomeScenePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(SceneState::Home), setup_home)
-            .add_systems(Update, handle_home_buttons.run_if(in_state(SceneState::Home)))
-            .add_systems(OnExit(SceneState::Home), cleanup_home);
+            .add_systems(
+                Update,
+                handle_home_buttons.run_if(in_state(SceneState::Home)),
+            );
     }
 }
 
@@ -36,6 +38,7 @@ fn setup_home(mut commands: Commands) {
                 ..default()
             },
             HomeScreen,
+            SceneEntity(SceneState::Home),
         ))
         .with_children(|parent| {
             // Play Button
@@ -188,11 +191,5 @@ fn handle_home_buttons(
                 *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
             }
         }
-    }
-}
-
-fn cleanup_home(mut commands: Commands, query: Query<Entity, With<HomeScreen>>) {
-    for entity in &query {
-        commands.entity(entity).despawn();
     }
 }

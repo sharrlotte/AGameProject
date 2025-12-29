@@ -1,8 +1,5 @@
-pub mod component;
-pub mod message;
-pub mod plugin;
+pub mod base;
+pub mod efficiency;
 pub mod radar;
-pub mod resource;
+pub mod stat;
 pub mod turret;
-
-mod system;

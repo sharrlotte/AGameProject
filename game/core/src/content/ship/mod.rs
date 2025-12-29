@@ -1,4 +1,3 @@
-pub mod component;
+pub mod base;
+pub mod stat;
 pub mod indicators;
-pub mod plugin;
-mod system;

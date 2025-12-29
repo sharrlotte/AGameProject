@@ -1,5 +1,2 @@
-pub mod component;
-pub mod plugin;
-
+pub mod base;
 mod physic;
-mod system;
