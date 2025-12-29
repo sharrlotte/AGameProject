@@ -16,7 +16,9 @@ use crate::{
         block::{
             radar::{Radar, RadarPlugin},
             stat::{
-                BlockEfficiency, BlockStatUpdateSet, EfficiencyEffect, EfficiencyProvider, PowerUsageBase, PowerUsageComputed, PowerUsageEffects, RotateSpeedBase, RotateSpeedComputed, RotateSpeedEffects, StackRule, StatEffect, StatsPlugin, ThrustPowerBase, ThrustPowerComputed, ThrustPowerEffects
+                BlockEfficiency, EfficiencyProvider, PowerUsageBase, PowerUsageComputed,
+                RotateSpeedBase, RotateSpeedComputed, StatsPlugin, ThrustPowerBase,
+                ThrustPowerComputed,
             },
             turret::{Turret, TurretPlugin, TurretState},
         },
@@ -25,6 +27,27 @@ use crate::{
         team::Team,
     },
 };
+
+pub struct BlockPlugin;
+
+impl Plugin for BlockPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<BlockRegistry>()
+            .add_message::<BlockDestroyedEvent>()
+            .add_message::<DropEvent>()
+            .add_systems(PreStartup, register_default_blocks)
+            .add_systems(
+                FixedPostUpdate,
+                (
+                    handle_block_damage_event,
+                    handle_flash_overlay,
+                    handle_drop,
+                    handle_block_destroy,
+                ),
+            )
+            .add_plugins((RadarPlugin, TurretPlugin, StatsPlugin));
+    }
+}
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct RecoilComponent {
@@ -462,27 +485,6 @@ pub struct BlockDestroyedEvent {
     pub block_type: BlockType,
     pub block_id: Uuid,
     pub ship: Entity,
-}
-
-pub struct BlockPlugin;
-
-impl Plugin for BlockPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<BlockRegistry>()
-            .add_message::<BlockDestroyedEvent>()
-            .add_message::<DropEvent>()
-            .add_systems(PreStartup, register_default_blocks)
-            .add_systems(
-                FixedPostUpdate,
-                (
-                    handle_block_damage_event,
-                    handle_flash_overlay,
-                    handle_drop,
-                    handle_block_destroy,
-                ),
-            )
-            .add_plugins((RadarPlugin, TurretPlugin, StatsPlugin));
-    }
 }
 
 pub const FACE_RIGHT: u8 = 0b0001; // +X

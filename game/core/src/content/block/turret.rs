@@ -59,7 +59,6 @@ pub fn update_turret_target(
     window: Single<&Window>,
     game_state: Res<GameVars>,
     ships: Query<(Entity, &GlobalTransform, &Ship)>,
-    blocks: Query<(Entity, &Children)>,
     mut turrets: Query<(
         &GlobalTransform,
         &Turret,

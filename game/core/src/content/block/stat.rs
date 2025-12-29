@@ -1,4 +1,33 @@
+use std::collections::HashMap;
+
 use bevy::prelude::*;
+use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
+
+use crate::content::{
+    block::base::{BlockOwner, PowerProducer},
+    ship::stat::ComputedShipStats,
+};
+
+pub struct StatsPlugin;
+
+impl Plugin for StatsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            FixedFirst,
+            (
+                apply_efficiency_buffs,
+                update_block_efficiency_base,
+                update_power_usage_stats,
+                update_efficiency_base_on_power_usage,
+            )
+                .chain(),
+        )
+        .add_systems(
+            FixedPreUpdate,
+            (update_thrust_power_stats, update_rotate_speed_stats),
+        );
+    }
+}
 
 #[derive(Clone, Copy, Debug, Reflect, PartialEq)]
 pub enum StackRule {
@@ -32,12 +61,9 @@ pub struct EfficiencyEffect {
     pub value: f32,
 }
 
-/// Computed efficiency of the block.
-/// Final value = Ship Power Efficiency * max(1.0, Efficiency Buffs)
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 pub struct BlockEfficiency {
     pub value: f32,
-    /// Base efficiency from ship power status (0.0-1.0)
     pub base: f32,
 }
 
@@ -99,9 +125,6 @@ pub struct RotateSpeedComputed {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BlockStatUpdateSet;
-
 pub fn update_power_usage_stats(
     mut query: Query<(
         &PowerUsageBase,
@@ -113,7 +136,6 @@ pub fn update_power_usage_stats(
     for (base, mut computed, effects, efficiency_effect) in &mut query {
         let eff = efficiency_effect.map(|e| e.value).unwrap_or(1.0);
 
-        // Efficiency decreases power usage.
         let mut val = if eff > 0.0001 {
             base.value / eff
         } else {
@@ -126,23 +148,6 @@ pub fn update_power_usage_stats(
             }
         }
         computed.value = val;
-    }
-}
-
-pub struct StatsPlugin;
-
-impl Plugin for StatsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (
-                update_power_usage_stats,
-                update_thrust_power_stats,
-                update_rotate_speed_stats,
-            )
-                .chain()
-                .in_set(BlockStatUpdateSet),
-        );
     }
 }
 
@@ -199,5 +204,91 @@ pub fn update_rotate_speed_stats(
             }
         }
         computed.value = val;
+    }
+}
+
+pub fn update_efficiency_base_on_power_usage(
+    mut ships: Query<(Entity, &mut ComputedShipStats)>,
+    blocks: Query<(
+        &BlockOwner,
+        Option<&PowerUsageComputed>,
+        Option<&PowerProducer>,
+    )>,
+) {
+    // Reset ship stats
+    for (_, mut stats) in &mut ships {
+        stats.power_usage = 0.0;
+    }
+
+    let mut power_map = HashMap::<Entity, (f32, f32)>::new();
+
+    for (owner, usage, producer) in &blocks {
+        let entry = power_map.entry(owner.id).or_insert((0.0, 0.0));
+        if let Some(u) = usage {
+            entry.0 += u.value;
+        }
+        if let Some(p) = producer {
+            entry.1 += p.output;
+        }
+    }
+
+    for (entity, mut stats) in &mut ships {
+        if let Some((usage, production)) = power_map.get(&entity) {
+            stats.power_usage = *usage;
+
+            if *usage > 0.0001 {
+                if *production >= *usage {
+                    stats.efficiency = 1.0;
+                } else {
+                    stats.efficiency = *production / *usage;
+                }
+            } else {
+                stats.efficiency = 1.0;
+            }
+        }
+    }
+}
+
+pub fn update_block_efficiency_base(
+    mut blocks: Query<(&BlockOwner, &mut BlockEfficiency)>,
+    ships: Query<&ComputedShipStats>,
+) {
+    for (owner, mut efficiency) in &mut blocks {
+        if let Ok(ship_stats) = ships.get(owner.id) {
+            efficiency.base = ship_stats.efficiency;
+        } else {
+            efficiency.base = 1.0;
+        }
+        // Reset value to base before applying buffs
+        efficiency.value = efficiency.base;
+    }
+}
+
+/// Applies spatial efficiency buffs.
+pub fn apply_efficiency_buffs(
+    mut blocks: Query<(Entity, &GlobalTransform, &mut BlockEfficiency)>,
+    providers: Query<(&GlobalTransform, &EfficiencyProvider)>,
+    rapier_context: ReadRapierContext,
+) {
+    let rapier = rapier_context.single().expect("Rapier context not found");
+    let filter = QueryFilter::default().exclude_sensors();
+
+    for (transform, provider) in &providers {
+        let shape = Ball::new(provider.radius);
+        let origin = transform.translation().truncate();
+
+        rapier.intersect_shape(origin, 0.0, &shape, filter, |entity| {
+            if let Ok((_, _, mut efficiency)) = blocks.get_mut(entity) {
+                let buffed = efficiency.base * provider.value;
+
+                if buffed > efficiency.value {
+                    efficiency.value = buffed;
+                }
+
+                true
+            } else {
+                true
+            }
+        });
     }
 }

@@ -6,7 +6,6 @@ pub struct ComputedShipStats {
     pub power_usage: f32,
     pub thrust_power: f32,
     pub rotate_speed: f32,
-    /// 0.0 to 1.0 (or higher if buffed/specified, but usually capped at 1.0 for power factor)
     pub efficiency: f32,
 }
 

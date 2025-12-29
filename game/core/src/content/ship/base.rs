@@ -17,7 +17,6 @@ use crate::content::block::base::{
     Block, BlockData, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
-use crate::content::block::stat::BlockStatUpdateSet;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_ship_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
@@ -255,7 +254,6 @@ impl Plugin for ShipPlugin {
             .add_systems(
                 FixedUpdate,
                 update_ship_stats
-                    .after(BlockStatUpdateSet)
                     .run_if(in_state(SceneState::Game)),
             )
             .add_systems(
@@ -447,15 +445,19 @@ pub fn update_ship_ui(
         &AIShipController,
         Option<&ShipBehavior>,
         &GlobalTransform,
+        &ComputedShipStats,
     )>,
 ) {
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior, global_transform)) => {
+            Ok((ship, _, controller, behavior, global_transform, stats)) => {
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
+                    Text2d::new(format!(
+                        "Ship: {ship}\nC: {:?}\nB: {:?},\n{:?}",
+                        current, behavior, stats
+                    )),
                     TextFont {
                         font_size: 90.0,
                         ..default()
