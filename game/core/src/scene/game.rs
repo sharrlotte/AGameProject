@@ -4,6 +4,7 @@ use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
         block::base::{Block, BlockOwner, BlockRegistry, Health},
+        selectable::SelectedEvent,
         ship::base::{BoundingBox, Ship},
         team::Team,
     },
@@ -42,8 +43,9 @@ impl Plugin for GameScenePlugin {
                 Update,
                 (
                     update_fps,
-                    update_ship_buttons.run_if(on_timer(Duration::from_millis(200))),
+                    update_ship_list.run_if(on_timer(Duration::from_millis(200))),
                     handle_ship_button_click,
+                    update_select_panel,
                 )
                     .run_if(in_state(SceneState::Game)),
             )
@@ -51,7 +53,7 @@ impl Plugin for GameScenePlugin {
     }
 }
 
-pub fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands) {
     commands
         .spawn((
             Node {
@@ -60,6 +62,7 @@ pub fn setup(mut commands: Commands) {
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Stretch,
                 flex_direction: FlexDirection::Column,
+                overflow: Overflow::hidden(),
                 ..Default::default()
             },
             SceneEntity(SceneState::Game),
@@ -67,7 +70,6 @@ pub fn setup(mut commands: Commands) {
         .with_children(|game_ui| {
             game_ui
                 .spawn((Node {
-                    width: Val::Auto,
                     min_height: Val::Px(40.0),
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
@@ -88,26 +90,27 @@ pub fn setup(mut commands: Commands) {
 
             game_ui
                 .spawn((Node {
-                    width: Val::Auto,
-                    height: Val::Auto,
+                    height: Val::Percent(100.0),
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
+                    overflow: Overflow::hidden(),
                     ..default()
                 },))
                 .with_children(|central_part| {
                     central_part
                         .spawn((Node {
-                            width: Val::Auto,
-                            min_height: Val::Auto,
+                            height: Val::Percent(100.0),
                             justify_content: JustifyContent::SpaceBetween,
                             align_items: AlignItems::Center,
                             flex_direction: FlexDirection::Column,
+                            overflow: Overflow::hidden(),
                             ..default()
                         },))
                         .with_children(|left_bar| {
                             left_bar.spawn((
                                 ShipList,
                                 Node {
+                                    height: Val::Percent(100.0),
                                     flex_direction: FlexDirection::Column,
                                     flex_wrap: FlexWrap::Wrap,
                                     ..default()
@@ -116,8 +119,6 @@ pub fn setup(mut commands: Commands) {
                         });
 
                     central_part.spawn((Node {
-                        width: Val::Auto,
-                        min_height: Val::Auto,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
                         flex_direction: FlexDirection::Column,
@@ -127,7 +128,6 @@ pub fn setup(mut commands: Commands) {
 
             game_ui
                 .spawn((Node {
-                    width: Val::Auto,
                     min_height: Val::Px(40.0),
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
@@ -145,7 +145,30 @@ pub fn setup(mut commands: Commands) {
         });
 }
 
-pub fn update_fps(
+fn update_select_panel(
+    mut commands: Commands,
+    selectable_panel: Single<Entity, With<SelectablePanel>>,
+    mut selectable_reader: MessageReader<SelectedEvent>,
+) {
+    for event in selectable_reader.read() {
+        commands
+            .entity(selectable_panel.entity())
+            .despawn_children();
+
+        for (etype, entities) in event.selected.iter() {
+            commands
+                .entity(selectable_panel.entity())
+                .with_children(|parent| {
+                    parent.spawn((
+                        Node::default(),
+                        Text::new(format!("{etype:?}: {}", entities.len())),
+                    ));
+                });
+        }
+    }
+}
+
+fn update_fps(
     mut text: Single<&mut Text, With<FpsText>>,
     diagnostics: Res<DiagnosticsStore>,
     camera: Single<&GlobalTransform, With<Camera2d>>,
@@ -161,7 +184,7 @@ pub fn update_fps(
     }
 }
 
-pub fn handle_ship_button_click(
+fn handle_ship_button_click(
     mut interaction: Query<(&Interaction, &ShipButton), (Changed<Interaction>, With<Button>)>,
     mut state: ResMut<GameVars>,
 ) {
@@ -186,10 +209,10 @@ pub fn handle_ship_button_click(
     }
 }
 
-pub fn update_ship_buttons(
+fn update_ship_list(
     mut commands: Commands,
-    ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
     mut ship_list: Query<Entity, With<ShipList>>,
+    ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
     block_list: Query<(Entity, &Block, &Health, &BlockOwner)>,
     state: Res<GameVars>,
     registry: Res<BlockRegistry>,
@@ -218,25 +241,23 @@ pub fn update_ship_buttons(
             {
                 Color::srgba(0.0, 1.0, 1.0, 1.0)
             } else {
-                Color::srgba(1.0, 1.0, 1.0, 0.0)
+                Color::WHITE
             };
 
             container
                 .spawn((
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Auto,
                         min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         margin: UiRect::all(Val::Px(4.0)),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor::from(Color::WHITE),
-                    BorderRadius::all(Val::Percent(5.0)),
                     Button,
                     ShipButton(*entity),
-                    BackgroundColor(color),
+                    BorderRadius::all(Val::Percent(5.0)),
+                    BorderColor::all(color),
                 ))
                 .with_children(|ship_ui| {
                     let mut offset_x = 0;
@@ -263,8 +284,15 @@ pub fn update_ship_buttons(
                             continue;
                         };
 
-                        let hp_percent = health.health / health.max_health;
-                        let color = hp_to_color(hp_percent);
+                        let hp_percent = (health.health / health.max_health).clamp(0.0, 1.0);
+
+                        let color = if hp_percent > 0.75 {
+                            Color::srgb(0.0, 1.0, 0.0)
+                        } else if hp_percent > 0.5 {
+                            Color::srgb(1.0, 1.0, 0.0)
+                        } else {
+                            Color::srgb(1.0, 0.0, 0.0)
+                        };
 
                         ship_ui.spawn((
                             BlockButton(block_entity),
@@ -289,17 +317,5 @@ pub fn update_ship_buttons(
                     }
                 });
         });
-    }
-}
-
-fn hp_to_color(hp_percent: f32) -> Color {
-    let hp = hp_percent.clamp(0.0, 1.0);
-
-    if hp > 0.75 {
-        Color::srgb(0.0, 1.0, 0.0)
-    } else if hp > 0.5 {
-        Color::srgb(1.0, 1.0, 0.0)
-    } else {
-        Color::srgb(1.0, 0.0, 0.0)
     }
 }

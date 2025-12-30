@@ -14,7 +14,7 @@ pub struct SelectableRes {
 
 #[derive(Message)]
 pub struct SelectedEvent {
-    selected: HashMap<EntityType, Vec<Entity>>,
+    pub selected: HashMap<EntityType, Vec<Entity>>,
 }
 
 #[derive(Default)]
