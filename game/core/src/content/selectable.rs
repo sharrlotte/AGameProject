@@ -91,11 +91,26 @@ fn update_selectable(
                 start_position.y.max(end_position.y),
             );
 
-            let bottom_left = Vec2::new(top_left.x, bottom_right.y);
-
-            let size = bottom_right - top_left;
-
-            gizmos.rect_2d(bottom_left, size, Color::WHITE);
+            gizmos.line_2d(
+                top_left,
+                Vec2::new(bottom_right.x, top_left.y),
+                Color::WHITE,
+            );
+            gizmos.line_2d(
+                top_left,
+                Vec2::new(top_left.x, bottom_right.y),
+                Color::WHITE,
+            );
+            gizmos.line_2d(
+                bottom_right,
+                Vec2::new(bottom_right.x, top_left.y),
+                Color::WHITE,
+            );
+            gizmos.line_2d(
+                bottom_right,
+                Vec2::new(top_left.x, bottom_right.y),
+                Color::WHITE,
+            );
 
             if !mouse.just_released(MouseButton::Left) {
                 return;
