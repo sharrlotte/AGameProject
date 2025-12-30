@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use crate::{
     constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
     content::block::{
-        base::{BlockOwner, ComponentOwner}, component::efficiency::{BlockEfficiency, EfficiencyEffect}, stat::StatEffect
+        component::efficiency::{BlockEfficiency, EfficiencyEffect},
+        stat::{StatEffect, StatsUpdateSet},
     },
 };
 
@@ -13,7 +14,7 @@ impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedPreUpdate,
-            (update_thrust_power_stats, update_rotate_speed_stats),
+            (update_thrust_power_stats, update_rotate_speed_stats).in_set(StatsUpdateSet),
         );
     }
 }
@@ -59,7 +60,7 @@ pub struct RotateSpeedComputed {
 pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 
 impl ThrusterComponent {
-    pub fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             ThrustPowerBase {
                 value: self.force * THRUST_POWER_FACTOR,
@@ -70,8 +71,6 @@ impl ThrusterComponent {
             },
             RotateSpeedComputed::default(),
             BlockEfficiency::default(),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
         ));
     }
 }

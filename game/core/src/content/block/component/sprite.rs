@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::block::base::{BlockDef, BlockOwner, ComponentOwner};
+use crate::content::block::base::BlockDef;
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct SpriteComponent {
@@ -11,7 +11,7 @@ pub struct SpriteComponent {
 }
 
 impl SpriteComponent {
-    pub fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity, def: &BlockDef) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Sprite {
                 image: self.image.clone(),
@@ -19,8 +19,6 @@ impl SpriteComponent {
                 ..default()
             },
             Transform::from_translation(self.offset.extend(self.z)),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
         ));
     }
 }

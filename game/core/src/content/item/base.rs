@@ -53,6 +53,8 @@ pub struct ItemDef {
     pub item_group: ItemGroup,
     pub rarity: Rarity,
     pub name: String,
+    pub icon: Option<Handle<Image>>,
+    pub occupied: usize,
 }
 
 impl ItemRegistry {
@@ -84,5 +86,7 @@ pub fn register_default_items(mut registry: ResMut<ItemRegistry>) {
         item_group: ItemGroup::Resource,
         rarity: Rarity::Common,
         name: "steal".to_string(),
+        icon: None,
+        occupied: 1,
     });
 }

@@ -15,6 +15,7 @@ use crate::{
             component::{
                 base::{BlockComponent, ComponentPlugin},
                 sprite::SpriteComponent,
+                storage::StorageComponent,
                 thruster::ThrusterComponent,
                 turret::TurretComponent,
             },
@@ -321,7 +322,7 @@ impl BlockData {
         commands.entity(ship).add_child(child);
 
         for component in &def.components {
-            component.spawn(commands, ship, child, def, &team);
+            component.spawn(commands, child, def, &team);
         }
 
         return child;
@@ -749,6 +750,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 force: 100.0,
                 torque: 40.0,
             }),
+            BlockComponent::Storage(StorageComponent { capacity: 1000 }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,

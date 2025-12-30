@@ -16,6 +16,8 @@ use crate::content::block::base::{
     Block, BlockData, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
+use crate::content::block::component::storage::{Storage, StorageState};
+use crate::content::block::stat::StatsUpdateSet;
 use crate::content::death::Death;
 use crate::content::selectable::Selectable;
 use crate::content::ship::indicators::IndicatorsPlugin;
@@ -205,6 +207,12 @@ impl ShipData {
             ))
             .id();
 
+        for block_data in &data.blocks {
+            if let Some(def) = registry.get(&block_data.block_type) {
+                block_data.spawn(&mut commands, def, ship, team);
+            }
+        }
+
         let ui_root = commands
             .spawn((
                 ShipUIRoot { ship },
@@ -214,12 +222,6 @@ impl ShipData {
             .id();
 
         commands.entity(ship).add_child(ui_root);
-
-        for block_data in &data.blocks {
-            if let Some(def) = registry.get(&block_data.block_type) {
-                block_data.spawn(&mut commands, def, ship, team);
-            }
-        }
 
         return Some(ship);
     }
@@ -251,7 +253,9 @@ impl Plugin for ShipPlugin {
             )
             .add_systems(
                 FixedPreUpdate,
-                update_stats.run_if(in_state(SceneState::Game)),
+                update_stats
+                    .after(StatsUpdateSet)
+                    .run_if(in_state(SceneState::Game)),
             )
             .add_systems(
                 FixedUpdate,
@@ -442,15 +446,16 @@ pub fn update_ship_ui(
         &AIShipController,
         Option<&ShipBehavior>,
         &GlobalTransform,
+        &ComputedShipStats,
     )>,
 ) {
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior, global_transform)) => {
+            Ok((ship, _, controller, behavior, global_transform, stats)) => {
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}\nC: {:?}\nB: {:?}", current, behavior)),
+                    Text2d::new(format!("Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}", current, behavior, stats)),
                     TextFont {
                         font_size: 30.0,
                         ..default()
@@ -974,14 +979,15 @@ fn wrap_angle(mut a: f32) -> f32 {
 
 pub fn collect_drop(
     mut commands: Commands,
-    ships: Query<(&GlobalTransform, &Team), With<Ship>>,
+    ships: Query<(Entity, &GlobalTransform, &Team, &ComputedShipStats)>,
     mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
+    mut storages: Query<(&Storage, &mut StorageState)>,
     time: Res<Time>,
 ) {
     let mut collected: HashSet<Entity> = HashSet::new();
 
-    for (ship_transform, ship_team) in ships.iter() {
-        if !ship_team.is_player() {
+    for (ship, ship_transform, ship_team, stats) in ships.iter() {
+        if !ship_team.is_player() || stats.is_full {
             continue;
         }
 
@@ -1001,10 +1007,15 @@ pub fn collect_drop(
 
                 if distance <= DROP_COLLECT_RADIUS.sqrt() {
                     match drop_component {
-                        DropComponent::Item(item) => {}
+                        DropComponent::Item(item) => {
+                            if let Ok((storage, mut storage_state)) = storages.get_mut(ship)
+                            {
+                                if storage_state.add(storage, item.item_type, item.amount) {
+                                    commands.entity(drop_entity).despawn();
+                                }
+                            }
+                        }
                     }
-
-                    commands.entity(drop_entity).despawn();
                 }
             }
         }

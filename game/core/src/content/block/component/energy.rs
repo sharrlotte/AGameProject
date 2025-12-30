@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::content::{
     block::{
-        base::{BlockOwner, ComponentOwner, PowerProducer},
+        base::{BlockOwner, PowerProducer},
         component::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
         stat::StatEffect,
     },
@@ -33,12 +33,10 @@ pub struct EnergyConsumerComponent {
 }
 
 impl EnergyConsumerComponent {
-    pub fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             PowerUsageBase { value: self.rate },
             PowerUsageComputed::default(),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
         ));
     }
 }

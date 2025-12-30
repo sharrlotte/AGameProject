@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use crate::content::{
     block::{
-        base::{BlockDef, BlockOwner, ComponentOwner, ShootPattern, TargetingStrategy},
-        component::{efficiency::BlockEfficiency, thruster::{RotateSpeedBase, RotateSpeedComputed}},
+        base::{BlockDef, ShootPattern, TargetingStrategy},
+        component::efficiency::BlockEfficiency,
         radar::Radar,
         turret::{Turret, TurretState},
     },
@@ -24,14 +24,7 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        ship: Entity,
-        base: Entity,
-        def: &BlockDef,
-        team: &Team,
-    ) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -40,10 +33,6 @@ impl TurretComponent {
                 barrels: self.barrels.clone(),
                 shooting_pattern: self.shooting_pattern.clone(),
             },
-            RotateSpeedBase {
-                value: self.turn_speed,
-            },
-            RotateSpeedComputed::default(),
             BlockEfficiency::default(),
             TurretState::default(),
             Radar::new(self.range, 1.0),
@@ -53,8 +42,6 @@ impl TurretComponent {
                 ..default()
             },
             Transform::from_translation(self.offset.extend(self.z)),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
         ));
 
         self.shooting_pattern.insert(commands, base, team);

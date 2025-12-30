@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, SystemSet, Hash, Eq)]
+pub struct StatsUpdateSet;
+
 #[derive(Clone, Copy, Debug, Reflect, PartialEq)]
 pub enum StackRule {
     Additive,

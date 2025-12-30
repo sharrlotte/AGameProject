@@ -2,13 +2,9 @@ use bevy::prelude::*;
 
 use crate::content::{
     block::{
-        base::BlockDef,
+        base::{Block, BlockDef, BlockOwner, ComponentOwner},
         component::{
-            efficiency::{EfficiencyPlugin, EfficiencyProvider},
-            energy::{EnergyConsumerComponent, EnergyPlugin},
-            sprite::SpriteComponent,
-            thruster::{ThrusterComponent, ThrusterPlugin},
-            turret::TurretComponent,
+            efficiency::{EfficiencyPlugin, EfficiencyProvider}, energy::{EnergyConsumerComponent, EnergyPlugin}, sprite::SpriteComponent, storage::StorageComponent, thruster::{ThrusterComponent, ThrusterPlugin}, turret::TurretComponent
         },
         turret::TurretPlugin,
     },
@@ -18,7 +14,8 @@ pub struct ComponentPlugin;
 
 impl Plugin for ComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ThrusterPlugin, TurretPlugin, EnergyPlugin, EfficiencyPlugin));
+        app.add_plugins((ThrusterPlugin, TurretPlugin, EnergyPlugin, EfficiencyPlugin))
+            .add_systems(FixedUpdate, insert_added_block);
     }
 }
 
@@ -29,17 +26,11 @@ pub enum BlockComponent {
     EnergyConsumer(EnergyConsumerComponent),
     Thruster(ThrusterComponent),
     EfficiencyProvider(EfficiencyProvider),
+    Storage(StorageComponent),
 }
 
 impl BlockComponent {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        ship: Entity,
-        base: Entity,
-        def: &BlockDef,
-        team: &Team,
-    ) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
         let component = commands
             .spawn((
                 Transform::default(),
@@ -52,12 +43,38 @@ impl BlockComponent {
         commands.entity(base).add_child(component);
 
         match self {
-            Self::Sprite(sprite) => sprite.spawn(commands, ship, component, def),
-            Self::Turret(turret) => turret.spawn(commands, ship, component, def, team),
-            Self::Thruster(thruster) => thruster.spawn(commands, ship, component),
-            Self::EnergyConsumer(consumer) => consumer.spawn(commands, ship, component),
+            Self::Sprite(sprite) => sprite.spawn(commands, component, def),
+            Self::Turret(turret) => turret.spawn(commands, component, def, team),
+            Self::Thruster(thruster) => thruster.spawn(commands, component),
+            Self::EnergyConsumer(consumer) => consumer.spawn(commands, component),
             Self::EfficiencyProvider(provider) => {
                 commands.entity(component).insert(*provider);
+            }
+            Self::Storage(storage) => storage.spawn(commands, component),
+        }
+    }
+}
+
+fn insert_added_block(
+    blocks: Query<(Entity, &Block, &BlockOwner), Added<Block>>,
+    children: Query<&Children>,
+    mut commands: Commands,
+) {
+    // child, ship, block
+    let mut queue: Vec<(Entity, Entity, Entity)> = Vec::new();
+
+    for (entity, _, owner) in &blocks {
+        queue.push((entity, owner.id, entity));
+    }
+
+    while let Some((entity, ship, block)) = queue.pop() {
+        commands
+            .entity(entity)
+            .insert((BlockOwner { id: ship }, ComponentOwner { id: block }));
+
+        if let Ok(children) = children.get(entity) {
+            for child in children.iter() {
+                queue.push((child, ship, block));
             }
         }
     }

@@ -6,7 +6,6 @@ use crate::{
     content::{
         block::{
             base::{ShootPattern, TargetingStrategy},
-            component::thruster::RotateSpeedComputed,
             radar::Radar,
         },
         ship::base::Ship,
@@ -59,16 +58,9 @@ pub fn update_turret_target(
     mouse_input: Res<ButtonInput<MouseButton>>,
     game_state: Res<GameVars>,
     ships: Query<(Entity, &GlobalTransform, &Ship)>,
-    mut turrets: Query<(
-        &GlobalTransform,
-        &Turret,
-        &mut TurretState,
-        &Team,
-        &Radar,
-        Option<&RotateSpeedComputed>,
-    )>,
+    mut turrets: Query<(&GlobalTransform, &Turret, &mut TurretState, &Team, &Radar)>,
 ) {
-    for (transform, turret, mut state, team, radar, rotate_speed) in turrets.iter_mut() {
+    for (transform, turret, mut state, team, radar) in turrets.iter_mut() {
         if team.is_player() {
             let (camera, camera_transform) = *camera_query;
 
@@ -147,7 +139,7 @@ pub fn update_turret_target(
 
             state.target = Some(entity);
 
-            let turn_speed = rotate_speed.map(|r| r.value).unwrap_or(turret.turn_speed);
+            let turn_speed = turret.turn_speed;
 
             if turn_speed == 0. {
                 state.active = angle_error.abs() < PI / 64.0;
@@ -168,12 +160,11 @@ pub fn turret_tracking(
         &GlobalTransform,
         &Turret,
         &TurretState,
-        Option<&RotateSpeedComputed>,
     )>,
     transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
-    for (mut transform, global_transform, turret, state, rotate_speed) in &mut query {
-        let turn_speed = rotate_speed.map(|r| r.value).unwrap_or(turret.turn_speed);
+    for (mut transform, global_transform, turret, state) in &mut query {
+        let turn_speed = turret.turn_speed;
 
         if turn_speed == 0. {
             continue;
