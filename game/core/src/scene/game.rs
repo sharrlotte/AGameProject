@@ -232,42 +232,43 @@ fn update_ship_list(
 
     for (entity, _, bbox, _) in player_ships.iter() {
         commands.entity(ship_list).with_children(|container| {
-            let color: Color = if let Some(controlling) = state.controlling
-                && controlling == *entity
-            {
-                Color::srgba(0.0, 1.0, 0.0, 1.0)
-            } else if let Some(following) = state.following
-                && following == *entity
-            {
-                Color::srgba(0.0, 1.0, 1.0, 1.0)
-            } else {
-                Color::WHITE
-            };
-
             container
-                .spawn((
-                    Node {
-                        position_type: PositionType::Relative,
-                        min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                        height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                        margin: UiRect::all(Val::Px(4.0)),
-                        border: UiRect::all(Val::Px(1.0)),
-                        ..default()
-                    },
-                    Button,
-                    ShipButton(*entity),
-                    BorderRadius::all(Val::Percent(5.0)),
-                    BorderColor::all(color),
-                ))
-                .with_children(|block_container| {
-                    block_container
-                        .spawn(Node {
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            width: Val::Percent(100.0),
-                            ..Default::default()
-                        })
-                        .with_children(|wrapper| {
+                .spawn(Node {
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_children(|wrapper| {
+                    let color: Color = if let Some(controlling) = state.controlling
+                        && controlling == *entity
+                    {
+                        Color::srgba(0.0, 1.0, 0.0, 1.0)
+                    } else if let Some(following) = state.following
+                        && following == *entity
+                    {
+                        Color::srgba(0.0, 1.0, 1.0, 1.0)
+                    } else {
+                        Color::WHITE
+                    };
+
+                    wrapper
+                        .spawn((
+                            Node {
+                                position_type: PositionType::Relative,
+                                min_width: Val::Px(
+                                    (bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE,
+                                ),
+                                height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                                margin: UiRect::all(Val::Px(4.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            Button,
+                            ShipButton(*entity),
+                            BorderRadius::all(Val::Percent(5.0)),
+                            BorderColor::all(color),
+                        ))
+                        .with_children(|block_container| {
                             let mut offset_x = 0;
                             let mut offset_y = 0;
 
@@ -303,7 +304,7 @@ fn update_ship_list(
                                     Color::srgb(1.0, 0.0, 0.0)
                                 };
 
-                                wrapper.spawn((
+                                block_container.spawn((
                                     BlockButton(block_entity),
                                     BackgroundColor(color),
                                     Node {
