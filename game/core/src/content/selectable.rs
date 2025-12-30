@@ -2,18 +2,10 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::{content::ship::base::BoundingBox, resource::SceneState};
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq)]
-pub enum SelectableType {
-    Ship,
-}
+use crate::content::{entity::EntityType, ship::base::BoundingBox};
 
 #[derive(Component)]
-pub struct Selectable(pub SelectableType);
-
-#[derive(Component)]
-pub struct SelectableUI;
+pub struct Selectable;
 
 #[derive(Resource, Default)]
 pub struct SelectableRes {
@@ -22,7 +14,7 @@ pub struct SelectableRes {
 
 #[derive(Message)]
 pub struct SelectedEvent {
-    selected: HashMap<SelectableType, Vec<Entity>>,
+    selected: HashMap<EntityType, Vec<Entity>>,
 }
 
 #[derive(Default)]
@@ -39,28 +31,18 @@ pub struct SelectablePlugin;
 impl Plugin for SelectablePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectableRes>()
-            .add_systems(OnEnter(SceneState::Game), setup)
+            .add_message::<SelectedEvent>()
             .add_systems(Update, update_selectable);
     }
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        SelectableUI,
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-    ));
 }
 
 fn update_selectable(
     mut res: ResMut<SelectableRes>,
     mouse_input: Res<ButtonInput<MouseButton>>,
-    selectable_query: Query<(Entity, &Selectable, &GlobalTransform, Option<&BoundingBox>)>,
+    selectable_query: Query<
+        (Entity, &EntityType, &GlobalTransform, Option<&BoundingBox>),
+        With<Selectable>,
+    >,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     mut selected_writer: MessageWriter<SelectedEvent>,
@@ -112,9 +94,9 @@ fn update_selectable(
                 start_position.y.max(end_position.y),
             );
 
-            let mut selected: HashMap<SelectableType, Vec<Entity>> = HashMap::new();
+            let mut selected: HashMap<EntityType, Vec<Entity>> = HashMap::new();
 
-            for (entity, selectable, transform, bounding_box) in selectable_query.iter() {
+            for (entity, entity_type, transform, bounding_box) in selectable_query.iter() {
                 let translation = transform.translation().truncate();
 
                 if let Some(bounding_box) = bounding_box {
@@ -125,14 +107,14 @@ fn update_selectable(
                         && bottom_right.x > edge.x
                         && bottom_right.y > edge.y
                     {
-                        selected.entry(selectable.0).or_default().push(entity);
+                        selected.entry(*entity_type).or_default().push(entity);
                     }
                 } else if top_left.x < translation.x
                     && top_left.y < translation.y
                     && bottom_right.x > translation.x
                     && bottom_right.y > translation.y
                 {
-                    selected.entry(selectable.0).or_default().push(entity);
+                    selected.entry(*entity_type).or_default().push(entity);
                 }
             }
 

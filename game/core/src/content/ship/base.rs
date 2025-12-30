@@ -17,7 +17,7 @@ use crate::content::block::base::{
     DropEvent, ShipCalculatedStat,
 };
 use crate::content::death::Death;
-use crate::content::selectable::{Selectable, SelectableType};
+use crate::content::selectable::Selectable;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
@@ -26,7 +26,7 @@ use crate::save::io::load_saved_schematics;
 use crate::utils::random::random_vec2_step;
 use crate::{
     constant::{ANGULAR_DAMPING, LAYER_SHIP_UI, LINEAR_DAMPING},
-    content::entity_type::EntityType,
+    content::entity::EntityType,
 };
 
 #[derive(Component, Debug, Default, Clone)]
@@ -177,11 +177,11 @@ impl ShipData {
                 ComputedShipStats::default(),
                 Visibility::Visible,
                 EntityType::Ship,
+                Selectable,
                 Blocks {
                     blocks: data.blocks.clone(),
                 },
                 BoundingBox { size: data.size },
-                Selectable(SelectableType::Ship),
                 transform,
                 team,
             ))

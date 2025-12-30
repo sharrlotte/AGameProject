@@ -29,6 +29,9 @@ pub struct ShipList;
 #[derive(Component)]
 pub struct BlockButton(pub Entity);
 
+#[derive(Component)]
+pub struct SelectablePanel;
+
 pub struct GameScenePlugin;
 
 impl Plugin for GameScenePlugin {
@@ -64,7 +67,7 @@ pub fn setup(mut commands: Commands) {
         .with_children(|game_ui| {
             game_ui
                 .spawn((Node {
-                    width: Val::Percent(100.0),
+                    width: Val::Auto,
                     min_height: Val::Px(40.0),
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
@@ -85,8 +88,8 @@ pub fn setup(mut commands: Commands) {
 
             game_ui
                 .spawn((Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    width: Val::Auto,
+                    height: Val::Auto,
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
                     ..default()
@@ -94,8 +97,8 @@ pub fn setup(mut commands: Commands) {
                 .with_children(|central_part| {
                     central_part
                         .spawn((Node {
-                            width: Val::Px(40.0),
-                            min_height: Val::Percent(100.0),
+                            width: Val::Auto,
+                            min_height: Val::Auto,
                             justify_content: JustifyContent::SpaceBetween,
                             align_items: AlignItems::Center,
                             flex_direction: FlexDirection::Column,
@@ -113,8 +116,8 @@ pub fn setup(mut commands: Commands) {
                         });
 
                     central_part.spawn((Node {
-                        width: Val::Px(40.0),
-                        min_height: Val::Percent(100.0),
+                        width: Val::Auto,
+                        min_height: Val::Auto,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
                         flex_direction: FlexDirection::Column,
@@ -122,13 +125,23 @@ pub fn setup(mut commands: Commands) {
                     },));
                 });
 
-            game_ui.spawn((Node {
-                width: Val::Percent(100.0),
-                min_height: Val::Px(40.0),
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                ..default()
-            },));
+            game_ui
+                .spawn((Node {
+                    width: Val::Auto,
+                    min_height: Val::Px(40.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
+                .with_children(|bottom_bar| {
+                    bottom_bar.spawn((
+                        SelectablePanel,
+                        Node {
+                            flex_wrap: FlexWrap::Wrap,
+                            ..default()
+                        },
+                    ));
+                });
         });
 }
 
@@ -212,7 +225,7 @@ pub fn update_ship_buttons(
                 .spawn((
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Percent(100.0),
+                        width: Val::Auto,
                         min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         margin: UiRect::all(Val::Px(4.0)),

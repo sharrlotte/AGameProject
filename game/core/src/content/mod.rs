@@ -6,6 +6,6 @@ pub mod plugin;
 pub mod item;
 pub mod damage;
 pub mod death;
-pub mod entity_type;
+pub mod entity;
 pub mod lifetime;
 pub mod selectable;

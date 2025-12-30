@@ -9,7 +9,7 @@ use crate::content::block::turret::{Turret, TurretState};
 use crate::content::bullet::physic::handle_collisions;
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;
-use crate::content::entity_type::EntityType;
+use crate::content::entity::EntityType;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::base::{BoundingBox, Ship};
 use crate::content::team::Team;
@@ -449,7 +449,7 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
-                    EntityType::Projectile,
+                    EntityType::Bullet,
                     Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
@@ -486,7 +486,7 @@ pub fn spawn_bullet(
         ShootingProjectile::Laser { damage, width, .. } => {
             let bullet = commands
                 .spawn((
-                    EntityType::Projectile,
+                    EntityType::Laser,
                     Laser::Init {
                         width: *width,
                         length: range,
@@ -512,7 +512,7 @@ pub fn spawn_bullet(
         } => {
             let missile = commands
                 .spawn((
-                    EntityType::Projectile,
+                    EntityType::Missile,
                     Lifetime::seconds(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),

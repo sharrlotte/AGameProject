@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    content::{damage::DamageEvent, death::Death, entity_type::EntityType, lifetime::Lifetime},
+    content::{damage::DamageEvent, death::Death, entity::EntityType, lifetime::Lifetime},
     constant::{
         DROP_DESPAWN_IN_SECONDS, DROP_SIZE, FLASH_OVERLAY_COLOR, GRID_SIZE, LAYER_BLOCK,
         LAYER_DROP, LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR,
