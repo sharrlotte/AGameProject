@@ -1,12 +1,16 @@
-use crate::common::damage::{Damage, DamageEvent};
-use crate::common::death::Death;
-use crate::common::entity_type::EntityType;
-use crate::common::lifetime::Lifetime;
 use crate::constant::LAYER_BULLET;
-use crate::content::block::base::{BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health, LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern, PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState};
+use crate::content::block::base::{
+    BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
+    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
+    PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
+};
 use crate::content::block::radar::Radar;
 use crate::content::block::turret::{Turret, TurretState};
 use crate::content::bullet::physic::handle_collisions;
+use crate::content::damage::{Damage, DamageEvent};
+use crate::content::death::Death;
+use crate::content::entity_type::EntityType;
+use crate::content::lifetime::Lifetime;
 use crate::content::ship::base::{BoundingBox, Ship};
 use crate::content::team::Team;
 use crate::resource::SceneState;
@@ -129,7 +133,7 @@ pub fn handle_missiles(
         if let Some(target) = missile.target {
             if let Ok((target_gt, target_bbox)) = targets.get(target) {
                 let to_target = target_gt
-                    .transform_point(target_bbox.center.extend(0.0))
+                    .transform_point((target_bbox.size / 2.0).extend(0.0))
                     .truncate()
                     - global.translation().truncate();
 

@@ -4,3 +4,8 @@ pub mod team;
 pub mod block;
 pub mod plugin;
 pub mod item;
+pub mod damage;
+pub mod death;
+pub mod entity_type;
+pub mod lifetime;
+pub mod selectable;

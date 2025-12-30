@@ -1,3 +1,16 @@
+use std::time::Duration;
+
+use crate::{
+    constant::{GRID_SIZE, SMALL_GRID_SIZE},
+    content::{
+        block::base::{Block, BlockOwner, BlockRegistry, Health},
+        ship::base::{BoundingBox, Ship},
+        team::Team,
+    },
+    resource::{GameVars, SceneEntity, SceneState},
+    scene::background::BackgroundPlugin,
+};
+
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
@@ -8,12 +21,6 @@ use bevy::{
 pub struct FpsText;
 
 #[derive(Component)]
-pub struct TurretControlModeButton;
-
-#[derive(Component)]
-pub struct TurretControlModeText;
-
-#[derive(Component)]
 pub struct ShipButton(pub Entity);
 
 #[derive(Component)]
@@ -22,30 +29,16 @@ pub struct ShipList;
 #[derive(Component)]
 pub struct BlockButton(pub Entity);
 
-use std::time::Duration;
-
-use crate::{
-    constant::{GRID_SIZE, SMALL_GRID_SIZE},
-    content::{
-        block::base::{Block, BlockOwner, BlockRegistry, Health},
-        ship::base::{BoundingBox, Ship},
-        team::Team,
-    },
-    resource::{GameVars, SceneEntity, SceneState, TurretControl},
-    scene::background::BackgroundPlugin,
-};
-
 pub struct GameScenePlugin;
 
 impl Plugin for GameScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameVars>()
-            .add_systems(OnEnter(SceneState::Game), setup_game)
+            .add_systems(OnEnter(SceneState::Game), setup)
             .add_systems(
                 Update,
                 (
                     update_fps,
-                    update_turret_control_mode_button,
                     update_ship_buttons.run_if(on_timer(Duration::from_millis(200))),
                     handle_ship_button_click,
                 )
@@ -55,23 +48,103 @@ impl Plugin for GameScenePlugin {
     }
 }
 
-pub fn update_fps(
-    diagnostics: Res<DiagnosticsStore>,
-    mut text: Query<&mut Text, With<FpsText>>,
-    camera: Query<&GlobalTransform, With<Camera2d>>,
-) {
-    let position = camera
-        .single()
-        .expect("No camera attached")
-        .translation()
-        .truncate();
+pub fn setup(mut commands: Commands) {
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Stretch,
+                flex_direction: FlexDirection::Column,
+                ..Default::default()
+            },
+            SceneEntity(SceneState::Game),
+        ))
+        .with_children(|game_ui| {
+            game_ui
+                .spawn((Node {
+                    width: Val::Percent(100.0),
+                    min_height: Val::Px(40.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
+                .with_children(|top_bar| {
+                    top_bar.spawn((
+                        Text::new("FPS: N/A"),
+                        TextFont {
+                            font_size: 10.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        Node { ..default() },
+                        FpsText,
+                    ));
+                });
 
-    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(value) = fps.smoothed() {
-            for mut t in text.iter_mut() {
-                t.0 = format!("FPS: {value:.2}, {position}",);
-            }
-        }
+            game_ui
+                .spawn((Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
+                .with_children(|central_part| {
+                    central_part
+                        .spawn((Node {
+                            width: Val::Px(40.0),
+                            min_height: Val::Percent(100.0),
+                            justify_content: JustifyContent::SpaceBetween,
+                            align_items: AlignItems::Center,
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },))
+                        .with_children(|left_bar| {
+                            left_bar.spawn((
+                                ShipList,
+                                Node {
+                                    flex_direction: FlexDirection::Column,
+                                    flex_wrap: FlexWrap::Wrap,
+                                    ..default()
+                                },
+                            ));
+                        });
+
+                    central_part.spawn((Node {
+                        width: Val::Px(40.0),
+                        min_height: Val::Percent(100.0),
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },));
+                });
+
+            game_ui.spawn((Node {
+                width: Val::Percent(100.0),
+                min_height: Val::Px(40.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },));
+        });
+}
+
+pub fn update_fps(
+    mut text: Single<&mut Text, With<FpsText>>,
+    diagnostics: Res<DiagnosticsStore>,
+    camera: Single<&GlobalTransform, With<Camera2d>>,
+) {
+    let position = camera.translation().truncate();
+
+    let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) else {
+        return;
+    };
+
+    if let Some(value) = fps.smoothed() {
+        text.0 = format!("FPS: {value:.2}, {position}",);
     }
 }
 
@@ -209,109 +282,11 @@ pub fn update_ship_buttons(
 fn hp_to_color(hp_percent: f32) -> Color {
     let hp = hp_percent.clamp(0.0, 1.0);
 
-    let green = Color::srgb(0.0, 1.0, 0.0);
-    let yellow = Color::srgb(1.0, 1.0, 0.0);
-    let red = Color::srgb(1.0, 0.0, 0.0);
-
     if hp > 0.75 {
-        green
+        Color::srgb(0.0, 1.0, 0.0)
     } else if hp > 0.5 {
-        yellow
+        Color::srgb(1.0, 1.0, 0.0)
     } else {
-        red
-    }
-}
-
-pub fn setup_game(mut commands: Commands, game_state: Res<GameVars>) {
-    commands.spawn((
-        ShipList,
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(40.0),
-            left: Val::Px(10.0),
-            height: Val::Vh(90.0),
-            flex_direction: FlexDirection::Column,
-            flex_wrap: FlexWrap::Wrap,
-            ..default()
-        },
-    ));
-
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
-            SceneEntity(SceneState::Game),
-        ))
-        .with_children(|container| {
-            let text = match game_state.turret_control {
-                TurretControl::Manual => "Turret Control: Manual",
-                TurretControl::Auto => "Turret Control: Automatic",
-                TurretControl::Hold => "Turret Control: Hold",
-            };
-
-            container
-                .spawn((
-                    Node {
-                        padding: UiRect::all(Val::Px(5.0)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    Button,
-                    TurretControlModeButton,
-                    BorderRadius::all(Val::Px(5.0)),
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                ))
-                .with_children(|button| {
-                    button.spawn((
-                        Text::new(text),
-                        TextFont {
-                            font_size: 10.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        TurretControlModeText,
-                    ));
-                });
-
-            container.spawn((
-                Text::new("FPS: N/A"),
-                TextFont {
-                    font_size: 10.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                Node { ..default() },
-                FpsText,
-            ));
-        });
-}
-
-pub fn update_turret_control_mode_button(
-    mut game_state: ResMut<GameVars>,
-    mut button_query: Query<&Interaction, (Changed<Interaction>, With<TurretControlModeButton>)>,
-    mut text_query: Query<&mut Text, With<TurretControlModeText>>,
-) {
-    let Ok(interaction) = button_query.single_mut() else {
-        return;
-    };
-
-    let Ok(mut text) = text_query.single_mut() else {
-        return;
-    };
-
-    if *interaction == Interaction::Pressed {
-        game_state.turret_control = game_state.turret_control.next();
-
-        let mod_string = match game_state.turret_control {
-            TurretControl::Manual => "Turret Control: Manual",
-            TurretControl::Auto => "Turret Control: Automatic",
-            TurretControl::Hold => "Turret Control: Hold",
-        };
-        text.0 = mod_string.to_string();
+        Color::srgb(1.0, 0.0, 0.0)
     }
 }

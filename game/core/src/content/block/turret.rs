@@ -55,8 +55,8 @@ impl Plugin for TurretPlugin {
 
 pub fn update_turret_target(
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
     game_state: Res<GameVars>,
     ships: Query<(Entity, &GlobalTransform, &Ship)>,
     mut turrets: Query<(

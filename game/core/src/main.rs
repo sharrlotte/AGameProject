@@ -1,4 +1,3 @@
-mod common;
 mod constant;
 mod content;
 mod resource;
@@ -9,9 +8,6 @@ mod ui;
 mod utils;
 mod world;
 
-use crate::common::damage::DamagePlugin;
-use crate::common::death::DeathPlugin;
-use crate::common::lifetime::LifetimePlugin;
 use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::resource::{GameVars, PauseState, SceneState};
@@ -80,13 +76,10 @@ fn main() {
         HomeScenePlugin,
         PauseScenePlugin,
         ShipEditorPlugin,
-        DeathPlugin,
         SavePlugin,
-        DamagePlugin,
         HanabiPlugin,
         ContentPlugin,
         SettingScenePlugin,
-        LifetimePlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .add_systems(PreUpdate, clean_state_item);

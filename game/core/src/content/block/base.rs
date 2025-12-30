@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::{damage::DamageEvent, death::Death, entity_type::EntityType, lifetime::Lifetime},
+    content::{damage::DamageEvent, death::Death, entity_type::EntityType, lifetime::Lifetime},
     constant::{
         DROP_DESPAWN_IN_SECONDS, DROP_SIZE, FLASH_OVERLAY_COLOR, GRID_SIZE, LAYER_BLOCK,
         LAYER_DROP, LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR,
@@ -651,7 +651,6 @@ pub struct BlockRegistry {
 pub struct ShipCalculatedData {
     pub data: Ship,
     pub size: Vec2,
-    pub center: Vec2,
     pub blocks: Vec<BlockData>,
 }
 
@@ -821,10 +820,6 @@ impl BlockRegistry {
                     size: Vec2::new(
                         (max_x - min_x) as f32 * GRID_SIZE,
                         (max_y - min_y) as f32 * GRID_SIZE,
-                    ),
-                    center: Vec2::new(
-                        (max_x + min_x) as f32 * 0.5 * GRID_SIZE,
-                        (max_y + min_y) as f32 * 0.5 * GRID_SIZE,
                     ),
                     data: Ship {
                         id: block.id,

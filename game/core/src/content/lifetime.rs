@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::common::death::Death;
+use crate::content::death::Death;
 
 #[derive(Component, Debug, Clone)]
 pub struct Lifetime {

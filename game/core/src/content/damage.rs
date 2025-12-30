@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 
-use crate::{common::lifetime::Lifetime, content::block::base::Health, save::io::Save};
+use crate::{content::block::base::Health, content::lifetime::Lifetime, save::io::Save};
 
 #[derive(Component, Debug)]
 #[require(Save)]

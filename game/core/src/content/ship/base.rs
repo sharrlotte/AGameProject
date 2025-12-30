@@ -1,5 +1,5 @@
 use bevy::input::mouse::{MouseMotion, MouseWheel};
-use bevy::math::{FloatPow, VectorSpace};
+use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_rapier2d::prelude::*;
@@ -11,12 +11,13 @@ use std::time::Duration;
 use std::{collections::HashMap, f32::consts::PI};
 use uuid::Uuid;
 
-use crate::common::death::Death;
 use crate::constant::{DROP_COLLECT_RADIUS, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
 use crate::content::block::base::{
     Block, BlockData, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
+use crate::content::death::Death;
+use crate::content::selectable::{Selectable, SelectableType};
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
@@ -24,8 +25,8 @@ use crate::resource::{GameVars, SceneState};
 use crate::save::io::load_saved_schematics;
 use crate::utils::random::random_vec2_step;
 use crate::{
-    common::entity_type::EntityType,
     constant::{ANGULAR_DAMPING, LAYER_SHIP_UI, LINEAR_DAMPING},
+    content::entity_type::EntityType,
 };
 
 #[derive(Component, Debug, Default, Clone)]
@@ -40,7 +41,6 @@ pub struct Ship {
 #[derive(Component, Debug, Default, Clone)]
 pub struct BoundingBox {
     pub size: Vec2,
-    pub center: Vec2,
 }
 
 #[derive(Component, Debug, Default, Clone)]
@@ -180,10 +180,8 @@ impl ShipData {
                 Blocks {
                     blocks: data.blocks.clone(),
                 },
-                BoundingBox {
-                    size: data.size,
-                    center: data.center,
-                },
+                BoundingBox { size: data.size },
+                Selectable(SelectableType::Ship),
                 transform,
                 team,
             ))
@@ -716,7 +714,7 @@ pub fn control_ship(
                         controller.next(AIShipBehavior::Wander);
                     } else {
                         commands.entity(entity).insert(ShipBehavior::Approach {
-                            position: a.1.transform_point(a.3.center.extend(0.0)).truncate(),
+                            position: a.1.transform_point((a.3.size / 2.0).extend(0.0)).truncate(),
                             radius: (a.3.size.length() + bbox.size.length()) * 2.0,
                         });
                     }
@@ -876,7 +874,7 @@ pub fn update_ship_behavior(
         let thrust_power = stats.thrust_power;
         let turn_speed = stats.rotate_speed;
 
-        let center = size.center;
+        let center = size.size / 2.0;
 
         let current_postion = transform.transform_point(center.extend(0.0)).truncate();
         let forward = transform.local_y().truncate();
