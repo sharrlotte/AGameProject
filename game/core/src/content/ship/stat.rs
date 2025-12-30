@@ -1,6 +1,6 @@
 use crate::content::block::{
     base::BlockOwner,
-    stat::{PowerUsageComputed, RotateSpeedComputed, ThrustPowerComputed},
+    component::{energy::PowerUsageComputed, thruster::{RotateSpeedComputed, ThrustPowerComputed}},
 };
 use bevy::prelude::*;
 

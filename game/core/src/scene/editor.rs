@@ -9,10 +9,9 @@ use uuid::Uuid;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::base::{
-            Block, BlockComponent, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT,
-            FACE_RIGHT, FACE_UP,
-        },
+        block::{base::{
+            Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
+        }, component::base::BlockComponent},
         ship::base::ShipGrid,
     },
     resource::{GameVars, SceneEntity, SceneState},
@@ -1293,7 +1292,7 @@ pub fn remove_block_at(
         warn!("No block entity {:?}", entity);
         return;
     };
-    
+
     let anchor = block.position;
 
     let Some(def) = registry.get(&block.block_type) else {

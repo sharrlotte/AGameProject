@@ -6,23 +6,25 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    content::{damage::DamageEvent, death::Death, entity::EntityType, lifetime::Lifetime},
     constant::{
         DROP_DESPAWN_IN_SECONDS, DROP_SIZE, FLASH_OVERLAY_COLOR, GRID_SIZE, LAYER_BLOCK,
-        LAYER_DROP, LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY, THRUST_POWER_FACTOR,
-        TURN_SPEED_FACTOR,
+        LAYER_DROP, LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY,
     },
     content::{
         block::{
-            radar::{Radar, RadarPlugin},
-            stat::{
-                BlockEfficiency, EfficiencyProvider, PowerUsageBase, PowerUsageComputed,
-                RotateSpeedBase, RotateSpeedComputed, StatsPlugin, ThrustPowerBase,
-                ThrustPowerComputed,
+            component::{
+                base::{BlockComponent, ComponentPlugin},
+                sprite::SpriteComponent,
+                thruster::ThrusterComponent,
+                turret::TurretComponent,
             },
-            turret::{Turret, TurretPlugin, TurretState},
+            radar::RadarPlugin,
         },
+        damage::DamageEvent,
+        death::Death,
+        entity::EntityType,
         item::base::{ItemRegistry, ItemType},
+        lifetime::Lifetime,
         ship::base::{Ship, ShipFragment},
         team::Team,
     },
@@ -45,7 +47,7 @@ impl Plugin for BlockPlugin {
                     handle_block_destroy,
                 ),
             )
-            .add_plugins((RadarPlugin, TurretPlugin, StatsPlugin));
+            .add_plugins((RadarPlugin, ComponentPlugin));
     }
 }
 
@@ -57,96 +59,6 @@ pub struct RecoilComponent {
 #[derive(Clone, PartialEq, Reflect)]
 pub struct HeatEmitterComponent {
     pub amount: f32,
-}
-
-#[derive(Clone, PartialEq, Reflect)]
-pub struct EnergyConsumerComponent {
-    pub rate: f32,
-}
-
-impl EnergyConsumerComponent {
-    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
-        commands.entity(base).insert((
-            PowerUsageBase { value: self.rate },
-            PowerUsageComputed::default(),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
-        ));
-    }
-}
-
-#[derive(Clone, PartialEq, Reflect)]
-pub struct SpriteComponent {
-    pub image: Handle<Image>,
-    pub offset: Vec2,
-    pub z: f32,
-    pub animated: bool,
-}
-
-impl SpriteComponent {
-    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity, def: &BlockDef) {
-        commands.entity(base).insert((
-            Sprite {
-                image: self.image.clone(),
-                custom_size: Some(def.get_pixel_size()),
-                ..default()
-            },
-            Transform::from_translation(self.offset.extend(self.z)),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
-        ));
-    }
-}
-
-#[derive(Debug, Clone, Reflect, PartialEq)]
-pub struct TurretComponent {
-    pub strategy: TargetingStrategy,
-    pub range: f32,
-    pub turn_speed: f32,
-    pub barrels: Vec<Vec2>,
-    pub shooting_pattern: ShootPattern,
-    pub image: Handle<Image>,
-    pub offset: Vec2,
-    pub z: f32,
-    pub animated: bool,
-}
-
-impl TurretComponent {
-    fn spawn(
-        &self,
-        commands: &mut Commands,
-        ship: Entity,
-        base: Entity,
-        def: &BlockDef,
-        team: &Team,
-    ) {
-        commands.entity(base).insert((
-            Turret {
-                strategy: self.strategy.clone(),
-                range: self.range,
-                turn_speed: self.turn_speed,
-                barrels: self.barrels.clone(),
-                shooting_pattern: self.shooting_pattern.clone(),
-            },
-            RotateSpeedBase {
-                value: self.turn_speed,
-            },
-            RotateSpeedComputed::default(),
-            BlockEfficiency::default(),
-            TurretState::default(),
-            Radar::new(self.range, 1.0),
-            Sprite {
-                image: self.image.clone(),
-                custom_size: Some(def.get_pixel_size()),
-                ..default()
-            },
-            Transform::from_translation(self.offset.extend(self.z)),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
-        ));
-
-        self.shooting_pattern.insert(commands, base, team);
-    }
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
@@ -274,6 +186,12 @@ pub struct LaserBeamPattern {
     pub width: f32,
 }
 
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+pub enum LaserBeamPatternShootingState {
+    Shooting { start_time: f32 },
+    Cooldown { last_fired_at: f32 },
+}
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub struct PullingBeamPattern {
     pub width: f32,
@@ -282,12 +200,6 @@ pub struct PullingBeamPattern {
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub struct PullingBeamPatternState {
     pub beam: Option<Entity>,
-}
-
-#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
-pub enum LaserBeamPatternShootingState {
-    Shooting { start_time: f32 },
-    Cooldown { last_fired_at: f32 },
 }
 
 #[derive(Component, Debug, Clone, PartialEq)]
@@ -343,43 +255,6 @@ pub struct PowerProducer {
 pub struct PowerStorage {
     pub capacity: f32,
     pub current: f32,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct Thruster {
-    pub force: f32,
-    pub torque: f32,
-}
-
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub struct ThrusterComponent {
-    pub force: f32,
-    pub torque: f32,
-}
-
-impl ThrusterComponent {
-    fn spawn(&self, commands: &mut Commands, ship: Entity, base: Entity) {
-        commands.entity(base).insert((
-            ThrustPowerBase {
-                value: self.force * THRUST_POWER_FACTOR,
-            },
-            ThrustPowerComputed::default(),
-            RotateSpeedBase {
-                value: self.torque * TURN_SPEED_FACTOR,
-            },
-            RotateSpeedComputed::default(),
-            BlockEfficiency::default(),
-            BlockOwner { id: ship },
-            ComponentOwner { id: base },
-        ));
-    }
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct Weapon {
-    pub damage: f32,
-    pub cooldown: f32,
-    pub range: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -450,51 +325,6 @@ impl BlockData {
         }
 
         return child;
-    }
-}
-
-#[derive(Component, Clone, PartialEq, Reflect)]
-pub enum BlockComponent {
-    Sprite(SpriteComponent),
-    Turret(TurretComponent),
-    Recoil(RecoilComponent),
-    HeatEmitter(HeatEmitterComponent),
-    EnergyConsumer(EnergyConsumerComponent),
-    Thruster(ThrusterComponent),
-    EfficiencyProvider(EfficiencyProvider),
-}
-
-impl BlockComponent {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        ship: Entity,
-        base: Entity,
-        def: &BlockDef,
-        team: &Team,
-    ) {
-        let component = commands
-            .spawn((
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Inherited,
-                *team,
-            ))
-            .id();
-
-        commands.entity(base).add_child(component);
-
-        match self {
-            Self::Sprite(sprite) => sprite.spawn(commands, ship, component, def),
-            Self::Turret(turret) => turret.spawn(commands, ship, component, def, team),
-            Self::Recoil(_) => {}
-            Self::HeatEmitter(_) => {}
-            Self::Thruster(thruster) => thruster.spawn(commands, ship, component),
-            Self::EnergyConsumer(consumer) => consumer.spawn(commands, ship, component),
-            Self::EfficiencyProvider(provider) => {
-                commands.entity(component).insert(*provider);
-            }
-        }
     }
 }
 

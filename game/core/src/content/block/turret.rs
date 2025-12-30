@@ -6,8 +6,8 @@ use crate::{
     content::{
         block::{
             base::{ShootPattern, TargetingStrategy},
+            component::thruster::RotateSpeedComputed,
             radar::Radar,
-            stat::RotateSpeedComputed,
         },
         ship::base::Ship,
         team::Team,
