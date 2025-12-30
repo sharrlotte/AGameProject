@@ -42,6 +42,7 @@ fn update_selectable(
     mut gizmos: Gizmos,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     selectable_query: Query<
         (Entity, &EntityType, &GlobalTransform, Option<&BoundingBox>),
@@ -50,10 +51,6 @@ fn update_selectable(
 ) {
     match &res.state {
         SelectableState::Unselected => {
-            if !mouse.just_pressed(MouseButton::Left) {
-                return;
-            }
-
             let (camera, camera_transform) = *camera_query;
 
             let Some(cursor_position) = window.cursor_position() else {
@@ -65,9 +62,11 @@ fn update_selectable(
                 return;
             };
 
-            res.state = SelectableState::Selecting {
-                start_position: world_position,
-            };
+            if mouse.just_pressed(MouseButton::Left) && keyboard.pressed(KeyCode::ControlLeft) {
+                res.state = SelectableState::Selecting {
+                    start_position: world_position,
+                };
+            }
         }
         SelectableState::Selecting { start_position } => {
             let (camera, camera_transform) = *camera_query;
@@ -112,7 +111,7 @@ fn update_selectable(
                 Color::WHITE,
             );
 
-            if mouse.pressed(MouseButton::Left) {
+            if mouse.pressed(MouseButton::Left) && keyboard.pressed(KeyCode::ControlLeft) {
                 return;
             }
 
