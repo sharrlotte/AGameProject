@@ -151,7 +151,6 @@ fn update_select_panel(
     mut selectable_reader: MessageReader<SelectedEvent>,
 ) {
     for event in selectable_reader.read() {
-        info!("{:?}", event.selected);
         
         commands
             .entity(selectable_panel.entity())

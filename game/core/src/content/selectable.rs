@@ -38,18 +38,19 @@ impl Plugin for SelectablePlugin {
 
 fn update_selectable(
     mut res: ResMut<SelectableRes>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+    mut selected_writer: MessageWriter<SelectedEvent>,
+    mut gizmos: Gizmos,
+    mouse: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
     selectable_query: Query<
         (Entity, &EntityType, &GlobalTransform, Option<&BoundingBox>),
         With<Selectable>,
     >,
-    window: Single<&Window>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    mut selected_writer: MessageWriter<SelectedEvent>,
 ) {
     match &res.state {
         SelectableState::Unselected => {
-            if !mouse_input.just_pressed(MouseButton::Left) {
+            if !mouse.just_pressed(MouseButton::Left) {
                 return;
             }
 
@@ -69,10 +70,6 @@ fn update_selectable(
             };
         }
         SelectableState::Selecting { start_position } => {
-            if !mouse_input.just_released(MouseButton::Left) {
-                return;
-            }
-
             let (camera, camera_transform) = *camera_query;
 
             let Some(cursor_position) = window.cursor_position() else {
@@ -93,6 +90,16 @@ fn update_selectable(
                 start_position.x.max(end_position.x),
                 start_position.y.max(end_position.y),
             );
+
+            let bottom_left = Vec2::new(top_left.x, bottom_right.y);
+
+            let size = bottom_right - top_left;
+
+            gizmos.rect_2d(bottom_left, size, Color::WHITE);
+
+            if !mouse.just_released(MouseButton::Left) {
+                return;
+            }
 
             let mut selected: HashMap<EntityType, Vec<Entity>> = HashMap::new();
 
@@ -120,7 +127,9 @@ fn update_selectable(
 
             res.state = SelectableState::Unselected;
 
-            selected_writer.write(SelectedEvent { selected });
+            if !selected.is_empty() {
+                selected_writer.write(SelectedEvent { selected });
+            }
         }
     }
 }

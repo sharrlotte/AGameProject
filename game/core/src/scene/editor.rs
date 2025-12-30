@@ -1286,18 +1286,18 @@ pub fn remove_block_at(
     grid_position: IVec2,
 ) {
     let Some(&entity) = editor.grid.get(grid_position) else {
-        info!("No block at position {:?}", grid_position);
         return;
     };
 
     let Ok(block) = blocks.get(entity) else {
-        info!("No block entity {:?}", entity);
+        warn!("No block entity {:?}", entity);
         return;
     };
+    
     let anchor = block.position;
 
     let Some(def) = registry.get(&block.block_type) else {
-        info!("No block def {:?}", block.block_type);
+        warn!("No block def {:?}", block.block_type);
         return;
     };
 
