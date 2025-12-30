@@ -151,7 +151,6 @@ fn update_select_panel(
     mut selectable_reader: MessageReader<SelectedEvent>,
 ) {
     for event in selectable_reader.read() {
-        
         commands
             .entity(selectable_panel.entity())
             .despawn_children();
@@ -260,62 +259,74 @@ fn update_ship_list(
                     BorderRadius::all(Val::Percent(5.0)),
                     BorderColor::all(color),
                 ))
-                .with_children(|ship_ui| {
-                    let mut offset_x = 0;
-                    let mut offset_y = 0;
+                .with_children(|block_container| {
+                    block_container
+                        .spawn(Node {
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Percent(100.0),
+                            ..Default::default()
+                        })
+                        .with_children(|wrapper| {
+                            let mut offset_x = 0;
+                            let mut offset_y = 0;
 
-                    for (_, block, _, _) in block_list
-                        .iter()
-                        .filter(|(_, _, _, owner)| owner.id == *entity)
-                    {
-                        if block.position.x < offset_x {
-                            offset_x = block.position.x;
-                        }
+                            for (_, block, _, _) in block_list
+                                .iter()
+                                .filter(|(_, _, _, owner)| owner.id == *entity)
+                            {
+                                if block.position.x < offset_x {
+                                    offset_x = block.position.x;
+                                }
 
-                        if block.position.y < offset_y {
-                            offset_y = block.position.y;
-                        }
-                    }
+                                if block.position.y < offset_y {
+                                    offset_y = block.position.y;
+                                }
+                            }
 
-                    for (block_entity, block, health, _) in block_list
-                        .iter()
-                        .filter(|(_, _, _, owner)| owner.id == *entity)
-                    {
-                        let Some(def) = registry.get(&block.block_type) else {
-                            continue;
-                        };
+                            for (block_entity, block, health, _) in block_list
+                                .iter()
+                                .filter(|(_, _, _, owner)| owner.id == *entity)
+                            {
+                                let Some(def) = registry.get(&block.block_type) else {
+                                    continue;
+                                };
 
-                        let hp_percent = (health.health / health.max_health).clamp(0.0, 1.0);
+                                let hp_percent =
+                                    (health.health / health.max_health).clamp(0.0, 1.0);
 
-                        let color = if hp_percent > 0.75 {
-                            Color::srgb(0.0, 1.0, 0.0)
-                        } else if hp_percent > 0.5 {
-                            Color::srgb(1.0, 1.0, 0.0)
-                        } else {
-                            Color::srgb(1.0, 0.0, 0.0)
-                        };
+                                let color = if hp_percent > 0.75 {
+                                    Color::srgb(0.0, 1.0, 0.0)
+                                } else if hp_percent > 0.5 {
+                                    Color::srgb(1.0, 1.0, 0.0)
+                                } else {
+                                    Color::srgb(1.0, 0.0, 0.0)
+                                };
 
-                        ship_ui.spawn((
-                            BlockButton(block_entity),
-                            BackgroundColor(color),
-                            Node {
-                                position_type: PositionType::Absolute,
-                                top: Val::Px(
-                                    ((block.position.y - offset_y) as f32) * SMALL_GRID_SIZE
-                                        + SMALL_GRID_SIZE,
-                                ),
-                                left: Val::Px(
-                                    ((block.position.x - offset_x) as f32) * SMALL_GRID_SIZE
-                                        + SMALL_GRID_SIZE,
-                                ),
-                                width: Val::Px(def.get_block_size().x * SMALL_GRID_SIZE),
-                                height: Val::Px(def.get_block_size().y * SMALL_GRID_SIZE),
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderColor::from(Color::WHITE),
-                        ));
-                    }
+                                wrapper.spawn((
+                                    BlockButton(block_entity),
+                                    BackgroundColor(color),
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        top: Val::Px(
+                                            ((block.position.y - offset_y) as f32)
+                                                * SMALL_GRID_SIZE
+                                                + SMALL_GRID_SIZE,
+                                        ),
+                                        left: Val::Px(
+                                            ((block.position.x - offset_x) as f32)
+                                                * SMALL_GRID_SIZE
+                                                + SMALL_GRID_SIZE,
+                                        ),
+                                        width: Val::Px(def.get_block_size().x * SMALL_GRID_SIZE),
+                                        height: Val::Px(def.get_block_size().y * SMALL_GRID_SIZE),
+                                        border: UiRect::all(Val::Px(1.0)),
+                                        ..default()
+                                    },
+                                    BorderColor::from(Color::WHITE),
+                                ));
+                            }
+                        });
                 });
         });
     }
