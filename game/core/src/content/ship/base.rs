@@ -1,4 +1,4 @@
-use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::input::mouse::MouseWheel;
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
@@ -205,12 +205,6 @@ impl ShipData {
             ))
             .id();
 
-        for block_data in &data.blocks {
-            if let Some(def) = registry.get(&block_data.block_type) {
-                block_data.spawn(&mut commands, def, ship, team);
-            }
-        }
-
         let ui_root = commands
             .spawn((
                 ShipUIRoot { ship },
@@ -220,6 +214,12 @@ impl ShipData {
             .id();
 
         commands.entity(ship).add_child(ui_root);
+
+        for block_data in &data.blocks {
+            if let Some(def) = registry.get(&block_data.block_type) {
+                block_data.spawn(&mut commands, def, ship, team);
+            }
+        }
 
         return Some(ship);
     }
@@ -467,13 +467,11 @@ pub fn update_ship_ui(
 pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
     mut ships: Query<
         (&mut ExternalForce, &Transform, &Ship, &ComputedShipStats),
         Without<Camera2d>,
     >,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
-    mut mouse_motion_events: MessageReader<MouseMotion>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut state: ResMut<GameVars>,
 ) {
@@ -510,27 +508,6 @@ pub fn player_control_ship(
             }
         }
     } else {
-        if mouse.just_pressed(MouseButton::Left) {
-            mouse_motion_events.clear();
-        }
-
-        if mouse.pressed(MouseButton::Left)
-            && let Ok((mut transform, projection)) = camera.single_mut()
-        {
-            let scale = if let Projection::Orthographic(ortho) = &*projection {
-                ortho.scale
-            } else {
-                1.0
-            };
-
-            let pan_speed: f32 = scale * 0.5;
-
-            for event in mouse_motion_events.read() {
-                transform.translation.x -= event.delta.x * pan_speed;
-                transform.translation.y += event.delta.y * pan_speed;
-            }
-        }
-
         if let Ok((mut camera_transform, projection)) = camera.single_mut() {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale

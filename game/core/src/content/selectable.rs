@@ -112,7 +112,7 @@ fn update_selectable(
                 Color::WHITE,
             );
 
-            if !mouse.just_released(MouseButton::Left) {
+            if mouse.pressed(MouseButton::Left) {
                 return;
             }
 
