@@ -33,8 +33,8 @@ fn setup_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let border_size = 120.0;
-    let inner_size = 100.0;
+    let border_size = 60.0;
+    let inner_size = 50.0;
 
     let assets = WarningIconAssets {
         border_triangle: meshes.add(Triangle2d::new(
@@ -49,8 +49,8 @@ fn setup_assets(
             Vec2::new(inner_size * 0.5, inner_size * 0.4),
         )),
 
-        exclamation_body: meshes.add(Rectangle::new(12.0, 45.0)),
-        exclamation_dot: meshes.add(Circle::new(6.0)),
+        exclamation_body: meshes.add(Rectangle::new(6.0, 22.0)),
+        exclamation_dot: meshes.add(Circle::new(3.0)),
 
         black: materials.add(Color::BLACK),
         yellow: materials.add(Color::srgb(1.0, 1.0, 0.0)),
@@ -66,7 +66,7 @@ fn update_ammo(
 ) {
     for (entity, state) in ammos {
         if state.is_empty() {
-            let ui = commands
+            commands
                 .spawn((
                     NoAmmoWarningUI(entity),
                     Transform::default(),
@@ -89,38 +89,37 @@ fn update_ammo(
                     parent.spawn((
                         Mesh2d(assets.exclamation_body.clone()),
                         MeshMaterial2d(assets.black.clone()),
-                        Transform::from_xyz(0.0, 10.0, 2.0),
+                        Transform::from_xyz(0.0, 50.0, 2.0),
                     ));
 
                     parent.spawn((
                         Mesh2d(assets.exclamation_dot.clone()),
                         MeshMaterial2d(assets.black.clone()),
-                        Transform::from_xyz(0.0, -20.0, 2.0),
+                        Transform::from_xyz(0.0, -10.0, 2.0),
                     ));
-                })
-                .id();
+                });
 
-            commands.entity(entity).add_child(ui).insert(NoAmmo);
+            commands.entity(entity).insert(NoAmmo);
         }
     }
 }
 
 fn update_no_ammo_warning(
     mut commands: Commands,
-    mut uis: Query<(Entity, &NoAmmoWarningUI, &GlobalTransform)>,
-    ammos: Query<(Entity, &AmmoState)>,
+    mut uis: Query<(Entity, &NoAmmoWarningUI)>,
+    ammos: Query<(Entity, &AmmoState, &GlobalTransform)>,
 ) {
-    for (entity, ui, global_transform) in &mut uis {
-        let rotation = global_transform.rotation().inverse();
+    for (entity, ui) in &mut uis {
+        if let Ok((parent, state, global_transform)) = ammos.get(ui.0) {
+            commands
+                .entity(entity)
+                .insert(Transform::from_translation(global_transform.translation()));
 
-        commands
-            .entity(entity)
-            .insert(Transform::from_rotation(rotation));
-
-        let (parent, state) = ammos.get(ui.0).expect("NoAmmoWarningUI must have a parent");
-
-        if !state.is_empty() {
-            commands.entity(parent).remove::<NoAmmo>();
+            if !state.is_empty() {
+                commands.entity(parent).remove::<NoAmmo>();
+                commands.entity(entity).despawn();
+            }
+        } else {
             commands.entity(entity).despawn();
         }
     }
