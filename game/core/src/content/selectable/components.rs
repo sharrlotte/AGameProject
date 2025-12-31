@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use bevy::prelude::*;
-use crate::content::{entity::EntityType, ship::BoundingBox};
+use crate::content::{entity::EntityType, ship::components::BoundingBox};
 
 #[derive(Component)]
 pub struct Selectable;

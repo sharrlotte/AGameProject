@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
-use crate::content::block::feature::storage::StorageState;
-use crate::content::item::ItemType;
+use crate::content::block::feature::storage::components::StorageState;
+use crate::content::item::components::ItemType;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
@@ -50,7 +50,7 @@ pub struct AmmoState {
 
 impl AmmoState {
     pub fn default() -> Self {
-        Self { current: 1000 }
+        Self { current: 10 }
     }
 
     pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {

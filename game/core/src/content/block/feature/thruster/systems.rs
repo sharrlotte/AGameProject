@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::components::*;
 use crate::content::block::{
-    feature::efficiency::{BlockEfficiency, EfficiencyEffect},
+    feature::efficiency::components::{BlockEfficiency, EfficiencyEffect},
     stat::StatsUpdateSet,
 };
 

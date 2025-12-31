@@ -7,16 +7,16 @@ use crate::constant::{
     LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY,
 };
 use crate::content::block::feature::ComponentPlugin;
-use crate::content::block::feature::storage::StorageBuilder;
+use crate::content::block::feature::storage::components::StorageBuilder;
 use crate::content::block::feature::{
-    ammo::AmmoBuilder, components::Feature, sprite::Texture, thruster::Thruster,
-    turret::TurretComponent,
+    ammo::components::AmmoBuilder, components::Feature, sprite::components::Texture, thruster::components::Thruster,
+    turret::components::TurretComponent,
 };
 use crate::content::block::radar::RadarPlugin;
-use crate::content::damage::DamageEvent;
-use crate::content::death::Death;
-use crate::content::item::{ItemRegistry, ItemType};
-use crate::content::lifetime::Lifetime;
+use crate::content::damage::components::DamageEvent;
+use crate::content::death::components::Death;
+use crate::content::item::components::{ItemRegistry, ItemType};
+use crate::content::lifetime::components::Lifetime;
 use crate::content::team::Team;
 
 pub struct BlockPlugin;

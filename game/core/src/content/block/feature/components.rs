@@ -1,10 +1,11 @@
 use crate::content::{
     block::{
-        feature::{
-            efficiency::EfficiencyProvider, energy::EnergyConsumer, sprite::Texture,
-            storage::Storage, thruster::Thruster, turret::TurretComponent,
-        },
         components::BlockDef,
+        feature::{
+            efficiency::components::EfficiencyProvider, energy::components::EnergyConsumer,
+            sprite::components::Texture, storage::components::Storage,
+            thruster::components::Thruster, turret::components::TurretComponent,
+        },
     },
     team::Team,
 };

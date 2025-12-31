@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::constant::{ANGULAR_DAMPING, LAYER_SHIP_UI, LINEAR_DAMPING};
 use crate::content::block::components::{BlockData, BlockRegistry, ShipCalculatedStat};
 use crate::content::entity::EntityType;
-use crate::content::selectable::Selectable;
+use crate::content::selectable::components::Selectable;
 use crate::content::ship::stat::ComputedShipStats;
 use crate::content::team::Team;
 use crate::resource::{SceneEntity, SceneState};

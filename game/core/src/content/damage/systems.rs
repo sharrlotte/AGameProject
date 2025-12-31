@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 
-use crate::{content::block::components::Health, content::lifetime::Lifetime};
+use crate::{content::block::components::Health, content::lifetime::components::Lifetime};
 use super::components::*;
 
 pub struct DamagePlugin;

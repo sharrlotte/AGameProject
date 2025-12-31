@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use crate::content::{
     block::{
         feature::{
-            energy::PowerUsageComputed,
-            storage::{Storage, StorageState},
-            thruster::{RotateSpeedComputed, ThrustPowerComputed},
+            energy::components::PowerUsageComputed,
+            storage::components::{Storage, StorageState},
+            thruster::components::{RotateSpeedComputed, ThrustPowerComputed},
         },
         components::BlockOwner,
     },
-    item::ItemType,
+    item::components::ItemType,
 };
 use bevy::prelude::*;
 

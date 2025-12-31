@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::content::death::Death;
+use crate::content::death::components::Death;
 use super::components::Lifetime;
 
 pub struct LifetimePlugin;

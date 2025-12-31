@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
-    content::block::{feature::efficiency::BlockEfficiency, stat::StatEffect},
+    content::block::{feature::efficiency::components::BlockEfficiency, stat::StatEffect},
 };
 
 // ThrustPower

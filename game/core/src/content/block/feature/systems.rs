@@ -1,8 +1,8 @@
 use crate::content::block::{
     components::{Block, BlockOwner, ComponentOwner},
     feature::{
-        efficiency::EfficiencyPlugin, energy::EnergyPlugin, thruster::ThrusterPlugin,
-        turret::TurretPlugin,
+        ammo::AmmoPlugin, efficiency::EfficiencyPlugin, energy::EnergyPlugin,
+        thruster::ThrusterPlugin, turret::TurretPlugin,
     },
 };
 use crate::content::team::Team;
@@ -12,8 +12,14 @@ pub struct ComponentPlugin;
 
 impl Plugin for ComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ThrusterPlugin, TurretPlugin, EnergyPlugin, EfficiencyPlugin))
-            .add_systems(FixedUpdate, insert_added_block);
+        app.add_systems(FixedUpdate, insert_added_block)
+            .add_plugins((
+                ThrusterPlugin,
+                TurretPlugin,
+                EnergyPlugin,
+                EfficiencyPlugin,
+                AmmoPlugin,
+            ));
     }
 }
 

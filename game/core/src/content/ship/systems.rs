@@ -15,10 +15,10 @@ use crate::content::block::components::{
     Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
-use crate::content::block::feature::ammo::{Ammo, AmmoState};
-use crate::content::block::feature::storage::{Storage, StorageState};
+use crate::content::block::feature::ammo::components::{Ammo, AmmoState};
+use crate::content::block::feature::storage::components::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
-use crate::content::death::Death;
+use crate::content::death::components::Death;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};

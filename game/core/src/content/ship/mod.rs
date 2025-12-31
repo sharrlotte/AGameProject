@@ -4,5 +4,5 @@ pub mod systems;
 
 mod indicators;
 
-pub use components::*;
+
 pub use systems::*;

@@ -1,6 +1,6 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::content::item::ItemType;
+use crate::content::item::components::ItemType;
 
 #[derive(Clone, PartialEq, Reflect, Component)]
 pub struct Storage {

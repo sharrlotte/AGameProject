@@ -16,7 +16,7 @@ use crate::{
                 FACE_UP,
             },
         },
-        ship::ShipGrid,
+        ship::components::ShipGrid,
     },
     resource::{GameVars, SceneEntity, SceneState},
     save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},

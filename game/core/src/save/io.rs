@@ -16,9 +16,9 @@ use crate::content::{
         components::{
             Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState,
         },
-        feature::turret::TurretState,
+        feature::turret::components::TurretState,
     },
-    ship::{ShipData, ShipState},
+    ship::components::{ShipData, ShipState},
     team::Team,
 };
 
