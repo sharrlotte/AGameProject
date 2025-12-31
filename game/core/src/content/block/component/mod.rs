@@ -5,3 +5,4 @@ pub mod sprite;
 pub mod energy;
 pub mod efficiency;
 pub mod storage;
+pub mod ammo;

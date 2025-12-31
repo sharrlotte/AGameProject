@@ -13,9 +13,13 @@ use uuid::Uuid;
 
 use crate::content::{
     block::{
-        base::{Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState},
-        turret::TurretState,
-    }, ship::base::{ShipData, ShipState}, team::Team
+        base::{
+            Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState,
+        },
+        component::turret::TurretState,
+    },
+    ship::base::{ShipData, ShipState},
+    team::Team,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]

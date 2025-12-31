@@ -3,10 +3,15 @@ use bevy::prelude::*;
 use crate::content::{
     block::{
         base::{Block, BlockDef, BlockOwner, ComponentOwner},
+        component::turret::TurretPlugin,
         component::{
-            efficiency::{EfficiencyPlugin, EfficiencyProvider}, energy::{EnergyConsumerComponent, EnergyPlugin}, sprite::SpriteComponent, storage::StorageComponent, thruster::{ThrusterComponent, ThrusterPlugin}, turret::TurretComponent
+            efficiency::{EfficiencyPlugin, EfficiencyProvider},
+            energy::{EnergyConsumerComponent, EnergyPlugin},
+            sprite::SpriteComponent,
+            storage::StorageComponent,
+            thruster::{ThrusterComponent, ThrusterPlugin},
+            turret::TurretComponent,
         },
-        turret::TurretPlugin,
     },
     team::Team,
 };
@@ -63,14 +68,16 @@ fn insert_added_block(
     // child, ship, block
     let mut queue: Vec<(Entity, Entity, Entity, Team)> = Vec::new();
 
-    for (entity, _, owner,  team) in &blocks {
+    for (entity, _, owner, team) in &blocks {
         queue.push((entity, owner.id, entity, *team));
     }
 
     while let Some((entity, ship, block, team)) = queue.pop() {
-        commands
-            .entity(entity)
-            .insert((BlockOwner { id: ship }, ComponentOwner { id: block }, team.clone()));
+        commands.entity(entity).insert((
+            BlockOwner { id: ship },
+            ComponentOwner { id: block },
+            team.clone(),
+        ));
 
         if let Ok(children) = children.get(entity) {
             for child in children.iter() {
