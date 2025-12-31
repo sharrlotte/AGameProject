@@ -9,8 +9,8 @@ use crate::constant::{
 use crate::content::block::feature::ComponentPlugin;
 use crate::content::block::feature::storage::components::StorageBuilder;
 use crate::content::block::feature::{
-    ammo::components::AmmoBuilder, components::Feature, sprite::components::Texture, thruster::components::Thruster,
-    turret::components::TurretComponent,
+    ammo::components::AmmoBuilder, components::Feature, sprite::components::Texture,
+    thruster::components::Thruster, turret::components::TurretComponent,
 };
 use crate::content::block::radar::RadarPlugin;
 use crate::content::damage::components::DamageEvent;
@@ -422,7 +422,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         length: 12.0,
                     },
                 }),
-                ammo: None,
+                ammo: AmmoBuilder::build(AmmoBuilder {
+                    capacity: 50,
+                    crafting: HashMap::from([(ItemType::Steel, 1)]),
+                    icon: None,
+                }),
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {

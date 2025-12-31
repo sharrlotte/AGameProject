@@ -58,16 +58,18 @@ pub struct AmmoState {
 impl AmmoState {
     pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {
         let mut max_refill = ammo.capacity;
+        let mut can_refill = false;
 
         for (item_type, count) in &ammo.crafting {
             if let Some(amount) = storage.get(item_type) {
-                if amount / count < max_refill {
+                if amount / count <= max_refill {
                     max_refill = amount / count;
+                    can_refill = true;
                 }
             }
         }
 
-        if max_refill == 0 {
+        if max_refill == 0 || !can_refill {
             return false;
         }
 
@@ -79,7 +81,7 @@ impl AmmoState {
 
         self.current += max_refill;
 
-        true
+        self.current == ammo.capacity
     }
 
     pub fn take(&mut self) -> bool {

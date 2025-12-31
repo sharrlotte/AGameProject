@@ -3,9 +3,19 @@ use std::time::Duration;
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
-        block::components::{Block, BlockOwner, BlockRegistry, Health},
+        block::{
+            components::{Block, BlockOwner, BlockRegistry, Health},
+            feature::{
+                ammo::components::{Ammo, AmmoState},
+                storage::components::{Storage, StorageState},
+            },
+        },
+        entity::EntityType,
         selectable::components::EntitySelectEvent,
-        ship::components::{BoundingBox, Ship},
+        ship::{
+            components::{BoundingBox, Ship},
+            stat::ComputedShipStats,
+        },
         team::Team,
     },
     resource::{GameVars, SceneEntity, SceneState},
@@ -148,9 +158,12 @@ fn setup(mut commands: Commands) {
 }
 
 fn update_select_panel(
-    mut commands: Commands,
     selectable_panel: Single<Entity, With<SelectablePanel>>,
+    ships: Query<&ComputedShipStats>,
+    mut commands: Commands,
     mut selectable_reader: MessageReader<EntitySelectEvent>,
+    mut ammos: Query<(&Ammo, &mut AmmoState, &BlockOwner)>,
+    mut storages: Query<&mut StorageState>,
 ) {
     for event in selectable_reader.read() {
         commands
@@ -165,6 +178,27 @@ fn update_select_panel(
                         Node::default(),
                         Text::new(format!("{etype:?}: {}", entities.len())),
                     ));
+
+                    match etype {
+                        EntityType::Ammo => {
+                            for entity in entities.iter() {
+                                if let Ok((ammo, mut ammo_state, owner)) = ammos.get_mut(*entity) {
+                                    let Ok(stat) = ships.get(owner.id) else {
+                                        continue;
+                                    };
+                                    for storage_entity in stat.storages.iter() {
+                                        let Ok(mut storage) = storages.get_mut(*storage_entity)
+                                        else {
+                                            continue;
+                                        };
+
+                                        ammo_state.refill(ammo, &mut storage);
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 });
         }
     }
