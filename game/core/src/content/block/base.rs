@@ -105,7 +105,7 @@ pub enum ShootPattern {
 }
 
 impl ShootPattern {
-    pub fn insert(&self, commands: &mut Commands, base: Entity, team: &Team) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity) {
         match self {
             ShootPattern::Single(s) => {
                 commands
@@ -122,7 +122,6 @@ impl ShootPattern {
             }
             ShootPattern::LaserBeam(s) => {
                 commands.entity(base).insert((
-                    team.clone(),
                     s.clone(),
                     LaserBeamPatternState {
                         targets: Vec::new(),
@@ -132,11 +131,9 @@ impl ShootPattern {
                 ));
             }
             ShootPattern::PullingBeam(s) => {
-                commands.entity(base).insert((
-                    team.clone(),
-                    s.clone(),
-                    PullingBeamPatternState { beam: None },
-                ));
+                commands
+                    .entity(base)
+                    .insert((s.clone(), PullingBeamPatternState { beam: None }));
             }
         }
     }

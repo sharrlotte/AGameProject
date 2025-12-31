@@ -13,6 +13,14 @@ pub struct Ammo {
     icon: Option<Handle<Image>>,
 }
 
+impl Ammo {
+    pub fn insert(&self, commands: &mut Commands, base: Entity) {
+        commands
+            .entity(base)
+            .insert((self.clone(), AmmoState::default()));
+    }
+}
+
 pub struct AmmoInit {
     pub capacity: u32,
     pub crafting: HashMap<ItemType, u32>,
@@ -78,5 +86,9 @@ impl AmmoState {
         } else {
             false
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.current == 0
     }
 }

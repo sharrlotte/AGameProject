@@ -49,7 +49,7 @@ impl BlockComponent {
 
         match self {
             Self::Sprite(sprite) => sprite.spawn(commands, component, def),
-            Self::Turret(turret) => turret.spawn(commands, component, def, team),
+            Self::Turret(turret) => turret.spawn(commands, component, def),
             Self::Thruster(thruster) => thruster.spawn(commands, component),
             Self::EnergyConsumer(consumer) => consumer.spawn(commands, component),
             Self::EfficiencyProvider(provider) => {

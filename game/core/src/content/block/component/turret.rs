@@ -42,7 +42,7 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
+    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -62,7 +62,11 @@ impl TurretComponent {
             Transform::from_translation(self.offset.extend(self.z)),
         ));
 
-        self.shooting_pattern.insert(commands, base, team);
+        self.shooting_pattern.insert(commands, base);
+        
+        if let Some(ammo) = &self.ammo {
+            ammo.insert(commands, base);
+        }
     }
 }
 

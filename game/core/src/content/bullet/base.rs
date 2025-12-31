@@ -4,6 +4,7 @@ use crate::content::block::base::{
     LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
     PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
+use crate::content::block::component::ammo::AmmoState;
 use crate::content::block::component::turret::{Turret, TurretState};
 use crate::content::block::radar::Radar;
 use crate::content::bullet::physic::handle_collisions;
@@ -171,10 +172,18 @@ pub fn handle_single_shot(
         &SingleShootPattern,
         &mut SingleShootPatternState,
         &Team,
+        Option<&mut AmmoState>,
     )>,
 ) {
-    for (transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
-        query.iter_mut()
+    for (
+        transform,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut shoot_pattern_state,
+        team,
+        mut ammo_state,
+    ) in query.iter_mut()
     {
         if !turret_state.active {
             continue;
@@ -184,6 +193,12 @@ pub fn handle_single_shot(
 
         if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
             for barrel_position in barrels.iter() {
+                if let Some(ref mut ammo) = ammo_state
+                    && !ammo.take()
+                {
+                    continue;
+                }
+
                 spawn_bullet(
                     &mut commands,
                     transform,
@@ -209,10 +224,18 @@ pub fn handle_burst_shot(
         &BurstShootPattern,
         &mut BurstShootPatternState,
         &Team,
+        Option<&mut AmmoState>,
     )>,
 ) {
-    for (transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
-        query.iter_mut()
+    for (
+        transform,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut shoot_pattern_state,
+        team,
+        mut ammo_state,
+    ) in query.iter_mut()
     {
         if !turret_state.active {
             continue;
@@ -239,6 +262,12 @@ pub fn handle_burst_shot(
 
                 let barrel_index = *current_barrel % barrels.len();
                 let barrel_position = barrels[barrel_index];
+
+                if let Some(ref mut ammo) = ammo_state
+                    && !ammo.take()
+                {
+                    continue;
+                }
 
                 let bullet = spawn_bullet(
                     &mut commands,
