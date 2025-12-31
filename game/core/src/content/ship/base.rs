@@ -455,13 +455,16 @@ pub fn update_ship_ui(
                 let current = controller.current();
 
                 commands.entity(ui_entity).insert((
-                    Text2d::new(format!("Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}", current, behavior, stats)),
+                    Text2d::new(format!(
+                        "Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}",
+                        current, behavior, stats
+                    )),
                     TextFont {
                         font_size: 30.0,
                         ..default()
                     },
                     Transform::from_rotation(global_transform.rotation().inverse())
-                        .with_translation(Vec2::ZERO.extend(10000.0)),
+                        .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
                 ));
             }
             Err(_) => {}
@@ -979,15 +982,14 @@ fn wrap_angle(mut a: f32) -> f32 {
 
 pub fn collect_drop(
     mut commands: Commands,
-    ships: Query<(Entity, &GlobalTransform, &Team, &ComputedShipStats)>,
     mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
-    mut storages: Query<(&Storage, &mut StorageState)>,
+    mut storages: Query<(&Storage, &mut StorageState, &GlobalTransform, &Team)>,
     time: Res<Time>,
 ) {
     let mut collected: HashSet<Entity> = HashSet::new();
 
-    for (ship, ship_transform, ship_team, stats) in ships.iter() {
-        if !ship_team.is_player() || stats.is_full {
+    for (storage, mut storage_state, ship_transform, ship_team) in storages.iter_mut() {
+        if !ship_team.is_player() || storage_state.is_full(storage) {
             continue;
         }
 
@@ -1008,11 +1010,8 @@ pub fn collect_drop(
                 if distance <= DROP_COLLECT_RADIUS.sqrt() {
                     match drop_component {
                         DropComponent::Item(item) => {
-                            if let Ok((storage, mut storage_state)) = storages.get_mut(ship)
-                            {
-                                if storage_state.add(storage, item.item_type, item.amount) {
-                                    commands.entity(drop_entity).despawn();
-                                }
+                            if storage_state.add(storage, item.item_type, item.amount) {
+                                commands.entity(drop_entity).despawn();
                             }
                         }
                     }

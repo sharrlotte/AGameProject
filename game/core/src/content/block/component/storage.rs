@@ -50,8 +50,10 @@ impl StorageState {
             if *c < count {
                 return false;
             }
+
             *c -= count;
             self.current -= count;
+            
             return true;
         }
 
