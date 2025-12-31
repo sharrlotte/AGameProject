@@ -108,7 +108,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
             }),
-            Feature::Thruster(Thruster::new(100.0, 40.0)),
+            Feature::Thruster(Thruster::new(200.0, 60.0)),
             Feature::Storage(StorageBuilder::build(StorageBuilder { capacity: 1000 })),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
