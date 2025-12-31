@@ -33,8 +33,10 @@ fn setup_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let border_size = 60.0;
-    let inner_size = 50.0;
+    let scale = 0.5;
+
+    let border_size = 120.0 * scale;
+    let inner_size = 100.0 * scale;
 
     let assets = WarningIconAssets {
         border_triangle: meshes.add(Triangle2d::new(
@@ -49,8 +51,8 @@ fn setup_assets(
             Vec2::new(inner_size * 0.5, inner_size * 0.4),
         )),
 
-        exclamation_body: meshes.add(Rectangle::new(6.0, 22.0)),
-        exclamation_dot: meshes.add(Circle::new(3.0)),
+        exclamation_body: meshes.add(Rectangle::new(12.0 * scale, 45.0 * scale)),
+        exclamation_dot: meshes.add(Circle::new(6.0 * scale)),
 
         black: materials.add(Color::BLACK),
         yellow: materials.add(Color::srgb(1.0, 1.0, 0.0)),
@@ -65,42 +67,44 @@ fn update_ammo(
     assets: Res<WarningIconAssets>,
 ) {
     for (entity, state) in ammos {
-        if state.is_empty() {
-            commands
-                .spawn((
-                    NoAmmoWarningUI(entity),
-                    Transform::default(),
-                    Visibility::Inherited,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Mesh2d(assets.border_triangle.clone()),
-                        MeshMaterial2d(assets.black.clone()),
-                        Transform::from_xyz(0.0, 0.0, 0.0),
-                    ));
-
-                    // Inner
-                    parent.spawn((
-                        Mesh2d(assets.inner_triangle.clone()),
-                        MeshMaterial2d(assets.yellow.clone()),
-                        Transform::from_xyz(0.0, 0.0, 1.0),
-                    ));
-
-                    parent.spawn((
-                        Mesh2d(assets.exclamation_body.clone()),
-                        MeshMaterial2d(assets.black.clone()),
-                        Transform::from_xyz(0.0, 50.0, 2.0),
-                    ));
-
-                    parent.spawn((
-                        Mesh2d(assets.exclamation_dot.clone()),
-                        MeshMaterial2d(assets.black.clone()),
-                        Transform::from_xyz(0.0, -10.0, 2.0),
-                    ));
-                });
-
-            commands.entity(entity).insert(NoAmmo);
+        if !state.is_empty() {
+            continue;
         }
+
+        commands
+            .spawn((
+                NoAmmoWarningUI(entity),
+                Transform::default(),
+                Visibility::Inherited,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Mesh2d(assets.border_triangle.clone()),
+                    MeshMaterial2d(assets.black.clone()),
+                    Transform::from_xyz(0.0, 0.0, 0.0),
+                ));
+
+                // Inner
+                parent.spawn((
+                    Mesh2d(assets.inner_triangle.clone()),
+                    MeshMaterial2d(assets.yellow.clone()),
+                    Transform::from_xyz(0.0, 0.0, 1.0),
+                ));
+
+                parent.spawn((
+                    Mesh2d(assets.exclamation_body.clone()),
+                    MeshMaterial2d(assets.black.clone()),
+                    Transform::from_xyz(0.0, 50.0, 2.0),
+                ));
+
+                parent.spawn((
+                    Mesh2d(assets.exclamation_dot.clone()),
+                    MeshMaterial2d(assets.black.clone()),
+                    Transform::from_xyz(0.0, -10.0, 2.0),
+                ));
+            });
+
+        commands.entity(entity).insert(NoAmmo);
     }
 }
 
@@ -111,11 +115,11 @@ fn update_no_ammo_warning(
 ) {
     for (entity, ui) in &mut uis {
         if let Ok((parent, state, global_transform)) = ammos.get(ui.0) {
-            commands
-                .entity(entity)
-                .insert(Transform::from_translation(global_transform.translation()));
-
-            if !state.is_empty() {
+            if state.is_empty() {
+                commands
+                    .entity(entity)
+                    .insert(Transform::from_translation(global_transform.translation()));
+            } else {
                 commands.entity(parent).remove::<NoAmmo>();
                 commands.entity(entity).despawn();
             }
