@@ -21,14 +21,7 @@ use crate::{
                 turret::TurretComponent,
             },
             radar::RadarPlugin,
-        },
-        damage::DamageEvent,
-        death::Death,
-        entity::EntityType,
-        item::base::{ItemRegistry, ItemType},
-        lifetime::Lifetime,
-        ship::base::{Ship, ShipFragment},
-        team::Team,
+        }, damage::DamageEvent, death::Death, entity::EntityType, item::base::{ItemRegistry, ItemType}, lifetime::Lifetime, selectable::Selectable, ship::base::{Ship, ShipFragment}, team::Team
     },
 };
 
@@ -314,6 +307,7 @@ impl BlockData {
                 },
                 BlockOwner { id: ship },
                 EntityType::Block,
+                Selectable,
             ))
             .id();
 

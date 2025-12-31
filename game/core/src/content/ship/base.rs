@@ -16,6 +16,7 @@ use crate::content::block::base::{
     Block, BlockData, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
+use crate::content::block::component::ammo::{Ammo, AmmoState};
 use crate::content::block::component::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
 use crate::content::death::Death;
@@ -23,7 +24,7 @@ use crate::content::selectable::Selectable;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
-use crate::resource::{GameVars, SceneState};
+use crate::resource::{GameVars, SceneEntity, SceneState};
 use crate::save::io::load_saved_schematics;
 use crate::utils::random::random_vec2_step;
 use crate::{
@@ -184,6 +185,7 @@ impl ShipData {
                     blocks: data.blocks.clone(),
                 },
                 BoundingBox { size: data.size },
+                SceneEntity(SceneState::Game),
                 transform,
                 team,
             ))
@@ -272,7 +274,6 @@ impl Plugin for ShipPlugin {
                     .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
             )
             .add_systems(FixedUpdate, collect_drop.run_if(in_state(SceneState::Game)))
-            .add_systems(OnEnter(SceneState::Home), cleanup_ships)
             .add_plugins(IndicatorsPlugin);
     }
 }
@@ -329,12 +330,6 @@ pub fn check_ship(
         Team::new(least_team_id),
         Transform::from_translation(position.extend(0.0)),
     );
-}
-
-pub fn cleanup_ships(mut commands: Commands, ships: Query<Entity, With<Ship>>) {
-    for entity in &ships {
-        commands.entity(entity).insert(Death);
-    }
 }
 
 pub fn check_rebuild_ship_collider(
@@ -448,15 +443,39 @@ pub fn update_ship_ui(
         &GlobalTransform,
         &ComputedShipStats,
     )>,
+    mut blocks: Query<(&BlockOwner, Option<&Ammo>, Option<&AmmoState>)>,
 ) {
+    let mut data: HashMap<Entity, String> = HashMap::new();
+
+    for (owner, ammo, ammo_state) in blocks.iter_mut() {
+        let mut string = String::new();
+
+        if let Some(ammo) = ammo {
+            string.push_str(format!("\n{ammo:?}").as_str());
+        }
+
+        if let Some(ammo_state) = ammo_state {
+            string.push_str(format!("\n{ammo_state:?}").as_str());
+        }
+
+        if !string.is_empty() {
+            data.entry(owner.id)
+                .and_modify(|f| f.push_str(string.as_str()))
+                .or_insert(string);
+        }
+    }
+
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
         match ships.get(ui_root.ship) {
             Ok((ship, _, controller, behavior, global_transform, stats)) => {
                 let current = controller.current();
 
+                let empty = String::new();
+                let string = data.get(&ui_root.ship).unwrap_or(&empty);
+
                 commands.entity(ui_entity).insert((
                     Text2d::new(format!(
-                        "Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}",
+                        "Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}\n{string}",
                         current, behavior, stats
                     )),
                     TextFont {

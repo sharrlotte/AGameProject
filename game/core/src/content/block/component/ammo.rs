@@ -43,14 +43,14 @@ impl Ammo {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct AmmoState {
     current: u32,
 }
 
 impl AmmoState {
     pub fn default() -> Self {
-        Self { current: 0 }
+        Self { current: 1000 }
     }
 
     pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {
