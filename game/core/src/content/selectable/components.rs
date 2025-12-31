@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use crate::content::entity::EntityType;
 use bevy::prelude::*;
-use crate::content::{entity::EntityType, ship::components::BoundingBox};
+use std::collections::HashMap;
 
 #[derive(Component)]
 pub struct Selectable;
@@ -11,7 +11,7 @@ pub struct SelectableRes {
 }
 
 #[derive(Message)]
-pub struct SelectedEvent {
+pub struct EntitySelectEvent {
     pub selected: HashMap<EntityType, Vec<Entity>>,
 }
 

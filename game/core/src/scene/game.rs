@@ -4,7 +4,7 @@ use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
         block::components::{Block, BlockOwner, BlockRegistry, Health},
-        selectable::components::SelectedEvent,
+        selectable::components::EntitySelectEvent,
         ship::components::{BoundingBox, Ship},
         team::Team,
     },
@@ -138,6 +138,8 @@ fn setup(mut commands: Commands) {
                         SelectablePanel,
                         Node {
                             flex_wrap: FlexWrap::Wrap,
+                            row_gap: Val::Px(5.0),
+                            column_gap: Val::Px(5.0),
                             ..default()
                         },
                     ));
@@ -148,7 +150,7 @@ fn setup(mut commands: Commands) {
 fn update_select_panel(
     mut commands: Commands,
     selectable_panel: Single<Entity, With<SelectablePanel>>,
-    mut selectable_reader: MessageReader<SelectedEvent>,
+    mut selectable_reader: MessageReader<EntitySelectEvent>,
 ) {
     for event in selectable_reader.read() {
         commands

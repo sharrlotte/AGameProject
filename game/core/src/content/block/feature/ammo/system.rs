@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 
-use crate::{constant::LAYER_BLOCK_ICON, content::block::feature::ammo::components::AmmoState};
+use crate::{
+    constant::LAYER_BLOCK_ICON,
+    content::block::feature::ammo::components::AmmoState,
+    resource::{SceneEntity, SceneState},
+};
 
 pub struct AmmoPlugin;
 
@@ -76,6 +80,7 @@ fn update_ammo(
                 NoAmmoWarningUI(entity),
                 Transform::default(),
                 Visibility::Inherited,
+                SceneEntity(SceneState::Game),
             ))
             .with_children(|parent| {
                 parent.spawn((

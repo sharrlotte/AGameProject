@@ -1,28 +1,34 @@
-use std::collections::HashMap;
-use bevy::prelude::*;
-use crate::content::{entity::EntityType, ship::components::BoundingBox};
 use super::components::*;
+use crate::content::{entity::EntityType, ship::components::BoundingBox, team::Team};
+use bevy::prelude::*;
+use std::collections::HashMap;
 
 pub struct SelectablePlugin;
 
 impl Plugin for SelectablePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectableRes>()
-            .add_message::<SelectedEvent>()
+            .add_message::<EntitySelectEvent>()
             .add_systems(Update, update_selectable);
     }
 }
 
 fn update_selectable(
     mut res: ResMut<SelectableRes>,
-    mut selected_writer: MessageWriter<SelectedEvent>,
+    mut selected_writer: MessageWriter<EntitySelectEvent>,
     mut gizmos: Gizmos,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     keyboard: Res<ButtonInput<KeyCode>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     selectable_query: Query<
-        (Entity, &EntityType, &GlobalTransform, Option<&BoundingBox>),
+        (
+            Entity,
+            &EntityType,
+            &GlobalTransform,
+            Option<&BoundingBox>,
+            &Team,
+        ),
         With<Selectable>,
     >,
 ) {
@@ -94,7 +100,11 @@ fn update_selectable(
 
             let mut selected: HashMap<EntityType, Vec<Entity>> = HashMap::new();
 
-            for (entity, entity_type, transform, bounding_box) in selectable_query.iter() {
+            for (entity, entity_type, transform, bounding_box, team) in selectable_query.iter() {
+                if !team.is_player() {
+                    continue;
+                }
+
                 let translation = transform.translation().truncate();
 
                 if let Some(bounding_box) = bounding_box {
@@ -119,7 +129,7 @@ fn update_selectable(
             res.state = SelectableState::Unselected;
 
             if !selected.is_empty() {
-                selected_writer.write(SelectedEvent { selected });
+                selected_writer.write(EntitySelectEvent { selected });
             }
         }
     }

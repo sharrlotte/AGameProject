@@ -4,7 +4,9 @@ use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
 use crate::content::block::feature::storage::components::StorageState;
+use crate::content::entity::EntityType;
 use crate::content::item::components::ItemType;
+use crate::content::selectable::components::Selectable;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
@@ -15,9 +17,14 @@ pub struct Ammo {
 
 impl Ammo {
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
-        commands
-            .entity(base)
-            .insert((self.clone(), AmmoState::default()));
+        commands.entity(base).insert((
+            self.clone(),
+            AmmoState {
+                current: self.capacity,
+            },
+            Selectable,
+            EntityType::Ammo,
+        ));
     }
 }
 
@@ -43,16 +50,12 @@ impl AmmoBuilder {
     }
 }
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug)]
 pub struct AmmoState {
     current: u32,
 }
 
 impl AmmoState {
-    pub fn default() -> Self {
-        Self { current: 10 }
-    }
-
     pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {
         let mut max_refill = ammo.capacity;
 

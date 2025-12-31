@@ -6,5 +6,6 @@ pub enum EntityType {
     Block,
     Bullet,
     Missile,
-    Laser
+    Laser,
+    Ammo
 }
