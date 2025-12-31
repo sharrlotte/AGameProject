@@ -186,6 +186,7 @@ fn update_select_panel(
                                     let Ok(stat) = ships.get(owner.id) else {
                                         continue;
                                     };
+
                                     for storage_entity in stat.storages.iter() {
                                         let Ok(mut storage) = storages.get_mut(*storage_entity)
                                         else {
