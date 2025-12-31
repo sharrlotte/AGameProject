@@ -1,6 +1,6 @@
 use crate::content::block::{
     components::{Block, BlockOwner, ComponentOwner},
-    component::{
+    feature::{
         efficiency::EfficiencyPlugin, energy::EnergyPlugin, thruster::ThrusterPlugin,
         turret::TurretPlugin,
     },

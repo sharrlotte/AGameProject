@@ -1,9 +1,8 @@
 use crate::content::{
     block::{
-        component::{
-            efficiency::EfficiencyProvider, energy::EnergyConsumerComponent,
-            sprite::SpriteComponent, storage::StorageComponent, thruster::ThrusterComponent,
-            turret::TurretComponent,
+        feature::{
+            efficiency::EfficiencyProvider, energy::EnergyConsumer, sprite::Texture,
+            storage::Storage, thruster::Thruster, turret::TurretComponent,
         },
         components::BlockDef,
     },
@@ -12,16 +11,16 @@ use crate::content::{
 use bevy::prelude::*;
 
 #[derive(Component, Clone, PartialEq, Reflect)]
-pub enum BlockComponent {
-    Sprite(SpriteComponent),
+pub enum Feature {
+    Texture(Texture),
     Turret(TurretComponent),
-    EnergyConsumer(EnergyConsumerComponent),
-    Thruster(ThrusterComponent),
+    EnergyConsumer(EnergyConsumer),
+    Thruster(Thruster),
     EfficiencyProvider(EfficiencyProvider),
-    Storage(StorageComponent),
+    Storage(Storage),
 }
 
-impl BlockComponent {
+impl Feature {
     pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
         let component = commands
             .spawn((
@@ -35,14 +34,14 @@ impl BlockComponent {
         commands.entity(base).add_child(component);
 
         match self {
-            Self::Sprite(sprite) => sprite.insert(commands, component, def),
+            Self::Texture(sprite) => sprite.insert(commands, component, def),
             Self::Turret(turret) => turret.insert(commands, component, def),
             Self::Thruster(thruster) => thruster.insert(commands, component),
             Self::EnergyConsumer(consumer) => consumer.insert(commands, component),
+            Self::Storage(storage) => storage.insert(commands, component),
             Self::EfficiencyProvider(provider) => {
                 commands.entity(component).insert(*provider);
             }
-            Self::Storage(storage) => storage.insert(commands, component),
         }
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{
-            component::components::BlockComponent,
+            feature::components::Feature,
             components::{
                 Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
                 FACE_UP,
@@ -377,9 +377,9 @@ pub fn setup_editor_ui(
                                         })
                                         .with_children(
                                             |icon_parent| {
-                                                for component in &def.components {
-                                                    match component {
-                                                        BlockComponent::Sprite(visual) => {
+                                                for feature in &def.features {
+                                                    match feature {
+                                                        Feature::Texture(visual) => {
                                                             icon_parent.spawn((
                                                                 ImageNode {
                                                                     image: visual.image.clone(),
@@ -395,7 +395,7 @@ pub fn setup_editor_ui(
                                                                 },
                                                             ));
                                                         }
-                                                        BlockComponent::Turret(visual) => {
+                                                        Feature::Turret(visual) => {
                                                             icon_parent.spawn((
                                                                 ImageNode {
                                                                     image: visual.image.clone(),
@@ -927,9 +927,9 @@ pub fn update_placement_preview(
                 SceneEntity(SceneState::ShipEditor),
             ))
             .with_children(|icon_parent| {
-                for component in &def.components {
-                    match component {
-                        BlockComponent::Sprite(visual) => {
+                for feature in &def.features {
+                    match feature {
+                        Feature::Texture(visual) => {
                             icon_parent.spawn((
                                 Sprite {
                                     image: visual.image.clone(),
@@ -940,7 +940,7 @@ pub fn update_placement_preview(
                                 Transform::from_translation(visual.offset.extend(visual.z)),
                             ));
                         }
-                        BlockComponent::Turret(visual) => {
+                        Feature::Turret(visual) => {
                             icon_parent.spawn((
                                 Sprite {
                                     image: visual.image.clone(),
@@ -1246,15 +1246,15 @@ pub fn spawn_placed_block(
 
     commands.entity(base).add_child(block);
 
-    for component in &def.components {
+    for feature in &def.features {
         let c = commands
             .spawn((Transform::default(), Visibility::Inherited))
             .id();
 
         commands.entity(block).add_child(c);
 
-        match component {
-            BlockComponent::Sprite(visual) => {
+        match feature {
+            Feature::Texture(visual) => {
                 commands.entity(c).insert((
                     Sprite {
                         image: visual.image.clone(),
@@ -1264,7 +1264,7 @@ pub fn spawn_placed_block(
                     Transform::from_translation(visual.offset.extend(visual.z)),
                 ));
             }
-            BlockComponent::Turret(visual) => {
+            Feature::Turret(visual) => {
                 commands.entity(c).insert((
                     Sprite {
                         image: visual.image.clone(),

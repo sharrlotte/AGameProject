@@ -6,11 +6,11 @@ use crate::constant::{
     DROP_DESPAWN_IN_SECONDS, DROP_SIZE, FLASH_OVERLAY_COLOR, LAYER_BLOCK, LAYER_DROP,
     LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY,
 };
-use crate::content::block::component::ComponentPlugin;
-use crate::content::block::component::storage::StorageBuilder;
-use crate::content::block::component::{
-    ammo::AmmoBuilder, components::BlockComponent, sprite::SpriteComponent,
-    thruster::ThrusterComponent, turret::TurretComponent,
+use crate::content::block::feature::ComponentPlugin;
+use crate::content::block::feature::storage::StorageBuilder;
+use crate::content::block::feature::{
+    ammo::AmmoBuilder, components::Feature, sprite::Texture, thruster::Thruster,
+    turret::TurretComponent,
 };
 use crate::content::block::radar::RadarPlugin;
 use crate::content::damage::DamageEvent;
@@ -52,7 +52,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 1000.0,
         shape: BlockShape::default(),
         cost: 5,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
+        features: vec![Feature::Texture(Texture {
             image: image("block/surge-wall-large.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
@@ -72,14 +72,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 5000.0,
         shape: BlockShape::default(),
         cost: 50,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/thruster.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Thruster(ThrusterComponent::new(200.0, 100.0)),
+            Feature::Thruster(Thruster::new(200.0, 100.0)),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
@@ -95,21 +95,21 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 5000.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/core-nucleus.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Sprite(SpriteComponent {
+            Feature::Texture(Texture {
                 image: image("block/core-nucleus-team.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
             }),
-            BlockComponent::Thruster(ThrusterComponent::new(100.0, 40.0)),
-            BlockComponent::Storage(StorageBuilder::build(StorageBuilder { capacity: 1000 })),
+            Feature::Thruster(Thruster::new(100.0, 40.0)),
+            Feature::Storage(StorageBuilder::build(StorageBuilder { capacity: 1000 })),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
@@ -125,14 +125,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 1600.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 5000.0,
                 turn_speed: 4.0,
                 barrels: vec![Vec2::new(0.0, 0.0)],
@@ -168,7 +168,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 1800.0,
         shape: BlockShape::default(),
         cost: 200,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
+        features: vec![Feature::Texture(Texture {
             image: image("block/block-iron.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
@@ -188,7 +188,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 1600.0,
         shape: BlockShape::default(),
         cost: 200,
-        components: vec![BlockComponent::Sprite(SpriteComponent {
+        features: vec![Feature::Texture(Texture {
             image: image("block/block-steel.png".into()),
             offset: Vec2::ZERO,
             z: LAYER_BLOCK,
@@ -208,14 +208,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 1800.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 3000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
@@ -258,14 +258,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 3600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 5000.0,
                 turn_speed: 4.0,
                 strategy: TargetingStrategy::Closest,
@@ -309,14 +309,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 3600.0,
         shape: BlockShape::filled(3, 3),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 3000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,
@@ -348,14 +348,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 13600.0,
         shape: BlockShape::filled(3, 9),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 15000.0,
                 turn_speed: 0.0,
                 strategy: TargetingStrategy::Closest,
@@ -392,14 +392,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 13600.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 6000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,
@@ -439,14 +439,14 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
         health: 13600.0,
         shape: BlockShape::filled(1, 1),
         cost: 150,
-        components: vec![
-            BlockComponent::Sprite(SpriteComponent {
+        features: vec![
+            Feature::Texture(Texture {
                 image: image("block/block-2.png".into()),
                 offset: Vec2::ZERO,
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Turret(TurretComponent {
+            Feature::Turret(TurretComponent {
                 range: 6000.0,
                 turn_speed: 2.0,
                 strategy: TargetingStrategy::Closest,

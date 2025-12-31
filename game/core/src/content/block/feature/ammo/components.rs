@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
-use crate::content::block::component::storage::StorageState;
+use crate::content::block::feature::storage::StorageState;
 use crate::content::item::ItemType;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]

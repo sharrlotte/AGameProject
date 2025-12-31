@@ -2,11 +2,11 @@ use crate::content::block::stat::StatEffect;
 use bevy::prelude::*;
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct EnergyConsumerComponent {
+pub struct EnergyConsumer {
     rate: f32,
 }
 
-impl EnergyConsumerComponent {
+impl EnergyConsumer {
     pub fn rate(&self) -> f32 {
         self.rate
     }
@@ -50,7 +50,7 @@ impl PowerUsageComputed {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 pub struct PowerUsageEffects(pub Vec<StatEffect>);
 
-impl EnergyConsumerComponent {
+impl EnergyConsumer {
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             PowerUsageBase { value: self.rate },

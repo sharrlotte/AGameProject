@@ -2,8 +2,8 @@ use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::content::item::ItemType;
 
-#[derive(Clone, PartialEq, Reflect)]
-pub struct StorageComponent {
+#[derive(Clone, PartialEq, Reflect, Component)]
+pub struct Storage {
     capacity: u32,
 }
 
@@ -12,13 +12,13 @@ pub struct StorageBuilder {
 }
 
 impl StorageBuilder {
-    pub fn build(init: StorageBuilder) -> StorageComponent {
+    pub fn build(init: StorageBuilder) -> Storage {
         let StorageBuilder { capacity } = init;
-        StorageComponent { capacity }
+        Storage { capacity }
     }
 }
 
-impl StorageComponent {
+impl Storage {
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             Storage {
@@ -27,11 +27,6 @@ impl StorageComponent {
             StorageState::default(),
         ));
     }
-}
-
-#[derive(Component)]
-pub struct Storage {
-    capacity: u32,
 }
 
 #[derive(Component, Default)]

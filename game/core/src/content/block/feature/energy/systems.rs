@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use super::components::*;
 use crate::content::{
     block::{
-        component::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
+        feature::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
         components::{BlockOwner, PowerProducer},
     },
     ship::stat::ComputedShipStats,

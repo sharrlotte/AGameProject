@@ -12,8 +12,8 @@ use crate::content::block::components::{
     LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
     PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
-use crate::content::block::component::ammo::AmmoState;
-use crate::content::block::component::turret::{Turret, TurretState};
+use crate::content::block::feature::ammo::AmmoState;
+use crate::content::block::feature::turret::{Turret, TurretState};
 use crate::content::block::radar::Radar;
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;

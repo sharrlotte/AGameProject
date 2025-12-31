@@ -15,8 +15,8 @@ use crate::content::block::components::{
     Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
     DropEvent, ShipCalculatedStat,
 };
-use crate::content::block::component::ammo::{Ammo, AmmoState};
-use crate::content::block::component::storage::{Storage, StorageState};
+use crate::content::block::feature::ammo::{Ammo, AmmoState};
+use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
 use crate::content::death::Death;
 use crate::content::ship::indicators::IndicatorsPlugin;

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::content::block::{
-    component::{ammo::Ammo, efficiency::BlockEfficiency},
+    feature::{ammo::Ammo, efficiency::BlockEfficiency},
     components::{BlockDef, ShootPattern, TargetingStrategy},
     radar::Radar,
 };

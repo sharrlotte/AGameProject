@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::component::{components::BlockComponent, turret::TurretComponent},
+        block::feature::{components::Feature, turret::TurretComponent},
         entity::EntityType,
         item::ItemType,
         selectable::Selectable,
@@ -283,8 +283,8 @@ impl BlockData {
 
         commands.entity(ship).add_child(child);
 
-        for component in &def.components {
-            component.spawn(commands, child, def, &team);
+        for feature in &def.features {
+            feature.spawn(commands, child, def, &team);
         }
 
         return child;
@@ -409,7 +409,7 @@ pub struct BlockDef {
     // TODO: Better shape data type for complex voxel structures
     pub shape: BlockShape,
     pub cost: u32,
-    pub components: Vec<BlockComponent>,
+    pub features: Vec<Feature>,
     pub drops: Vec<DropComponent>,
 }
 
@@ -597,9 +597,9 @@ impl BlockRegistry {
                     core_position = Some(block.position.as_vec2() * GRID_SIZE + offset);
                 }
 
-                for component in &def.components {
-                    match component {
-                        BlockComponent::Turret(TurretComponent { range, .. }) => {
+                for feature in &def.features {
+                    match feature {
+                        Feature::Turret(TurretComponent { range, .. }) => {
                             min_range = min_range.min(*range);
                             max_range = max_range.max(*range);
                         }

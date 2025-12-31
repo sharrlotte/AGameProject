@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
-    content::block::{component::efficiency::BlockEfficiency, stat::StatEffect},
+    content::block::{feature::efficiency::BlockEfficiency, stat::StatEffect},
 };
 
 // ThrustPower
@@ -78,12 +78,12 @@ pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 // }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub struct ThrusterComponent {
+pub struct Thruster {
     force: f32,
     torque: f32,
 }
 
-impl ThrusterComponent {
+impl Thruster {
     pub fn new(force: f32, torque: f32) -> Self {
         Self { force, torque }
     }

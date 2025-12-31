@@ -3,14 +3,14 @@ use bevy::prelude::*;
 use crate::content::block::components::BlockDef;
 
 #[derive(Clone, PartialEq, Reflect)]
-pub struct SpriteComponent {
+pub struct Texture {
     pub image: Handle<Image>,
     pub offset: Vec2,
     pub z: f32,
     pub animated: bool,
 }
 
-impl SpriteComponent {
+impl Texture {
     pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Sprite {
