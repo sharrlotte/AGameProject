@@ -1,21 +1,3 @@
-use crate::constant::LAYER_BULLET;
-use crate::content::block::base::{
-    BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
-    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
-    PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
-};
-use crate::content::block::component::ammo::AmmoState;
-use crate::content::block::component::turret::{Turret, TurretState};
-use crate::content::block::radar::Radar;
-use crate::content::bullet::physic::handle_collisions;
-use crate::content::damage::{Damage, DamageEvent};
-use crate::content::death::Death;
-use crate::content::entity::EntityType;
-use crate::content::lifetime::Lifetime;
-use crate::content::ship::base::{BoundingBox, Ship};
-use crate::content::team::Team;
-use crate::resource::SceneState;
-use crate::save::io::Save;
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
@@ -23,47 +5,23 @@ use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
-#[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
-pub struct Bullet {
-    pub range: f32,
-    pub shooted_at: Vec2,
-    pub piercing: i8,
-    pub velocity: Vec2,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
-pub enum Laser {
-    Init {
-        width: f32,
-        length: f32,
-        origin: Vec2,
-        rotation: Quat,
-    },
-    Fired {
-        fired_at: f32,
-    },
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
-pub struct Missile {
-    pub lock_range: f32,
-    pub shooted_at: Vec2,
-    pub speed: f32,
-    pub age: f32,
-    pub target: Option<Entity>,
-    pub accel_time: f32,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct MissileHitbox {
-    pub missile: Entity,
-    pub blast_damage: f32,
-    pub blast_radius: f32,
-    pub team: Team,
-}
+use super::components::*;
+use crate::constant::LAYER_BULLET;
+use crate::content::block::components::{
+    BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
+    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
+    PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
+};
+use crate::content::block::component::ammo::AmmoState;
+use crate::content::block::component::turret::{Turret, TurretState};
+use crate::content::block::radar::Radar;
+use crate::content::damage::{Damage, DamageEvent};
+use crate::content::death::Death;
+use crate::content::entity::EntityType;
+use crate::content::lifetime::Lifetime;
+use crate::content::ship::{BoundingBox, Ship};
+use crate::content::team::Team;
+use crate::resource::SceneState;
 
 pub struct BulletPlugin;
 
@@ -695,4 +653,64 @@ pub fn cleanup_bullets(mut commands: Commands, bullets: Query<Entity, With<Entit
     for entity in &bullets {
         commands.entity(entity).insert(Death);
     }
+}
+
+pub fn handle_collisions(
+    mut commands: Commands,
+    mut collision_events: MessageReader<CollisionEvent>,
+    mut bullets: Query<(Entity, &mut Bullet), Without<Death>>,
+    missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
+) {
+    for event in collision_events.read() {
+        if let CollisionEvent::Started(e1, e2, _) = event {
+            if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e1) {
+                handle_bullet_collision(&mut commands, bullet, &mut bulletc);
+            } else if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e2) {
+                handle_bullet_collision(&mut commands, bullet, &mut bulletc);
+            } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e1) {
+                handle_missile_collision(&mut commands, hitbox, transform);
+            } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e2) {
+                handle_missile_collision(&mut commands, hitbox, transform);
+            }
+        }
+    }
+}
+
+fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mut Bullet) {
+    if bulletc.piercing <= 0 {
+        commands
+            .entity(bullet)
+            .insert((Visibility::Hidden, Death))
+            .remove::<Collider>()
+            .remove::<CollisionGroups>()
+            .remove::<ActiveEvents>();
+    } else {
+        bulletc.piercing -= 1;
+    }
+}
+
+fn handle_missile_collision(
+    commands: &mut Commands,
+    hitbox: &MissileHitbox,
+    transform: &GlobalTransform,
+) {
+    commands
+        .entity(hitbox.missile)
+        .insert((Visibility::Hidden, Death))
+        .remove::<Collider>()
+        .remove::<CollisionGroups>()
+        .remove::<ActiveEvents>();
+
+    commands.spawn((
+        hitbox.team,
+        Transform::from(*transform),
+        Lifetime::seconds(0.1),
+        Collider::ball(hitbox.blast_radius),
+        CollisionGroups::new(hitbox.team.bullet_group(), hitbox.team.bullet_filter()),
+        ActiveEvents::COLLISION_EVENTS,
+        Sensor,
+        Damage {
+            damage: hitbox.blast_damage,
+        },
+    ));
 }

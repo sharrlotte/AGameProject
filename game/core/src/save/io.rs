@@ -13,12 +13,12 @@ use uuid::Uuid;
 
 use crate::content::{
     block::{
-        base::{
+        components::{
             Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState,
         },
         component::turret::TurretState,
     },
-    ship::base::{ShipData, ShipState},
+    ship::{ShipData, ShipState},
     team::Team,
 };
 

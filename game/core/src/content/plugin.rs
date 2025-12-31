@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 
 use crate::content::{
-    block::base::BlockPlugin, bullet::base::BulletPlugin, damage::DamagePlugin, death::DeathPlugin,
-    item::base::ItemPlugin, lifetime::LifetimePlugin, selectable::SelectablePlugin,
-    ship::base::ShipPlugin,
+    block::systems::BlockPlugin, bullet::BulletPlugin, damage::DamagePlugin, death::DeathPlugin,
+    item::ItemPlugin, lifetime::LifetimePlugin, selectable::SelectablePlugin, ship::ShipPlugin,
 };
 
 pub struct ContentPlugin;

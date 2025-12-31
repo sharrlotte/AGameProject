@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 
-use crate::{
-    constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
-    content::block::{
-        component::efficiency::{BlockEfficiency, EfficiencyEffect},
-        stat::{StatEffect, StatsUpdateSet},
-    },
+use crate::content::block::{
+    component::efficiency::{BlockEfficiency, EfficiencyEffect},
+    stat::StatsUpdateSet,
 };
+use super::components::*;
 
 pub struct ThrusterPlugin;
 
@@ -16,62 +14,6 @@ impl Plugin for ThrusterPlugin {
             FixedPreUpdate,
             (update_thrust_power_stats, update_rotate_speed_stats).in_set(StatsUpdateSet),
         );
-    }
-}
-
-// ThrustPower
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct ThrustPowerBase {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct ThrustPowerComputed {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Debug, Reflect, Default)]
-pub struct ThrustPowerEffects(pub Vec<StatEffect>);
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct Thruster {
-    pub force: f32,
-    pub torque: f32,
-}
-
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
-pub struct ThrusterComponent {
-    pub force: f32,
-    pub torque: f32,
-}
-
-// RotateSpeed
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct RotateSpeedBase {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct RotateSpeedComputed {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Debug, Reflect, Default)]
-pub struct RotateSpeedEffects(pub Vec<StatEffect>);
-
-impl ThrusterComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
-        commands.entity(base).insert((
-            ThrustPowerBase {
-                value: self.force * THRUST_POWER_FACTOR,
-            },
-            ThrustPowerComputed::default(),
-            RotateSpeedBase {
-                value: self.torque * TURN_SPEED_FACTOR,
-            },
-            RotateSpeedComputed::default(),
-            BlockEfficiency::default(),
-        ));
     }
 }
 

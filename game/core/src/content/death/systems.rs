@@ -1,7 +1,5 @@
 use bevy::prelude::*;
-
-#[derive(Component)]
-pub struct Death;
+use super::components::Death;
 
 pub struct DeathPlugin;
 

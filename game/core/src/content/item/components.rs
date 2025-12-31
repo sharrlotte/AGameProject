@@ -1,15 +1,6 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-pub struct ItemPlugin;
-
-impl Plugin for ItemPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ItemRegistry>()
-            .add_systems(PreStartup, register_default_items);
-    }
-}
-
 #[derive(Debug, Reflect, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum ItemType {
     Steel,
@@ -58,7 +49,7 @@ pub struct ItemDef {
 }
 
 impl ItemRegistry {
-    fn register(&mut self, def: ItemDef) {
+    pub fn register(&mut self, def: ItemDef) {
         if self.map.contains_key(&def.item_type) {
             warn!("Item type {:#?} is already registered.", def.item_type);
             return;
@@ -78,15 +69,4 @@ impl ItemRegistry {
 
         return value.into_iter();
     }
-}
-
-pub fn register_default_items(mut registry: ResMut<ItemRegistry>) {
-    registry.register(ItemDef {
-        item_type: ItemType::Steel,
-        item_group: ItemGroup::Resource,
-        rarity: Rarity::Common,
-        name: "steal".to_string(),
-        icon: None,
-        occupied: 1,
-    });
 }

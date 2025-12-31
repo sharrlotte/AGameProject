@@ -1,15 +1,14 @@
 use std::collections::HashMap;
-
 use bevy::prelude::*;
 
 use crate::content::{
     block::{
-        base::{BlockOwner, PowerProducer},
+        components::{BlockOwner, PowerProducer},
         component::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
-        stat::StatEffect,
     },
     ship::stat::ComputedShipStats,
 };
+use super::components::*;
 
 pub struct EnergyPlugin;
 
@@ -26,34 +25,6 @@ impl Plugin for EnergyPlugin {
         );
     }
 }
-
-#[derive(Clone, PartialEq, Reflect)]
-pub struct EnergyConsumerComponent {
-    pub rate: f32,
-}
-
-impl EnergyConsumerComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
-        commands.entity(base).insert((
-            PowerUsageBase { value: self.rate },
-            PowerUsageComputed::default(),
-        ));
-    }
-}
-
-// PowerUsage
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct PowerUsageBase {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct PowerUsageComputed {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Debug, Reflect, Default)]
-pub struct PowerUsageEffects(pub Vec<StatEffect>);
 
 pub fn update_power_usage_stats(
     mut query: Query<(

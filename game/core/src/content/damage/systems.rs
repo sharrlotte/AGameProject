@@ -1,20 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 
-use crate::{content::block::base::Health, content::lifetime::Lifetime, save::io::Save};
-
-#[derive(Component, Debug)]
-#[require(Save)]
-pub struct Damage {
-    pub damage: f32,
-}
-
-#[derive(Message, Debug, Clone, Reflect)]
-pub struct DamageEvent {
-    pub attacker: Entity,
-    pub target: Entity,
-    pub damage: f32,
-}
+use crate::{content::block::components::Health, content::lifetime::Lifetime};
+use super::components::*;
 
 pub struct DamagePlugin;
 

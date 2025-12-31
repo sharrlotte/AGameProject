@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{content::{bullet::base::Bullet, ship::base::Ship}, resource::{PauseState, SceneState, SettingState}, save::io::{LoadWorldEvent, SaveWorldEvent, save_dir}};
+use crate::{content::{bullet::Bullet, ship::Ship}, resource::{PauseState, SceneState, SettingState}, save::io::{LoadWorldEvent, SaveWorldEvent, save_dir}};
 
 pub struct PauseScenePlugin;
 

@@ -1,23 +1,7 @@
-use crate::content::{ship::base::Ship, team::Team};
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
-
-#[derive(Component)]
-pub struct Radar {
-    pub range: f32,
-    pub timer: Timer,
-    pub targets: Vec<Entity>,
-}
-
-impl Radar {
-    pub fn new(range: f32, interval: f32) -> Self {
-        Self {
-            range,
-            timer: Timer::from_seconds(interval, TimerMode::Repeating),
-            targets: Vec::new(),
-        }
-    }
-}
+use crate::content::{ship::Ship, team::Team};
+use super::components::Radar;
 
 pub struct RadarPlugin;
 

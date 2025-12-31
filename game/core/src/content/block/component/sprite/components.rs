@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::block::base::BlockDef;
+use crate::content::block::components::BlockDef;
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct SpriteComponent {

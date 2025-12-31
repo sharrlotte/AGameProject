@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::content::{
     block::{
-        base::BlockOwner,
+        components::BlockOwner,
         component::{
             energy::PowerUsageComputed,
             storage::{Storage, StorageState},
             thruster::{RotateSpeedComputed, ThrustPowerComputed},
         },
     },
-    item::base::ItemType,
+    item::ItemType,
 };
 use bevy::prelude::*;
 

@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
 
-use crate::content::{block::base::BlockOwner, ship::stat::ComputedShipStats};
+use crate::content::{block::components::BlockOwner, ship::stat::ComputedShipStats};
+use super::components::*;
 
-#[derive(Default, SystemSet, PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub struct EfficiencyUpdateSet;
 pub struct EfficiencyPlugin;
 
 impl Plugin for EfficiencyPlugin {
@@ -16,33 +15,6 @@ impl Plugin for EfficiencyPlugin {
                 .in_set(EfficiencyUpdateSet),
         );
     }
-}
-
-#[derive(Component, Clone, Copy, Debug, Reflect, Default)]
-pub struct EfficiencyEffect {
-    pub value: f32,
-}
-
-#[derive(Component, Clone, Copy, Debug, Reflect)]
-pub struct BlockEfficiency {
-    pub value: f32,
-    pub base: f32,
-}
-
-impl Default for BlockEfficiency {
-    fn default() -> Self {
-        Self {
-            value: 1.0,
-            base: 1.0,
-        }
-    }
-}
-
-/// Component that provides efficiency buff to nearby blocks.
-#[derive(Component, Clone, Copy, Debug, Reflect, Default, PartialEq)]
-pub struct EfficiencyProvider {
-    pub radius: f32,
-    pub value: f32,
 }
 
 pub fn update_block_efficiency_base(

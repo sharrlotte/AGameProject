@@ -3,9 +3,9 @@ use std::time::Duration;
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
-        block::base::{Block, BlockOwner, BlockRegistry, Health},
+        block::components::{Block, BlockOwner, BlockRegistry, Health},
         selectable::SelectedEvent,
-        ship::base::{BoundingBox, Ship},
+        ship::{BoundingBox, Ship},
         team::Team,
     },
     resource::{GameVars, SceneEntity, SceneState},

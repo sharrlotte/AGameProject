@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
 use crate::content::block::component::storage::StorageState;
-use crate::content::item::base::ItemType;
+use crate::content::item::ItemType;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
