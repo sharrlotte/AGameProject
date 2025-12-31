@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::block::feature::ammo::components::AmmoState;
+use crate::{constant::LAYER_BLOCK_ICON, content::block::feature::ammo::components::AmmoState};
 
 pub struct AmmoPlugin;
 
@@ -81,26 +81,26 @@ fn update_ammo(
                 parent.spawn((
                     Mesh2d(assets.border_triangle.clone()),
                     MeshMaterial2d(assets.black.clone()),
-                    Transform::from_xyz(0.0, 0.0, 0.0),
+                    Transform::from_xyz(0.0, 0.0, LAYER_BLOCK_ICON),
                 ));
 
                 // Inner
                 parent.spawn((
                     Mesh2d(assets.inner_triangle.clone()),
                     MeshMaterial2d(assets.yellow.clone()),
-                    Transform::from_xyz(0.0, 0.0, 1.0),
+                    Transform::from_xyz(0.0, 0.0, LAYER_BLOCK_ICON + 1.0),
                 ));
 
                 parent.spawn((
                     Mesh2d(assets.exclamation_body.clone()),
                     MeshMaterial2d(assets.black.clone()),
-                    Transform::from_xyz(0.0, 50.0, 2.0),
+                    Transform::from_xyz(0.0, 5.0, LAYER_BLOCK_ICON + 2.0),
                 ));
 
                 parent.spawn((
                     Mesh2d(assets.exclamation_dot.clone()),
                     MeshMaterial2d(assets.black.clone()),
-                    Transform::from_xyz(0.0, -10.0, 2.0),
+                    Transform::from_xyz(0.0, -10.0, LAYER_BLOCK_ICON + 2.0),
                 ));
             });
 
