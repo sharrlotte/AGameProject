@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
+use super::components::*;
 use crate::content::block::{
     component::efficiency::{BlockEfficiency, EfficiencyEffect},
     stat::StatsUpdateSet,
 };
-use super::components::*;
 
 pub struct ThrusterPlugin;
 
@@ -28,7 +28,7 @@ pub fn update_thrust_power_stats(
 ) {
     for (base, mut computed, effects, efficiency_effect, block_efficiency) in &mut query {
         let eff = if let Some(be) = block_efficiency {
-            be.value
+            be.value()
         } else {
             efficiency_effect.map(|e| e.value).unwrap_or(1.0)
         };
@@ -56,7 +56,7 @@ pub fn update_rotate_speed_stats(
 ) {
     for (base, mut computed, effects, efficiency_effect, block_efficiency) in &mut query {
         let eff = if let Some(be) = block_efficiency {
-            be.value
+            be.value()
         } else {
             efficiency_effect.map(|e| e.value).unwrap_or(1.0)
         };

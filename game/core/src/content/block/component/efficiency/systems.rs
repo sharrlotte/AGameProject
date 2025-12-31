@@ -22,13 +22,12 @@ pub fn update_block_efficiency_base(
     ships: Query<&ComputedShipStats>,
 ) {
     for (owner, mut efficiency) in &mut blocks {
-        if let Ok(ship_stats) = ships.get(owner.id) {
-            efficiency.base = ship_stats.efficiency;
-        } else {
-            efficiency.base = 1.0;
-        }
         // Reset value to base before applying buffs
-        efficiency.value = efficiency.base;
+        if let Ok(ship_stats) = ships.get(owner.id) {
+            efficiency.set(ship_stats.efficiency);
+        } else {
+            efficiency.set(1.0);
+        }
     }
 }
 

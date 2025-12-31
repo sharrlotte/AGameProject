@@ -10,8 +10,19 @@ pub struct EfficiencyEffect {
 
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 pub struct BlockEfficiency {
-    pub value: f32,
-    pub base: f32,
+    value: f32,
+    base: f32,
+}
+
+impl BlockEfficiency {
+    pub fn set(&mut self, value: f32) {
+        self.value = value;
+        self.base = value;
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
 }
 
 impl BlockEfficiency {
