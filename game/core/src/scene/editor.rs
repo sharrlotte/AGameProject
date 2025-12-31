@@ -9,9 +9,13 @@ use uuid::Uuid;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::{components::{
-            Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP,
-        }, component::components::BlockComponent},
+        block::{
+            component::components::BlockComponent,
+            components::{
+                Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
+                FACE_UP,
+            },
+        },
         ship::ShipGrid,
     },
     resource::{GameVars, SceneEntity, SceneState},

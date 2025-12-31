@@ -21,21 +21,21 @@ impl Ammo {
     }
 }
 
-pub struct AmmoInit {
+pub struct AmmoBuilder {
     pub capacity: u32,
     pub crafting: HashMap<ItemType, u32>,
     pub icon: Option<Handle<Image>>,
 }
 
-impl Ammo {
-    pub fn new(init: AmmoInit) -> Option<Self> {
-        let AmmoInit {
+impl AmmoBuilder {
+    pub fn build(init: AmmoBuilder) -> Option<Ammo> {
+        let AmmoBuilder {
             capacity,
             crafting,
             icon,
         } = init;
 
-        Some(Self {
+        Some(Ammo {
             capacity,
             crafting,
             icon,
@@ -57,7 +57,7 @@ impl AmmoState {
         let mut max_refill = ammo.capacity;
 
         for (item_type, count) in &ammo.crafting {
-            if let Some(amount) = storage.items.get(item_type) {
+            if let Some(amount) = storage.get(item_type) {
                 if amount / count < max_refill {
                     max_refill = amount / count;
                 }
@@ -69,8 +69,8 @@ impl AmmoState {
         }
 
         for (item_type, count) in &ammo.crafting {
-            if let Some(amount) = storage.items.get_mut(item_type) {
-                *amount -= max_refill * count;
+            if !storage.take(item_type, max_refill * count) {
+                panic!("Storage should have enough items to refill ammo");
             }
         }
 

@@ -30,18 +30,18 @@ pub fn update_thrust_power_stats(
         let eff = if let Some(be) = block_efficiency {
             be.value()
         } else {
-            efficiency_effect.map(|e| e.value).unwrap_or(1.0)
+            efficiency_effect.map(|e| e.value()).unwrap_or(1.0)
         };
 
         // Efficiency increases thrust.
-        let mut val = base.value * eff;
+        let mut val = base.value() * eff;
 
         if let Some(effects) = effects {
             for effect in &effects.0 {
-                val = effect.rule.apply(val, base.value, effect.value);
+                val = effect.rule.apply(val, base.value(), effect.value);
             }
         }
-        computed.value = val;
+        computed.set(val);
     }
 }
 
@@ -58,17 +58,17 @@ pub fn update_rotate_speed_stats(
         let eff = if let Some(be) = block_efficiency {
             be.value()
         } else {
-            efficiency_effect.map(|e| e.value).unwrap_or(1.0)
+            efficiency_effect.map(|e| e.value()).unwrap_or(1.0)
         };
 
         // Efficiency increases rotate speed.
-        let mut val = base.value * eff;
+        let mut val = base.value() * eff;
 
         if let Some(effects) = effects {
             for effect in &effects.0 {
-                val = effect.rule.apply(val, base.value, effect.value);
+                val = effect.rule.apply(val, base.value(), effect.value);
             }
         }
-        computed.value = val;
+        computed.set(val);
     }
 }

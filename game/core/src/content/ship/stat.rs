@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use crate::content::{
     block::{
-        components::BlockOwner,
         component::{
             energy::PowerUsageComputed,
             storage::{Storage, StorageState},
             thruster::{RotateSpeedComputed, ThrustPowerComputed},
         },
+        components::BlockOwner,
     },
     item::ItemType,
 };
@@ -45,16 +45,16 @@ pub fn update_stats(
         stats.storages.clear();
     }
 
-    for (entity,owner, power, thrust, rotate, storage, storage_state) in &blocks {
+    for (entity, owner, power, thrust, rotate, storage, storage_state) in &blocks {
         if let Ok(mut stats) = ships.get_mut(owner.id) {
             if let Some(p) = power {
-                stats.power_usage += p.value;
+                stats.power_usage += p.value();
             }
             if let Some(t) = thrust {
-                stats.thrust_power += t.value;
+                stats.thrust_power += t.value();
             }
             if let Some(r) = rotate {
-                stats.rotate_speed += r.value;
+                stats.rotate_speed += r.value();
             }
 
             if let (Some(s), Some(state)) = (storage, storage_state) {
@@ -62,7 +62,7 @@ pub fn update_stats(
                     stats.is_full = false;
                 }
 
-                for (item, count) in &state.items {
+                for (item, count) in state.iter() {
                     stats
                         .items
                         .entry(*item)

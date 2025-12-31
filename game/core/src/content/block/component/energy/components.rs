@@ -1,20 +1,50 @@
-use bevy::prelude::*;
 use crate::content::block::stat::StatEffect;
+use bevy::prelude::*;
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct EnergyConsumerComponent {
-    pub rate: f32,
+    rate: f32,
+}
+
+impl EnergyConsumerComponent {
+    pub fn rate(&self) -> f32 {
+        self.rate
+    }
+
+    pub fn new(rate: f32) -> Self {
+        Self { rate }
+    }
 }
 
 // PowerUsage
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct PowerUsageBase {
-    pub value: f32,
+    value: f32,
+}
+
+impl PowerUsageBase {
+    pub fn new(value: f32) -> Self {
+        Self { value }
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
 }
 
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct PowerUsageComputed {
-    pub value: f32,
+    value: f32,
+}
+
+impl PowerUsageComputed {
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn set(&mut self, value: f32) {
+        self.value = value;
+    }
 }
 
 #[derive(Component, Clone, Debug, Reflect, Default)]

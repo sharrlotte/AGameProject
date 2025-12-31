@@ -4,7 +4,18 @@ use crate::content::item::ItemType;
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct StorageComponent {
+    capacity: u32,
+}
+
+pub struct StorageBuilder {
     pub capacity: u32,
+}
+
+impl StorageBuilder {
+    pub fn build(init: StorageBuilder) -> StorageComponent {
+        let StorageBuilder { capacity } = init;
+        StorageComponent { capacity }
+    }
 }
 
 impl StorageComponent {
@@ -20,16 +31,24 @@ impl StorageComponent {
 
 #[derive(Component)]
 pub struct Storage {
-    pub capacity: u32,
+    capacity: u32,
 }
 
 #[derive(Component, Default)]
 pub struct StorageState {
     current: u32,
-    pub items: HashMap<ItemType, u32>,
+    items: HashMap<ItemType, u32>,
 }
 
 impl StorageState {
+    pub fn iter(&self) -> impl Iterator<Item = (&ItemType, &u32)> {
+        self.items.iter()
+    }
+
+    pub fn get(&self, item_type: &ItemType) -> Option<&u32> {
+        self.items.get(item_type)
+    }
+
     pub fn add(&mut self, storage: &Storage, item_type: ItemType, count: u32) -> bool {
         if self.current + count > storage.capacity {
             return false;
@@ -45,15 +64,15 @@ impl StorageState {
         true
     }
 
-    pub fn take(&mut self, item_type: ItemType, count: u32) -> bool {
-        if let Some(c) = self.items.get_mut(&item_type) {
+    pub fn take(&mut self, item_type: &ItemType, count: u32) -> bool {
+        if let Some(c) = self.items.get_mut(item_type) {
             if *c < count {
                 return false;
             }
 
             *c -= count;
             self.current -= count;
-            
+
             return true;
         }
 

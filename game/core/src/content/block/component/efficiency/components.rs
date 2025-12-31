@@ -5,7 +5,17 @@ pub struct EfficiencyUpdateSet;
 
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct EfficiencyEffect {
-    pub value: f32,
+    value: f32,
+}
+
+impl EfficiencyEffect {
+    pub fn new(value: f32) -> Self {
+        Self { value }
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
 }
 
 #[derive(Component, Clone, Copy, Debug, Reflect)]
@@ -47,6 +57,34 @@ impl Default for BlockEfficiency {
 /// Component that provides efficiency buff to nearby blocks.
 #[derive(Component, Clone, Copy, Debug, Reflect, Default, PartialEq)]
 pub struct EfficiencyProvider {
-    pub radius: f32,
-    pub value: f32,
+    radius: f32,
+    value: f32,
+}
+
+impl EfficiencyProvider {
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+}
+
+pub struct EfficiencyProviderBuilder {
+    radius: f32,
+    value: f32,
+}
+
+impl EfficiencyProviderBuilder {
+    pub fn new(radius: f32, value: f32) -> Self {
+        Self { radius, value }
+    }
+
+    pub fn build(self) -> EfficiencyProvider {
+        EfficiencyProvider {
+            radius: self.radius,
+            value: self.value,
+        }
+    }
 }

@@ -7,13 +7,10 @@ use crate::constant::{
     LAYER_FLASH_OVERLAY, LAYER_TURRET_OVERLAY,
 };
 use crate::content::block::component::ComponentPlugin;
+use crate::content::block::component::storage::StorageBuilder;
 use crate::content::block::component::{
-    ammo::{Ammo, AmmoInit},
-    components::BlockComponent,
-    sprite::SpriteComponent,
-    storage::StorageComponent,
-    thruster::ThrusterComponent,
-    turret::TurretComponent,
+    ammo::AmmoBuilder, components::BlockComponent, sprite::SpriteComponent,
+    thruster::ThrusterComponent, turret::TurretComponent,
 };
 use crate::content::block::radar::RadarPlugin;
 use crate::content::damage::DamageEvent;
@@ -82,10 +79,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: LAYER_BLOCK,
                 animated: false,
             }),
-            BlockComponent::Thruster(ThrusterComponent {
-                force: 200.0,
-                torque: 100.0,
-            }),
+            BlockComponent::Thruster(ThrusterComponent::new(200.0, 100.0)),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
@@ -114,11 +108,8 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 z: LAYER_TURRET_OVERLAY,
                 animated: false,
             }),
-            BlockComponent::Thruster(ThrusterComponent {
-                force: 100.0,
-                torque: 40.0,
-            }),
-            BlockComponent::Storage(StorageComponent { capacity: 1000 }),
+            BlockComponent::Thruster(ThrusterComponent::new(100.0, 40.0)),
+            BlockComponent::Storage(StorageBuilder::build(StorageBuilder { capacity: 1000 })),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
             item_type: ItemType::Steel,
@@ -246,7 +237,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         length: 60.0,
                     },
                 }),
-                ammo: Ammo::new(AmmoInit {
+                ammo: AmmoBuilder::build(AmmoBuilder {
                     capacity: 1000,
                     crafting: HashMap::from([(ItemType::Steel, 3)]),
                     icon: None,
@@ -297,7 +288,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     },
                     shoot_sound: Some(sound("bullet/shoot-spectre.ogg".into())),
                 }),
-                ammo: Ammo::new(AmmoInit {
+                ammo: AmmoBuilder::build(AmmoBuilder {
                     capacity: 5000,
                     crafting: HashMap::from([(ItemType::Steel, 1)]),
                     icon: None,

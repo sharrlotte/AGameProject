@@ -41,12 +41,12 @@ pub fn apply_efficiency_buffs(
     let filter = QueryFilter::default().exclude_sensors();
 
     for (transform, provider) in &providers {
-        let shape = Ball::new(provider.radius);
+        let shape = Ball::new(provider.radius());
         let origin = transform.translation().truncate();
 
         rapier.intersect_shape(origin, 0.0, &shape, filter, |entity| {
             if let Ok((_, _, mut efficiency)) = blocks.get_mut(entity) {
-                efficiency.apply(provider.value);
+                efficiency.apply(provider.value());
 
                 true
             } else {

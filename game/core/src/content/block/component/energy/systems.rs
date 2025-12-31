@@ -1,14 +1,14 @@
-use std::collections::HashMap;
 use bevy::prelude::*;
+use std::collections::HashMap;
 
+use super::components::*;
 use crate::content::{
     block::{
-        components::{BlockOwner, PowerProducer},
         component::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
+        components::{BlockOwner, PowerProducer},
     },
     ship::stat::ComputedShipStats,
 };
-use super::components::*;
 
 pub struct EnergyPlugin;
 
@@ -35,20 +35,20 @@ pub fn update_power_usage_stats(
     )>,
 ) {
     for (base, mut computed, effects, efficiency_effect) in &mut query {
-        let eff = efficiency_effect.map(|e| e.value).unwrap_or(1.0);
+        let eff = efficiency_effect.map(|e| e.value()).unwrap_or(1.0);
 
         let mut val = if eff > 0.0001 {
-            base.value / eff
+            base.value() / eff
         } else {
-            base.value
+            base.value()
         };
 
         if let Some(effects) = effects {
             for effect in &effects.0 {
-                val = effect.rule.apply(val, base.value, effect.value);
+                val = effect.rule.apply(val, base.value(), effect.value);
             }
         }
-        computed.value = val;
+        computed.set(val);
     }
 }
 
@@ -70,7 +70,7 @@ pub fn update_efficiency_base_on_power_usage(
     for (owner, usage, producer) in &blocks {
         let entry = power_map.entry(owner.id).or_insert((0.0, 0.0));
         if let Some(u) = usage {
-            entry.0 += u.value;
+            entry.0 += u.value();
         }
         if let Some(p) = producer {
             entry.1 += p.output;
