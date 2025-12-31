@@ -11,7 +11,7 @@ pub struct SpriteComponent {
 }
 
 impl SpriteComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Sprite {
                 image: self.image.clone(),

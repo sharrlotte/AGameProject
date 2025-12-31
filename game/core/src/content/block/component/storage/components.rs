@@ -8,7 +8,7 @@ pub struct StorageComponent {
 }
 
 impl StorageComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             Storage {
                 capacity: self.capacity,

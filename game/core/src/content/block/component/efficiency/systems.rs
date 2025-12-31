@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
 
-use crate::content::{block::components::BlockOwner, ship::stat::ComputedShipStats};
 use super::components::*;
+use crate::content::{block::components::BlockOwner, ship::stat::ComputedShipStats};
 
 pub struct EfficiencyPlugin;
 
@@ -47,11 +47,7 @@ pub fn apply_efficiency_buffs(
 
         rapier.intersect_shape(origin, 0.0, &shape, filter, |entity| {
             if let Ok((_, _, mut efficiency)) = blocks.get_mut(entity) {
-                let buffed = efficiency.base * provider.value;
-
-                if buffed > efficiency.value {
-                    efficiency.value = buffed;
-                }
+                efficiency.apply(provider.value);
 
                 true
             } else {

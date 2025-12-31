@@ -21,7 +21,7 @@ pub struct PowerUsageComputed {
 pub struct PowerUsageEffects(pub Vec<StatEffect>);
 
 impl EnergyConsumerComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             PowerUsageBase { value: self.rate },
             PowerUsageComputed::default(),

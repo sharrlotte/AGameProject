@@ -49,7 +49,7 @@ pub struct RotateSpeedComputed {
 pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 
 impl ThrusterComponent {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             ThrustPowerBase {
                 value: self.force * THRUST_POWER_FACTOR,

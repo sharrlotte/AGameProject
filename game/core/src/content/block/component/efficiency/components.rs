@@ -14,6 +14,16 @@ pub struct BlockEfficiency {
     pub base: f32,
 }
 
+impl BlockEfficiency {
+    pub fn apply(&mut self, value: f32) {
+        let buffed = self.base * value;
+
+        if buffed > self.value {
+            self.value = buffed;
+        }
+    }
+}
+
 impl Default for BlockEfficiency {
     fn default() -> Self {
         Self {

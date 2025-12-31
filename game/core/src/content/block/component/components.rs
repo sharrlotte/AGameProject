@@ -35,14 +35,14 @@ impl BlockComponent {
         commands.entity(base).add_child(component);
 
         match self {
-            Self::Sprite(sprite) => sprite.spawn(commands, component, def),
-            Self::Turret(turret) => turret.spawn(commands, component, def),
-            Self::Thruster(thruster) => thruster.spawn(commands, component),
-            Self::EnergyConsumer(consumer) => consumer.spawn(commands, component),
+            Self::Sprite(sprite) => sprite.insert(commands, component, def),
+            Self::Turret(turret) => turret.insert(commands, component, def),
+            Self::Thruster(thruster) => thruster.insert(commands, component),
+            Self::EnergyConsumer(consumer) => consumer.insert(commands, component),
             Self::EfficiencyProvider(provider) => {
                 commands.entity(component).insert(*provider);
             }
-            Self::Storage(storage) => storage.spawn(commands, component),
+            Self::Storage(storage) => storage.insert(commands, component),
         }
     }
 }
