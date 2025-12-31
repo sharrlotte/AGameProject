@@ -13,6 +13,7 @@ use crate::{
     content::{
         block::{
             component::{
+                ammo::{Ammo, AmmoInit},
                 base::{BlockComponent, ComponentPlugin},
                 sprite::SpriteComponent,
                 storage::StorageComponent,
@@ -792,6 +793,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     },
                     shoot_sound: None,
                 }),
+                ammo: None,
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -877,6 +879,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         length: 60.0,
                     },
                 }),
+                ammo: Ammo::new(AmmoInit {
+                    capacity: 1000,
+                    crafting: HashMap::from([(ItemType::Steel, 3)]),
+                    icon: None,
+                }),
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -923,6 +930,11 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     },
                     shoot_sound: Some(sound("bullet/shoot-spectre.ogg".into())),
                 }),
+                ammo: Ammo::new(AmmoInit {
+                    capacity: 5000,
+                    crafting: HashMap::from([(ItemType::Steel, 1)]),
+                    icon: None,
+                }),
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -961,6 +973,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     damage: 1.0,
                     width: 9.0,
                 }),
+                ammo: None,
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -1004,6 +1017,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         length: 1000.0,
                     },
                 }),
+                ammo: None,
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -1050,6 +1064,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                         length: 12.0,
                     },
                 }),
+                ammo: None,
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {
@@ -1083,6 +1098,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                 animated: false,
                 barrels: vec![Vec2::new(0.0, 0.0)],
                 shooting_pattern: ShootPattern::PullingBeam(PullingBeamPattern { width: 3.0 }),
+                ammo: None,
             }),
         ],
         drops: vec![DropComponent::Item(ItemDrop {

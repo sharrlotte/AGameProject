@@ -7,7 +7,7 @@ use crate::{
     content::{
         block::{
             base::{BlockDef, ShootPattern, TargetingStrategy},
-            component::efficiency::BlockEfficiency,
+            component::{ammo::Ammo, efficiency::BlockEfficiency},
             radar::Radar,
         },
         ship::base::Ship,
@@ -30,14 +30,15 @@ impl Plugin for TurretPlugin {
 #[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TurretComponent {
     pub strategy: TargetingStrategy,
-    pub range: f32,
-    pub turn_speed: f32,
-    pub barrels: Vec<Vec2>,
     pub shooting_pattern: ShootPattern,
+    pub turn_speed: f32,
+    pub range: f32,
+    pub barrels: Vec<Vec2>,
     pub image: Handle<Image>,
     pub offset: Vec2,
     pub z: f32,
     pub animated: bool,
+    pub ammo: Option<Ammo>,
 }
 
 impl TurretComponent {
