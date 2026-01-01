@@ -6,7 +6,6 @@ use bevy::{asset::Handle, image::Image};
 use crate::content::block::feature::storage::components::StorageState;
 use crate::content::entity::EntityType;
 use crate::content::item::components::ItemType;
-use crate::content::selectable::components::Selectable;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
@@ -22,7 +21,6 @@ impl Ammo {
             AmmoState {
                 current: self.capacity,
             },
-            Selectable,
             EntityType::Ammo,
         ));
     }

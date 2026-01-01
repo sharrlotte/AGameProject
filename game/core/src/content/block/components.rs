@@ -11,7 +11,6 @@ use crate::{
         block::feature::{components::Feature, turret::components::TurretComponent},
         entity::EntityType,
         item::components::ItemType,
-        selectable::components::Selectable,
         ship::components::{Ship, ShipFragment},
         team::Team,
     },
@@ -277,7 +276,6 @@ impl BlockData {
                 },
                 BlockOwner { id: ship },
                 EntityType::Block,
-                Selectable,
             ))
             .id();
 

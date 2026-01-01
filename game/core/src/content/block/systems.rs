@@ -423,7 +423,7 @@ pub fn register_default_blocks(mut registry: ResMut<BlockRegistry>, assets: Res<
                     },
                 }),
                 ammo: AmmoBuilder::build(AmmoBuilder {
-                    capacity: 50,
+                    capacity: 5000,
                     crafting: HashMap::from([(ItemType::Steel, 1)]),
                     icon: None,
                 }),
