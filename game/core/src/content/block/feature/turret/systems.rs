@@ -4,8 +4,8 @@ use std::f32::consts::PI;
 use super::{Turret, TurretState};
 use crate::{
     content::{
-        block::{components::TargetingStrategy, radar::Radar},
-        ship::Ship,
+        block::{BlockData, components::TargetingStrategy, radar::Radar},
+        ship::{Blocks, Ship},
         team::Team,
     },
     resource::{GameVars, SceneState, TurretControl},
@@ -27,7 +27,7 @@ pub fn update_turret_target(
     window: Single<&Window>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     game_state: Res<GameVars>,
-    ships: Query<(Entity, &GlobalTransform, &Ship)>,
+    ships: Query<(&GlobalTransform, &Ship, &Blocks)>,
     mut turrets: Query<(&GlobalTransform, &Turret, &mut TurretState, &Team, &Radar)>,
 ) {
     for (transform, turret, mut state, team, radar) in turrets.iter_mut() {
@@ -58,51 +58,59 @@ pub fn update_turret_target(
             }
         }
 
-        let mut best_target: Option<Entity> = None;
-
+        let mut best_target: Option<(Entity, BlockData)> = None;
         let mut closest_dist_sq = turret.range.squared();
 
         for &entity in radar.targets.iter() {
             //TODO: FIX perf
-            if let Ok((_, target_transform, _)) = ships.get(entity) {
-                let target_pos_actual = target_transform.translation().truncate();
-                let turret_position = transform.translation().truncate();
-                let dist_sq = turret_position.distance_squared(target_pos_actual);
+            let Ok((target_transform, _, blocks)) = ships.get(entity) else {
+                continue;
+            };
 
-                if dist_sq > turret.range * turret.range {
-                    continue;
+            if blocks.blocks.is_empty() {
+                continue;
+            }
+
+            let block = blocks.blocks[0];
+            let target_pos_actual =
+                target_transform.translation().truncate() + block.position_pixel();
+            let turret_position = transform.translation().truncate();
+            let dist_sq = turret_position.distance_squared(target_pos_actual);
+
+            if dist_sq > turret.range * turret.range {
+                continue;
+            }
+
+            match turret.strategy {
+                TargetingStrategy::Closest => {
+                    if dist_sq < closest_dist_sq {
+                        closest_dist_sq = dist_sq;
+                        best_target = Some((entity, block));
+                    }
                 }
-
-                match turret.strategy {
-                    TargetingStrategy::Closest => {
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
-                        }
+                TargetingStrategy::MostHP => {
+                    // Placeholder logic
+                    if dist_sq < closest_dist_sq {
+                        closest_dist_sq = dist_sq;
+                        best_target = Some((entity, block));
                     }
-                    TargetingStrategy::MostHP => {
-                        // Placeholder logic
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
-                        }
-                    }
-                    TargetingStrategy::EnemyBullet => {
-                        // Placeholder logic
-                        if dist_sq < closest_dist_sq {
-                            closest_dist_sq = dist_sq;
-                            best_target = Some(entity);
-                        }
+                }
+                TargetingStrategy::EnemyBullet => {
+                    // Placeholder logic
+                    if dist_sq < closest_dist_sq {
+                        closest_dist_sq = dist_sq;
+                        best_target = Some((entity, block));
                     }
                 }
             }
         }
 
-        if let Some(entity) = best_target
-            && let Ok((_, target_transform, _)) = ships.get(entity)
+        if let Some((entity, block)) = best_target
+            && let Ok((target_transform, _, _)) = ships.get(entity)
         {
-            let to_target =
-                target_transform.translation().truncate() - transform.translation().truncate();
+            let target_pos_actual =
+                target_transform.translation().truncate() + block.position_pixel();
+            let to_target = target_pos_actual - transform.translation().truncate();
             let target_dir = to_target.normalize_or_zero();
             let forward: Vec2 = transform.up().truncate();
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
@@ -124,8 +132,8 @@ pub fn update_turret_target(
 }
 
 pub fn turret_tracking(
-    time: Res<Time>,
     mut query: Query<(&mut Transform, &GlobalTransform, &Turret, &TurretState)>,
+    time: Res<Time>,
     transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
     for (mut transform, global_transform, turret, state) in &mut query {

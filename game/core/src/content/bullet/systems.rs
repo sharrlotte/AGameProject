@@ -6,20 +6,20 @@ use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
 use super::*;
-use crate::constant::LAYER_BULLET;
+use crate::constant::{GRID_SIZE, LAYER_BULLET};
+use crate::content::block::feature::ammo::AmmoState;
+use crate::content::block::feature::turret::{Turret, TurretState};
+use crate::content::block::radar::Radar;
 use crate::content::block::{
     BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
     LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
     PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
-use crate::content::block::feature::ammo::AmmoState;
-use crate::content::block::feature::turret::{Turret, TurretState};
-use crate::content::block::radar::Radar;
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;
 use crate::content::entity::EntityType;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::{BoundingBox, Ship};
+use crate::content::ship::{Blocks, BoundingBox, Ship};
 use crate::content::team::Team;
 use crate::resource::SceneState;
 
@@ -76,7 +76,7 @@ pub fn destroy_out_of_range_bullet(
 
 pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
-    targets: Query<(&GlobalTransform, &BoundingBox)>,
+    targets: Query<(&GlobalTransform, &Blocks)>,
     time: Res<Time>,
 ) {
     for (mut missile, mut transform, global) in missiles.iter_mut() {
@@ -90,9 +90,15 @@ pub fn handle_missiles(
         let current_speed = missile.speed * eased;
 
         if let Some(target) = missile.target {
-            if let Ok((target_gt, target_bbox)) = targets.get(target) {
+            if let Ok((target_gt, target_blocks)) = targets.get(target) {
+                if target_blocks.blocks.is_empty() {
+                    continue;
+                }
+
                 let to_target = target_gt
-                    .transform_point((target_bbox.size / 2.0).extend(0.0))
+                    .transform_point(
+                        (target_blocks.blocks[0].position_pixel() + GRID_SIZE / 2.0).extend(0.0),
+                    )
                     .truncate()
                     - global.translation().truncate();
 
