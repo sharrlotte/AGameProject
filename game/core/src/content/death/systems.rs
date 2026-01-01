@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::components::Death;
+use super::Death;
 
 pub struct DeathPlugin;
 

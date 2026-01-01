@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::components::*;
+use super::*;
 
 pub struct ItemPlugin;
 

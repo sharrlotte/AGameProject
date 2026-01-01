@@ -2,9 +2,9 @@ use crate::content::{
     block::{
         components::BlockDef,
         feature::{
-            efficiency::components::EfficiencyProvider, energy::components::EnergyConsumer,
-            sprite::components::Texture, storage::components::Storage,
-            thruster::components::Thruster, turret::components::TurretComponent,
+            efficiency::EfficiencyProvider, energy::EnergyConsumer,
+            sprite::Texture, storage::Storage,
+            thruster::Thruster, turret::TurretComponent,
         },
     },
     team::Team,

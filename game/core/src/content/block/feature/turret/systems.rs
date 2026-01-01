@@ -1,11 +1,11 @@
 use bevy::{math::FloatPow, prelude::*};
 use std::f32::consts::PI;
 
-use super::components::{Turret, TurretState};
+use super::{Turret, TurretState};
 use crate::{
     content::{
-        block::{components::TargetingStrategy, radar::components::Radar},
-        ship::components::Ship,
+        block::{components::TargetingStrategy, radar::Radar},
+        ship::Ship,
         team::Team,
     },
     resource::{GameVars, SceneState, TurretControl},

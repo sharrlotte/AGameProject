@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::content::block::components::BlockDef;
+use crate::content::block::BlockDef;
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct Texture {

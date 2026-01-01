@@ -1,25 +1,20 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use crate::{
-    constant::{GRID_SIZE, SMALL_GRID_SIZE},
+    constant::{GRID_SIZE, MAX_SHIPS, SMALL_GRID_SIZE},
     content::{
-        block::{
-            components::{Block, BlockOwner, BlockRegistry, Health},
-            feature::{
-                ammo::components::{Ammo, AmmoState},
-                storage::components::{Storage, StorageState},
-            },
-        },
-        entity::EntityType,
-        selectable::components::EntitySelectEvent,
+        block::{Block, BlockOwner, BlockRegistry, Health},
+        selectable::EntitySelectEvent,
         ship::{
             components::{BoundingBox, Ship},
             stat::ComputedShipStats,
         },
-        team::Team,
+        team::{DEFAULT_TEAM_ID, Team},
     },
     resource::{GameVars, SceneEntity, SceneState},
+    save::io::load_saved_schematics,
     scene::background::BackgroundPlugin,
+    utils::random::random_vec2_step,
 };
 
 use bevy::{
@@ -27,6 +22,7 @@ use bevy::{
     prelude::*,
     time::common_conditions::on_timer,
 };
+use rand::seq::IndexedRandom;
 
 #[derive(Component)]
 pub struct FpsText;
@@ -58,6 +54,11 @@ impl Plugin for GameScenePlugin {
                     update_select_panel,
                 )
                     .run_if(in_state(SceneState::Game)),
+            )
+            .add_systems(
+                FixedUpdate,
+                check_ship
+                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
             )
             .add_plugins(BackgroundPlugin);
     }
@@ -162,8 +163,6 @@ fn update_select_panel(
     ships: Query<&ComputedShipStats>,
     mut commands: Commands,
     mut selectable_reader: MessageReader<EntitySelectEvent>,
-    mut ammos: Query<(&Ammo, &mut AmmoState, &BlockOwner)>,
-    mut storages: Query<&mut StorageState>,
 ) {
     for event in selectable_reader.read() {
         commands
@@ -178,28 +177,6 @@ fn update_select_panel(
                         Node::default(),
                         Text::new(format!("{etype:?}: {}", entities.len())),
                     ));
-
-                    match etype {
-                        EntityType::Ammo => {
-                            for entity in entities.iter() {
-                                if let Ok((ammo, mut ammo_state, owner)) = ammos.get_mut(*entity) {
-                                    let Ok(stat) = ships.get(owner.id) else {
-                                        continue;
-                                    };
-
-                                    for storage_entity in stat.storages.iter() {
-                                        let Ok(mut storage) = storages.get_mut(*storage_entity)
-                                        else {
-                                            continue;
-                                        };
-
-                                        ammo_state.refill(ammo, &mut storage);
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
                 });
         }
     }
@@ -366,4 +343,58 @@ fn update_ship_list(
                 });
         });
     }
+}
+
+pub fn check_ship(
+    mut commands: Commands,
+    ships: Query<(&Ship, &Team)>,
+    registry: Res<BlockRegistry>,
+) {
+    if ships.iter().len() >= MAX_SHIPS {
+        return;
+    }
+
+    let mut rng = rand::rng();
+    let schematics = load_saved_schematics();
+
+    let mut maps: HashMap<u8, u8> = HashMap::new();
+
+    for i in 0..2 {
+        maps.insert(i, 0);
+    }
+
+    for (_, team) in ships {
+        if let Some(value) = maps.get(&team.id) {
+            maps.insert(team.id, value + 1);
+        } else {
+            maps.insert(team.id, 1);
+        }
+    }
+
+    let mut least_team_id = DEFAULT_TEAM_ID;
+    let mut least_count: u8 = MAX_SHIPS as u8;
+
+    for (team_id, count) in maps.iter() {
+        if *count < least_count {
+            least_team_id = *team_id;
+            least_count = *count;
+        }
+    }
+
+    let Some(schematic) = schematics.choose(&mut rng) else {
+        return;
+    };
+
+    let position = random_vec2_step(
+        Vec2::new(-10000.0, -10000.0),
+        Vec2::new(10000.0, 10000.0),
+        1000.0,
+    );
+
+    schematic.to_ship_data().spawn(
+        &mut commands,
+        &registry,
+        Team::new(least_team_id),
+        Transform::from_translation(position.extend(0.0)),
+    );
 }

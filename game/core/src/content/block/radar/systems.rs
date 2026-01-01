@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
-use crate::content::{ship::components::Ship, team::Team};
-use super::components::Radar;
+use crate::content::{ship::Ship, team::Team};
+use super::Radar;
 
 pub struct RadarPlugin;
 

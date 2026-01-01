@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use super::components::*;
+use super::*;
 use crate::content::{
     block::{
-        components::{BlockOwner, PowerProducer}, feature::efficiency::components::{EfficiencyEffect, EfficiencyUpdateSet},
+        components::{BlockOwner, PowerProducer}, feature::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
     },
     ship::stat::ComputedShipStats,
 };

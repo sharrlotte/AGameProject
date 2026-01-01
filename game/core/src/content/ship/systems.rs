@@ -1,32 +1,27 @@
+use bevy::input::mouse::MouseWheel;
 use bevy::math::FloatPow;
 use bevy::prelude::*;
-use bevy::input::mouse::MouseWheel;
-use bevy::time::common_conditions::on_timer;
 use bevy_rapier2d::prelude::*;
-use uuid::Uuid;
-use std::time::Duration;
+use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
-use rand::Rng;
-use rand::seq::IndexedRandom;
+use uuid::Uuid;
 
-use crate::constant::{DROP_COLLECT_RADIUS, LAYER_SHIP_UI, LINEAR_DAMPING, MAX_SHIPS, MAX_ZOOM, MIN_ZOOM};
-use crate::content::block::components::{
-    Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent,
-    DropEvent, ShipCalculatedStat,
-};
-use crate::content::block::feature::ammo::components::{Ammo, AmmoState};
-use crate::content::block::feature::storage::components::{Storage, StorageState};
+use crate::constant::{DROP_COLLECT_RADIUS, LAYER_SHIP_UI, LINEAR_DAMPING, MAX_ZOOM, MIN_ZOOM};
+use crate::content::block::feature::ammo::{Ammo, AmmoState};
+use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
-use crate::content::death::components::Death;
+use crate::content::block::{
+    Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent, DropEvent,
+    ShipCalculatedStat,
+};
+use crate::content::death::Death;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
-use crate::content::team::{DEFAULT_TEAM_ID, Team};
+use crate::content::team::Team;
 use crate::resource::{GameVars, SceneState};
-use crate::save::io::load_saved_schematics;
-use crate::utils::random::random_vec2_step;
 
-use super::components::*;
+use super::*;
 
 pub struct ShipPlugin;
 
@@ -56,68 +51,9 @@ impl Plugin for ShipPlugin {
                 )
                     .run_if(in_state(SceneState::Game)),
             )
-            .add_systems(
-                FixedUpdate,
-                check_ship
-                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
-            )
             .add_systems(FixedUpdate, collect_drop.run_if(in_state(SceneState::Game)))
             .add_plugins(IndicatorsPlugin);
     }
-}
-
-pub fn check_ship(
-    mut commands: Commands,
-    ships: Query<(&Ship, &Team)>,
-    registry: Res<BlockRegistry>,
-) {
-    if ships.iter().len() >= MAX_SHIPS {
-        return;
-    }
-
-    let mut rng = rand::rng();
-    let schematics = load_saved_schematics();
-
-    let mut maps: HashMap<u8, u8> = HashMap::new();
-
-    for i in 0..2 {
-        maps.insert(i, 0);
-    }
-
-    for (_, team) in ships {
-        if let Some(value) = maps.get(&team.id) {
-            maps.insert(team.id, value + 1);
-        } else {
-            maps.insert(team.id, 1);
-        }
-    }
-
-    let mut least_team_id = DEFAULT_TEAM_ID;
-    let mut least_count: u8 = MAX_SHIPS as u8;
-
-    for (team_id, count) in maps.iter() {
-        if *count < least_count {
-            least_team_id = *team_id;
-            least_count = *count;
-        }
-    }
-
-    let Some(schematic) = schematics.choose(&mut rng) else {
-        return;
-    };
-
-    let position = random_vec2_step(
-        Vec2::new(-10000.0, -10000.0),
-        Vec2::new(10000.0, 10000.0),
-        1000.0,
-    );
-
-    schematic.to_ship_data().spawn(
-        &mut commands,
-        &registry,
-        Team::new(least_team_id),
-        Transform::from_translation(position.extend(0.0)),
-    );
 }
 
 pub fn check_rebuild_ship_collider(

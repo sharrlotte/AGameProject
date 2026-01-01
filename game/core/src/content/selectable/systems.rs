@@ -1,5 +1,5 @@
-use super::components::*;
-use crate::content::{entity::EntityType, ship::components::BoundingBox, team::Team};
+use super::*;
+use crate::content::{entity::EntityType, ship::BoundingBox, team::Team};
 use bevy::prelude::*;
 use std::collections::HashMap;
 

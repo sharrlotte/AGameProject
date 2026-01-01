@@ -3,3 +3,6 @@ pub mod stat;
 pub mod feature;
 pub mod components;
 pub mod systems;
+
+pub use components::*;
+

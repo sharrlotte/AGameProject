@@ -10,13 +10,13 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{
-            feature::components::Feature,
+            feature::Feature,
             components::{
                 Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
                 FACE_UP,
             },
         },
-        ship::components::ShipGrid,
+        ship::ShipGrid,
     },
     resource::{GameVars, SceneEntity, SceneState},
     save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},

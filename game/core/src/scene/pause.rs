@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    content::{bullet::components::Bullet, ship::components::Ship},
+    content::{bullet::Bullet, ship::Ship},
     resource::{PauseState, SceneState, SettingState},
     save::io::{LoadWorldEvent, SaveWorldEvent, save_dir},
 };

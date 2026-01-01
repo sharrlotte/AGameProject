@@ -9,3 +9,4 @@ pub mod thruster;
 pub mod turret;
 
 pub use systems::*;
+pub use components::*;

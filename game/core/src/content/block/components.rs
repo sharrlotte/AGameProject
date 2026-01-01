@@ -8,10 +8,10 @@ use uuid::Uuid;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::feature::{components::Feature, turret::components::TurretComponent},
+        block::feature::{components::Feature, turret::TurretComponent},
         entity::EntityType,
-        item::components::ItemType,
-        ship::components::{Ship, ShipFragment},
+        item::ItemType,
+        ship::{Ship, ShipFragment},
         team::Team,
     },
 };

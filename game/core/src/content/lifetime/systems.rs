@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use crate::content::death::components::Death;
-use super::components::Lifetime;
+use crate::content::death::Death;
+use super::Lifetime;
 
 pub struct LifetimePlugin;
 

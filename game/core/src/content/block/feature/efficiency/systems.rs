@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
 
-use super::components::*;
-use crate::content::{block::components::BlockOwner, ship::stat::ComputedShipStats};
+use super::*;
+use crate::content::{block::BlockOwner, ship::stat::ComputedShipStats};
 
 pub struct EfficiencyPlugin;
 

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use super::components::*;
+use super::*;
 use crate::content::block::{
-    feature::efficiency::components::{BlockEfficiency, EfficiencyEffect},
+    feature::efficiency::{BlockEfficiency, EfficiencyEffect},
     stat::StatsUpdateSet,
 };
 

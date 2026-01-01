@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     constant::LAYER_BLOCK_ICON,
-    content::block::feature::ammo::components::AmmoState,
+    content::block::feature::ammo::AmmoState,
     resource::{SceneEntity, SceneState},
 };
 
