@@ -543,6 +543,7 @@ pub fn control_ship(
                     controller.previous();
                 }
             }
+            AIShipBehavior::Kiting => todo!(),
         }
     }
 }

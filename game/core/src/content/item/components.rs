@@ -61,12 +61,4 @@ impl ItemRegistry {
     pub fn get(&self, item_type: &ItemType) -> Option<&ItemDef> {
         self.map.get(item_type)
     }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&ItemType, &ItemDef)> {
-        let mut value = self.map.iter().collect::<Vec<_>>();
-
-        value.sort_by(|a, b| a.1.item_group.cmp(&b.1.item_group));
-
-        return value.into_iter();
-    }
 }

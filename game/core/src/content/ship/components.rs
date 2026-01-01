@@ -93,6 +93,7 @@ pub enum AIShipBehavior {
     Follow { target: Entity, radius: f32 },
     Kamikaze { target: Entity },
     Regroup,
+    Kiting,
 }
 
 #[derive(Component, Debug, Default, Reflect)]
