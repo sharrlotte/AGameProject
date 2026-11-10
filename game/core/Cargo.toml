@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-# Enable dynamic linking for fast incremental dev rebuilds (use `cargo dev` or `--features dev`).
+# Enable dynamic linking by default for fast dev builds; pass `--no-default-features` for static release builds.
+default = ["dev"]
 dev = ["bevy/dynamic_linking"]
 
 [dependencies]
@@ -19,8 +20,8 @@ rand.workspace = true
 uuid.workspace = true
 
 data.workspace = true
-sim_world.workspace = true
-sim_combat.workspace = true
-sim_enemies.workspace = true
-sim_extraction.workspace = true
+world.workspace = true
+combat.workspace = true
+enemies.workspace = true
+extraction.workspace = true
 presentation.workspace = true

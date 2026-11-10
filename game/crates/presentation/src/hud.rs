@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use data::{GameState, RunStats, ScrapBank, SimUpdateSet};
-use sim_combat::WeaponInventory;
-use sim_world::{Health, LocalPlayer, Stamina};
+use combat::WeaponInventory;
+use world::{Health, LocalPlayer, Stamina};
 
 #[derive(Component)]
 struct HudRoot;

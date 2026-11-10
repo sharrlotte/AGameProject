@@ -42,12 +42,13 @@ game/
 ├── assets/config/             # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades)
 ├── crates/
 │   ├── data/                  # CoreDataPlugin, DataPlugin (RonAssetLoader + hot reload), GameState, typed Messages, shared tags
-│   ├── sim_world/             # ArenaPlugin, PlayerPlugin, ActionIntent, movement/stamina/aim/HP
-│   ├── sim_combat/            # CombatPlugin (Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
-│   ├── sim_enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
-│   ├── sim_extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
+│   ├── sim/
+│   │   ├── world/             # ArenaPlugin, PlayerPlugin, ActionIntent, movement/stamina/aim/HP
+│   │   ├── combat/            # CombatPlugin (Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
+│   │   ├── enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
+│   │   └── extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
 │   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (meshes + VisualBody + hit-flash), HudPlugin, MenusPlugin
-└── core/src/main.rs           # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated
+└── core/src/main.rs           # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
 ```
 
 ### Key Rules to Avoid Refactor Pain Later

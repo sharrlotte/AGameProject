@@ -5,7 +5,7 @@ use data::{
     GameState, ObstacleTag, PlayerConfig, RunEntity, SimPostPhysicsSet, SimUpdateSet,
     UpgradeModifiers, WeaponFiredMessage, WeaponSpecData, WeaponsConfig,
 };
-use sim_world::{ActionIntent, AimDirection, Stamina, Survivor};
+use world::{ActionIntent, AimDirection, Stamina, Survivor};
 
 #[derive(Debug, Clone)]
 pub struct WeaponSlotState {
@@ -352,7 +352,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use sim_world::player::spawn_player;
+    use world::player::spawn_player;
 
     fn test_app() -> App {
         let mut app = App::new();

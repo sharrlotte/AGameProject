@@ -3,10 +3,10 @@ use data::{
     ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyKind, GameState,
     PlayerConfig, SimPostPhysicsSet,
 };
-use sim_combat::Projectile;
-use sim_enemies::{Enemy, FacingDirection};
-use sim_extraction::{ExtractionZone, ScrapPickup};
-use sim_world::{AimDirection, ArenaGround, ArenaObstacle, Survivor};
+use combat::Projectile;
+use enemies::{Enemy, FacingDirection};
+use extraction::{ExtractionZone, ScrapPickup};
+use world::{AimDirection, ArenaGround, ArenaObstacle, Survivor};
 
 #[derive(Component)]
 pub struct VisualBody;

@@ -5,7 +5,7 @@ use data::{
     EnemyKilledMessage, EnemyKind, EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE,
     GROUP_WORLD, GameState, PlayerConfig, RunEntity, RunStats, SimPostPhysicsSet, SimUpdateSet,
 };
-use sim_world::{Health, Survivor};
+use world::{Health, Survivor};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct FacingDirection(pub Vec3);
@@ -423,8 +423,8 @@ mod tests {
     #[test]
     fn walker_and_runner_move_with_rapier_when_player_stationary() {
         use bevy::ecs::system::RunSystemOnce;
-        use sim_world::arena::spawn_arena_physics;
-        use sim_world::player::spawn_player;
+        use world::arena::spawn_arena_physics;
+        use world::player::spawn_player;
 
         let mut app = App::new();
         app.add_plugins((
@@ -453,7 +453,7 @@ mod tests {
         .add_systems(
             Update,
             (
-                sim_world::player::player_movement_and_aim,
+                world::player::player_movement_and_aim,
                 enemy_chase_and_attack,
             )
                 .chain(),

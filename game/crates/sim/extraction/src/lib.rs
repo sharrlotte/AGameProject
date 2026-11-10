@@ -6,7 +6,7 @@ use data::{
     ScrapBank, ScrapCollectedMessage, SimPostPhysicsSet, SimUpdateSet, UpgradeLevels,
     UpgradeModifiers, UpgradesChangedMessage, UpgradesConfig,
 };
-use sim_world::Survivor;
+use world::Survivor;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ScrapPickup {

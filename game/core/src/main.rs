@@ -5,12 +5,12 @@ use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin}
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
+use combat::CombatPlugin;
 use data::CoreDataPlugin;
+use enemies::EnemiesPlugin;
+use extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
 use presentation::AllPresentationPlugins;
-use sim_combat::CombatPlugin;
-use sim_enemies::EnemiesPlugin;
-use sim_extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
-use sim_world::{ArenaPlugin, PlayerPlugin};
+use world::{ArenaPlugin, PlayerPlugin};
 
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;

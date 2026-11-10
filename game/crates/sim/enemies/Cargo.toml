@@ -1,5 +1,5 @@
 [package]
-name = "sim_enemies"
+name = "enemies"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,4 +8,4 @@ bevy.workspace = true
 bevy_rapier3d.workspace = true
 rand.workspace = true
 data.workspace = true
-sim_world.workspace = true
+world.workspace = true
