@@ -1,7 +1,10 @@
-# Enable a small amount of optimization in the dev profile.
-[profile.dev]
-opt-level = 1
+# Use LLVM's rust-lld (bundled with Rust) for significantly faster linking on Windows MSVC.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
 
-# # Enable a large amount of optimization in the dev profile for dependencies.
-[profile.dev.package."*"]
-opt-level = 3
+# Convenient aliases for fast incremental dev builds and runs (uses Bevy dynamic linking).
+[alias]
+dev = "run --features dev"
+db = "build --features dev"
+dc = "check --features dev"
+

@@ -3,6 +3,10 @@ name = "core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# Enable dynamic linking for fast incremental dev rebuilds (use `cargo dev` or `--features dev`).
+dev = ["bevy/dynamic_linking"]
+
 [dependencies]
 bevy = { version = "0.17.3", features = ["serialize"] }
 bevy-inspector-egui = { version = "0.35" }
