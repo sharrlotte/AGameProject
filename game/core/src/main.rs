@@ -1,8 +1,7 @@
-use bevy::audio::{AudioPlugin, SpatialScale};
+use bevy::audio::{AudioPlugin};
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
-use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
 
@@ -25,7 +24,6 @@ fn main() {
                 ..Default::default()
             })
             .set(AudioPlugin {
-                default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
                 ..default()
             }),
     )
