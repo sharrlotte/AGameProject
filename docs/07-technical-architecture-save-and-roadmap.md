@@ -1,7 +1,7 @@
 # Technical Architecture, Save System & Roadmap
 
 ## 1. Tech Stack & Crate Plan (Bevy 0.20)
-Currently `game/core/Cargo.toml` includes `bevy 0.20.0`, `bevy_rapier3d 0.37.0`, `bevy_hanabi 0.20`, `bevy-inspector-egui 0.38`, `serde`, `serde_json`, `rand 0.10`, `uuid`, and `directories`.
+Currently `game/Cargo.toml` configures workspace crates using `bevy 0.20.0` (`file_watcher`, `dynamic_linking`, `serialize`), `bevy_rapier3d 0.37.0`, `bevy_hanabi 0.20`, `bevy-inspector-egui 0.38`, `ron 0.12`, `serde`, `serde_json`, `rand 0.10`, `thiserror 2`, `uuid`, and `directories`.
 
 | System | Crate / Solution | Notes |
 | :--- | :--- | :--- |
@@ -36,23 +36,18 @@ game/core/src/
 └── vehicles/                # [Post-Core] Drivable vehicle physics & mounted interactions
 ```
 
-### Current Implemented Stage 1 Layout (`Milestones 1.0–1.3`)
+### Current Implemented Stage 1 Layout (`Milestones 1.0–1.5`, Multi-Crate Feature Workspace)
 ```
-game/core/src/
-├── main.rs                    # App bootstrap, GameState (Playing, GameOver), Rapier 3D config
-├── sim/
-│   ├── mod.rs                 # SimPlugin, CollisionGroups, RunEntity, RunStats, typed Messages
-│   ├── arena.rs               # 50m×50m arena ground, perimeter walls, cover blocks (physics colliders)
-│   ├── input_intent.rs        # ActionIntent component
-│   ├── player.rs              # Survivor/LocalPlayer, movement, stamina, aim rotation, HP & GameOver check
-│   ├── combat.rs              # Assault Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, collisions
-│   └── enemies.rs             # Walker & Runner archetypes, edge spawner, chase + contact dmg, knockback
-└── presentation/
-    ├── mod.rs                 # PresentationPlugin
-    ├── input.rs               # Keyboard/mouse -> ActionIntent + cursor-plane raycast
-    ├── camera.rs              # Top-down angled camera (fixed orientation, smooth follow + cursor aim-lead)
-    ├── visuals.rs             # Lighting, shared materials, child VisualBody facing, zombie hit-flash
-    └── ui.rs                  # Temporary corner readout + Game Over overlay with Restart
+game/
+├── assets/config/             # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades)
+├── crates/
+│   ├── data/                  # CoreDataPlugin, DataPlugin (RonAssetLoader + hot reload), GameState, typed Messages, shared tags
+│   ├── sim_world/             # ArenaPlugin, PlayerPlugin, ActionIntent, movement/stamina/aim/HP
+│   ├── sim_combat/            # CombatPlugin (Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
+│   ├── sim_enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
+│   ├── sim_extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
+│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (meshes + VisualBody + hit-flash), HudPlugin, MenusPlugin
+└── core/src/main.rs           # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated
 ```
 
 ### Key Rules to Avoid Refactor Pain Later

@@ -367,7 +367,7 @@ mod tests {
             .init_resource::<ExtractionConfig>()
             .init_resource::<RunStats>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-                Duration::from_secs_f32(1.0),
+                Duration::from_secs_f32(0.25),
             ))
             .add_message::<ExtractionCompletedMessage>()
             .add_systems(Update, update_extraction_zone);
@@ -387,8 +387,10 @@ mod tests {
             Transform::from_xyz(0.0, 0.0, -19.5),
         ));
 
-        app.update();
-        app.update();
+        app.update(); // initialize TimePlugin baseline (dt = 0)
+        for _ in 0..8 {
+            app.update(); // 8 * 0.25s = 2.0s
+        }
         assert!((app.world().resource::<RunStats>().extraction_progress_secs - 2.0).abs() < 0.01);
 
         // Move survivor out -> progress pauses instead of resetting
@@ -396,7 +398,9 @@ mod tests {
             .get_mut::<Transform>(survivor)
             .unwrap()
             .translation = Vec3::new(0.0, 0.9, 0.0);
-        app.update();
+        for _ in 0..4 {
+            app.update();
+        }
         assert!((app.world().resource::<RunStats>().extraction_progress_secs - 2.0).abs() < 0.01);
 
         // Return inside -> completes at 4.0s
@@ -404,8 +408,10 @@ mod tests {
             .get_mut::<Transform>(survivor)
             .unwrap()
             .translation = Vec3::new(0.0, 0.9, -19.5);
-        app.update();
-        app.update();
+        for _ in 0..8 {
+            app.update();
+        }
+        assert!((app.world().resource::<RunStats>().extraction_progress_secs - 4.0).abs() < 0.01);
 
         let msgs = app.world().resource::<Messages<ExtractionCompletedMessage>>();
         let mut cursor = msgs.get_cursor();

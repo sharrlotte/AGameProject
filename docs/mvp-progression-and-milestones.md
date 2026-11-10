@@ -18,39 +18,39 @@ Before building procedural cities, room templates, 7 zombie types, drones, or co
 Every step below produces something runnable and testable right away.
 
 ### Milestone 1.0 — 3D Arena & Camera ✅
-- Swapped `bevy_rapier2d` for `bevy_rapier3d` (`0.37.0`) in `game/core/Cargo.toml`, using `TimestepMode::Interpolated` (`1/60s` physics with `TransformInterpolation` on actors/projectiles) and `PresentMode::AutoVsync`.
-- Spawned a visual `50m × 50m` 3D ground plane, directional + global ambient lighting, perimeter walls, and 8 cover blocks with zero-friction colliders (`sim/arena.rs`, `presentation/visuals.rs`).
-- Set up a fixed-angle top-down 3D camera with smooth damped translation follow and subtle cursor aim-lead offset (`presentation/camera.rs`).
+- Swapped `bevy_rapier2d` for `bevy_rapier3d` (`0.37.0`) with `TimestepMode::Interpolated` (`1/60s` physics + `TransformInterpolation`) and `PresentMode::AutoVsync`.
+- Spawned a data-driven `50m × 50m` 3D ground plane, directional + global ambient lighting, perimeter walls, and 8 cover blocks from `game/assets/config/arena.ron` with zero-friction colliders (`sim_world::ArenaPlugin`, `presentation::VisualsPlugin`).
+- Set up a fixed-angle top-down 3D camera with smooth damped translation follow and subtle cursor aim-lead offset (`presentation::CameraPlugin`).
 - **Done when:** The window opens cleanly at 60 FPS showing a lit 3D arena.
 
 ### Milestone 1.1 — Player Movement & Mouse Aiming ✅
-- Spawned a 3D `Survivor` / `LocalPlayer` capsule with `bevy_rapier3d` dynamic `RigidBody` (locked Y translation and rotations) (`sim/player.rs`).
-- Added `WASD` 8-directional movement + `Shift` sprint with `100` Stamina (`28/s` drain, `22/s` regen, `1.0s` exhaustion delay), decoupled via `ActionIntent` (`sim/input_intent.rs`, `presentation/input.rs`).
-- Raycasted the mouse cursor onto the player's horizontal aim plane (`Y = 0.9`) and rotated the survivor toward the cursor.
+- Spawned a 3D `Survivor` / `LocalPlayer` capsule with `bevy_rapier3d` dynamic `RigidBody` (locked Y translation and rotations, child `VisualBody` rotation) driven by `game/assets/config/player.ron` (`sim_world::PlayerPlugin`).
+- Added `WASD` 8-directional movement + `Shift` sprint with stamina + exhaustion delay, decoupled via `ActionIntent` (`presentation::InputPlugin`).
+- Raycasted the mouse cursor onto the player's horizontal aim plane and rotated the survivor visual toward the cursor.
 - **Done when:** Moving and aiming independently feels crisp and responsive.
 
 ### Milestone 1.2 — Simple Shooting & Reloading ✅
-- Left-click fires physical 3D `Sensor` + `Ccd::enabled()` sphere projectiles in the aimed direction with slight random spread (multiplied while sprinting) (`sim/combat.rs`).
+- Left-click fires physical 3D `Sensor` + `Ccd::enabled()` sphere projectiles in the aimed direction with slight random spread (multiplied while sprinting), loaded from `game/assets/config/weapons.ron` (`sim_combat::CombatPlugin`).
 - Added **2 weapons** (`1`: **Assault Rifle** full-auto `600 RPM`, `24` dmg, `30` mag, `1.8s` reload; `2`: **Shotgun** semi-auto `0.75s`, `8` pellets × `14` dmg, `8` mag, `2.2s` reload).
 - Added magazine ammo tracking, `R` manual reload, auto-reload on empty trigger pull, and reload cancellation when swapping (`1`/`2`).
 - **Done when:** You can shoot, swap between 2 distinct-feeling guns, and reload.
 
 ### Milestone 1.3 — Basic Zombies & Combat Feedback ✅
-- Spawned **Walkers** (`4.2 m/s`, `75` HP, `15` dmg) and **Runners** (`7.8 m/s`, `35` HP, `10` dmg) along the arena edges on a `1.5s` interval (cap `40` active) (`sim/enemies.rs`).
+- Spawned **Walkers** (`4.2 m/s`, `75` HP, `15` dmg) and **Runners** (`7.8 m/s`, `35` HP, `10` dmg) along the arena edges from `game/assets/config/enemies.ron` (`sim_enemies::EnemiesPlugin`).
 - Zombies chase the nearest `Survivor` directly and deal contact damage on per-zombie attack cooldowns.
-- Shots deal damage via `DamageMessage`, apply decaying knockback velocity, flash struck zombie meshes white (`0.09s`, `presentation/visuals.rs`), and despawn at `0` HP.
-- Added `100` Player HP, temporary corner status text (HP, Stamina, Gun/Ammo/Reload, Kills, Time), and a **Game Over** overlay with **Restart** button + `Enter`/`Space` shortcut (`presentation/ui.rs`).
+- Shots deal damage via `DamageMessage`, apply decaying knockback velocity, flash struck zombie meshes white (`0.09s`, `presentation::VisualsPlugin`), and emit `EnemyKilledMessage` at `0` HP.
+- Added Player HP (`PlayerDiedMessage`) + **Game Over** overlay with **Upgrade Shop** and **Deploy Again** buttons (`presentation::MenusPlugin`).
 - **Done when:** Fighting waves of Walkers and Runners is genuinely fun.
 
-### Milestone 1.4 — Basic Extraction Loop & Minimal Upgrades
-- Dead zombies (or simple map crates) drop **Scrap** pickups you walk over to collect.
-- Simple **Escalation Timer**: spawn rate slowly increases over a 3–5 minute test run.
-- **1 Extraction Zone** (glowing floor pad): stand inside for 10 seconds to **Extract & Win**, keeping your collected Scrap (dying loses un-extracted Scrap).
-- **Simple Upgrade Screen** between runs: spend Scrap on `+Weapon Damage`, `+Max HP`, or `+Move/Reload Speed`, then click **Deploy Again**.
+### Milestone 1.4 — Basic Extraction Loop & Minimal Upgrades ✅
+- Dead zombies emit `EnemyKilledMessage` and drop **Scrap** pickups (`walker_scrap: 2`, `runner_scrap: 3`) with magnetic pull + walk-over collection via `ScrapCollectedMessage` (`sim_extraction::ExtractionPlugin`, `game/assets/config/extraction.ron`).
+- Added **Escalation Timer** in `sim_enemies`: spawn interval (`1.5s -> 0.42s`) and active enemy cap (`35 -> 80`) scale smoothly over `240s` (`enemies.ron`).
+- Added **1 Extraction Zone** (glowing floor pad at north edge): standing inside for `10.0s` (pausing when stepping out) emits `ExtractionCompletedMessage`, banks collected Scrap into `ScrapBank`, and opens the **Upgrade Shop** (dying loses un-extracted Scrap and opens Game Over with both **Upgrade Shop** and **Deploy Again**).
+- Added **Upgrade Shop** (`sim_extraction::UpgradesPlugin`, `game/assets/config/upgrades.ron`, `presentation::MenusPlugin`): spend banked Scrap on `+Weapon Damage`, `+Max HP`, and `+Move & Reload Speed`, then click **Deploy Again**.
 - **Done when:** You have a complete playable game loop (Deploy → Fight → Loot → Extract/Die → Upgrade → Repeat).
 
-### Milestone 1.5 — Minimal Playable HUD
-- Display only essentials: **HP bar**, **Ammo / Reloading indicator**, **Scrap counter**, **Run Timer**, and **Extraction Hold Progress**.
+### Milestone 1.5 — Minimal Playable HUD ✅
+- Replaced temporary debug readout with a visual HUD (`presentation::HudPlugin`): **HP bar** + **Stamina bar**, **Weapon & Ammo / Reload progress bar**, **Scrap counter** (`run + banked`), **Run Timer + Kills**, and **Extraction Hold Progress bar**.
 - **Done when:** Anyone can play the basic game and immediately understand what's happening.
 
 ---
