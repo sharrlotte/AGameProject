@@ -17,3 +17,8 @@
 - Prefer event for communication
 - Make sure code is optimized for perfermance
 - Dev only code should not exists in Production build
+- Respect SOLID principle, when a file > 500 lines then extract
+
+# Files
+
+- Assets folder: game\core\assets
