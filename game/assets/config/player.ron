@@ -1,0 +1,12 @@
+(
+    aim_height: 0.9,
+    radius: 0.45,
+    half_height: 0.45,
+    walk_speed: 7.5,
+    sprint_speed: 11.0,
+    max_stamina: 100.0,
+    stamina_drain_per_sec: 28.0,
+    stamina_regen_per_sec: 22.0,
+    stamina_exhaustion_delay: 1.0,
+    max_hp: 100.0,
+)

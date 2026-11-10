@@ -1,116 +1,58 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-
-use super::arena::ArenaObstacle;
-use super::enemies::Enemy;
-use super::input_intent::ActionIntent;
-use super::player::{AIM_HEIGHT, AimDirection, Stamina, Survivor};
-use super::{DamageMessage, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, WeaponFiredMessage};
-
-const MUZZLE_OFFSET: f32 = 0.75;
-const SPRINT_SPREAD_MULTIPLIER: f32 = 1.65;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WeaponKind {
-    AssaultRifle,
-    Shotgun,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct WeaponSpec {
-    #[allow(dead_code)]
-    pub kind: WeaponKind,
-    pub name: &'static str,
-    pub full_auto: bool,
-    pub fire_interval: f32,
-    pub pellets: u8,
-    pub damage: f32,
-    pub spread_deg: f32,
-    pub projectile_speed: f32,
-    pub projectile_radius: f32,
-    pub projectile_lifetime: f32,
-    pub knockback: f32,
-    pub mag_size: u32,
-    pub reload_secs: f32,
-}
-
-pub const ASSAULT_RIFLE_SPEC: WeaponSpec = WeaponSpec {
-    kind: WeaponKind::AssaultRifle,
-    name: "Assault Rifle",
-    full_auto: true,
-    fire_interval: 0.10,
-    pellets: 1,
-    damage: 24.0,
-    spread_deg: 3.0,
-    projectile_speed: 42.0,
-    projectile_radius: 0.10,
-    projectile_lifetime: 1.2,
-    knockback: 3.5,
-    mag_size: 30,
-    reload_secs: 1.8,
+use data::{
+    ConfigHotReloadedMessage, DamageMessage, EnemyTag, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD,
+    GameState, ObstacleTag, PlayerConfig, RunEntity, SimPostPhysicsSet, SimUpdateSet,
+    UpgradeModifiers, WeaponFiredMessage, WeaponSpecData, WeaponsConfig,
 };
+use sim_world::{ActionIntent, AimDirection, Stamina, Survivor};
 
-pub const SHOTGUN_SPEC: WeaponSpec = WeaponSpec {
-    kind: WeaponKind::Shotgun,
-    name: "Shotgun",
-    full_auto: false,
-    fire_interval: 0.75,
-    pellets: 8,
-    damage: 14.0,
-    spread_deg: 12.0,
-    projectile_speed: 34.0,
-    projectile_radius: 0.08,
-    projectile_lifetime: 0.55,
-    knockback: 5.5,
-    mag_size: 8,
-    reload_secs: 2.2,
-};
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WeaponSlotState {
-    pub spec: WeaponSpec,
+    pub spec: WeaponSpecData,
     pub ammo: u32,
 }
 
 impl WeaponSlotState {
-    fn new(spec: WeaponSpec) -> Self {
-        Self {
-            spec,
-            ammo: spec.mag_size,
-        }
+    fn new(spec: WeaponSpecData) -> Self {
+        let ammo = spec.mag_size;
+        Self { spec, ammo }
     }
 }
 
-/// Holds the survivor's two equipped weapons and reload/fire cooldown state.
+/// Holds the survivor's equipped weapons and reload/fire cooldown state.
 #[derive(Component, Debug, Clone)]
 pub struct WeaponInventory {
-    pub slots: [WeaponSlotState; 2],
+    pub slots: Vec<WeaponSlotState>,
     pub active_slot: usize,
     pub cooldown_timer: f32,
     pub reload_timer: Option<f32>,
-}
-
-impl Default for WeaponInventory {
-    fn default() -> Self {
-        Self {
-            slots: [
-                WeaponSlotState::new(ASSAULT_RIFLE_SPEC),
-                WeaponSlotState::new(SHOTGUN_SPEC),
-            ],
-            active_slot: 0,
-            cooldown_timer: 0.0,
-            reload_timer: None,
-        }
-    }
+    pub reload_total: f32,
 }
 
 impl WeaponInventory {
-    pub fn active(&self) -> &WeaponSlotState {
-        &self.slots[self.active_slot]
+    pub fn from_config(cfg: &WeaponsConfig) -> Self {
+        let slots = cfg
+            .weapons
+            .iter()
+            .cloned()
+            .map(WeaponSlotState::new)
+            .collect();
+        Self {
+            slots,
+            active_slot: 0,
+            cooldown_timer: 0.0,
+            reload_timer: None,
+            reload_total: 0.0,
+        }
     }
 
-    pub fn active_mut(&mut self) -> &mut WeaponSlotState {
-        &mut self.slots[self.active_slot]
+    pub fn active(&self) -> Option<&WeaponSlotState> {
+        self.slots.get(self.active_slot)
+    }
+
+    pub fn active_mut(&mut self) -> Option<&mut WeaponSlotState> {
+        self.slots.get_mut(self.active_slot)
     }
 }
 
@@ -126,10 +68,77 @@ pub struct Projectile {
     pub hit: bool,
 }
 
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                attach_weapon_inventory,
+                sync_weapons_hot_reload,
+                handle_weapons,
+                tick_projectiles,
+            )
+                .chain()
+                .in_set(SimUpdateSet)
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_systems(
+            PostUpdate,
+            handle_projectile_collisions
+                .in_set(SimPostPhysicsSet)
+                .after(PhysicsSet::Writeback)
+                .before(TransformSystems::Propagate)
+                .run_if(in_state(GameState::Playing)),
+        );
+    }
+}
+
+fn attach_weapon_inventory(
+    mut commands: Commands,
+    cfg: Res<WeaponsConfig>,
+    new_survivors: Query<Entity, (With<Survivor>, Without<WeaponInventory>)>,
+) {
+    for entity in &new_survivors {
+        commands
+            .entity(entity)
+            .insert(WeaponInventory::from_config(&cfg));
+    }
+}
+
+fn sync_weapons_hot_reload(
+    mut reloaded: MessageReader<ConfigHotReloadedMessage>,
+    cfg: Res<WeaponsConfig>,
+    mut inventories: Query<&mut WeaponInventory>,
+) {
+    if reloaded.read().next().is_none() || !cfg.is_changed() || cfg.weapons.is_empty() {
+        return;
+    }
+
+    for mut inv in &mut inventories {
+        for (idx, spec) in cfg.weapons.iter().enumerate() {
+            if let Some(slot) = inv.slots.get_mut(idx) {
+                slot.spec = spec.clone();
+                slot.ammo = slot.ammo.min(spec.mag_size);
+            } else {
+                inv.slots.push(WeaponSlotState::new(spec.clone()));
+            }
+        }
+        inv.slots.truncate(cfg.weapons.len());
+        if inv.active_slot >= inv.slots.len() {
+            inv.active_slot = 0;
+        }
+    }
+}
+
 /// Processes weapon swapping, reloading, and firing from `ActionIntent`.
 pub fn handle_weapons(
     mut commands: Commands,
     time: Res<Time>,
+    weapons_cfg: Res<WeaponsConfig>,
+    player_cfg: Res<PlayerConfig>,
+    upgrades: Res<UpgradeModifiers>,
     mut fired_writer: MessageWriter<WeaponFiredMessage>,
     mut shooters: Query<
         (
@@ -144,6 +153,7 @@ pub fn handle_weapons(
     >,
 ) {
     let dt = time.delta_secs();
+    let reload_speed = upgrades.reload_speed_multiplier.max(0.1);
 
     for (entity, transform, aim_dir, stamina, mut intent, mut inventory) in &mut shooters {
         inventory.cooldown_timer = (inventory.cooldown_timer - dt).max(0.0);
@@ -151,27 +161,34 @@ pub fn handle_weapons(
         if let Some(target_slot) = intent.swap_slot.take() {
             if target_slot < inventory.slots.len() && target_slot != inventory.active_slot {
                 inventory.active_slot = target_slot;
-                // Cancel any active reload when swapping weapons.
                 inventory.reload_timer = None;
-                inventory.cooldown_timer = inventory.cooldown_timer.min(0.12);
+                inventory.reload_total = 0.0;
+                inventory.cooldown_timer = inventory
+                    .cooldown_timer
+                    .min(weapons_cfg.swap_cooldown_cap);
             }
         }
 
         if let Some(remaining) = inventory.reload_timer.as_mut() {
             *remaining -= dt;
             if *remaining <= 0.0 {
-                let mag_size = inventory.active().spec.mag_size;
-                inventory.active_mut().ammo = mag_size;
+                if let Some(active) = inventory.active_mut() {
+                    active.ammo = active.spec.mag_size;
+                }
                 inventory.reload_timer = None;
+                inventory.reload_total = 0.0;
             }
         }
 
         let want_reload = intent.reload_just_pressed;
         intent.reload_just_pressed = false;
         if want_reload && inventory.reload_timer.is_none() {
-            let active = inventory.active();
-            if active.ammo < active.spec.mag_size {
-                inventory.reload_timer = Some(active.spec.reload_secs);
+            if let Some(active) = inventory.active() {
+                if active.ammo < active.spec.mag_size {
+                    let duration = active.spec.reload_secs / reload_speed;
+                    inventory.reload_total = duration;
+                    inventory.reload_timer = Some(duration);
+                }
             }
         }
 
@@ -182,8 +199,12 @@ pub fn handle_weapons(
             continue;
         }
 
-        let spec = inventory.active().spec;
-        let triggered = if spec.full_auto {
+        let Some(active_spec) = inventory.active().map(|s| s.spec.clone()) else {
+            continue;
+        };
+        let active_ammo = inventory.active().map(|s| s.ammo).unwrap_or(0);
+
+        let triggered = if active_spec.full_auto {
             intent.fire_held
         } else {
             fire_just_pressed
@@ -193,31 +214,38 @@ pub fn handle_weapons(
             continue;
         }
 
-        if inventory.active().ammo == 0 {
-            // Auto-reload when pulling the trigger on an empty magazine.
-            inventory.reload_timer = Some(spec.reload_secs);
+        if active_ammo == 0 {
+            let duration = active_spec.reload_secs / reload_speed;
+            inventory.reload_total = duration;
+            inventory.reload_timer = Some(duration);
             continue;
         }
 
-        inventory.active_mut().ammo -= 1;
-        inventory.cooldown_timer = spec.fire_interval;
+        if let Some(active) = inventory.active_mut() {
+            active.ammo -= 1;
+        }
+        inventory.cooldown_timer = active_spec.fire_interval;
 
         let forward = if aim_dir.0.length_squared() > 1e-4 {
             aim_dir.0.normalize()
         } else {
             Vec3::NEG_Z
         };
-        let muzzle_pos = Vec3::new(transform.translation.x, AIM_HEIGHT, transform.translation.z)
-            + forward * MUZZLE_OFFSET;
+        let muzzle_pos = Vec3::new(
+            transform.translation.x,
+            player_cfg.aim_height,
+            transform.translation.z,
+        ) + forward * weapons_cfg.muzzle_offset;
 
         let spread_mult = if stamina.is_sprinting {
-            SPRINT_SPREAD_MULTIPLIER
+            weapons_cfg.sprint_spread_multiplier
         } else {
             1.0
         };
-        let half_spread_rad = (spec.spread_deg * spread_mult).to_radians() * 0.5;
+        let half_spread_rad = (active_spec.spread_deg * spread_mult).to_radians() * 0.5;
+        let scaled_damage = active_spec.damage * upgrades.damage_multiplier;
 
-        for _ in 0..spec.pellets {
+        for _ in 0..active_spec.pellets {
             let angle = if half_spread_rad > 0.0 {
                 rand::random_range(-half_spread_rad..=half_spread_rad)
             } else {
@@ -230,11 +258,11 @@ pub fn handle_weapons(
                 RunEntity,
                 Projectile {
                     owner: entity,
-                    damage: spec.damage,
-                    knockback: spec.knockback,
+                    damage: scaled_damage,
+                    knockback: active_spec.knockback,
                     direction: dir,
-                    radius: spec.projectile_radius,
-                    lifetime: spec.projectile_lifetime,
+                    radius: active_spec.projectile_radius,
+                    lifetime: active_spec.projectile_lifetime,
                     hit: false,
                 },
                 RigidBody::Dynamic,
@@ -242,8 +270,8 @@ pub fn handle_weapons(
                 Ccd::enabled(),
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
-                Collider::ball(spec.projectile_radius),
-                Velocity::linear(dir * spec.projectile_speed),
+                Collider::ball(active_spec.projectile_radius),
+                Velocity::linear(dir * active_spec.projectile_speed),
                 TransformInterpolation::default(),
                 LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
                 CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),
@@ -265,8 +293,8 @@ pub fn handle_projectile_collisions(
     mut collision_reader: MessageReader<CollisionEvent>,
     mut damage_writer: MessageWriter<DamageMessage>,
     mut projectiles: Query<&mut Projectile>,
-    enemies: Query<(), With<Enemy>>,
-    obstacles: Query<(), With<ArenaObstacle>>,
+    enemies: Query<(), With<EnemyTag>>,
+    obstacles: Query<(), With<ObstacleTag>>,
 ) {
     for event in collision_reader.read() {
         let CollisionEvent::Started(e1, e2, _) = *event else {
@@ -324,17 +352,24 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::sim::player::spawn_player;
+    use sim_world::player::spawn_player;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
+            .init_resource::<WeaponsConfig>()
+            .init_resource::<PlayerConfig>()
+            .init_resource::<UpgradeModifiers>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_secs_f32(1.0 / 60.0),
             ))
             .add_message::<WeaponFiredMessage>()
+            .add_message::<ConfigHotReloadedMessage>()
             .add_systems(Startup, spawn_player)
-            .add_systems(Update, handle_weapons);
+            .add_systems(
+                Update,
+                (attach_weapon_inventory, handle_weapons).chain(),
+            );
         app
     }
 
@@ -356,7 +391,10 @@ mod tests {
             .single(app.world())
             .expect("player spawned");
 
-        // Fire Assault Rifle once
+        let cfg = app.world().resource::<WeaponsConfig>().clone();
+        let rifle_mag = cfg.weapons[0].mag_size;
+        let shotgun_pellets = cfg.weapons[1].pellets;
+
         app.world_mut()
             .get_mut::<ActionIntent>(player)
             .unwrap()
@@ -370,11 +408,15 @@ mod tests {
             .count();
         assert_eq!(proj_count, 1);
         assert_eq!(
-            app.world().get::<WeaponInventory>(player).unwrap().active().ammo,
-            ASSAULT_RIFLE_SPEC.mag_size - 1
+            app.world()
+                .get::<WeaponInventory>(player)
+                .unwrap()
+                .active()
+                .unwrap()
+                .ammo,
+            rifle_mag - 1
         );
 
-        // Start reload, then swap to Shotgun -> reload must cancel
         {
             let mut intent = app.world_mut().get_mut::<ActionIntent>(player).unwrap();
             intent.fire_held = false;
@@ -400,7 +442,6 @@ mod tests {
             assert!(inv.reload_timer.is_none());
         }
 
-        // Fire Shotgun -> spawns 8 pellets
         app.world_mut()
             .get_mut::<ActionIntent>(player)
             .unwrap()
@@ -412,7 +453,7 @@ mod tests {
             .query::<&Projectile>()
             .iter(app.world())
             .count();
-        assert_eq!(total_projs, 1 + SHOTGUN_SPEC.pellets as usize);
+        assert_eq!(total_projs, 1 + shotgun_pellets as usize);
     }
 
     #[test]
@@ -426,10 +467,14 @@ mod tests {
             .single(app.world())
             .expect("player spawned");
 
+        let cfg = app.world().resource::<WeaponsConfig>().clone();
+        let rifle = &cfg.weapons[0];
+
         app.world_mut()
             .get_mut::<WeaponInventory>(player)
             .unwrap()
             .active_mut()
+            .unwrap()
             .ammo = 0;
 
         app.world_mut()
@@ -446,15 +491,14 @@ mod tests {
                 .is_some()
         );
 
-        // Advance past full reload duration
         app.world_mut()
             .get_mut::<ActionIntent>(player)
             .unwrap()
             .fire_held = false;
-        step_sim(&mut app, ASSAULT_RIFLE_SPEC.reload_secs + 0.1);
+        step_sim(&mut app, rifle.reload_secs + 0.1);
 
         let inv = app.world().get::<WeaponInventory>(player).unwrap();
         assert!(inv.reload_timer.is_none());
-        assert_eq!(inv.active().ammo, ASSAULT_RIFLE_SPEC.mag_size);
+        assert_eq!(inv.active().unwrap().ammo, rifle.mag_size);
     }
 }

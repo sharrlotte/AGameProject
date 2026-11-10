@@ -1,15 +1,27 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use data::{GameState, PlayerConfig, SimUpdateSet};
+use sim_world::{ActionIntent, LocalPlayer};
 
-use crate::sim::input_intent::ActionIntent;
-use crate::sim::player::{AIM_HEIGHT, LocalPlayer};
+use crate::camera::MainCamera;
 
-use super::camera::MainCamera;
+pub struct InputPlugin;
 
-/// Reads keyboard/mouse input and updates the local player's `ActionIntent`.
-pub fn gather_local_input(
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            gather_local_input
+                .before(SimUpdateSet)
+                .run_if(in_state(GameState::Playing)),
+        );
+    }
+}
+
+fn gather_local_input(
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
+    player_cfg: Res<PlayerConfig>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut intents: Query<&mut ActionIntent, With<LocalPlayer>>,
@@ -44,7 +56,7 @@ pub fn gather_local_input(
         None
     };
 
-    let aim_world = compute_cursor_aim_world(&windows, &camera_query);
+    let aim_world = compute_cursor_aim_world(&windows, &camera_query, player_cfg.aim_height);
 
     for mut intent in &mut intents {
         intent.move_dir = move_dir;
@@ -68,12 +80,13 @@ pub fn gather_local_input(
 fn compute_cursor_aim_world(
     windows: &Query<&Window, With<PrimaryWindow>>,
     camera_query: &Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    aim_height: f32,
 ) -> Option<Vec3> {
     let window = windows.iter().next()?;
     let cursor_pos = window.cursor_position()?;
     let (camera, cam_transform) = camera_query.iter().next()?;
     let ray = camera.viewport_to_world(cam_transform, cursor_pos).ok()?;
     let plane = InfinitePlane3d::new(Vec3::Y);
-    let distance = ray.intersect_plane(Vec3::new(0.0, AIM_HEIGHT, 0.0), plane)?;
+    let distance = ray.intersect_plane(Vec3::new(0.0, aim_height, 0.0), plane)?;
     Some(ray.get_point(distance))
 }

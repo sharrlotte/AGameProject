@@ -1,0 +1,14 @@
+(
+    damage_bonus_per_level: 0.15,
+    damage_base_cost: 10,
+    damage_cost_step: 10,
+    damage_max_level: 10,
+    max_hp_bonus_per_level: 25.0,
+    max_hp_base_cost: 10,
+    max_hp_cost_step: 10,
+    max_hp_max_level: 10,
+    speed_reload_bonus_per_level: 0.10,
+    speed_reload_base_cost: 12,
+    speed_reload_cost_step: 12,
+    speed_reload_max_level: 8,
+)

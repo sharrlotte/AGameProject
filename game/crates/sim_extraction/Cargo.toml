@@ -1,0 +1,9 @@
+[package]
+name = "sim_extraction"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy.workspace = true
+data.workspace = true
+sim_world.workspace = true

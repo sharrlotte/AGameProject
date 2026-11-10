@@ -1,22 +1,28 @@
+use std::path::Path;
+
 use bevy::audio::AudioPlugin;
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
+use data::CoreDataPlugin;
+use presentation::AllPresentationPlugins;
+use sim_combat::CombatPlugin;
+use sim_enemies::EnemiesPlugin;
+use sim_extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
+use sim_world::{ArenaPlugin, PlayerPlugin};
 
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
-mod presentation;
-mod sim;
-
-#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum GameState {
-    #[default]
-    Playing,
-    GameOver,
+fn resolve_asset_path() -> String {
+    if Path::new("assets").exists() {
+        "assets".to_string()
+    } else {
+        "../assets".to_string()
+    }
 }
 
 fn main() {
@@ -24,6 +30,11 @@ fn main() {
 
     app.add_plugins(
         DefaultPlugins
+            .set(AssetPlugin {
+                file_path: resolve_asset_path(),
+                watch_for_changes_override: Some(true),
+                ..default()
+            })
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "AGameProject".to_string(),
@@ -44,8 +55,17 @@ fn main() {
         FrameTimeDiagnosticsPlugin::new(100),
         EntityCountDiagnosticsPlugin::new(100),
     ))
-    .init_state::<GameState>()
-    .add_plugins((sim::SimPlugin, presentation::PresentationPlugin))
+    .add_plugins((
+        CoreDataPlugin,
+        ArenaPlugin,
+        PlayerPlugin,
+        CombatPlugin,
+        EnemiesPlugin,
+        ExtractionPlugin,
+        RunFlowPlugin,
+        UpgradesPlugin,
+        AllPresentationPlugins,
+    ))
     .add_systems(Startup, configure_rapier);
 
     #[cfg(debug_assertions)]

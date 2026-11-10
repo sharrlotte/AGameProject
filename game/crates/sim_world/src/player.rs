@@ -1,29 +1,16 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use data::{
+    ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD,
+    GameState, PlayerConfig, PlayerDiedMessage, RunEntity, SimPostPhysicsSet, SimUpdateSet,
+    SurvivorTag, UpgradeModifiers,
+};
 
-use crate::GameState;
+use crate::input_intent::ActionIntent;
 
-use super::combat::WeaponInventory;
-use super::input_intent::ActionIntent;
-use super::{DamageMessage, GROUP_ENEMY, GROUP_PLAYER, GROUP_WORLD, RunEntity};
-
-pub const AIM_HEIGHT: f32 = 0.9;
-pub const PLAYER_RADIUS: f32 = 0.45;
-pub const PLAYER_HALF_HEIGHT: f32 = 0.45;
-
-const WALK_SPEED: f32 = 7.5;
-const SPRINT_SPEED: f32 = 11.0;
-const MAX_STAMINA: f32 = 100.0;
-const STAMINA_DRAIN_PER_SEC: f32 = 28.0;
-const STAMINA_REGEN_PER_SEC: f32 = 22.0;
-const STAMINA_EXHAUSTION_DELAY: f32 = 1.0;
-const PLAYER_MAX_HP: f32 = 100.0;
-
-/// Simulation marker for player-controlled survivors (multiplayer-ready).
 #[derive(Component)]
 pub struct Survivor;
 
-/// Presentation marker identifying the local client's survivor.
 #[derive(Component)]
 pub struct LocalPlayer;
 
@@ -47,11 +34,11 @@ pub struct Stamina {
     pub is_sprinting: bool,
 }
 
-impl Default for Stamina {
-    fn default() -> Self {
+impl Stamina {
+    pub fn new(max: f32) -> Self {
         Self {
-            current: MAX_STAMINA,
-            max: MAX_STAMINA,
+            current: max,
+            max,
             exhausted_timer: 0.0,
             is_sprinting: false,
         }
@@ -64,37 +51,57 @@ pub struct MovementStats {
     pub sprint_speed: f32,
 }
 
-impl Default for MovementStats {
-    fn default() -> Self {
-        Self {
-            walk_speed: WALK_SPEED,
-            sprint_speed: SPRINT_SPEED,
-        }
-    }
-}
-
-/// Unit XZ forward aim vector for the survivor.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AimDirection(pub Vec3);
 
-/// Spawns the local survivor at the center of the arena when a run starts.
-pub fn spawn_player(mut commands: Commands) {
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(OnEnter(GameState::Playing), spawn_player)
+            .add_systems(
+                Update,
+                (sync_player_hot_reload, player_movement_and_aim)
+                    .chain()
+                    .in_set(SimUpdateSet)
+                    .run_if(in_state(GameState::Playing)),
+            )
+            .add_systems(
+                PostUpdate,
+                apply_player_damage
+                    .in_set(SimPostPhysicsSet)
+                    .after(PhysicsSet::Writeback)
+                    .before(TransformSystems::Propagate)
+                    .run_if(in_state(GameState::Playing)),
+            );
+    }
+}
+
+pub fn spawn_player(
+    mut commands: Commands,
+    cfg: Res<PlayerConfig>,
+    upgrades: Res<UpgradeModifiers>,
+) {
+    let max_hp = cfg.max_hp + upgrades.bonus_max_hp;
     commands.spawn((
         (
             Name::new("Survivor"),
             Survivor,
+            SurvivorTag,
             LocalPlayer,
             RunEntity,
             ActionIntent::default(),
-            Health::new(PLAYER_MAX_HP),
-            Stamina::default(),
-            MovementStats::default(),
+            Health::new(max_hp),
+            Stamina::new(cfg.max_stamina),
+            MovementStats {
+                walk_speed: cfg.walk_speed * upgrades.move_speed_multiplier,
+                sprint_speed: cfg.sprint_speed * upgrades.move_speed_multiplier,
+            },
             AimDirection(Vec3::NEG_Z),
-            WeaponInventory::default(),
         ),
         (
             RigidBody::Dynamic,
-            Collider::capsule_y(PLAYER_HALF_HEIGHT, PLAYER_RADIUS),
+            Collider::capsule_y(cfg.half_height, cfg.radius),
             LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
             Velocity::zero(),
             Sleeping::disabled(),
@@ -111,15 +118,40 @@ pub fn spawn_player(mut commands: Commands) {
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
-            CollisionGroups::new(GROUP_PLAYER, GROUP_WORLD | GROUP_ENEMY),
-            Transform::from_xyz(0.0, AIM_HEIGHT, 0.0),
+            CollisionGroups::new(
+                GROUP_PLAYER,
+                GROUP_WORLD | GROUP_ENEMY | GROUP_PICKUP,
+            ),
+            Transform::from_xyz(0.0, cfg.aim_height, 0.0),
         ),
     ));
 }
 
-/// Updates survivor stamina, planar movement velocity, and aim direction (rotation is applied to child visuals).
+fn sync_player_hot_reload(
+    mut reloaded: MessageReader<ConfigHotReloadedMessage>,
+    cfg: Res<PlayerConfig>,
+    upgrades: Res<UpgradeModifiers>,
+    mut players: Query<(&mut Health, &mut Stamina, &mut MovementStats), With<Survivor>>,
+) {
+    if reloaded.read().next().is_none() || !cfg.is_changed() {
+        return;
+    }
+
+    let target_max_hp = cfg.max_hp + upgrades.bonus_max_hp;
+    for (mut health, mut stamina, mut stats) in &mut players {
+        let hp_delta = target_max_hp - health.max;
+        health.max = target_max_hp;
+        health.current = (health.current + hp_delta.max(0.0)).clamp(0.0, target_max_hp);
+        stamina.max = cfg.max_stamina;
+        stamina.current = stamina.current.min(cfg.max_stamina);
+        stats.walk_speed = cfg.walk_speed * upgrades.move_speed_multiplier;
+        stats.sprint_speed = cfg.sprint_speed * upgrades.move_speed_multiplier;
+    }
+}
+
 pub fn player_movement_and_aim(
     time: Res<Time>,
+    cfg: Res<PlayerConfig>,
     mut query: Query<
         (
             &ActionIntent,
@@ -147,16 +179,17 @@ pub fn player_movement_and_aim(
         stamina.is_sprinting = sprinting;
 
         if sprinting {
-            stamina.current = (stamina.current - STAMINA_DRAIN_PER_SEC * dt).max(0.0);
+            stamina.current = (stamina.current - cfg.stamina_drain_per_sec * dt).max(0.0);
             if stamina.current <= 0.0 {
-                stamina.exhausted_timer = STAMINA_EXHAUSTION_DELAY;
+                stamina.exhausted_timer = cfg.stamina_exhaustion_delay;
             }
         } else {
             if stamina.exhausted_timer > 0.0 {
                 stamina.exhausted_timer = (stamina.exhausted_timer - dt).max(0.0);
             }
             if stamina.exhausted_timer <= 0.0 {
-                stamina.current = (stamina.current + STAMINA_REGEN_PER_SEC * dt).min(stamina.max);
+                stamina.current =
+                    (stamina.current + cfg.stamina_regen_per_sec * dt).min(stamina.max);
             }
         }
 
@@ -180,15 +213,13 @@ pub fn player_movement_and_aim(
     }
 }
 
-/// Applies incoming damage to survivors and triggers Game Over at 0 HP.
 pub fn apply_player_damage(
     mut damage_reader: MessageReader<DamageMessage>,
-    mut survivors: Query<&mut Health, With<Survivor>>,
-    mut next_state: ResMut<NextState<GameState>>,
+    mut died_writer: MessageWriter<PlayerDiedMessage>,
+    mut survivors: Query<(Entity, &mut Health), With<Survivor>>,
 ) {
-    let mut any_died = false;
     for msg in damage_reader.read() {
-        let Ok(mut health) = survivors.get_mut(msg.target) else {
+        let Ok((entity, mut health)) = survivors.get_mut(msg.target) else {
             continue;
         };
         if health.current <= 0.0 {
@@ -196,12 +227,8 @@ pub fn apply_player_damage(
         }
         health.current = (health.current - msg.amount).max(0.0);
         if health.current <= 0.0 {
-            any_died = true;
+            died_writer.write(PlayerDiedMessage { survivor: entity });
         }
-    }
-
-    if any_died {
-        next_state.set(GameState::GameOver);
     }
 }
 
@@ -210,16 +237,17 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use bevy::state::app::StatesPlugin;
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_plugins((MinimalPlugins, StatesPlugin))
-            .init_state::<GameState>()
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<PlayerConfig>()
+            .init_resource::<UpgradeModifiers>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_secs_f32(1.0 / 60.0),
             ))
             .add_message::<DamageMessage>()
+            .add_message::<PlayerDiedMessage>()
             .add_systems(Startup, spawn_player)
             .add_systems(Update, (player_movement_and_aim, apply_player_damage));
         app
@@ -238,21 +266,25 @@ mod tests {
 
         {
             let mut intent = app.world_mut().get_mut::<ActionIntent>(player).unwrap();
-            intent.move_dir = Vec2::new(1.0, 1.0); // unnormalized diagonal
+            intent.move_dir = Vec2::new(1.0, 1.0);
             intent.sprint = true;
-            intent.aim_world = Some(Vec3::new(10.0, AIM_HEIGHT, 0.0));
+            intent.aim_world = Some(Vec3::new(10.0, 0.9, 0.0));
         }
 
         for _ in 0..30 {
             app.update();
         }
 
+        let cfg = app.world().resource::<PlayerConfig>();
+        let expected_sprint = cfg.sprint_speed;
+        let expected_stamina = cfg.max_stamina;
+
         let vel = app.world().get::<Velocity>(player).unwrap();
         let speed = Vec2::new(vel.linear.x, vel.linear.z).length();
-        assert!((speed - SPRINT_SPEED).abs() < 0.01, "expected sprint speed, got {speed}");
+        assert!((speed - expected_sprint).abs() < 0.01);
 
         let stamina = app.world().get::<Stamina>(player).unwrap();
-        assert!(stamina.current < MAX_STAMINA);
+        assert!(stamina.current < expected_stamina);
         assert!(stamina.is_sprinting);
 
         let aim = app.world().get::<AimDirection>(player).unwrap();
@@ -260,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn lethal_damage_transitions_to_game_over() {
+    fn lethal_damage_emits_player_died_message() {
         let mut app = test_app();
         app.update();
 
@@ -270,9 +302,10 @@ mod tests {
             .single(app.world())
             .expect("player spawned");
 
+        let max_hp = app.world().resource::<PlayerConfig>().max_hp;
         app.world_mut().write_message(DamageMessage {
             target: player,
-            amount: PLAYER_MAX_HP,
+            amount: max_hp,
             knockback: Vec3::ZERO,
             source: Entity::PLACEHOLDER,
         });
@@ -280,7 +313,10 @@ mod tests {
         app.update();
         app.update();
 
-        let state = app.world().resource::<State<GameState>>().get();
-        assert_eq!(*state, GameState::GameOver);
+        let msgs = app.world().resource::<Messages<PlayerDiedMessage>>();
+        let mut cursor = msgs.get_cursor();
+        let died: Vec<_> = cursor.read(msgs).copied().collect();
+        assert_eq!(died.len(), 1);
+        assert_eq!(died[0].survivor, player);
     }
 }

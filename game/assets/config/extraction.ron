@@ -1,0 +1,12 @@
+(
+    pad_center: (0.0, 0.0, -19.5),
+    pad_radius: 3.2,
+    hold_duration_secs: 10.0,
+    scrap_pickup_radius: 1.1,
+    scrap_magnet_radius: 4.2,
+    scrap_magnet_speed: 11.0,
+    scrap_radius: 0.25,
+    scrap_lifetime_secs: 60.0,
+    walker_scrap: 2,
+    runner_scrap: 3,
+)

@@ -12,6 +12,8 @@
 
 - NO unwrap() or unsafe code inside production code
 - Do not use tempary solution, hack to sastify the compiler, instead using best practice to make it work
-- Make sure system order correct and chained, scoped properly
+- Make sure bevy system order correct and chained, scoped properly and only run when needed
 - Avoid hardcode value, prefer loading data from .ron with async load/hot reload
 - Prefer event for communication
+- Make sure code is optimized for perfermance
+- Dev only code should not exists in Production build

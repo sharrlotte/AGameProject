@@ -1,17 +1,50 @@
 [workspace]
 resolver = "3"
 members = [
-   "core"
+    "crates/data",
+    "crates/sim_world",
+    "crates/sim_combat",
+    "crates/sim_enemies",
+    "crates/sim_extraction",
+    "crates/presentation",
+    "core",
 ]
 
+[workspace.dependencies]
+bevy = { version = "0.20.0", features = ["dynamic_linking", "serialize", "file_watcher"] }
+bevy_rapier3d = "0.37.0"
+bevy-inspector-egui = "0.38"
+bevy_hanabi = "0.20"
+directories = "6.0.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ron = "0.12"
+thiserror = "2"
+rand = "0.10"
+uuid = { version = "1", features = ["v7"] }
+
+data = { path = "crates/data" }
+sim_world = { path = "crates/sim_world" }
+sim_combat = { path = "crates/sim_combat" }
+sim_enemies = { path = "crates/sim_enemies" }
+sim_extraction = { path = "crates/sim_extraction" }
+presentation = { path = "crates/presentation" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1
+# Keep file/line info for backtraces while shrinking PDBs and speeding up linking.
+debug = "line-tables-only"
 
 # Optimize dependencies in dev for smooth Bevy/Rapier runtime, and skip their debuginfo for faster builds/links.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
+
+# Skip debuginfo and heavy optimization for proc-macros and build scripts to speed up clean builds.
+[profile.dev.build-override]
+opt-level = 0
+debug = false
 
 [profile.release]
 # Compile the entire crate as one unit.

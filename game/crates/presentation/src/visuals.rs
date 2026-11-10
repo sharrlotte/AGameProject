@@ -1,17 +1,28 @@
 use bevy::prelude::*;
+use data::{
+    ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyKind, GameState,
+    PlayerConfig, SimPostPhysicsSet,
+};
+use sim_combat::Projectile;
+use sim_enemies::{Enemy, FacingDirection};
+use sim_extraction::{ExtractionZone, ScrapPickup};
+use sim_world::{AimDirection, ArenaGround, ArenaObstacle, Survivor};
 
-use crate::sim::DamageMessage;
-use crate::sim::arena::{ARENA_HALF_SIZE, ArenaGround, ArenaObstacle};
-use crate::sim::combat::Projectile;
-use crate::sim::enemies::{Enemy, EnemyKind, FacingDirection};
-use crate::sim::player::{AimDirection, PLAYER_HALF_HEIGHT, PLAYER_RADIUS, Survivor};
-
-const HIT_FLASH_DURATION: f32 = 0.09;
-
-/// Child visual mesh entity rotated independently of the parent `RigidBody` so
-/// Rapier `TransformInterpolation` is never reset by aiming or turning.
 #[derive(Component)]
 pub struct VisualBody;
+
+#[derive(Component)]
+pub struct SunLightTag;
+
+#[derive(Component)]
+pub struct ExtractionPadVisual;
+
+#[derive(Component)]
+pub struct HitFlash {
+    pub timer: f32,
+    pub base_material: Handle<StandardMaterial>,
+    pub visual_entity: Entity,
+}
 
 #[derive(Resource)]
 pub struct SharedVisualMaterials {
@@ -24,6 +35,9 @@ pub struct SharedVisualMaterials {
     pub runner: Handle<StandardMaterial>,
     pub projectile: Handle<StandardMaterial>,
     pub hit_flash: Handle<StandardMaterial>,
+    pub scrap: Handle<StandardMaterial>,
+    pub extraction_idle: Handle<StandardMaterial>,
+    pub extraction_active: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SharedVisualMaterials {
@@ -76,26 +90,70 @@ impl FromWorld for SharedVisualMaterials {
                 emissive: LinearRgba::rgb(3.5, 3.5, 3.5),
                 ..default()
             }),
+            scrap: materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.74, 0.18),
+                emissive: LinearRgba::rgb(1.8, 1.1, 0.15),
+                metallic: 0.5,
+                perceptual_roughness: 0.3,
+                ..default()
+            }),
+            extraction_idle: materials.add(StandardMaterial {
+                base_color: Color::srgba(0.15, 0.82, 0.75, 0.65),
+                emissive: LinearRgba::rgb(0.2, 1.2, 1.0),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+            extraction_active: materials.add(StandardMaterial {
+                base_color: Color::srgba(0.25, 1.0, 0.55, 0.85),
+                emissive: LinearRgba::rgb(0.5, 2.8, 1.2),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
         }
     }
 }
 
-#[derive(Component)]
-pub struct HitFlash {
-    pub timer: f32,
-    pub base_material: Handle<StandardMaterial>,
-    pub visual_entity: Entity,
+pub struct VisualsPlugin;
+
+impl Plugin for VisualsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SharedVisualMaterials>()
+            .add_systems(OnExit(GameState::Loading), setup_lighting)
+            .add_systems(
+                Update,
+                (
+                    sync_lighting_hot_reload,
+                    attach_arena_visuals,
+                    attach_actor_visuals,
+                    attach_extraction_visuals,
+                    animate_scrap_pickups,
+                    update_extraction_pad_visual,
+                )
+                    .run_if(not(in_state(GameState::Loading))),
+            )
+            .add_systems(
+                PostUpdate,
+                (sync_visual_facing, update_hit_flash)
+                    .after(SimPostPhysicsSet)
+                    .before(TransformSystems::Propagate)
+                    .run_if(in_state(GameState::Playing)),
+            );
+    }
 }
 
-/// Spawns directional sunlight and sets global ambient lighting.
-pub fn setup_lighting(mut commands: Commands, mut ambient: ResMut<GlobalAmbientLight>) {
+fn setup_lighting(
+    mut commands: Commands,
+    cfg: Res<ArenaConfig>,
+    mut ambient: ResMut<GlobalAmbientLight>,
+) {
     ambient.color = Color::srgb(0.85, 0.90, 1.0);
-    ambient.brightness = 280.0;
+    ambient.brightness = cfg.ambient_brightness;
 
     commands.spawn((
         Name::new("SunLight"),
+        SunLightTag,
         DirectionalLight {
-            illuminance: 14_000.0,
+            illuminance: cfg.sun_illuminance,
             shadow_maps_enabled: true,
             ..default()
         },
@@ -103,16 +161,31 @@ pub fn setup_lighting(mut commands: Commands, mut ambient: ResMut<GlobalAmbientL
     ));
 }
 
-/// Attaches 3D meshes and materials to newly spawned static arena entities.
-pub fn attach_arena_visuals(
+fn sync_lighting_hot_reload(
+    mut reloaded: MessageReader<ConfigHotReloadedMessage>,
+    cfg: Res<ArenaConfig>,
+    mut ambient: ResMut<GlobalAmbientLight>,
+    mut suns: Query<&mut DirectionalLight, With<SunLightTag>>,
+) {
+    if reloaded.read().next().is_none() || !cfg.is_changed() {
+        return;
+    }
+    ambient.brightness = cfg.ambient_brightness;
+    for mut sun in &mut suns {
+        sun.illuminance = cfg.sun_illuminance;
+    }
+}
+
+fn attach_arena_visuals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    cfg: Res<ArenaConfig>,
     materials: Res<SharedVisualMaterials>,
     grounds: Query<Entity, Added<ArenaGround>>,
     obstacles: Query<(Entity, &ArenaObstacle), Added<ArenaObstacle>>,
 ) {
     for entity in &grounds {
-        let size = ARENA_HALF_SIZE * 2.0;
+        let size = cfg.half_size * 2.0;
         commands.entity(entity).insert((
             Mesh3d(meshes.add(Cuboid::new(size, 1.0, size))),
             MeshMaterial3d(materials.ground.clone()),
@@ -133,17 +206,21 @@ pub fn attach_arena_visuals(
     }
 }
 
-/// Attaches 3D meshes and facing barrel indicators to newly spawned survivors, enemies, and projectiles.
-pub fn attach_actor_visuals(
+fn attach_actor_visuals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    player_cfg: Res<PlayerConfig>,
     materials: Res<SharedVisualMaterials>,
     survivors: Query<Entity, Added<Survivor>>,
     enemies: Query<(Entity, &Enemy), Added<Enemy>>,
     projectiles: Query<(Entity, &Projectile), Added<Projectile>>,
+    pickups: Query<(Entity, &ScrapPickup), Added<ScrapPickup>>,
 ) {
     for entity in &survivors {
-        let body_mesh = meshes.add(Capsule3d::new(PLAYER_RADIUS, PLAYER_HALF_HEIGHT * 2.0));
+        let body_mesh = meshes.add(Capsule3d::new(
+            player_cfg.radius,
+            player_cfg.half_height * 2.0,
+        ));
         let barrel_mesh = meshes.add(Cuboid::new(0.14, 0.14, 0.72));
         commands
             .entity(entity)
@@ -200,10 +277,55 @@ pub fn attach_actor_visuals(
             MeshMaterial3d(materials.projectile.clone()),
         ));
     }
+
+    for (entity, pickup) in &pickups {
+        let side = pickup.radius * 1.6;
+        commands.entity(entity).insert((
+            Mesh3d(meshes.add(Cuboid::new(side, side, side))),
+            MeshMaterial3d(materials.scrap.clone()),
+        ));
+    }
 }
 
-/// Rotates child `VisualBody` meshes to match survivor aim and enemy chase direction.
-pub fn sync_visual_facing(
+fn attach_extraction_visuals(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    materials: Res<SharedVisualMaterials>,
+    zones: Query<(Entity, &ExtractionZone), Added<ExtractionZone>>,
+) {
+    for (entity, zone) in &zones {
+        commands.entity(entity).insert((
+            ExtractionPadVisual,
+            Mesh3d(meshes.add(Cylinder::new(zone.radius, 0.06))),
+            MeshMaterial3d(materials.extraction_idle.clone()),
+        ));
+    }
+}
+
+fn update_extraction_pad_visual(
+    materials: Res<SharedVisualMaterials>,
+    mut pads: Query<(&ExtractionZone, &mut MeshMaterial3d<StandardMaterial>), With<ExtractionPadVisual>>,
+) {
+    for (zone, mut mat) in &mut pads {
+        mat.0 = if zone.active {
+            materials.extraction_active.clone()
+        } else {
+            materials.extraction_idle.clone()
+        };
+    }
+}
+
+fn animate_scrap_pickups(
+    time: Res<Time>,
+    mut pickups: Query<&mut Transform, With<ScrapPickup>>,
+) {
+    let dt = time.delta_secs();
+    for mut tf in &mut pickups {
+        tf.rotate_y(2.4 * dt);
+    }
+}
+
+fn sync_visual_facing(
     survivors: Query<(&AimDirection, &Children), With<Survivor>>,
     enemies: Query<(&FacingDirection, &Children), With<Enemy>>,
     mut visual_bodies: Query<&mut Transform, With<VisualBody>>,
@@ -232,9 +354,9 @@ fn apply_facing_to_children(
     }
 }
 
-/// Triggers a brief white hit-flash on struck zombies and restores their base material.
-pub fn update_hit_flash(
+fn update_hit_flash(
     time: Res<Time>,
+    enemies_cfg: Res<EnemiesConfig>,
     materials: Res<SharedVisualMaterials>,
     mut damage_reader: MessageReader<DamageMessage>,
     mut flashes: Query<&mut HitFlash>,
@@ -242,7 +364,7 @@ pub fn update_hit_flash(
 ) {
     for msg in damage_reader.read() {
         if let Ok(mut flash) = flashes.get_mut(msg.target) {
-            flash.timer = HIT_FLASH_DURATION;
+            flash.timer = enemies_cfg.hit_flash_duration;
             if let Ok(mut mat) = mesh_materials.get_mut(flash.visual_entity) {
                 mat.0 = materials.hit_flash.clone();
             }

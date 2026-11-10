@@ -1,56 +1,11 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-
-use super::arena::ARENA_HALF_SIZE;
-use super::player::{AIM_HEIGHT, Health, PLAYER_RADIUS, Survivor};
-use super::{DamageMessage, EnemyKilledMessage, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, RunStats};
-
-const SPAWN_INTERVAL_SECS: f32 = 1.5;
-const MAX_ACTIVE_ENEMIES: usize = 40;
-const EDGE_SPAWN_INSET: f32 = 2.2;
-const MIN_SPAWN_DIST_FROM_SURVIVOR: f32 = 12.0;
-const KNOCKBACK_DECAY_RATE: f32 = 10.0;
-const CONTACT_REACH_BUFFER: f32 = 0.25;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EnemyKind {
-    Walker,
-    Runner,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct EnemyArchetype {
-    pub kind: EnemyKind,
-    pub max_hp: f32,
-    pub move_speed: f32,
-    pub attack_damage: f32,
-    pub attack_cooldown: f32,
-    pub radius: f32,
-    pub half_height: f32,
-    pub mass: f32,
-}
-
-pub const WALKER_ARCHETYPE: EnemyArchetype = EnemyArchetype {
-    kind: EnemyKind::Walker,
-    max_hp: 75.0,
-    move_speed: 4.2,
-    attack_damage: 15.0,
-    attack_cooldown: 0.9,
-    radius: 0.45,
-    half_height: 0.45,
-    mass: 1.0,
+use data::{
+    ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyArchetypeData,
+    EnemyKilledMessage, EnemyKind, EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE,
+    GROUP_WORLD, GameState, PlayerConfig, RunEntity, RunStats, SimPostPhysicsSet, SimUpdateSet,
 };
-
-pub const RUNNER_ARCHETYPE: EnemyArchetype = EnemyArchetype {
-    kind: EnemyKind::Runner,
-    max_hp: 35.0,
-    move_speed: 7.8,
-    attack_damage: 10.0,
-    attack_cooldown: 0.7,
-    radius: 0.35,
-    half_height: 0.40,
-    mass: 0.65,
-};
+use sim_world::{Health, Survivor};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct FacingDirection(pub Vec3);
@@ -69,9 +24,9 @@ pub struct Enemy {
 }
 
 impl Enemy {
-    pub fn from_archetype(arch: EnemyArchetype) -> Self {
+    pub fn from_archetype(kind: EnemyKind, arch: EnemyArchetypeData) -> Self {
         Self {
-            kind: arch.kind,
+            kind,
             move_speed: arch.move_speed,
             attack_damage: arch.attack_damage,
             attack_cooldown: arch.attack_cooldown,
@@ -84,63 +39,112 @@ impl Enemy {
     }
 }
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 pub struct EnemySpawner {
     pub timer: f32,
-    pub interval: f32,
-    pub max_active: usize,
 }
 
-impl Default for EnemySpawner {
-    fn default() -> Self {
-        Self {
-            timer: 0.8,
-            interval: SPAWN_INTERVAL_SECS,
-            max_active: MAX_ACTIVE_ENEMIES,
-        }
+pub struct EnemiesPlugin;
+
+impl Plugin for EnemiesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EnemySpawner>()
+            .add_systems(OnEnter(GameState::Playing), reset_spawner)
+            .add_systems(
+                Update,
+                (
+                    sync_enemies_hot_reload,
+                    spawn_enemies,
+                    enemy_chase_and_attack,
+                )
+                    .chain()
+                    .in_set(SimUpdateSet)
+                    .run_if(in_state(GameState::Playing)),
+            )
+            .add_systems(
+                PostUpdate,
+                apply_enemy_damage
+                    .in_set(SimPostPhysicsSet)
+                    .after(PhysicsSet::Writeback)
+                    .before(TransformSystems::Propagate)
+                    .run_if(in_state(GameState::Playing)),
+            );
     }
 }
 
-fn pick_edge_spawn_pos(survivors: &[Vec3]) -> Vec3 {
-    let edge_limit = ARENA_HALF_SIZE - EDGE_SPAWN_INSET;
-    let span_limit = edge_limit - 1.5;
+fn reset_spawner(mut spawner: ResMut<EnemySpawner>, cfg: Res<EnemiesConfig>) {
+    spawner.timer = cfg.initial_spawn_delay;
+}
+
+fn sync_enemies_hot_reload(
+    mut reloaded: MessageReader<ConfigHotReloadedMessage>,
+    cfg: Res<EnemiesConfig>,
+    mut enemies: Query<&mut Enemy>,
+) {
+    if reloaded.read().next().is_none() || !cfg.is_changed() {
+        return;
+    }
+
+    for mut enemy in &mut enemies {
+        let arch = match enemy.kind {
+            EnemyKind::Walker => cfg.walker,
+            EnemyKind::Runner => cfg.runner,
+        };
+        enemy.move_speed = arch.move_speed;
+        enemy.attack_damage = arch.attack_damage;
+        enemy.attack_cooldown = arch.attack_cooldown;
+        enemy.mass = arch.mass;
+    }
+}
+
+fn pick_edge_spawn_pos(
+    survivors: &[Vec3],
+    arena_cfg: &ArenaConfig,
+    enemies_cfg: &EnemiesConfig,
+    aim_height: f32,
+) -> Vec3 {
+    let edge_limit = (arena_cfg.half_size - enemies_cfg.edge_spawn_inset).max(2.0);
+    let span_limit = (edge_limit - 1.5).max(1.0);
 
     for _ in 0..8 {
         let side = rand::random_range(0..4);
         let offset = rand::random_range(-span_limit..=span_limit);
         let candidate = match side {
-            0 => Vec3::new(offset, AIM_HEIGHT, -edge_limit),
-            1 => Vec3::new(offset, AIM_HEIGHT, edge_limit),
-            2 => Vec3::new(-edge_limit, AIM_HEIGHT, offset),
-            _ => Vec3::new(edge_limit, AIM_HEIGHT, offset),
+            0 => Vec3::new(offset, aim_height, -edge_limit),
+            1 => Vec3::new(offset, aim_height, edge_limit),
+            2 => Vec3::new(-edge_limit, aim_height, offset),
+            _ => Vec3::new(edge_limit, aim_height, offset),
         };
 
         let far_enough = survivors.iter().all(|s| {
-            Vec2::new(candidate.x - s.x, candidate.z - s.z).length() >= MIN_SPAWN_DIST_FROM_SURVIVOR
+            Vec2::new(candidate.x - s.x, candidate.z - s.z).length()
+                >= enemies_cfg.min_spawn_dist_from_survivor
         });
         if far_enough {
             return candidate;
         }
     }
 
-    Vec3::new(edge_limit, AIM_HEIGHT, -edge_limit)
+    Vec3::new(edge_limit, aim_height, edge_limit)
 }
 
 /// Spawns a single zombie of the given archetype at `spawn_pos`.
 pub fn spawn_enemy_entity(
     commands: &mut Commands,
-    arch: EnemyArchetype,
+    kind: EnemyKind,
+    arch: EnemyArchetypeData,
     spawn_pos: Vec3,
 ) -> Entity {
     commands
         .spawn((
             (
-                Name::new(match arch.kind {
+                Name::new(match kind {
                     EnemyKind::Walker => "Walker",
                     EnemyKind::Runner => "Runner",
                 }),
                 RunEntity,
-                Enemy::from_archetype(arch),
+                EnemyTag,
+                Enemy::from_archetype(kind, arch),
                 FacingDirection(Vec3::NEG_Z),
                 Health::new(arch.max_hp),
             ),
@@ -173,10 +177,28 @@ pub fn spawn_enemy_entity(
         .id()
 }
 
-/// Spawns Walkers and Runners periodically along the edges of the arena.
+/// Computes current escalated spawn interval and cap from `RunStats.elapsed_secs`.
+pub fn escalated_spawn_params(elapsed_secs: f32, cfg: &EnemiesConfig) -> (f32, usize) {
+    let t = if cfg.escalation_duration_secs > 0.0 {
+        (elapsed_secs / cfg.escalation_duration_secs).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let interval =
+        cfg.spawn_interval_start + (cfg.spawn_interval_min - cfg.spawn_interval_start) * t;
+    let max_active = cfg.max_active_start as f32
+        + (cfg.max_active_end as f32 - cfg.max_active_start as f32) * t;
+    (interval.max(0.1), max_active.round().max(1.0) as usize)
+}
+
+/// Spawns Walkers and Runners along the arena edges, escalating over run time.
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,
+    arena_cfg: Res<ArenaConfig>,
+    player_cfg: Res<PlayerConfig>,
+    enemies_cfg: Res<EnemiesConfig>,
+    stats: Res<RunStats>,
     mut spawner: ResMut<EnemySpawner>,
     existing_enemies: Query<(), With<Enemy>>,
     survivors: Query<&Transform, With<Survivor>>,
@@ -185,9 +207,11 @@ pub fn spawn_enemies(
     if spawner.timer > 0.0 {
         return;
     }
-    spawner.timer = spawner.interval;
 
-    if existing_enemies.iter().count() >= spawner.max_active {
+    let (interval, max_active) = escalated_spawn_params(stats.elapsed_secs, &enemies_cfg);
+    spawner.timer = interval;
+
+    if existing_enemies.iter().count() >= max_active {
         return;
     }
 
@@ -196,18 +220,21 @@ pub fn spawn_enemies(
         return;
     }
 
-    let arch = if rand::random_range(0.0..1.0) < 0.7 {
-        WALKER_ARCHETYPE
+    let (kind, arch) = if rand::random_range(0.0..1.0) < enemies_cfg.walker_spawn_weight {
+        (EnemyKind::Walker, enemies_cfg.walker)
     } else {
-        RUNNER_ARCHETYPE
+        (EnemyKind::Runner, enemies_cfg.runner)
     };
-    let spawn_pos = pick_edge_spawn_pos(&survivor_positions);
-    spawn_enemy_entity(&mut commands, arch, spawn_pos);
+    let spawn_pos =
+        pick_edge_spawn_pos(&survivor_positions, &arena_cfg, &enemies_cfg, player_cfg.aim_height);
+    spawn_enemy_entity(&mut commands, kind, arch, spawn_pos);
 }
 
 /// Moves zombies directly toward the nearest survivor and applies contact damage on cooldown.
 pub fn enemy_chase_and_attack(
     time: Res<Time>,
+    player_cfg: Res<PlayerConfig>,
+    enemies_cfg: Res<EnemiesConfig>,
     mut damage_writer: MessageWriter<DamageMessage>,
     survivors: Query<(Entity, &Transform), With<Survivor>>,
     mut enemies: Query<
@@ -227,7 +254,7 @@ pub fn enemy_chase_and_attack(
     }
 
     let dt = time.delta_secs();
-    let decay = (1.0 - KNOCKBACK_DECAY_RATE * dt).max(0.0);
+    let decay = (1.0 - enemies_cfg.knockback_decay_rate * dt).max(0.0);
 
     for (enemy_entity, mut enemy, mut vel, transform, mut facing) in &mut enemies {
         enemy.attack_timer = (enemy.attack_timer - dt).max(0.0);
@@ -255,7 +282,7 @@ pub fn enemy_chase_and_attack(
             facing.0 = chase_dir;
         }
 
-        let reach = PLAYER_RADIUS + enemy.radius + CONTACT_REACH_BUFFER;
+        let reach = player_cfg.radius + enemy.radius + enemies_cfg.contact_reach_buffer;
         if dist <= reach && enemy.attack_timer <= 0.0 {
             enemy.attack_timer = enemy.attack_cooldown;
             damage_writer.write(DamageMessage {
@@ -268,16 +295,15 @@ pub fn enemy_chase_and_attack(
     }
 }
 
-/// Applies projectile damage and knockback impulses to enemies, despawning them at 0 HP.
+/// Applies projectile damage and knockback impulses to enemies, emitting `EnemyKilledMessage` at 0 HP.
 pub fn apply_enemy_damage(
     mut commands: Commands,
     mut damage_reader: MessageReader<DamageMessage>,
     mut killed_writer: MessageWriter<EnemyKilledMessage>,
-    mut stats: ResMut<RunStats>,
-    mut enemies: Query<(&mut Enemy, &mut Health)>,
+    mut enemies: Query<(&mut Enemy, &mut Health, &Transform)>,
 ) {
     for msg in damage_reader.read() {
-        let Ok((mut enemy, mut health)) = enemies.get_mut(msg.target) else {
+        let Ok((mut enemy, mut health, transform)) = enemies.get_mut(msg.target) else {
             continue;
         };
         if health.current <= 0.0 {
@@ -289,8 +315,11 @@ pub fn apply_enemy_damage(
         enemy.knockback_vel += msg.knockback / mass;
 
         if health.current <= 0.0 {
-            stats.kills += 1;
-            killed_writer.write(EnemyKilledMessage { entity: msg.target });
+            killed_writer.write(EnemyKilledMessage {
+                entity: msg.target,
+                position: transform.translation,
+                kind: enemy.kind,
+            });
             commands.entity(msg.target).despawn();
         }
     }
@@ -303,20 +332,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn enemy_damage_applies_knockback_and_despawns_at_zero() {
+    fn enemy_damage_applies_knockback_and_emits_kill_message() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .init_resource::<RunStats>()
-            .insert_resource(Time::<Fixed>::from_hz(60.0))
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(1.0 / 60.0),
+            ))
             .add_message::<DamageMessage>()
             .add_message::<EnemyKilledMessage>()
-            .add_systems(FixedUpdate, apply_enemy_damage);
+            .add_systems(Update, apply_enemy_damage);
 
+        let runner_arch = EnemiesConfig::default().runner;
         let enemy = app
             .world_mut()
             .spawn((
-                Enemy::from_archetype(RUNNER_ARCHETYPE),
-                Health::new(RUNNER_ARCHETYPE.max_hp),
+                Enemy::from_archetype(EnemyKind::Runner, runner_arch),
+                Health::new(runner_arch.max_hp),
+                Transform::from_xyz(3.0, 0.9, -4.0),
             ))
             .id();
 
@@ -326,7 +358,7 @@ mod tests {
             knockback: Vec3::new(0.0, 0.0, -5.0),
             source: Entity::PLACEHOLDER,
         });
-        app.world_mut().run_schedule(FixedUpdate);
+        app.update();
 
         let hp = app.world().get::<Health>(enemy).unwrap().current;
         assert!((hp - 20.0).abs() < 0.01);
@@ -338,55 +370,61 @@ mod tests {
             knockback: Vec3::ZERO,
             source: Entity::PLACEHOLDER,
         });
-        app.world_mut().run_schedule(FixedUpdate);
+        app.update();
 
         assert!(app.world().get_entity(enemy).is_err());
-        assert_eq!(app.world().resource::<RunStats>().kills, 1);
+        let msgs = app.world().resource::<Messages<EnemyKilledMessage>>();
+        let mut cursor = msgs.get_cursor();
+        let kills: Vec<_> = cursor.read(msgs).copied().collect();
+        assert_eq!(kills.len(), 1);
+        assert_eq!(kills[0].kind, EnemyKind::Runner);
     }
 
     #[test]
     fn enemy_chases_and_deals_contact_damage_on_cooldown() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
+            .init_resource::<PlayerConfig>()
+            .init_resource::<EnemiesConfig>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_secs_f32(1.0 / 60.0),
             ))
             .add_message::<DamageMessage>()
             .add_systems(Update, enemy_chase_and_attack);
 
+        let walker_arch = EnemiesConfig::default().walker;
         let survivor = app
             .world_mut()
-            .spawn((Survivor, Transform::from_xyz(0.0, AIM_HEIGHT, 0.0)))
+            .spawn((Survivor, Transform::from_xyz(0.0, 0.9, 0.0)))
             .id();
         let zombie = app
             .world_mut()
             .spawn((
-                Enemy::from_archetype(WALKER_ARCHETYPE),
+                Enemy::from_archetype(EnemyKind::Walker, walker_arch),
                 FacingDirection(Vec3::NEG_Z),
                 Velocity::zero(),
-                Transform::from_xyz(0.0, AIM_HEIGHT, 0.8),
+                Transform::from_xyz(0.0, 0.9, 0.8),
             ))
             .id();
 
         app.update();
 
         let vel = app.world().get::<Velocity>(zombie).unwrap().linear;
-        assert!(vel.z < -1.0, "expected chase velocity toward -Z, got {vel:?}");
+        assert!(vel.z < -1.0);
 
         let messages = app.world().resource::<Messages<DamageMessage>>();
         let mut reader = messages.get_cursor();
         let hits: Vec<_> = reader.read(messages).copied().collect();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].target, survivor);
-        assert_eq!(hits[0].amount, WALKER_ARCHETYPE.attack_damage);
+        assert_eq!(hits[0].amount, walker_arch.attack_damage);
     }
 
     #[test]
     fn walker_and_runner_move_with_rapier_when_player_stationary() {
         use bevy::ecs::system::RunSystemOnce;
-
-        use crate::sim::arena::spawn_arena_physics;
-        use crate::sim::player::spawn_player;
+        use sim_world::arena::spawn_arena_physics;
+        use sim_world::player::spawn_player;
 
         let mut app = App::new();
         app.add_plugins((
@@ -395,7 +433,6 @@ mod tests {
             bevy::mesh::MeshPlugin,
             bevy::world_serialization::WorldSerializationPlugin,
             bevy::transform::TransformPlugin,
-            bevy::state::app::StatesPlugin,
             RapierPhysicsPlugin::<NoUserData>::default(),
         ))
         .insert_resource(TimestepMode::Interpolated {
@@ -403,16 +440,20 @@ mod tests {
             time_scale: 1.0,
             substeps: 1,
         })
-        .init_state::<crate::GameState>()
+        .init_resource::<ArenaConfig>()
+        .init_resource::<PlayerConfig>()
+        .init_resource::<EnemiesConfig>()
+        .init_resource::<data::UpgradeModifiers>()
         .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             Duration::from_secs_f32(1.0 / 60.0),
         ))
         .add_message::<DamageMessage>()
+        .add_message::<ConfigHotReloadedMessage>()
         .add_systems(Startup, (spawn_arena_physics, spawn_player))
         .add_systems(
             Update,
             (
-                crate::sim::player::player_movement_and_aim,
+                sim_world::player::player_movement_and_aim,
                 enemy_chase_and_attack,
             )
                 .chain(),
@@ -420,18 +461,21 @@ mod tests {
 
         app.update();
 
+        let cfg = app.world().resource::<EnemiesConfig>().clone();
         let (walker, runner) = app
             .world_mut()
-            .run_system_once(|mut commands: Commands| {
+            .run_system_once(move |mut commands: Commands| {
                 let w = spawn_enemy_entity(
                     &mut commands,
-                    WALKER_ARCHETYPE,
-                    Vec3::new(10.0, AIM_HEIGHT, 0.0),
+                    EnemyKind::Walker,
+                    cfg.walker,
+                    Vec3::new(10.0, 0.9, 0.0),
                 );
                 let r = spawn_enemy_entity(
                     &mut commands,
-                    RUNNER_ARCHETYPE,
-                    Vec3::new(-10.0, AIM_HEIGHT, 0.0),
+                    EnemyKind::Runner,
+                    cfg.runner,
+                    Vec3::new(-10.0, 0.9, 0.0),
                 );
                 (w, r)
             })

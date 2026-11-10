@@ -1,0 +1,158 @@
+use bevy::prelude::*;
+use bevy_rapier3d::prelude::Group;
+
+use crate::config::UpgradesConfig;
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GameState {
+    #[default]
+    Loading,
+    Playing,
+    GameOver,
+    Upgrades,
+}
+
+/// System set for pre-physics gameplay simulation in `Update`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SimUpdateSet;
+
+/// System set for post-physics collision and damage resolution in `PostUpdate`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SimPostPhysicsSet;
+
+pub const GROUP_WORLD: Group = Group::GROUP_1;
+pub const GROUP_PLAYER: Group = Group::GROUP_2;
+pub const GROUP_ENEMY: Group = Group::GROUP_3;
+pub const GROUP_PROJECTILE: Group = Group::GROUP_4;
+pub const GROUP_PICKUP: Group = Group::GROUP_5;
+
+/// Marks entities spawned for an active run so transitions cleanly despawn them.
+#[derive(Component)]
+pub struct RunEntity;
+
+/// Shared lightweight markers enabling feature crates to compile in parallel.
+#[derive(Component)]
+pub struct SurvivorTag;
+
+#[derive(Component)]
+pub struct EnemyTag;
+
+#[derive(Component)]
+pub struct ObstacleTag;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyKind {
+    Walker,
+    Runner,
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub struct RunStats {
+    pub kills: u32,
+    pub elapsed_secs: f32,
+    pub run_scrap: u32,
+    pub extraction_progress_secs: f32,
+    pub extraction_hold_secs: f32,
+    pub in_extraction_zone: bool,
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct ScrapBank {
+    pub banked: u32,
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub enum LastRunOutcome {
+    #[default]
+    None,
+    Extracted {
+        scrap_banked: u32,
+        kills: u32,
+        elapsed_secs: f32,
+    },
+    Died {
+        scrap_lost: u32,
+        kills: u32,
+        elapsed_secs: f32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpgradeKind {
+    WeaponDamage,
+    MaxHp,
+    MoveAndReloadSpeed,
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct UpgradeLevels {
+    pub weapon_damage: u32,
+    pub max_hp: u32,
+    pub move_and_reload: u32,
+}
+
+impl UpgradeLevels {
+    pub fn level(&self, kind: UpgradeKind) -> u32 {
+        match kind {
+            UpgradeKind::WeaponDamage => self.weapon_damage,
+            UpgradeKind::MaxHp => self.max_hp,
+            UpgradeKind::MoveAndReloadSpeed => self.move_and_reload,
+        }
+    }
+
+    pub fn max_level(&self, kind: UpgradeKind, cfg: &UpgradesConfig) -> u32 {
+        match kind {
+            UpgradeKind::WeaponDamage => cfg.damage_max_level,
+            UpgradeKind::MaxHp => cfg.max_hp_max_level,
+            UpgradeKind::MoveAndReloadSpeed => cfg.speed_reload_max_level,
+        }
+    }
+
+    pub fn next_cost(&self, kind: UpgradeKind, cfg: &UpgradesConfig) -> u32 {
+        let lvl = self.level(kind);
+        match kind {
+            UpgradeKind::WeaponDamage => cfg.damage_base_cost + lvl * cfg.damage_cost_step,
+            UpgradeKind::MaxHp => cfg.max_hp_base_cost + lvl * cfg.max_hp_cost_step,
+            UpgradeKind::MoveAndReloadSpeed => {
+                cfg.speed_reload_base_cost + lvl * cfg.speed_reload_cost_step
+            }
+        }
+    }
+
+    pub fn increment(&mut self, kind: UpgradeKind) {
+        match kind {
+            UpgradeKind::WeaponDamage => self.weapon_damage += 1,
+            UpgradeKind::MaxHp => self.max_hp += 1,
+            UpgradeKind::MoveAndReloadSpeed => self.move_and_reload += 1,
+        }
+    }
+}
+
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct UpgradeModifiers {
+    pub damage_multiplier: f32,
+    pub bonus_max_hp: f32,
+    pub move_speed_multiplier: f32,
+    pub reload_speed_multiplier: f32,
+}
+
+impl Default for UpgradeModifiers {
+    fn default() -> Self {
+        Self {
+            damage_multiplier: 1.0,
+            bonus_max_hp: 0.0,
+            move_speed_multiplier: 1.0,
+            reload_speed_multiplier: 1.0,
+        }
+    }
+}
+
+impl UpgradeModifiers {
+    pub fn recompute(&mut self, levels: &UpgradeLevels, cfg: &UpgradesConfig) {
+        self.damage_multiplier = 1.0 + levels.weapon_damage as f32 * cfg.damage_bonus_per_level;
+        self.bonus_max_hp = levels.max_hp as f32 * cfg.max_hp_bonus_per_level;
+        let speed_bonus = levels.move_and_reload as f32 * cfg.speed_reload_bonus_per_level;
+        self.move_speed_multiplier = 1.0 + speed_bonus;
+        self.reload_speed_multiplier = 1.0 + speed_bonus;
+    }
+}
