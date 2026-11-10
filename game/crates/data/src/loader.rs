@@ -11,7 +11,7 @@ use crate::config::{
     ArenaConfig, EnemiesConfig, ExtractionConfig, PlayerConfig, UpgradesConfig, WeaponsConfig,
 };
 use crate::events::ConfigHotReloadedMessage;
-use crate::state::GameState;
+use crate::state::{GameState, SimUpdateSet};
 
 #[derive(Debug, Error)]
 pub enum RonLoaderError {
@@ -101,7 +101,8 @@ impl Plugin for DataPlugin {
                     hot_reload_config::<EnemiesConfig>,
                     hot_reload_config::<ExtractionConfig>,
                     hot_reload_config::<UpgradesConfig>,
-                ),
+                )
+                    .before(SimUpdateSet),
             );
     }
 }
@@ -191,11 +192,14 @@ mod tests {
 
     #[test]
     fn all_ron_config_files_parse_cleanly() {
-        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("..")
-            .join("assets")
-            .join("config");
+            .join("..");
+        let base = if root.join("core").join("assets").join("config").exists() {
+            root.join("core").join("assets").join("config")
+        } else {
+            root.join("assets").join("config")
+        };
 
         let arena_str = std::fs::read_to_string(base.join("arena.ron")).unwrap();
         let arena: ArenaConfig = ron::de::from_str(&arena_str).unwrap();

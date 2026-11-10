@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use data::{ArenaConfig, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleDef, ObstacleTag};
+use data::{
+    ArenaConfig, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleDef, ObstacleTag,
+    SimUpdateSet,
+};
 
 #[derive(Component)]
 pub struct ArenaStaticEntity;
@@ -21,7 +24,9 @@ impl Plugin for ArenaPlugin {
         app.add_systems(OnExit(GameState::Loading), spawn_arena_physics)
             .add_systems(
                 Update,
-                hot_reload_arena.run_if(not(in_state(GameState::Loading))),
+                hot_reload_arena
+                    .in_set(SimUpdateSet)
+                    .run_if(not(in_state(GameState::Loading))),
             );
     }
 }

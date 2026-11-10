@@ -39,7 +39,6 @@ game/core/src/
 ### Current Implemented Stage 1 Layout (`Milestones 1.0–1.5`, Multi-Crate Feature Workspace)
 ```
 game/
-├── assets/config/             # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades)
 ├── crates/
 │   ├── data/                  # CoreDataPlugin, DataPlugin (RonAssetLoader + hot reload), GameState, typed Messages, shared tags
 │   ├── sim/
@@ -48,8 +47,12 @@ game/
 │   │   ├── enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
 │   │   └── extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
 │   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (meshes + VisualBody + hit-flash), HudPlugin, MenusPlugin
-└── core/src/main.rs           # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
+└── core/
+    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades)
+    └── src/main.rs            # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
 ```
+
+- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `VisualsPlugin` attach/animate & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `CameraPlugin` & `VisualsPlugin` facing/hit-flash (`before(TransformSystems::Propagate)`).
 
 ### Key Rules to Avoid Refactor Pain Later
 1. **No `Single<..., With<Player>>` inside simulation systems:** Query `With<Survivor>` and link UI/camera via a local `LocalPlayer` marker.

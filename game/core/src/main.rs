@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use bevy::audio::AudioPlugin;
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -17,21 +15,12 @@ use bevy::input::common_conditions::input_toggle_active;
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
-fn resolve_asset_path() -> String {
-    if Path::new("assets").exists() {
-        "assets".to_string()
-    } else {
-        "../assets".to_string()
-    }
-}
-
 fn main() {
     let mut app = App::new();
 
     app.add_plugins(
         DefaultPlugins
             .set(AssetPlugin {
-                file_path: resolve_asset_path(),
                 watch_for_changes_override: Some(true),
                 ..default()
             })

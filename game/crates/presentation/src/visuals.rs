@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use data::{
     ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyKind, GameState,
-    PlayerConfig, SimPostPhysicsSet,
+    PlayerConfig, SimPostPhysicsSet, SimUpdateSet,
 };
 use combat::Projectile;
 use enemies::{Enemy, FacingDirection};
@@ -129,6 +129,8 @@ impl Plugin for VisualsPlugin {
                     animate_scrap_pickups,
                     update_extraction_pad_visual,
                 )
+                    .chain()
+                    .after(SimUpdateSet)
                     .run_if(not(in_state(GameState::Loading))),
             )
             .add_systems(
