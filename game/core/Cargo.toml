@@ -8,7 +8,7 @@ edition = "2024"
 dev = ["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = { version = "0.20.0", default-features = false,  features = ["dynamic_linking", "serialize"] }
+bevy = { version = "0.20.0",  features = ["dynamic_linking", "serialize"] }
 bevy-inspector-egui = { version = "0.38" }
 bevy_rapier3d = { version = "0.37.0" }
 bevy_hanabi = "0.20"
