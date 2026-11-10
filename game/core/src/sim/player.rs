@@ -97,27 +97,36 @@ pub fn spawn_player(mut commands: Commands) {
             Collider::capsule_y(PLAYER_HALF_HEIGHT, PLAYER_RADIUS),
             LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
             Velocity::zero(),
+            Sleeping::disabled(),
+            TransformInterpolation::default(),
             Damping {
                 linear_damping: 0.0,
                 angular_damping: 0.0,
             },
-            Friction::coefficient(0.0),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
             CollisionGroups::new(GROUP_PLAYER, GROUP_WORLD | GROUP_ENEMY),
             Transform::from_xyz(0.0, AIM_HEIGHT, 0.0),
         ),
     ));
 }
 
-/// Updates survivor stamina, planar movement velocity, and cursor-plane aim rotation.
+/// Updates survivor stamina, planar movement velocity, and aim direction (rotation is applied to child visuals).
 pub fn player_movement_and_aim(
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     mut query: Query<
         (
             &ActionIntent,
             &MovementStats,
             &mut Stamina,
             &mut Velocity,
-            &mut Transform,
+            &Transform,
             &mut AimDirection,
         ),
         With<Survivor>,
@@ -125,7 +134,7 @@ pub fn player_movement_and_aim(
 ) {
     let dt = time.delta_secs();
 
-    for (intent, stats, mut stamina, mut velocity, mut transform, mut aim_dir) in &mut query {
+    for (intent, stats, mut stamina, mut velocity, transform, mut aim_dir) in &mut query {
         let move_dir = if intent.move_dir.length_squared() > 1e-4 {
             intent.move_dir.normalize()
         } else {
@@ -165,9 +174,7 @@ pub fn player_movement_and_aim(
                 aim_world.z - transform.translation.z,
             );
             if flat_dir.length_squared() > 1e-4 {
-                let dir = flat_dir.normalize();
-                aim_dir.0 = dir;
-                transform.rotation = Quat::from_rotation_arc(Vec3::NEG_Z, dir);
+                aim_dir.0 = flat_dir.normalize();
             }
         }
     }
@@ -209,10 +216,12 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, StatesPlugin))
             .init_state::<GameState>()
-            .insert_resource(Time::<Fixed>::from_hz(60.0))
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(1.0 / 60.0),
+            ))
             .add_message::<DamageMessage>()
             .add_systems(Startup, spawn_player)
-            .add_systems(FixedUpdate, (player_movement_and_aim, apply_player_damage));
+            .add_systems(Update, (player_movement_and_aim, apply_player_damage));
         app
     }
 
@@ -234,10 +243,9 @@ mod tests {
             intent.aim_world = Some(Vec3::new(10.0, AIM_HEIGHT, 0.0));
         }
 
-        app.world_mut()
-            .resource_mut::<Time<Fixed>>()
-            .advance_by(Duration::from_secs_f32(0.5));
-        app.world_mut().run_schedule(FixedUpdate);
+        for _ in 0..30 {
+            app.update();
+        }
 
         let vel = app.world().get::<Velocity>(player).unwrap();
         let speed = Vec2::new(vel.linear.x, vel.linear.z).length();
@@ -269,7 +277,7 @@ mod tests {
             source: Entity::PLACEHOLDER,
         });
 
-        app.world_mut().run_schedule(FixedUpdate);
+        app.update();
         app.update();
 
         let state = app.world().resource::<State<GameState>>().get();

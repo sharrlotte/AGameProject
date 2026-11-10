@@ -18,9 +18,9 @@ Before building procedural cities, room templates, 7 zombie types, drones, or co
 Every step below produces something runnable and testable right away.
 
 ### Milestone 1.0 — 3D Arena & Camera ✅
-- Swapped `bevy_rapier2d` for `bevy_rapier3d` (`0.37.0`) in `game/core/Cargo.toml`.
-- Spawned a flat `50m × 50m` 3D ground plane, directional + global ambient lighting, perimeter walls, and 8 cover blocks (`sim/arena.rs`, `presentation/visuals.rs`).
-- Set up an angled top-down 3D camera with smooth damped follow and subtle cursor aim-lead offset (`presentation/camera.rs`).
+- Swapped `bevy_rapier2d` for `bevy_rapier3d` (`0.37.0`) in `game/core/Cargo.toml`, using `TimestepMode::Interpolated` (`1/60s` physics with `TransformInterpolation` on actors/projectiles) and `PresentMode::AutoVsync`.
+- Spawned a visual `50m × 50m` 3D ground plane, directional + global ambient lighting, perimeter walls, and 8 cover blocks with zero-friction colliders (`sim/arena.rs`, `presentation/visuals.rs`).
+- Set up a fixed-angle top-down 3D camera with smooth damped translation follow and subtle cursor aim-lead offset (`presentation/camera.rs`).
 - **Done when:** The window opens cleanly at 60 FPS showing a lit 3D arena.
 
 ### Milestone 1.1 — Player Movement & Mouse Aiming ✅

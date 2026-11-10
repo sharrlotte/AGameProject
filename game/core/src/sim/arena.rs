@@ -97,14 +97,11 @@ fn arena_obstacle_defs() -> Vec<ObstacleDef> {
     ]
 }
 
-/// Spawns the static 3D arena ground and obstacle colliders.
+/// Spawns the visual-only ground plane marker and static 3D obstacle colliders.
 pub fn spawn_arena_physics(mut commands: Commands) {
     commands.spawn((
         Name::new("ArenaGround"),
         ArenaGround,
-        RigidBody::Fixed,
-        Collider::cuboid(ARENA_HALF_SIZE, 0.5, ARENA_HALF_SIZE),
-        CollisionGroups::new(GROUP_WORLD, Group::ALL),
         Transform::from_xyz(0.0, -0.5, 0.0),
     ));
 
@@ -118,6 +115,14 @@ pub fn spawn_arena_physics(mut commands: Commands) {
             },
             RigidBody::Fixed,
             Collider::cuboid(def.half_extents.x, def.half_extents.y, def.half_extents.z),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
             CollisionGroups::new(GROUP_WORLD, Group::ALL),
             Transform::from_translation(def.center),
         ));

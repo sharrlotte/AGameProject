@@ -129,7 +129,7 @@ pub struct Projectile {
 /// Processes weapon swapping, reloading, and firing from `ActionIntent`.
 pub fn handle_weapons(
     mut commands: Commands,
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     mut fired_writer: MessageWriter<WeaponFiredMessage>,
     mut shooters: Query<
         (
@@ -244,6 +244,7 @@ pub fn handle_weapons(
                 ActiveEvents::COLLISION_EVENTS,
                 Collider::ball(spec.projectile_radius),
                 Velocity::linear(dir * spec.projectile_speed),
+                TransformInterpolation::default(),
                 LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
                 CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),
                 Transform::from_translation(muzzle_pos),
@@ -306,7 +307,7 @@ pub fn handle_projectile_collisions(
 /// Despawns projectiles whose maximum flight lifetime has elapsed.
 pub fn tick_projectiles(
     mut commands: Commands,
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     mut projectiles: Query<(Entity, &mut Projectile)>,
 ) {
     let dt = time.delta_secs();
@@ -328,18 +329,20 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .insert_resource(Time::<Fixed>::from_hz(60.0))
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(1.0 / 60.0),
+            ))
             .add_message::<WeaponFiredMessage>()
             .add_systems(Startup, spawn_player)
-            .add_systems(FixedUpdate, handle_weapons);
+            .add_systems(Update, handle_weapons);
         app
     }
 
-    fn step_fixed(app: &mut App, secs: f32) {
-        app.world_mut()
-            .resource_mut::<Time<Fixed>>()
-            .advance_by(Duration::from_secs_f32(secs));
-        app.world_mut().run_schedule(FixedUpdate);
+    fn step_sim(app: &mut App, secs: f32) {
+        let steps = (secs / (1.0 / 60.0)).ceil().max(1.0) as usize;
+        for _ in 0..steps {
+            app.update();
+        }
     }
 
     #[test]
@@ -358,7 +361,7 @@ mod tests {
             .get_mut::<ActionIntent>(player)
             .unwrap()
             .fire_held = true;
-        step_fixed(&mut app, 0.05);
+        step_sim(&mut app, 0.05);
 
         let proj_count = app
             .world_mut()
@@ -377,7 +380,7 @@ mod tests {
             intent.fire_held = false;
             intent.reload_just_pressed = true;
         }
-        step_fixed(&mut app, 0.05);
+        step_sim(&mut app, 0.05);
         assert!(
             app.world()
                 .get::<WeaponInventory>(player)
@@ -390,7 +393,7 @@ mod tests {
             let mut intent = app.world_mut().get_mut::<ActionIntent>(player).unwrap();
             intent.swap_slot = Some(1);
         }
-        step_fixed(&mut app, 0.20);
+        step_sim(&mut app, 0.20);
         {
             let inv = app.world().get::<WeaponInventory>(player).unwrap();
             assert_eq!(inv.active_slot, 1);
@@ -402,7 +405,7 @@ mod tests {
             .get_mut::<ActionIntent>(player)
             .unwrap()
             .fire_just_pressed = true;
-        step_fixed(&mut app, 0.05);
+        step_sim(&mut app, 0.05);
 
         let total_projs = app
             .world_mut()
@@ -433,7 +436,7 @@ mod tests {
             .get_mut::<ActionIntent>(player)
             .unwrap()
             .fire_held = true;
-        step_fixed(&mut app, 0.05);
+        step_sim(&mut app, 0.05);
 
         assert!(
             app.world()
@@ -448,7 +451,7 @@ mod tests {
             .get_mut::<ActionIntent>(player)
             .unwrap()
             .fire_held = false;
-        step_fixed(&mut app, ASSAULT_RIFLE_SPEC.reload_secs + 0.1);
+        step_sim(&mut app, ASSAULT_RIFLE_SPEC.reload_secs + 0.1);
 
         let inv = app.world().get::<WeaponInventory>(player).unwrap();
         assert!(inv.reload_timer.is_none());

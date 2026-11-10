@@ -54,6 +54,6 @@ pub fn follow_local_player(
     let target_pos = focus + CAMERA_OFFSET;
     let alpha = 1.0 - (-CAMERA_FOLLOW_SHARPNESS * time.delta_secs()).exp();
 
+    // Translate only (keep startup look_at rotation fixed) so follow lag never tilts/jiggles the view.
     cam_tf.translation = cam_tf.translation.lerp(target_pos, alpha);
-    cam_tf.look_at(focus, Vec3::Y);
 }

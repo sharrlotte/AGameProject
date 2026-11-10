@@ -49,6 +49,14 @@ pub struct WeaponFiredMessage {
     pub direction: Vec3,
 }
 
+/// System set for pre-physics gameplay simulation in `Update`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SimUpdateSet;
+
+/// System set for post-physics collision and damage resolution in `PostUpdate`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SimPostPhysicsSet;
+
 pub struct SimPlugin;
 
 impl Plugin for SimPlugin {
@@ -62,34 +70,36 @@ impl Plugin for SimPlugin {
             .add_systems(OnExit(GameState::GameOver), cleanup_run_state)
             .add_systems(OnEnter(GameState::Playing), player::spawn_player)
             .add_systems(
-                FixedUpdate,
+                Update,
                 (
                     tick_run_timer,
                     player::player_movement_and_aim,
                     combat::handle_weapons,
+                    combat::tick_projectiles,
                     enemies::spawn_enemies,
                     enemies::enemy_chase_and_attack,
                 )
                     .chain()
-                    .before(PhysicsSet::SyncBackend)
+                    .in_set(SimUpdateSet)
                     .run_if(in_state(GameState::Playing)),
             )
             .add_systems(
-                FixedUpdate,
+                PostUpdate,
                 (
-                    combat::tick_projectiles,
                     combat::handle_projectile_collisions,
                     enemies::apply_enemy_damage,
                     player::apply_player_damage,
                 )
                     .chain()
+                    .in_set(SimPostPhysicsSet)
                     .after(PhysicsSet::Writeback)
+                    .before(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Playing)),
             );
     }
 }
 
-fn tick_run_timer(time: Res<Time<Fixed>>, mut stats: ResMut<RunStats>) {
+fn tick_run_timer(time: Res<Time>, mut stats: ResMut<RunStats>) {
     stats.elapsed_secs += time.delta_secs();
 }
 

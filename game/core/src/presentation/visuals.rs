@@ -1,12 +1,17 @@
 use bevy::prelude::*;
 
+use crate::sim::DamageMessage;
 use crate::sim::arena::{ARENA_HALF_SIZE, ArenaGround, ArenaObstacle};
 use crate::sim::combat::Projectile;
-use crate::sim::enemies::{Enemy, EnemyKind};
-use crate::sim::player::{PLAYER_HALF_HEIGHT, PLAYER_RADIUS, Survivor};
-use crate::sim::DamageMessage;
+use crate::sim::enemies::{Enemy, EnemyKind, FacingDirection};
+use crate::sim::player::{AimDirection, PLAYER_HALF_HEIGHT, PLAYER_RADIUS, Survivor};
 
 const HIT_FLASH_DURATION: f32 = 0.09;
+
+/// Child visual mesh entity rotated independently of the parent `RigidBody` so
+/// Rapier `TransformInterpolation` is never reset by aiming or turning.
+#[derive(Component)]
+pub struct VisualBody;
 
 #[derive(Resource)]
 pub struct SharedVisualMaterials {
@@ -79,6 +84,7 @@ impl FromWorld for SharedVisualMaterials {
 pub struct HitFlash {
     pub timer: f32,
     pub base_material: Handle<StandardMaterial>,
+    pub visual_entity: Entity,
 }
 
 /// Spawns directional sunlight and sets global ambient lighting.
@@ -141,16 +147,22 @@ pub fn attach_actor_visuals(
         let barrel_mesh = meshes.add(Cuboid::new(0.14, 0.14, 0.72));
         commands
             .entity(entity)
-            .insert((
-                Mesh3d(body_mesh),
-                MeshMaterial3d(materials.player.clone()),
-            ))
+            .insert(Visibility::default())
             .with_children(|parent| {
-                parent.spawn((
-                    Mesh3d(barrel_mesh),
-                    MeshMaterial3d(materials.player_barrel.clone()),
-                    Transform::from_xyz(0.16, 0.12, -0.45),
-                ));
+                parent
+                    .spawn((
+                        VisualBody,
+                        Mesh3d(body_mesh),
+                        MeshMaterial3d(materials.player.clone()),
+                        Transform::default(),
+                    ))
+                    .with_children(|body| {
+                        body.spawn((
+                            Mesh3d(barrel_mesh),
+                            MeshMaterial3d(materials.player_barrel.clone()),
+                            Transform::from_xyz(0.16, 0.12, -0.45),
+                        ));
+                    });
             });
     }
 
@@ -160,14 +172,25 @@ pub fn attach_actor_visuals(
             EnemyKind::Walker => materials.walker.clone(),
             EnemyKind::Runner => materials.runner.clone(),
         };
-        commands.entity(entity).insert((
-            Mesh3d(body_mesh),
-            MeshMaterial3d(base_mat.clone()),
-            HitFlash {
-                timer: 0.0,
-                base_material: base_mat,
-            },
-        ));
+        let visual_entity = commands
+            .spawn((
+                VisualBody,
+                Mesh3d(body_mesh),
+                MeshMaterial3d(base_mat.clone()),
+                Transform::default(),
+            ))
+            .id();
+        commands
+            .entity(entity)
+            .insert((
+                Visibility::default(),
+                HitFlash {
+                    timer: 0.0,
+                    base_material: base_mat,
+                    visual_entity,
+                },
+            ))
+            .add_child(visual_entity);
     }
 
     for (entity, proj) in &projectiles {
@@ -179,26 +202,61 @@ pub fn attach_actor_visuals(
     }
 }
 
+/// Rotates child `VisualBody` meshes to match survivor aim and enemy chase direction.
+pub fn sync_visual_facing(
+    survivors: Query<(&AimDirection, &Children), With<Survivor>>,
+    enemies: Query<(&FacingDirection, &Children), With<Enemy>>,
+    mut visual_bodies: Query<&mut Transform, With<VisualBody>>,
+) {
+    for (aim, children) in &survivors {
+        apply_facing_to_children(aim.0, children, &mut visual_bodies);
+    }
+    for (facing, children) in &enemies {
+        apply_facing_to_children(facing.0, children, &mut visual_bodies);
+    }
+}
+
+fn apply_facing_to_children(
+    dir: Vec3,
+    children: &Children,
+    visual_bodies: &mut Query<&mut Transform, With<VisualBody>>,
+) {
+    if dir.length_squared() <= 1e-4 {
+        return;
+    }
+    let rot = Quat::from_rotation_arc(Vec3::NEG_Z, dir.normalize());
+    for child in children.iter() {
+        if let Ok(mut tf) = visual_bodies.get_mut(child) {
+            tf.rotation = rot;
+        }
+    }
+}
+
 /// Triggers a brief white hit-flash on struck zombies and restores their base material.
 pub fn update_hit_flash(
     time: Res<Time>,
     materials: Res<SharedVisualMaterials>,
     mut damage_reader: MessageReader<DamageMessage>,
-    mut flashes: Query<(&mut HitFlash, &mut MeshMaterial3d<StandardMaterial>)>,
+    mut flashes: Query<&mut HitFlash>,
+    mut mesh_materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
 ) {
     for msg in damage_reader.read() {
-        if let Ok((mut flash, mut mat)) = flashes.get_mut(msg.target) {
+        if let Ok(mut flash) = flashes.get_mut(msg.target) {
             flash.timer = HIT_FLASH_DURATION;
-            mat.0 = materials.hit_flash.clone();
+            if let Ok(mut mat) = mesh_materials.get_mut(flash.visual_entity) {
+                mat.0 = materials.hit_flash.clone();
+            }
         }
     }
 
     let dt = time.delta_secs();
-    for (mut flash, mut mat) in &mut flashes {
+    for mut flash in &mut flashes {
         if flash.timer > 0.0 {
             flash.timer = (flash.timer - dt).max(0.0);
             if flash.timer <= 0.0 {
-                mat.0 = flash.base_material.clone();
+                if let Ok(mut mat) = mesh_materials.get_mut(flash.visual_entity) {
+                    mat.0 = flash.base_material.clone();
+                }
             }
         }
     }

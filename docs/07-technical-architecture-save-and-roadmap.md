@@ -50,8 +50,8 @@ game/core/src/
 └── presentation/
     ├── mod.rs                 # PresentationPlugin
     ├── input.rs               # Keyboard/mouse -> ActionIntent + cursor-plane raycast
-    ├── camera.rs              # Top-down angled camera with smooth follow + cursor aim-lead
-    ├── visuals.rs             # Lighting, shared materials, 3D meshes, zombie hit-flash
+    ├── camera.rs              # Top-down angled camera (fixed orientation, smooth follow + cursor aim-lead)
+    ├── visuals.rs             # Lighting, shared materials, child VisualBody facing, zombie hit-flash
     └── ui.rs                  # Temporary corner readout + Game Over overlay with Restart
 ```
 

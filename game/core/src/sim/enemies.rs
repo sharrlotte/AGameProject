@@ -52,6 +52,9 @@ pub const RUNNER_ARCHETYPE: EnemyArchetype = EnemyArchetype {
     mass: 0.65,
 };
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct FacingDirection(pub Vec3);
+
 #[derive(Component, Debug, Clone)]
 pub struct Enemy {
     pub kind: EnemyKind,
@@ -123,10 +126,57 @@ fn pick_edge_spawn_pos(survivors: &[Vec3]) -> Vec3 {
     Vec3::new(edge_limit, AIM_HEIGHT, -edge_limit)
 }
 
+/// Spawns a single zombie of the given archetype at `spawn_pos`.
+pub fn spawn_enemy_entity(
+    commands: &mut Commands,
+    arch: EnemyArchetype,
+    spawn_pos: Vec3,
+) -> Entity {
+    commands
+        .spawn((
+            (
+                Name::new(match arch.kind {
+                    EnemyKind::Walker => "Walker",
+                    EnemyKind::Runner => "Runner",
+                }),
+                RunEntity,
+                Enemy::from_archetype(arch),
+                FacingDirection(Vec3::NEG_Z),
+                Health::new(arch.max_hp),
+            ),
+            (
+                RigidBody::Dynamic,
+                Collider::capsule_y(arch.half_height, arch.radius),
+                LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
+                Velocity::zero(),
+                Sleeping::disabled(),
+                TransformInterpolation::default(),
+                Damping {
+                    linear_damping: 0.0,
+                    angular_damping: 0.0,
+                },
+                Friction {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                },
+                Restitution {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                },
+                CollisionGroups::new(
+                    GROUP_ENEMY,
+                    GROUP_WORLD | GROUP_PLAYER | GROUP_ENEMY | GROUP_PROJECTILE,
+                ),
+                Transform::from_translation(spawn_pos),
+            ),
+        ))
+        .id()
+}
+
 /// Spawns Walkers and Runners periodically along the edges of the arena.
 pub fn spawn_enemies(
     mut commands: Commands,
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     mut spawner: ResMut<EnemySpawner>,
     existing_enemies: Query<(), With<Enemy>>,
     survivors: Query<&Transform, With<Survivor>>,
@@ -152,45 +202,25 @@ pub fn spawn_enemies(
         RUNNER_ARCHETYPE
     };
     let spawn_pos = pick_edge_spawn_pos(&survivor_positions);
-
-    commands.spawn((
-        Name::new(match arch.kind {
-            EnemyKind::Walker => "Walker",
-            EnemyKind::Runner => "Runner",
-        }),
-        RunEntity,
-        Enemy::from_archetype(arch),
-        Health::new(arch.max_hp),
-        RigidBody::Dynamic,
-        Collider::capsule_y(arch.half_height, arch.radius),
-        LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
-        Velocity::zero(),
-        Damping {
-            linear_damping: 0.0,
-            angular_damping: 0.0,
-        },
-        Friction::coefficient(0.0),
-        CollisionGroups::new(
-            GROUP_ENEMY,
-            GROUP_WORLD | GROUP_PLAYER | GROUP_ENEMY | GROUP_PROJECTILE,
-        ),
-        Transform::from_translation(spawn_pos),
-    ));
+    spawn_enemy_entity(&mut commands, arch, spawn_pos);
 }
 
 /// Moves zombies directly toward the nearest survivor and applies contact damage on cooldown.
 pub fn enemy_chase_and_attack(
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     mut damage_writer: MessageWriter<DamageMessage>,
     survivors: Query<(Entity, &Transform), With<Survivor>>,
-    mut enemies: Query<(Entity, &mut Enemy, &mut Velocity, &mut Transform), Without<Survivor>>,
+    mut enemies: Query<
+        (Entity, &mut Enemy, &mut Velocity, &Transform, &mut FacingDirection),
+        Without<Survivor>,
+    >,
 ) {
     let survivor_list: Vec<(Entity, Vec3)> = survivors
         .iter()
         .map(|(e, t)| (e, t.translation))
         .collect();
     if survivor_list.is_empty() {
-        for (_, _, mut vel, _) in &mut enemies {
+        for (_, _, mut vel, _, _) in &mut enemies {
             vel.linear = Vec3::ZERO;
         }
         return;
@@ -199,7 +229,7 @@ pub fn enemy_chase_and_attack(
     let dt = time.delta_secs();
     let decay = (1.0 - KNOCKBACK_DECAY_RATE * dt).max(0.0);
 
-    for (enemy_entity, mut enemy, mut vel, mut transform) in &mut enemies {
+    for (enemy_entity, mut enemy, mut vel, transform, mut facing) in &mut enemies {
         enemy.attack_timer = (enemy.attack_timer - dt).max(0.0);
         enemy.knockback_vel *= decay;
 
@@ -222,7 +252,7 @@ pub fn enemy_chase_and_attack(
 
         vel.linear = chase_dir * enemy.move_speed + enemy.knockback_vel;
         if chase_dir.length_squared() > 1e-4 {
-            transform.rotation = Quat::from_rotation_arc(Vec3::NEG_Z, chase_dir);
+            facing.0 = chase_dir;
         }
 
         let reach = PLAYER_RADIUS + enemy.radius + CONTACT_REACH_BUFFER;
@@ -318,9 +348,11 @@ mod tests {
     fn enemy_chases_and_deals_contact_damage_on_cooldown() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .insert_resource(Time::<Fixed>::from_hz(60.0))
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(1.0 / 60.0),
+            ))
             .add_message::<DamageMessage>()
-            .add_systems(FixedUpdate, enemy_chase_and_attack);
+            .add_systems(Update, enemy_chase_and_attack);
 
         let survivor = app
             .world_mut()
@@ -330,15 +362,13 @@ mod tests {
             .world_mut()
             .spawn((
                 Enemy::from_archetype(WALKER_ARCHETYPE),
+                FacingDirection(Vec3::NEG_Z),
                 Velocity::zero(),
                 Transform::from_xyz(0.0, AIM_HEIGHT, 0.8),
             ))
             .id();
 
-        app.world_mut()
-            .resource_mut::<Time<Fixed>>()
-            .advance_by(Duration::from_secs_f32(1.0 / 60.0));
-        app.world_mut().run_schedule(FixedUpdate);
+        app.update();
 
         let vel = app.world().get::<Velocity>(zombie).unwrap().linear;
         assert!(vel.z < -1.0, "expected chase velocity toward -Z, got {vel:?}");
@@ -349,5 +379,71 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].target, survivor);
         assert_eq!(hits[0].amount, WALKER_ARCHETYPE.attack_damage);
+    }
+
+    #[test]
+    fn walker_and_runner_move_with_rapier_when_player_stationary() {
+        use bevy::ecs::system::RunSystemOnce;
+
+        use crate::sim::arena::spawn_arena_physics;
+        use crate::sim::player::spawn_player;
+
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            bevy::asset::AssetPlugin::default(),
+            bevy::mesh::MeshPlugin,
+            bevy::world_serialization::WorldSerializationPlugin,
+            bevy::transform::TransformPlugin,
+            bevy::state::app::StatesPlugin,
+            RapierPhysicsPlugin::<NoUserData>::default(),
+        ))
+        .insert_resource(TimestepMode::Interpolated {
+            dt: 1.0 / 60.0,
+            time_scale: 1.0,
+            substeps: 1,
+        })
+        .init_state::<crate::GameState>()
+        .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            Duration::from_secs_f32(1.0 / 60.0),
+        ))
+        .add_message::<DamageMessage>()
+        .add_systems(Startup, (spawn_arena_physics, spawn_player))
+        .add_systems(
+            Update,
+            (
+                crate::sim::player::player_movement_and_aim,
+                enemy_chase_and_attack,
+            )
+                .chain(),
+        );
+
+        app.update();
+
+        let (walker, runner) = app
+            .world_mut()
+            .run_system_once(|mut commands: Commands| {
+                let w = spawn_enemy_entity(
+                    &mut commands,
+                    WALKER_ARCHETYPE,
+                    Vec3::new(10.0, AIM_HEIGHT, 0.0),
+                );
+                let r = spawn_enemy_entity(
+                    &mut commands,
+                    RUNNER_ARCHETYPE,
+                    Vec3::new(-10.0, AIM_HEIGHT, 0.0),
+                );
+                (w, r)
+            })
+            .expect("spawn test enemies");
+
+        for _ in 0..60 {
+            app.update();
+        }
+
+        let walker_pos = app.world().get::<Transform>(walker).unwrap().translation;
+        let runner_pos = app.world().get::<Transform>(runner).unwrap().translation;
+        assert!(walker_pos.x < 7.0, "walker failed to move: {walker_pos:?}");
+        assert!(runner_pos.x > -4.0, "runner failed to move: {runner_pos:?}");
     }
 }

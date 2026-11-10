@@ -27,19 +27,23 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "AGameProject".to_string(),
-                    present_mode: PresentMode::AutoNoVsync,
+                    present_mode: PresentMode::AutoVsync,
                     ..Default::default()
                 }),
                 ..Default::default()
             })
             .set(AudioPlugin::default()),
     )
-    .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().in_fixed_schedule())
+    .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+    .insert_resource(TimestepMode::Interpolated {
+        dt: 1.0 / 60.0,
+        time_scale: 1.0,
+        substeps: 1,
+    })
     .add_plugins((
         FrameTimeDiagnosticsPlugin::new(100),
         EntityCountDiagnosticsPlugin::new(100),
     ))
-    .insert_resource(Time::<Fixed>::from_hz(60.0))
     .init_state::<GameState>()
     .add_plugins((sim::SimPlugin, presentation::PresentationPlugin))
     .add_systems(Startup, configure_rapier);

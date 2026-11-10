@@ -1,6 +1,8 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::PhysicsSet;
 
 use crate::GameState;
+use crate::sim::{SimPostPhysicsSet, SimUpdateSet};
 
 pub mod camera;
 pub mod input;
@@ -22,16 +24,24 @@ impl Plugin for PresentationPlugin {
                 (
                     visuals::attach_arena_visuals,
                     visuals::attach_actor_visuals,
-                    visuals::update_hit_flash,
                 ),
             )
             .add_systems(
                 Update,
                 (
-                    input::gather_local_input,
-                    camera::follow_local_player,
-                    ui::update_run_hud,
+                    input::gather_local_input.before(SimUpdateSet),
+                    ui::update_run_hud.after(SimUpdateSet),
                 )
+                    .run_if(in_state(GameState::Playing)),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    camera::follow_local_player.after(PhysicsSet::Writeback),
+                    visuals::sync_visual_facing.after(SimPostPhysicsSet),
+                    visuals::update_hit_flash.after(SimPostPhysicsSet),
+                )
+                    .before(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Playing)),
             )
             .add_systems(
