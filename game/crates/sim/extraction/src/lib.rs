@@ -54,7 +54,8 @@ pub struct RunFlowPlugin;
 impl Plugin for RunFlowPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), reset_run_stats)
-            .add_systems(OnExit(GameState::Playing), cleanup_run_entities)
+            .add_systems(OnExit(GameState::GameOver), cleanup_run_entities)
+            .add_systems(OnEnter(GameState::Upgrades), cleanup_run_entities)
             .add_systems(
                 Update,
                 tick_run_timer

@@ -53,6 +53,11 @@ Every step below produces something runnable and testable right away.
 - Replaced temporary debug readout with a visual HUD (`presentation::HudPlugin`): **HP bar** + **Stamina bar**, **Weapon & Ammo / Reload progress bar**, **Scrap counter** (`run + banked`), **Run Timer + Kills**, and **Extraction Hold Progress bar**.
 - **Done when:** Anyone can play the basic game and immediately understand what's happening.
 
+### Player 3D Model & Locomotion Animations ✅
+- Replaced the placeholder player capsule + barrel with the rigged low-poly glTF character (`game/core/assets/models/player.glb`, `Man by Quaternius`) driven by `presentation::PlayerVisualsPlugin` and hot-reloadable `game/core/assets/config/visuals.ron` (`VisualsConfig`).
+- Wired Bevy `AnimationGraph` + `AnimationTransitions` for `Man_Idle`, `Man_Walk` (speed-scaled), `Man_Run` (speed-scaled for Sprint), and `Man_Death` (non-looping).
+- Updated `sync_visual_facing` to face `AimDirection` while idle/walking and face movement direction while sprinting, and deferred `cleanup_run_entities` in `RunFlowPlugin` until leaving `GameState::GameOver` (or entering `Upgrades`) with survivor/enemy velocities frozen so `Man_Death` plays behind the Game Over overlay.
+
 ---
 
 ## 3. Basic Playable Checklist (Summary)

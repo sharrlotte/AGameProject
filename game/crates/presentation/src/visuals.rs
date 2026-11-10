@@ -1,12 +1,15 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::Velocity;
+use combat::Projectile;
 use data::{
     ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyKind, GameState,
-    PlayerConfig, SimPostPhysicsSet, SimUpdateSet,
+    SimPostPhysicsSet, SimUpdateSet, VisualsConfig,
 };
-use combat::Projectile;
 use enemies::{Enemy, FacingDirection};
 use extraction::{ExtractionZone, ScrapPickup};
-use world::{AimDirection, ArenaGround, ArenaObstacle, Survivor};
+use world::{AimDirection, ArenaGround, ArenaObstacle, Stamina, Survivor};
+
+use crate::player_visuals::PlayerVisualRoot;
 
 #[derive(Component)]
 pub struct VisualBody;
@@ -29,8 +32,6 @@ pub struct SharedVisualMaterials {
     pub ground: Handle<StandardMaterial>,
     pub wall: Handle<StandardMaterial>,
     pub cover: Handle<StandardMaterial>,
-    pub player: Handle<StandardMaterial>,
-    pub player_barrel: Handle<StandardMaterial>,
     pub walker: Handle<StandardMaterial>,
     pub runner: Handle<StandardMaterial>,
     pub projectile: Handle<StandardMaterial>,
@@ -57,17 +58,6 @@ impl FromWorld for SharedVisualMaterials {
             cover: materials.add(StandardMaterial {
                 base_color: Color::srgb(0.55, 0.45, 0.30),
                 perceptual_roughness: 0.75,
-                ..default()
-            }),
-            player: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.20, 0.62, 0.95),
-                perceptual_roughness: 0.45,
-                ..default()
-            }),
-            player_barrel: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.12, 0.14, 0.18),
-                metallic: 0.6,
-                perceptual_roughness: 0.35,
                 ..default()
             }),
             walker: materials.add(StandardMaterial {
@@ -211,7 +201,6 @@ fn attach_arena_visuals(
 fn attach_actor_visuals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    player_cfg: Res<PlayerConfig>,
     materials: Res<SharedVisualMaterials>,
     survivors: Query<Entity, Added<Survivor>>,
     enemies: Query<(Entity, &Enemy), Added<Enemy>>,
@@ -219,29 +208,17 @@ fn attach_actor_visuals(
     pickups: Query<(Entity, &ScrapPickup), Added<ScrapPickup>>,
 ) {
     for entity in &survivors {
-        let body_mesh = meshes.add(Capsule3d::new(
-            player_cfg.radius,
-            player_cfg.half_height * 2.0,
-        ));
-        let barrel_mesh = meshes.add(Cuboid::new(0.14, 0.14, 0.72));
         commands
             .entity(entity)
             .insert(Visibility::default())
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        VisualBody,
-                        Mesh3d(body_mesh),
-                        MeshMaterial3d(materials.player.clone()),
-                        Transform::default(),
-                    ))
-                    .with_children(|body| {
-                        body.spawn((
-                            Mesh3d(barrel_mesh),
-                            MeshMaterial3d(materials.player_barrel.clone()),
-                            Transform::from_xyz(0.16, 0.12, -0.45),
-                        ));
-                    });
+                parent.spawn((
+                    Name::new("PlayerVisualRoot"),
+                    VisualBody,
+                    PlayerVisualRoot,
+                    Transform::default(),
+                    Visibility::default(),
+                ));
             });
     }
 
@@ -328,12 +305,20 @@ fn animate_scrap_pickups(
 }
 
 fn sync_visual_facing(
-    survivors: Query<(&AimDirection, &Children), With<Survivor>>,
+    visuals_cfg: Res<VisualsConfig>,
+    survivors: Query<(&AimDirection, &Stamina, &Velocity, &Children), With<Survivor>>,
     enemies: Query<(&FacingDirection, &Children), With<Enemy>>,
     mut visual_bodies: Query<&mut Transform, With<VisualBody>>,
 ) {
-    for (aim, children) in &survivors {
-        apply_facing_to_children(aim.0, children, &mut visual_bodies);
+    let threshold_sq = visuals_cfg.player.move_speed_threshold.powi(2);
+    for (aim, stamina, vel, children) in &survivors {
+        let horiz_vel = Vec3::new(vel.linear.x, 0.0, vel.linear.z);
+        let facing = if stamina.is_sprinting && horiz_vel.length_squared() > threshold_sq {
+            horiz_vel
+        } else {
+            aim.0
+        };
+        apply_facing_to_children(facing, children, &mut visual_bodies);
     }
     for (facing, children) in &enemies {
         apply_facing_to_children(facing.0, children, &mut visual_bodies);

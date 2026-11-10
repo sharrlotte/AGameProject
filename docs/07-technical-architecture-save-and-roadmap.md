@@ -46,9 +46,10 @@ game/
 │   │   ├── combat/            # CombatPlugin (Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
 │   │   ├── enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
 │   │   └── extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
-│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (meshes + VisualBody + hit-flash), HudPlugin, MenusPlugin
+│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerVisualsPlugin (glTF + anim graph), HudPlugin, MenusPlugin
 └── core/
-    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades)
+    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals)
+    ├── assets/models/         # 3D glTF/GLB character assets (player.glb)
     └── src/main.rs            # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
 ```
 

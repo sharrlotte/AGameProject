@@ -2,6 +2,7 @@
 
 - YOU ARE NOT ALLOW TO DECIDE ANYTHING, EVEYTHING MUST BE APPROVED BY ME BEFORE IMPL,
 - IF WE MAKE ANY CHANGES, MAKE SURE IT IS RECORDED INSIDE /docs
+- IF YOU SEE ANY CODE THAT VIOLATING ANY RULES BELLOW AND HAVE NO COMMENT TO PREVENT REFACTOR THEN ASK USER FOR PERMISSION TO REWIRTE  
 
 # PROJECT STRUCTURE
 
@@ -18,6 +19,7 @@
 - Make sure code is optimized for perfermance
 - Dev only code should not exists in Production build
 - Respect SOLID principle, when a file > 500 lines then extract
+- Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 
 # Files
 

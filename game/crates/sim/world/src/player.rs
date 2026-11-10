@@ -59,6 +59,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), spawn_player)
+            .add_systems(OnEnter(GameState::GameOver), freeze_survivor_on_game_over)
             .add_systems(
                 Update,
                 (sync_player_hot_reload, player_movement_and_aim)
@@ -229,6 +230,16 @@ pub fn apply_player_damage(
         if health.current <= 0.0 {
             died_writer.write(PlayerDiedMessage { survivor: entity });
         }
+    }
+}
+
+fn freeze_survivor_on_game_over(
+    mut survivors: Query<(&mut Velocity, &mut Stamina), With<Survivor>>,
+) {
+    for (mut vel, mut stamina) in &mut survivors {
+        vel.linear = Vec3::ZERO;
+        vel.angular = Vec3::ZERO;
+        stamina.is_sprinting = false;
     }
 }
 
