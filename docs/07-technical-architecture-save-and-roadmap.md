@@ -1,7 +1,7 @@
 # Technical Architecture, Save System & Roadmap
 
-## 1. Tech Stack & Crate Plan (Bevy 0.17.3)
-Currently `game/core/Cargo.toml` includes `bevy 0.17.3`, `bevy_rapier2d 0.32.0`, `bevy_hanabi 0.17`, `bevy-inspector-egui 0.35`, `serde`, `serde_json`, `rand 0.9`, `uuid`, and `directories`.
+## 1. Tech Stack & Crate Plan (Bevy 0.20)
+Currently `game/core/Cargo.toml` includes `bevy 0.20.0`, `bevy_rapier3d 0.37.0`, `bevy_hanabi 0.20`, `bevy-inspector-egui 0.38`, `serde`, `serde_json`, `rand 0.10`, `uuid`, and `directories`.
 
 | System | Crate / Solution | Notes |
 | :--- | :--- | :--- |
@@ -34,6 +34,25 @@ game/core/src/
 ├── persistence/             # Save/load manager (base progression + exit-only expedition snapshot)
 ├── presentation/            # Pure client-side (Update): 3D camera, roof cutaways, VFX, audio, HUD/UI
 └── vehicles/                # [Post-Core] Drivable vehicle physics & mounted interactions
+```
+
+### Current Implemented Stage 1 Layout (`Milestones 1.0–1.3`)
+```
+game/core/src/
+├── main.rs                    # App bootstrap, GameState (Playing, GameOver), Rapier 3D config
+├── sim/
+│   ├── mod.rs                 # SimPlugin, CollisionGroups, RunEntity, RunStats, typed Messages
+│   ├── arena.rs               # 50m×50m arena ground, perimeter walls, cover blocks (physics colliders)
+│   ├── input_intent.rs        # ActionIntent component
+│   ├── player.rs              # Survivor/LocalPlayer, movement, stamina, aim rotation, HP & GameOver check
+│   ├── combat.rs              # Assault Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, collisions
+│   └── enemies.rs             # Walker & Runner archetypes, edge spawner, chase + contact dmg, knockback
+└── presentation/
+    ├── mod.rs                 # PresentationPlugin
+    ├── input.rs               # Keyboard/mouse -> ActionIntent + cursor-plane raycast
+    ├── camera.rs              # Top-down angled camera with smooth follow + cursor aim-lead
+    ├── visuals.rs             # Lighting, shared materials, 3D meshes, zombie hit-flash
+    └── ui.rs                  # Temporary corner readout + Game Over overlay with Restart
 ```
 
 ### Key Rules to Avoid Refactor Pain Later

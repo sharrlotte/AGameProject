@@ -8,19 +8,10 @@ members = [
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1
-# Keep file/line info for backtraces while shrinking PDBs and speeding up linking.
-debug = "line-tables-only"
 
 # Optimize dependencies in dev for smooth Bevy/Rapier runtime, and skip their debuginfo for faster builds/links.
 [profile.dev.package."*"]
 opt-level = 3
-debug = false
-
-# Skip debuginfo and heavy optimization for proc-macros and build scripts to speed up clean builds.
-[profile.dev.build-override]
-opt-level = 0
-debug = false
-
 
 [profile.release]
 # Compile the entire crate as one unit.

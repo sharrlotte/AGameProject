@@ -17,29 +17,29 @@ Before building procedural cities, room templates, 7 zombie types, drones, or co
 ## 2. Stage 1: Basic Playable Game (Build Order)
 Every step below produces something runnable and testable right away.
 
-### Milestone 1.0 — 3D Arena & Camera
-- Swap `bevy_rapier2d` for `bevy_rapier3d` in `game/core/Cargo.toml`.
-- Spawn a flat 3D ground plane, basic directional light, and a few colored 3D box walls/cover blocks.
-- Set up an angled top-down 3D camera that smoothly follows the player.
+### Milestone 1.0 — 3D Arena & Camera ✅
+- Swapped `bevy_rapier2d` for `bevy_rapier3d` (`0.37.0`) in `game/core/Cargo.toml`.
+- Spawned a flat `50m × 50m` 3D ground plane, directional + global ambient lighting, perimeter walls, and 8 cover blocks (`sim/arena.rs`, `presentation/visuals.rs`).
+- Set up an angled top-down 3D camera with smooth damped follow and subtle cursor aim-lead offset (`presentation/camera.rs`).
 - **Done when:** The window opens cleanly at 60 FPS showing a lit 3D arena.
 
-### Milestone 1.1 — Player Movement & Mouse Aiming
-- Spawn a simple 3D player capsule/box with `bevy_rapier3d` collider.
-- Add `WASD` 8-directional movement + simple `Shift` sprint (with basic stamina).
-- Raycast the mouse cursor onto the player's horizontal plane and rotate the player toward the cursor.
+### Milestone 1.1 — Player Movement & Mouse Aiming ✅
+- Spawned a 3D `Survivor` / `LocalPlayer` capsule with `bevy_rapier3d` dynamic `RigidBody` (locked Y translation and rotations) (`sim/player.rs`).
+- Added `WASD` 8-directional movement + `Shift` sprint with `100` Stamina (`28/s` drain, `22/s` regen, `1.0s` exhaustion delay), decoupled via `ActionIntent` (`sim/input_intent.rs`, `presentation/input.rs`).
+- Raycasted the mouse cursor onto the player's horizontal aim plane (`Y = 0.9`) and rotated the survivor toward the cursor.
 - **Done when:** Moving and aiming independently feels crisp and responsive.
 
-### Milestone 1.2 — Simple Shooting & Reloading
-- Left-click fires simple 3D projectile spheres/capsules (or fast raycasts) in the aimed direction with slight random spread.
-- Add **2 simple guns** (`1`: **Assault Rifle** full-auto, `2`: **Shotgun** multi-pellet burst).
-- Add magazine ammo count + `R` reload timer.
+### Milestone 1.2 — Simple Shooting & Reloading ✅
+- Left-click fires physical 3D `Sensor` + `Ccd::enabled()` sphere projectiles in the aimed direction with slight random spread (multiplied while sprinting) (`sim/combat.rs`).
+- Added **2 weapons** (`1`: **Assault Rifle** full-auto `600 RPM`, `24` dmg, `30` mag, `1.8s` reload; `2`: **Shotgun** semi-auto `0.75s`, `8` pellets × `14` dmg, `8` mag, `2.2s` reload).
+- Added magazine ammo tracking, `R` manual reload, auto-reload on empty trigger pull, and reload cancellation when swapping (`1`/`2`).
 - **Done when:** You can shoot, swap between 2 distinct-feeling guns, and reload.
 
-### Milestone 1.3 — Basic Zombies & Combat Feedback
-- Spawn **Walkers** (steady chase) and **Runners** (fast, low HP) from the edges of the arena.
-- Zombies chase the player directly and deal contact damage on a short attack cooldown.
-- Shots deal damage, apply simple knockback impulse, flash the enemy mesh white briefly, and despawn at 0 HP.
-- Add Player HP + simple Game Over screen with a **Restart** button.
+### Milestone 1.3 — Basic Zombies & Combat Feedback ✅
+- Spawned **Walkers** (`4.2 m/s`, `75` HP, `15` dmg) and **Runners** (`7.8 m/s`, `35` HP, `10` dmg) along the arena edges on a `1.5s` interval (cap `40` active) (`sim/enemies.rs`).
+- Zombies chase the nearest `Survivor` directly and deal contact damage on per-zombie attack cooldowns.
+- Shots deal damage via `DamageMessage`, apply decaying knockback velocity, flash struck zombie meshes white (`0.09s`, `presentation/visuals.rs`), and despawn at `0` HP.
+- Added `100` Player HP, temporary corner status text (HP, Stamina, Gun/Ammo/Reload, Kills, Time), and a **Game Over** overlay with **Restart** button + `Enter`/`Space` shortcut (`presentation/ui.rs`).
 - **Done when:** Fighting waves of Walkers and Runners is genuinely fun.
 
 ### Milestone 1.4 — Basic Extraction Loop & Minimal Upgrades
