@@ -1,9 +1,8 @@
-use bevy::audio::{AudioPlugin};
+use bevy::audio::AudioPlugin;
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_rapier2d::prelude::*;
-use bevy_rapier2d::rapier::prelude::IntegrationParameters;
 
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
@@ -29,17 +28,6 @@ fn main() {
     )
     .add_plugins(
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0)
-            .with_custom_initialization(
-                RapierContextInitialization::InitializeDefaultRapierContext {
-                    integration_parameters: IntegrationParameters { ..default() },
-                    rapier_configuration: RapierConfiguration {
-                        gravity: Vec2::ZERO,
-                        physics_pipeline_active: true,
-                        scaled_shape_subdivision: 10,
-                        force_update_from_transform_changes: false,
-                    },
-                },
-            )
             .in_fixed_schedule(),
     )
     // .add_plugins(RapierDebugRenderPlugin::default())
@@ -47,7 +35,8 @@ fn main() {
         FrameTimeDiagnosticsPlugin::new(100),
         EntityCountDiagnosticsPlugin::new(100),
     ))
-    .insert_resource(Time::<Fixed>::from_hz(60.0));
+    .insert_resource(Time::<Fixed>::from_hz(60.0))
+    .add_systems(Startup, configure_rapier);
 
     #[cfg(debug_assertions)]
     {
@@ -57,4 +46,13 @@ fn main() {
     }
 
     app.run();
+}
+
+fn configure_rapier(mut query: Query<&mut RapierConfiguration, With<DefaultRapierContext>>) {
+    for mut config in &mut query {
+        config.gravity = Vec2::ZERO;
+        config.physics_pipeline_active = true;
+        config.scaled_shape_subdivision = 10;
+        config.force_update_from_transform_changes = false;
+    }
 }

@@ -8,12 +8,12 @@ edition = "2024"
 dev = ["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = { version = "0.17.3", features = ["dynamic_linking", "serialize"] }
-bevy-inspector-egui = { version = "0.35" }
-bevy_rapier2d = { version = "0.32.0" }
-bevy_hanabi = "0.17"
+bevy = { version = "0.20.0", features = ["dynamic_linking", "serialize"] }
+bevy-inspector-egui = { version = "0.38" }
+bevy_rapier2d = { version = "0.37.0" }
+bevy_hanabi = "0.20"
 directories = "6.0.0"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-rand = "0.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+rand = "0.10"
 uuid = { version = "1", features = ["v7"] }
