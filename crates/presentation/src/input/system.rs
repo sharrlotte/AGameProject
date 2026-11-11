@@ -114,6 +114,8 @@ fn compute_cursor_aim_world(
 
 #[cfg(test)]
 mod tests {
+    use bevy::input::touch::TouchPhase;
+
     use super::*;
 
     fn setup_input_test_app() -> App {
@@ -142,6 +144,7 @@ mod tests {
             x: 0.0,
             y: 1.0,
             window: Entity::PLACEHOLDER,
+            phase: TouchPhase::Moved,
         });
         app.update();
 
@@ -161,6 +164,7 @@ mod tests {
             x: 0.0,
             y: 1.5,
             window: Entity::PLACEHOLDER,
+            phase: TouchPhase::Moved,
         });
         app.update();
 
