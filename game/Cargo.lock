@@ -441,6 +441,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "automation"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "common",
+ "config",
+ "message",
+]
+
+[[package]]
+name = "base"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "common",
+ "config",
+ "message",
+ "serde",
+]
+
+[[package]]
 name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2418,6 +2439,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_rapier3d",
+ "serde",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2425,6 +2455,17 @@ checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
  "portable-atomic",
+]
+
+[[package]]
+name = "config"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "common",
+ "ron",
+ "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2486,21 +2527,7 @@ dependencies = [
 name = "core"
 version = "0.1.0"
 dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bevy_hanabi",
- "bevy_rapier3d",
- "combat",
- "data",
- "directories",
- "enemies",
- "extraction",
- "presentation",
- "rand",
- "serde",
- "serde_json",
- "uuid",
- "world",
+ "game",
 ]
 
 [[package]]
@@ -2670,6 +2697,9 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
+ "common",
+ "config",
+ "message",
  "ron",
  "serde",
  "thiserror 2.0.21",
@@ -3248,6 +3278,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
 dependencies = [
  "thread_local",
+]
+
+[[package]]
+name = "game"
+version = "0.1.0"
+dependencies = [
+ "automation",
+ "base",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_hanabi",
+ "bevy_rapier3d",
+ "combat",
+ "common",
+ "config",
+ "data",
+ "directories",
+ "enemies",
+ "extraction",
+ "message",
+ "persistence",
+ "presentation",
+ "rand",
+ "serde",
+ "serde_json",
+ "uuid",
+ "world",
 ]
 
 [[package]]
@@ -4190,6 +4247,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "message"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "common",
+ "serde",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5084,6 +5150,19 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "persistence"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "common",
+ "directories",
+ "message",
+ "serde",
+ "serde_json",
+ "uuid",
+]
 
 [[package]]
 name = "petgraph"

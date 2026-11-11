@@ -38,7 +38,7 @@ impl Default for UpgradesConfig {
 }
 
 impl RonConfig for UpgradesConfig {
-    const PATH: &'static str = "config/upgrades.ron";
+    const PATH: &'static str = "config/extraction/upgrades.ron";
 }
 
 /// Extension methods deriving upgrade caps and costs from [`UpgradesConfig`].

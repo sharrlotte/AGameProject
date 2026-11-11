@@ -43,45 +43,45 @@
 
 ## 7. Foundation Layer Tripartite Split
 
-- [ ] 7.1 Create `crates/common`: Move `GameState`, `SimUpdateSet`, `SimPostPhysicsSet`, collision groups (`GROUP_*`), entity tags (`SurvivorTag`, `EnemyTag`, `ObstacleTag`, `RunEntity`), and shared enums (`EnemyKind`, `UpgradeKind`)
-- [ ] 7.2 Create `crates/config`: Move `RonConfig` trait, generic `RonAssetLoader<T>`, `DataPlugin`, `ConfigSyncSet`, `PendingConfigs`, `ConfigHotReloadedMessage`, and `assert_ron_config_parses!` macro
-- [ ] 7.3 Create `crates/message`: Move cross-feature Bevy `Message` definitions and shared resources (`RunStats`, `ScrapBank`, `LastRunOutcome`, `UpgradeLevels`, `UpgradeModifiers`)
-- [ ] 7.4 Update `game/Cargo.toml` workspace members and dependency specifications
-- [ ] 7.5 Verify with `cargo check -p common -p config -p message`
+- [x] 7.1 Create `crates/common`: Move `GameState`, `SimUpdateSet`, `SimPostPhysicsSet`, collision groups (`GROUP_*`), entity tags (`SurvivorTag`, `EnemyTag`, `ObstacleTag`, `RunEntity`), and shared enums (`EnemyKind`, `UpgradeKind`)
+- [x] 7.2 Create `crates/config`: Move `RonConfig` trait, generic `RonAssetLoader<T>`, `DataPlugin`, `ConfigSyncSet`, `PendingConfigs`, `ConfigHotReloadedMessage`, and `assert_ron_config_parses!` macro
+- [x] 7.3 Create `crates/message`: Move cross-feature Bevy `Message` definitions and shared resources (`RunStats`, `ScrapBank`, `LastRunOutcome`, `UpgradeLevels`, `UpgradeModifiers`)
+- [x] 7.4 Update `game/Cargo.toml` workspace members and dependency specifications
+- [x] 7.5 Verify with `cargo check -p common -p config -p message`
 
 ## 8. Presentation Decoupling & Shared Component Layer
 
-- [ ] 8.1 Move queryable components needed by presentation (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`) into `common` (or a shared component layer in `common`)
+- [x] 8.1 Move queryable components needed by presentation (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`) into `common` (or a shared component layer in `common`)
 - [ ] 8.2 Remove dependencies on `world`, `combat`, `enemies`, and `extraction` from `crates/presentation/Cargo.toml`
 - [ ] 8.3 Update `presentation` imports to query components from `common`
 - [ ] 8.4 Run `cargo check -p presentation` to confirm presentation compiles without sim crate dependencies
 
 ## 9. Contract-Based Cross-Crate System Ordering
 
-- [ ] 9.1 Define shared system set contracts in `common` (e.g. `DamageResolutionSet`, `ProjectileCollisionSet`)
-- [ ] 9.2 Refactor `combat/src/lib.rs` system ordering to use `DamageResolutionSet` instead of direct function pointer `world::player::apply_player_damage`
-- [ ] 9.3 Run `cargo check -p combat -p world` to verify clean decoupled ordering
+- [x] 9.1 Define shared system set contracts in `common` (e.g. `DamageResolutionSet`, `ProjectileCollisionSet`)
+- [x] 9.2 Refactor `combat/src/lib.rs` system ordering to use `DamageResolutionSet` instead of direct function pointer `world::player::apply_player_damage`
+- [x] 9.3 Run `cargo check -p combat -p world` to verify clean decoupled ordering
 
 ## 10. App Assembly Crate (`crates/game`) & Thin Binary
 
-- [ ] 10.1 Create `crates/game` library crate with `pub fn build_app() -> App` wiring all simulation, presentation, and data plugins
-- [ ] 10.2 Simplify `game/core/src/main.rs` to a thin one-liner calling `game::build_app().run()`
-- [ ] 10.3 Run `cargo check -p game -p core`
+- [x] 10.1 Create `crates/game` library crate with `pub fn build_app() -> App` wiring all simulation, presentation, and data plugins
+- [x] 10.2 Simplify `game/core/src/main.rs` to a thin one-liner calling `game::build_app().run()`
+- [x] 10.3 Run `cargo check -p game -p core`
 
 ## 11. Domain-Grouped Asset Hierarchy
 
-- [ ] 11.1 Move `core/assets/config/*.ron` into domain subfolders (`player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`)
-- [ ] 11.2 Update all `RonConfig::PATH` constants to reflect new subfolder paths
-- [ ] 11.3 Run workspace config parse unit tests to verify all `.ron` configs resolve and parse cleanly
+- [x] 11.1 Move `core/assets/config/*.ron` into domain subfolders (`player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`)
+- [x] 11.2 Update all `RonConfig::PATH` constants to reflect new subfolder paths
+- [x] 11.3 Run workspace config parse unit tests to verify all `.ron` configs resolve and parse cleanly
 
 ## 12. Dev Dependencies Feature-Flagging & Phase 2 Skeletons
 
-- [ ] 12.1 Make `bevy-inspector-egui` and dynamic linking optional under a `dev` cargo feature in `crates/game` and `core`
-- [ ] 12.2 Create structural crate skeletons for `crates/sim/automation`, `crates/sim/base`, and `crates/persistence`
-- [ ] 12.3 Run `cargo check --workspace`
+- [x] 12.1 Make `bevy-inspector-egui` and dynamic linking optional under a `dev` cargo feature in `crates/game` and `core`
+- [x] 12.2 Create structural crate skeletons for `crates/sim/automation`, `crates/sim/base`, and `crates/persistence`
+- [x] 12.3 Run `cargo check --workspace`
 
 ## 13. Workspace Integration Tests & Architecture Documentation
 
-- [ ] 13.1 Add headless integration tests under `game/tests/` running frame loops against `game::build_app()`
-- [ ] 13.2 Update `docs/07-technical-architecture-save-and-roadmap.md` with the new target dependency graph, tripartite foundation layer, and asset hierarchy
-- [ ] 13.3 Run `cargo check --workspace` and `cargo test --workspace` to ensure zero warnings or failures
+- [x] 13.1 Add headless integration tests under `game/tests/` running frame loops against `game::build_app()`
+- [x] 13.2 Update `docs/07-technical-architecture-save-and-roadmap.md` with the new target dependency graph, tripartite foundation layer, and asset hierarchy
+- [x] 13.3 Run `cargo check --workspace` and `cargo test --workspace` to ensure zero warnings or failures

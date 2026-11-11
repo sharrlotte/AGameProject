@@ -78,7 +78,7 @@ impl Default for WeaponsConfig {
 }
 
 impl RonConfig for WeaponsConfig {
-    const PATH: &'static str = "config/weapons.ron";
+    const PATH: &'static str = "config/combat/weapons.ron";
 }
 
 #[cfg(test)]

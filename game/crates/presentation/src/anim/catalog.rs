@@ -234,7 +234,7 @@ fn action(role: &str, clip: &str, looped: bool) -> ClipDef {
 }
 
 impl RonConfig for AnimCatalog {
-    const PATH: &'static str = "config/animation.ron";
+    const PATH: &'static str = "config/player/animation.ron";
 }
 
 #[cfg(test)]

@@ -36,24 +36,33 @@ game/core/src/
 └── vehicles/                # [Post-Core] Drivable vehicle physics & mounted interactions
 ```
 
-### Current Implemented Stage 1 Layout (`Milestones 1.0–1.5`, Two-Layer Feature Workspace)
+### Current Large-Scale Multi-Crate Architecture (`Milestones 1.0–2.0`)
 ```
 game/
 ├── crates/
-│   ├── data/                  # CoreDataPlugin, DataPlugin (RonConfig + AppRonConfigExt::register_ron_config + PendingConfigs gate), GameState, cross-feature Messages (events.rs), shared tags
-│   ├── sim/                   # Headless simulation feature crates (sub-features use 1-word files: mod.rs, config.rs, state.rs, event.rs, system.rs)
+│   ├── common/                # GameState, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, tags, shared components
+│   ├── config/                # RonConfig + AppRonConfigExt::register_ron_config, ConfigPlugin, loader, parse test macro
+│   ├── message/               # Cross-feature typed Messages, shared progression & run resources (RunStats, ScrapBank, UpgradeLevels)
+│   ├── data/                  # Compatibility facade re-exporting common, config, and message (CoreDataPlugin)
+│   ├── sim/                   # Headless simulation feature crates (sub-features use 1-word files: mod.rs, config.rs, state.rs, system.rs)
 │   │   ├── world/             # ArenaPlugin (arena/*), PlayerPlugin (player/*), ActionIntent (intent.rs)
 │   │   ├── combat/            # CombatPlugin: weapon/, reload/, projectile/, stance/
 │   │   ├── enemies/           # EnemiesPlugin: spawn/, ai/, damage/
-│   │   └── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/), UpgradesPlugin (upgrade/)
-│   └── presentation/          # Client concern modules: camera/, input/, anim/, vfx/ (VfxPlugin), scene/ (ScenePlugin: material/arena/player/combat/enemy/extract), ui/ (UiPlugin: theme/hud/menu)
+│   │   ├── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/), UpgradesPlugin (upgrade/)
+│   │   ├── automation/        # [Phase 2] Turrets, mines, electric traps, scout & combat drones
+│   │   └── base/              # [Phase 2] Base facilities, generator power budget, crafting, research
+│   ├── persistence/           # [Phase 2] Save/load manager (profile_base + active_expedition)
+│   ├── presentation/          # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
+│   └── game/                  # App assembly library crate: build_app() wiring all plugins, diagnostics & dev tools
+├── tests/                     # Workspace-level headless integration tests
 └── core/
-    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals, animation)
-    ├── assets/models/         # 3D glTF/GLB character assets (player.glb)
-    └── src/main.rs            # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
+    ├── assets/
+    │   ├── config/            # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)
+    │   └── models/            # 3D glTF/GLB assets (player.glb)
+    └── src/main.rs            # Thin App entry point calling game::build_app().run() (default-members = ["core"])
 ```
 
-- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `ScenePlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `AnimationSystems` → `PlayerIkSet` → player facing & `ScenePlugin` enemy facing / `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
+- **Strict `Update` / `PostUpdate` Schedule Ordering:** `ConfigPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `ScenePlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `DamageResolutionSet` → `AnimationSystems` → `PlayerIkSet` → player facing & `ScenePlugin` enemy facing / `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
 
 ### Player Animation Module (`presentation/src/anim/`)
 - **Layers:** lower-body locomotion blend, upper-body action blend (aim/reload), a reserved additive blend, and a full-body death override. Mask groups are explicit bone lists in `animation.ron` because `Hips` is the spine ancestor.

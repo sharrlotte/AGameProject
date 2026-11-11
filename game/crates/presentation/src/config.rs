@@ -29,7 +29,7 @@ pub struct VisualsConfig {
 }
 
 impl RonConfig for VisualsConfig {
-    const PATH: &'static str = "config/visuals.ron";
+    const PATH: &'static str = "config/player/visuals.ron";
 }
 
 #[cfg(test)]

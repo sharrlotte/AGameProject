@@ -34,7 +34,7 @@ impl Default for ExtractionConfig {
 }
 
 impl RonConfig for ExtractionConfig {
-    const PATH: &'static str = "config/extraction.ron";
+    const PATH: &'static str = "config/extraction/extraction.ron";
 }
 
 #[cfg(test)]

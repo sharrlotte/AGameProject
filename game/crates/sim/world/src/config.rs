@@ -41,7 +41,7 @@ impl Default for ArenaConfig {
 }
 
 impl RonConfig for ArenaConfig {
-    const PATH: &'static str = "config/arena.ron";
+    const PATH: &'static str = "config/world/arena.ron";
 }
 
 #[derive(Asset, Resource, TypePath, Debug, Clone, Deserialize)]
@@ -76,7 +76,7 @@ impl Default for PlayerConfig {
 }
 
 impl RonConfig for PlayerConfig {
-    const PATH: &'static str = "config/player.ron";
+    const PATH: &'static str = "config/player/player.ron";
 }
 
 #[cfg(test)]

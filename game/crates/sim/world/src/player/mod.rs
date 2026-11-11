@@ -28,6 +28,7 @@ impl Plugin for PlayerPlugin {
                 PostUpdate,
                 system::apply_player_damage
                     .in_set(SimPostPhysicsSet)
+                    .in_set(data::DamageResolutionSet)
                     .after(PhysicsSet::Writeback)
                     .before(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Playing)),

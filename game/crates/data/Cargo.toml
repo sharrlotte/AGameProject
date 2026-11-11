@@ -9,3 +9,6 @@ bevy_rapier3d.workspace = true
 serde.workspace = true
 ron.workspace = true
 thiserror.workspace = true
+common.workspace = true
+config.workspace = true
+message.workspace = true

@@ -1,0 +1,32 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["dev"]
+dev = ["bevy/dynamic_linking", "dep:bevy-inspector-egui"]
+
+[dependencies]
+bevy.workspace = true
+bevy-inspector-egui = { workspace = true, optional = true }
+bevy_rapier3d.workspace = true
+bevy_hanabi.workspace = true
+directories.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+uuid.workspace = true
+
+common.workspace = true
+config.workspace = true
+message.workspace = true
+data.workspace = true
+world.workspace = true
+combat.workspace = true
+enemies.workspace = true
+extraction.workspace = true
+automation.workspace = true
+base.workspace = true
+persistence.workspace = true
+presentation.workspace = true

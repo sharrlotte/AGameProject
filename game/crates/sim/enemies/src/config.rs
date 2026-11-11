@@ -69,7 +69,7 @@ impl Default for EnemiesConfig {
 }
 
 impl RonConfig for EnemiesConfig {
-    const PATH: &'static str = "config/enemies.ron";
+    const PATH: &'static str = "config/enemies/enemies.ron";
 }
 
 #[cfg(test)]

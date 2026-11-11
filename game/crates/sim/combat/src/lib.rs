@@ -39,7 +39,7 @@ impl Plugin for CombatPlugin {
                     projectile::handle_projectile_collisions
                         .after(PhysicsSet::Writeback)
                         .before(TransformSystems::Propagate),
-                    reload::cancel_reload_on_death.after(world::player::apply_player_damage),
+                    reload::cancel_reload_on_death.after(data::DamageResolutionSet),
                 )
                     .in_set(SimPostPhysicsSet)
                     .run_if(in_state(GameState::Playing)),

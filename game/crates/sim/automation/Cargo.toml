@@ -1,0 +1,10 @@
+[package]
+name = "automation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy.workspace = true
+common.workspace = true
+config.workspace = true
+message.workspace = true
