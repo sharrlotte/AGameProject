@@ -9,7 +9,7 @@ pub mod ui;
 pub mod vfx;
 
 pub use anim::PlayerAnimPlugin;
-pub use camera::CameraPlugin;
+pub use camera::{CameraConfig, CameraPlugin, CameraZoom, CameraZoomMessage};
 pub use config::{PlayerModelConfig, VisualsConfig};
 pub use input::InputPlugin;
 pub use scene::ScenePlugin;

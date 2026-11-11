@@ -14,8 +14,4 @@
     ],
     sun_illuminance: 14000.0,
     ambient_brightness: 280.0,
-    camera_offset: (0.0, 22.0, 12.5),
-    camera_follow_sharpness: 10.0,
-    camera_aim_lead_factor: 0.16,
-    camera_max_aim_lead: 3.5,
 )

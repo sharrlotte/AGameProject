@@ -17,10 +17,6 @@ pub struct ArenaConfig {
     pub obstacles: Vec<ObstacleDef>,
     pub sun_illuminance: f32,
     pub ambient_brightness: f32,
-    pub camera_offset: Vec3,
-    pub camera_follow_sharpness: f32,
-    pub camera_aim_lead_factor: f32,
-    pub camera_max_aim_lead: f32,
 }
 
 impl Default for ArenaConfig {
@@ -32,10 +28,6 @@ impl Default for ArenaConfig {
             obstacles: Vec::new(),
             sun_illuminance: 14_000.0,
             ambient_brightness: 280.0,
-            camera_offset: Vec3::new(0.0, 22.0, 12.5),
-            camera_follow_sharpness: 10.0,
-            camera_aim_lead_factor: 0.16,
-            camera_max_aim_lead: 3.5,
         }
     }
 }

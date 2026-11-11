@@ -13,6 +13,7 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
   - Exhaustion (0 stamina) adds a short recovery delay before sprinting again.
 - **Camera System:**
   - Angled top-down 3D perspective (e.g., 55°–65° pitch) with smooth damped follow.
+  - **Mouse-scroll zoom (`Ctrl + Scroll`):** Scales the camera offset along the fixed look ray between `zoom_min` and `zoom_max` with smooth exponential damping (`game/assets/config/camera.ron`), leaving plain `Scroll` available for weapon switching.
   - **Aim-lead offset:** Camera subtly shifts toward the mouse cursor (10–20% of cursor distance from center) so the player can see further in the direction they are aiming.
   - **Dynamic screen shake:** Trauma-based micro-shake on heavy shots, explosions, and taking hits.
 
