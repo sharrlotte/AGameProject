@@ -2,12 +2,13 @@
 
 - YOU ARE NOT ALLOW TO DECIDE ANYTHING, EVEYTHING MUST BE APPROVED BY ME BEFORE IMPL,
 - IF WE MAKE ANY CHANGES, MAKE SURE IT IS RECORDED INSIDE /docs
-- IF YOU SEE ANY CODE THAT VIOLATING ANY RULES BELLOW AND HAVE NO COMMENT TO PREVENT REFACTOR THEN ASK USER FOR PERMISSION TO REWIRTE  
+- IF YOU SEE ANY CODE THAT VIOLATING ANY RULES BELLOW AND HAVE NO COMMENT TO PREVENT REFACTOR THEN ASK USER FOR PERMISSION TO REWIRTE
 
 # PROJECT STRUCTURE
 
 - Look at docs/07-technical-architecture-save-and-roadmap.md for detail
 - Structure the project base on feature to create plugin as a small module to enhance "seperation of concern" and speed up compilation
+- The folder structure must be prepared for future expansion
 
 # CODE RULE
 
@@ -20,6 +21,7 @@
 - Dev only code should not exists in Production build
 - Respect SOLID principle, when a file > 500 lines then extract
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
+- Use short and concise for name and file name, prefer using 1 word
 
 # Files
 
