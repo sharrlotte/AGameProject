@@ -1,4 +1,9 @@
-## ADDED Requirements
+# ron-config-loading Specification
+
+## Purpose
+Generic `.ron` configuration registration, startup readiness gating, scoped hot-reloading, feature-crate ownership, and parse verification.
+
+## Requirements
 
 ### Requirement: Generic RON config registration
 The `data` crate SHALL provide a `RonConfig` trait and an `AppRonConfigExt::register_ron_config::<T>()` extension method that registers a configuration type's asset, `RonAssetLoader<T>`, active `Resource`, startup asset load, initial-load sync system, and hot-reload system without per-type boilerplate structs.

@@ -6,7 +6,7 @@
 
 # PROJECT STRUCTURE
 
-- Look at docs/07-technical-architecture-save-and-roadmap.md for detail
+- Look at docs/07-technical-architecture-save-and-roadmap.md and openspec for detail
 - Structure the project base on feature to create plugin as a small module to enhance "seperation of concern" and speed up compilation
 - The folder structure must be prepared for future expansion
 
