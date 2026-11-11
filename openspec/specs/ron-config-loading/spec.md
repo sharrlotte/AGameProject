@@ -49,8 +49,8 @@ Shared upgrade state types (`UpgradeLevels`, `UpgradeModifiers`) SHALL remain in
 - **THEN** the entire workspace builds cleanly with no dependency from `data` to any feature crate
 
 ### Requirement: Per-config RON parse verification
-The `data` crate SHALL provide a generic RON parse-test helper that resolves `game/core/assets/<T::PATH>` and deserializes `T`, and each owning feature crate SHALL verify its `.ron` config file(s) parse cleanly in unit tests.
+The `config` crate SHALL provide a generic RON parse-test helper that resolves `game/assets/<T::PATH>` and deserializes `T`, and each owning feature crate SHALL verify its `.ron` config file(s) parse cleanly in unit tests.
 
 #### Scenario: Running workspace tests validates all RON config files
 - **WHEN** `cargo test` is executed across the workspace
-- **THEN** every `.ron` file in `game/core/assets/config/` is deserialized into its owning config struct and passes both parse validation and domain assertions
+- **THEN** every `.ron` file in `game/assets/config/` is deserialized into its owning config struct and passes both parse validation and domain assertions

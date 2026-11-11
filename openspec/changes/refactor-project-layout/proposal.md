@@ -4,7 +4,7 @@ Several workspace crates had outgrown flat single-file modules—`combat/src/lib
 1. `data` is currently a god-crate combining tags, game states, collision groups, cross-feature messages, upgrade resources, and generic RON loader infrastructure.
 2. `presentation` directly depends on every simulation crate (`world`, `combat`, `enemies`, `extraction`), creating heavy coupling and cascade recompilation on every simulation change.
 3. Cross-crate system ordering directly references foreign system functions (e.g., `world::player::apply_player_damage`) rather than explicit `SystemSet` contracts.
-4. `core/src/main.rs` directly wires all plugins and dependencies, preventing headless integration testing and future dedicated server builds.
+4. `core/src/main.rs` previously wired all plugins directly, while `core/assets/` lived inside an empty wrapper crate.
 5. All `.ron` assets sit in a flat `config/` directory, which will not scale as biomes, room templates, loot tables, and weapons multiply.
 
 ## What Changes
@@ -23,44 +23,44 @@ Several workspace crates had outgrown flat single-file modules—`combat/src/lib
 - **Decouple `presentation` from Simulation Crates:**
   - Push shared queryable ECS components (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`) down into `common` (or a `sim-api` shared component layer), allowing `presentation` to render and bind animations purely by querying components without importing simulation crates.
   - Replace cross-crate foreign system function references with domain-level `SystemSet`s (e.g. `DamageResolutionSet`).
-- **Introduce `crates/game` Application Assembly Library:**
-  - Provide `pub fn build_app() -> App` wiring all plugins, Rapier physics, and state transitions.
-  - Turn `game/core/src/main.rs` into a thin one-liner binary wrapper (`fn main() { game::build_app().run(); }`).
-  - Enables headless end-to-end integration tests and paves the way for future dedicated server builds.
-- **Restructure Assets into Domain Directories:**
-  - Group `core/assets/config/` into domain subfolders: `player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`.
+- **Consolidate App Assembly & Binary into `crates/app`:**
+  - Merge `core` and `crates/game` into a single `crates/app` crate containing both `src/lib.rs` (`pub fn build_app() -> App`) and `src/main.rs` (`fn main() { app::build_app().run(); }`), eliminating the nested `game/crates/game` name and empty `core` shell.
+  - Enables headless end-to-end integration tests (`crates/app/tests/`) and paves the way for future dedicated server builds.
+- **Move Assets to Workspace Root & Domain Directories:**
+  - Move `game/core/assets/` to `game/assets/` (standard Bevy workspace location).
+  - Group `game/assets/config/` into domain subfolders: `player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`.
   - Group `models/`, `audio/`, `texture/` along matching domain boundaries.
 - **Pre-define Phase 2 Crate Skeletons:**
   - Establish crate boundaries for `crates/sim/automation/` (turrets, mines, traps, drones), `crates/sim/base/` (facilities, power, crafting, research), and `crates/persistence/` (profile save, expedition snapshots).
 - **Feature-Flag Dev Dependencies:**
   - Move `bevy-inspector-egui` and dynamic linking behind explicit Cargo features (`dev`).
 - **Add Integration Testing Infrastructure:**
-  - Add workspace-level headless integration tests (`game/tests/`) running simulation scenarios against `game::build_app()`.
+  - Add headless integration tests (`crates/app/tests/`) running simulation scenarios against `app::build_app()`.
 
 ## Capabilities
 
 ### New Capabilities
 
 - `project-layout`:
-  - Workspace crate layering (`common`, `config`, `message`, `sim/*`, `presentation`, `game`, `core`).
+  - Workspace crate layering (`common`, `config`, `message`, `sim/*`, `presentation`, `app`).
   - Nested sub-feature module conventions (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`).
   - Decoupled presentation querying shared ECS components rather than importing sim feature crates.
-  - App assembly library (`game::build_app()`) enabling headless testing.
-  - Domain-grouped asset directory layout (`assets/config/<domain>/...`).
+  - App assembly library (`app::build_app()`) enabling headless testing alongside the binary entry point.
+  - Domain-grouped asset directory layout (`game/assets/config/<domain>/...`).
   - Two-tier event ownership and cross-crate `SystemSet` contracts.
   - Strict file-size (<500 lines) and concise 1-word file naming invariants.
 
 ### Modified Capabilities
 
-- `ron-config-loading`: Config file path constants updated to support domain subfolders (e.g., `config/combat/weapons.ron`).
+- `ron-config-loading`: Config file path constants updated to support domain subfolders (e.g., `config/combat/weapons.ron`) under `game/assets/`.
 
 ## Impact
 
 - **Crate Graph**:
   - `data` decomposes into `common`, `config`, and `message`.
   - `presentation` no longer depends on `world`, `combat`, `enemies`, `extraction`.
-  - `game` assembly crate created; `core` depends only on `game`.
+  - `core` and `crates/game` consolidated into `crates/app` (`default-members = ["crates/app"]`).
 - **Assets**:
-  - `.ron` config files moved into domain subfolders; `PATH` constants updated accordingly.
+  - Moved from `game/core/assets/` to `game/assets/`, with `.ron` config files in domain subfolders and `PATH` constants updated accordingly.
 - **Documentation**:
   - `docs/07-technical-architecture-save-and-roadmap.md` updated with the multi-crate dependency graph and target layout.

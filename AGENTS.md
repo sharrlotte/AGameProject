@@ -33,4 +33,4 @@
 
 # Files
 
-- Assets folder: game\core\assets
+- Assets folder: game\assets

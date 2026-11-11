@@ -13,10 +13,9 @@ members = [
     "crates/sim/base",
     "crates/persistence",
     "crates/presentation",
-    "crates/game",
-    "core",
+    "crates/app",
 ]
-default-members = ["core"]
+default-members = ["crates/app"]
 
 [workspace.dependencies]
 bevy = { version = "0.20.0", features = ["serialize", "file_watcher"] }
@@ -43,7 +42,6 @@ automation = { path = "crates/sim/automation" }
 base = { path = "crates/sim/base" }
 persistence = { path = "crates/persistence" }
 presentation = { path = "crates/presentation" }
-game = { path = "crates/game" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

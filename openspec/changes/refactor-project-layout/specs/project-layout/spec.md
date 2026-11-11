@@ -46,15 +46,15 @@ All system schedule ordering across crate boundaries SHALL use explicit named `S
 - **WHEN** a system in `combat` must run after player damage resolution in `world`
 - **THEN** both systems order themselves against a shared `SystemSet` contract (e.g. `DamageResolutionSet`) without direct function imports
 
-### Requirement: App Assembly Library and Headless Testability
-The workspace SHALL provide a `crates/game` library crate that exposes `pub fn build_app() -> App` wiring all simulation, presentation, and data plugins. The binary crate `core/src/main.rs` SHALL serve as a thin entry point that invokes `game::build_app().run()`.
+### Requirement: Unified App Assembly & Binary Crate
+The workspace SHALL provide a `crates/app` crate containing both a library target (`pub fn build_app() -> App` wiring all simulation, presentation, and data plugins) and a thin binary entry point (`crates/app/src/main.rs`) invoking `app::build_app().run()`.
 
 #### Scenario: Headless integration tests run without UI dependencies
-- **WHEN** integration tests under `game/tests/` instantiate the game loop
-- **THEN** they build the application via `game::build_app()` (or a headless variant) and advance frames to test end-to-end combat, progression, and extraction flows
+- **WHEN** integration tests under `game/crates/app/tests/` instantiate the game loop
+- **THEN** they build the application via `app::build_app()` and verify plugin/state initialization or advance frames headlessly
 
-### Requirement: Domain-Grouped Asset Hierarchy
-Runtime assets in `core/assets/` SHALL be organized into domain directories for configuration (`config/<domain>/...`), 3D models (`models/<domain>/...`), audio, and textures.
+### Requirement: Workspace-Root Domain-Grouped Asset Hierarchy
+Runtime assets SHALL reside at the workspace root `game/assets/` and be organized into domain directories for configuration (`config/<domain>/...`), 3D models (`models/<domain>/...`), audio, and textures.
 
 #### Scenario: RON configuration files reside in domain subfolders
 - **WHEN** reading `.ron` configuration files

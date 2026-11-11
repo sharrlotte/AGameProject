@@ -1,8 +1,8 @@
 """Inspect and validate a glTF binary player asset.
 
 Usage:
-    python tools/blender/inspect_glb.py game/core/assets/models/player.glb
-    python tools/blender/inspect_glb.py game/core/assets/models/player.glb \
+    python tools/blender/inspect_glb.py game/assets/models/player.glb
+    python tools/blender/inspect_glb.py game/assets/models/player.glb \
         --require-bone WeaponSocket --require-node Foregrip --require-node MuzzleSocket
 
 The script uses only the Python standard library so it can run without Blender.

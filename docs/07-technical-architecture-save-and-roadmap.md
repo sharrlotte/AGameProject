@@ -53,13 +53,10 @@ game/
 │   │   └── base/              # [Phase 2] Base facilities, generator power budget, crafting, research
 │   ├── persistence/           # [Phase 2] Save/load manager (profile_base + active_expedition)
 │   ├── presentation/          # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
-│   └── game/                  # App assembly library crate: build_app() wiring all plugins, diagnostics & dev tools
-├── tests/                     # Workspace-level headless integration tests
-└── core/
-    ├── assets/
-    │   ├── config/            # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)
-    │   └── models/            # 3D glTF/GLB assets (player.glb)
-    └── src/main.rs            # Thin App entry point calling game::build_app().run() (default-members = ["core"])
+│   └── app/                   # App assembly & binary crate: build_app() in lib.rs, thin main.rs, integration tests/ (default-members = ["crates/app"])
+└── assets/
+    ├── config/                # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)
+    └── models/                # 3D glTF/GLB assets (player.glb)
 ```
 
 - **Strict `Update` / `PostUpdate` Schedule Ordering:** `ConfigPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `ScenePlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `DamageResolutionSet` → `AnimationSystems` → `PlayerIkSet` → player facing & `ScenePlugin` enemy facing / `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
@@ -70,7 +67,7 @@ game/
 - **Director:** `DirectorState` per animation player; exponential weight fades from `locomotion_blend_secs` / `action_blend_secs`; reload clip seeks from `WeaponInventory::reload_progress()` so reload-speed upgrades stay synchronized.
 - **Facing:** `anim/facing.rs` owns the player rule: aim by default, sprint velocity overrides while above the movement threshold, previous facing is kept when aim is invalid, and `facing_blend_secs` smooths the return after sprint.
 - **IK:** analytic two-bone solver (`anim/ik.rs`) drives the left support hand to the rifle `Foregrip` only in combat stance and while alive; it composes local transforms from the visual root so it runs after `AnimationSystems` without stale `GlobalTransform`s.
-- **Config:** clip roles, layer membership, masks, blend times, speed clamps, IK chain, and target socket live in `game/core/assets/config/animation.ron`. `visuals.ron` keeps only the model path, safety scale/offset, and move threshold. `stance_hold_secs` lives in `weapons.ron` because the simulation owns `CombatStance`.
+- **Config:** clip roles, layer membership, masks, blend times, speed clamps, IK chain, and target socket live in `game/assets/config/player/animation.ron`. `visuals.ron` keeps only the model path, safety scale/offset, and move threshold. `stance_hold_secs` lives in `weapons.ron` because the simulation owns `CombatStance`.
 - **Hot reload:** editing `animation.ron` rebuilds the graph from live `AnimationTargetId`s, re-registers masks, resets director state, and restarts looped clips. Editing `visuals.ron` reloads the glTF scene.
 - **States:** director, IK, and facing run only in `Playing`/`GameOver`; asset preparation runs outside `Loading`.
 

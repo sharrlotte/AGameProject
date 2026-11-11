@@ -11,8 +11,8 @@ To scale the architecture for large-scale development (7 zombie archetypes, biom
 - Decompose the `data` god-crate into `common` (leaf types), `config` (generic loader), and `message` (cross-crate events/progression).
 - Decouple `presentation` from individual simulation crates so rendering/animation queries shared ECS data rather than importing sim logic.
 - Replace fragile cross-crate system function ordering with explicit `SystemSet` contracts.
-- Introduce `crates/game` library crate (`build_app()`) to enable headless integration tests, benchmark harnesses, and future dedicated server builds.
-- Organize assets by domain folders (`config/<domain>/...`, `models/<domain>/...`).
+- Introduce `crates/app` (`build_app()` + `main.rs`) to eliminate the empty `core` wrapper and nested `game/crates/game` crate while enabling headless integration tests.
+- Move `assets/` to the workspace root (`game/assets/`) and organize by domain folders (`config/<domain>/...`, `models/<domain>/...`).
 - Pre-plan Phase 2 crate boundaries (`crates/sim/automation/`, `crates/sim/base/`, `crates/persistence/`).
 - Feature-flag dev-only dependencies (`bevy-inspector-egui`, dynamic linking).
 - Keep all Rust source files under 500 lines with 1-word naming.
@@ -58,25 +58,25 @@ To scale the architecture for large-scale development (7 zombie archetypes, biom
 - **Choice:** Replace direct function imports across crates (e.g. `combat` depending on `world::player::apply_player_damage`) with cross-crate `SystemSet`s defined in `common` (e.g. `PlayerDamageSet`, `ProjectileCollisionSet`).
 - **Rationale:** Decouples crate internals so system functions can be refactored or made private without breaking sibling crate schedules.
 
-### D9. App Assembly Library (`crates/game`) and Thin Binary (`core`)
-- **Choice:** Introduce `crates/game` library crate with `pub fn build_app() -> App`, leaving `game/core/src/main.rs` as a thin wrapper:
+### D9. Unified App Crate (`crates/app`) with Library & Binary Entry Points
+- **Choice:** Merge `core` and `crates/game` into `crates/app`, exposing `pub fn build_app() -> App` in `crates/app/src/lib.rs` and keeping `crates/app/src/main.rs` as:
   ```rust
   fn main() {
-      game::build_app().run();
+      app::build_app().run();
   }
   ```
-- **Rationale:** Enables headless integration tests (`App::new()` without windowing/audio), custom test runners, benchmarks, and future dedicated server binaries without code duplication.
+- **Rationale:** Cargo natively supports both `lib.rs` and `main.rs` in one crate. This eliminates the nested `game/crates/game` naming collision and removes the empty `core` wrapper crate, while still enabling headless integration tests (`crates/app/tests/`), custom test runners, benchmarks, and future dedicated server binaries.
 
-### D10. Domain-Grouped Asset Directory Hierarchy
-- **Choice:** Restructure `core/assets/` by domain:
+### D10. Workspace-Root Domain-Grouped Asset Hierarchy (`game/assets/`)
+- **Choice:** Move `assets/` from `game/core/assets/` to `game/assets/` (with `BEVY_ASSET_ROOT` configured in `game/.cargo/config.toml`), organized by domain:
   - `config/`: `player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`
   - `models/`: `player/`, `enemies/`, `weapons/`, `world/`
   - `audio/`: `sfx/`, `music/`
   - `texture/`: `materials/`, `ui/`
-- **Rationale:** Prevents hundreds of flat asset files as Phase 1–3 content expands.
+- **Rationale:** Matches standard Bevy workspace conventions and prevents hundreds of flat asset files as Phase 1–3 content expands.
 
 ### D11. Feature-Gated Dev Tools & Test Harness
-- **Choice:** Move `bevy-inspector-egui` and `dynamic_linking` behind a `dev` cargo feature in `crates/game` and `core`. Provide headless integration tests in `game/tests/` running game loops against `game::build_app()`.
+- **Choice:** Move `bevy-inspector-egui` and `dynamic_linking` behind a `dev` cargo feature in `crates/app`. Provide headless integration tests in `crates/app/tests/` running game loops against `app::build_app()`.
 
 ---
 
@@ -118,14 +118,12 @@ graph TD
     presentation --> common & config & message
 
     subgraph "App Assembly & Binary"
-        game_lib["crates/game (lib)<br/>(build_app wiring)"]
-        core_bin["core (bin)<br/>(main.rs thin wrapper)"]
-        tests["tests/ (headless integration)"]
+        app_crate["crates/app (lib + bin)<br/>(build_app + main.rs)"]
+        tests["crates/app/tests/ (headless integration)"]
     end
 
-    game_lib --> world & combat & enemies & extraction & presentation
-    core_bin --> game_lib
-    tests --> game_lib
+    app_crate --> world & combat & enemies & extraction & presentation
+    tests --> app_crate
 ```
 
 ---

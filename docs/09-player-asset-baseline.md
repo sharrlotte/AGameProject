@@ -2,7 +2,7 @@
 
 Recorded before the layered animation work, for comparison after the rig upgrade.
 
-Source: `game/core/assets/models/player.glb`
+Source: `game/assets/models/player.glb`
 
 ## Current Asset
 
@@ -52,7 +52,7 @@ There is no aim, reload, fire, strafe, weapon socket, or rifle.
 
 ## Runtime Mask Groups
 
-The catalog in `game/core/assets/config/animation.ron` uses explicit bone lists because `Hips` is the
+The catalog in `game/assets/config/player/animation.ron` uses explicit bone lists because `Hips` is the
 ancestor of the whole spine. These are the masks registered against live `AnimationTargetId`s:
 
 Lower body (locomotion layer):

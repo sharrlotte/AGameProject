@@ -71,7 +71,7 @@ pub trait RonConfig:
     + Sync
     + 'static
 {
-    /// Asset path relative to `game/core/assets`, e.g. `"config/arena.ron"`.
+    /// Asset path relative to `game/assets`, e.g. `"config/world/arena.ron"`.
     const PATH: &'static str;
 }
 
@@ -213,7 +213,7 @@ fn hot_reload_config<T: RonConfig>(
     }
 }
 
-/// Resolves `game/core/assets/<T::PATH>` from any workspace crate and parses it with `ron`.
+/// Resolves `game/assets/<T::PATH>` from any workspace crate and parses it with `ron`.
 #[macro_export]
 macro_rules! assert_ron_config_parses {
     ($ty:ty) => {{
@@ -221,17 +221,13 @@ macro_rules! assert_ron_config_parses {
         let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .find_map(|dir| {
-                let core_assets = dir.join("core").join("assets");
-                if core_assets.join("config").exists() {
-                    return Some(core_assets);
-                }
                 let direct_assets = dir.join("assets");
                 if direct_assets.join("config").exists() {
                     return Some(direct_assets);
                 }
                 None
             })
-            .expect("Could not locate game/core/assets directory");
+            .expect("Could not locate game/assets directory");
         let path = assets_dir.join(path_rel);
         let contents = std::fs::read_to_string(&path)
             .unwrap_or_else(|err| panic!("Failed to read {}: {err}", path.display()));
