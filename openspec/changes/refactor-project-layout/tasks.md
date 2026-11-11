@@ -62,26 +62,26 @@
 - [x] 9.2 Refactor `combat/src/lib.rs` system ordering to use `DamageResolutionSet` instead of direct function pointer `world::player::apply_player_damage`
 - [x] 9.3 Run `cargo check -p combat -p world` to verify clean decoupled ordering
 
-## 10. Unified App Crate (`crates/app`) & Workspace-Root Assets
+## 10. Root Workspace & Unified `game/` Crate
 
-- [x] 10.1 Consolidate `core` and `crates/game` into `crates/app` with `pub fn build_app() -> App` in `src/lib.rs` and a thin `src/main.rs` calling `app::build_app().run()`
-- [x] 10.2 Move `game/core/assets/` to `game/assets/` and configure `BEVY_ASSET_ROOT` in `game/.cargo/config.toml`
-- [x] 10.3 Run `cargo check -p app`
+- [x] 10.1 Move `Cargo.toml`, `Cargo.lock`, `.cargo/`, and `crates/` to repository root (`e:/Codes/AGameProject/`)
+- [x] 10.2 Consolidate app assembly and binary entry into `game/` (`src/lib.rs`, `src/main.rs`, `tests/`, and `assets/`)
+- [x] 10.3 Run `cargo check -p game`
 
 ## 11. Domain-Grouped Asset Hierarchy
 
 - [x] 11.1 Move `game/assets/config/*.ron` into domain subfolders (`player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`)
-- [x] 11.2 Update all `RonConfig::PATH` constants and `assert_ron_config_parses!` to reflect new paths under `game/assets/`
+- [x] 11.2 Update all `RonConfig::PATH` constants and `assert_ron_config_parses!` to resolve `game/assets/`
 - [x] 11.3 Run workspace config parse unit tests to verify all `.ron` configs resolve and parse cleanly
 
 ## 12. Dev Dependencies Feature-Flagging & Phase 2 Skeletons
 
-- [x] 12.1 Make `bevy-inspector-egui` and dynamic linking optional under a `dev` cargo feature in `crates/app`
+- [x] 12.1 Make `bevy-inspector-egui` and dynamic linking optional under a `dev` cargo feature in `game/Cargo.toml`
 - [x] 12.2 Create structural crate skeletons for `crates/sim/automation`, `crates/sim/base`, and `crates/persistence`
 - [x] 12.3 Run `cargo check --workspace`
 
 ## 13. Workspace Integration Tests & Architecture Documentation
 
-- [x] 13.1 Add headless integration tests under `game/crates/app/tests/` running against `app::build_app()`
-- [x] 13.2 Update `docs/07-technical-architecture-save-and-roadmap.md` and `AGENTS.md` with the `crates/app` and `game/assets/` layout
+- [x] 13.1 Add headless integration tests under `game/tests/` running against `game::build_app()`
+- [x] 13.2 Update `docs/07-technical-architecture-save-and-roadmap.md` and `AGENTS.md` with the root workspace and `game/` layout
 - [x] 13.3 Run `cargo check --workspace` and `cargo test --workspace` to ensure zero warnings or failures

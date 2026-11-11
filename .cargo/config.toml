@@ -8,7 +8,3 @@ dev = "run --features dev"
 db = "build --features dev"
 dc = "check --features dev"
 
-# Point Bevy's asset server at `game/assets` regardless of working directory or crate manifest.
-[env]
-BEVY_ASSET_ROOT = { value = "", relative = true }
-

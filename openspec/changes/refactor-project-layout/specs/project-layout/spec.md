@@ -47,14 +47,14 @@ All system schedule ordering across crate boundaries SHALL use explicit named `S
 - **THEN** both systems order themselves against a shared `SystemSet` contract (e.g. `DamageResolutionSet`) without direct function imports
 
 ### Requirement: Unified App Assembly & Binary Crate
-The workspace SHALL provide a `crates/app` crate containing both a library target (`pub fn build_app() -> App` wiring all simulation, presentation, and data plugins) and a thin binary entry point (`crates/app/src/main.rs`) invoking `app::build_app().run()`.
+The workspace SHALL sit at the repository root (`Cargo.toml`, `crates/`) and provide a `game/` crate containing both a library target (`pub fn build_app() -> App` wiring all simulation, presentation, and data plugins) and a thin binary entry point (`game/src/main.rs`) invoking `game::build_app().run()`.
 
 #### Scenario: Headless integration tests run without UI dependencies
-- **WHEN** integration tests under `game/crates/app/tests/` instantiate the game loop
-- **THEN** they build the application via `app::build_app()` and verify plugin/state initialization or advance frames headlessly
+- **WHEN** integration tests under `game/tests/` instantiate the game loop
+- **THEN** they build the application via `game::build_app()` and verify plugin/state initialization or advance frames headlessly
 
-### Requirement: Workspace-Root Domain-Grouped Asset Hierarchy
-Runtime assets SHALL reside at the workspace root `game/assets/` and be organized into domain directories for configuration (`config/<domain>/...`), 3D models (`models/<domain>/...`), audio, and textures.
+### Requirement: Domain-Grouped Asset Hierarchy in `game/assets/`
+Runtime assets SHALL reside at `game/assets/` and be organized into domain directories for configuration (`config/<domain>/...`), 3D models (`models/<domain>/...`), audio, and textures.
 
 #### Scenario: RON configuration files reside in domain subfolders
 - **WHEN** reading `.ron` configuration files

@@ -38,7 +38,7 @@ game/core/src/
 
 ### Current Large-Scale Multi-Crate Architecture (`Milestones 1.0–2.0`)
 ```
-game/
+├── Cargo.toml                 # Root workspace (default-members = ["game"])
 ├── crates/
 │   ├── common/                # GameState, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, tags, shared components
 │   ├── config/                # RonConfig + AppRonConfigExt::register_ron_config, ConfigPlugin, loader, parse test macro
@@ -52,11 +52,13 @@ game/
 │   │   ├── automation/        # [Phase 2] Turrets, mines, electric traps, scout & combat drones
 │   │   └── base/              # [Phase 2] Base facilities, generator power budget, crafting, research
 │   ├── persistence/           # [Phase 2] Save/load manager (profile_base + active_expedition)
-│   ├── presentation/          # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
-│   └── app/                   # App assembly & binary crate: build_app() in lib.rs, thin main.rs, integration tests/ (default-members = ["crates/app"])
-└── assets/
-    ├── config/                # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)
-    └── models/                # 3D glTF/GLB assets (player.glb)
+│   └── presentation/          # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
+└── game/                      # Runnable game crate (build_app() in src/lib.rs, thin src/main.rs, tests/)
+    ├── assets/
+    │   ├── config/            # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)
+    │   └── models/            # 3D glTF/GLB assets (player.glb)
+    ├── src/
+    └── tests/
 ```
 
 - **Strict `Update` / `PostUpdate` Schedule Ordering:** `ConfigPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `ScenePlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `DamageResolutionSet` → `AnimationSystems` → `PlayerIkSet` → player facing & `ScenePlugin` enemy facing / `VfxPlugin` hit-flash → `TransformSystems::Propagate`.

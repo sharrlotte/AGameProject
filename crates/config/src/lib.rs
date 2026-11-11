@@ -221,6 +221,10 @@ macro_rules! assert_ron_config_parses {
         let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .find_map(|dir| {
+                let game_assets = dir.join("game").join("assets");
+                if game_assets.join("config").exists() {
+                    return Some(game_assets);
+                }
                 let direct_assets = dir.join("assets");
                 if direct_assets.join("config").exists() {
                     return Some(direct_assets);
