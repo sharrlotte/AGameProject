@@ -12,6 +12,7 @@
 
 # CODE RULE
 
+- The coded must be designed for future proof in mind
 - NO unwrap() or unsafe code inside production code
 - Do not use tempary solution, hack to sastify the compiler, instead using best practice to make it work
 - Make sure bevy system order correct and chained, scoped properly and only run when needed

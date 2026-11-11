@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use data::{AppRonConfigExt, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleTag, SimUpdateSet};
+use data::{
+    AppRonConfigExt, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleTag, SimUpdateSet,
+};
 
 use crate::config::{ArenaConfig, ObstacleDef};
 
@@ -68,8 +70,15 @@ pub fn spawn_arena_physics(mut commands: Commands, cfg: Res<ArenaConfig>) {
         Transform::from_xyz(0.0, -0.5, 0.0),
     ));
 
-    for def in perimeter_walls(&cfg).into_iter().chain(cfg.obstacles.iter().cloned()) {
-        let label = if def.is_wall { "ArenaWall" } else { "ArenaCover" };
+    for def in perimeter_walls(&cfg)
+        .into_iter()
+        .chain(cfg.obstacles.iter().cloned())
+    {
+        let label = if def.is_wall {
+            "ArenaWall"
+        } else {
+            "ArenaCover"
+        };
         commands.spawn((
             Name::new(label),
             ArenaStaticEntity,

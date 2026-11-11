@@ -121,10 +121,7 @@ pub fn spawn_player(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
-            CollisionGroups::new(
-                GROUP_PLAYER,
-                GROUP_WORLD | GROUP_ENEMY | GROUP_PICKUP,
-            ),
+            CollisionGroups::new(GROUP_PLAYER, GROUP_WORLD | GROUP_ENEMY | GROUP_PICKUP),
             Transform::from_xyz(0.0, cfg.aim_height, 0.0),
         ),
     ));
@@ -152,6 +149,7 @@ fn sync_player_hot_reload(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn player_movement_and_aim(
     time: Res<Time>,
     cfg: Res<PlayerConfig>,

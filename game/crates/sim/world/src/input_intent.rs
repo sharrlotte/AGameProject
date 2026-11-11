@@ -8,6 +8,8 @@ pub struct ActionIntent {
     pub sprint: bool,
     /// Cursor intersection point on the horizontal aim plane (`Y = PlayerConfig::aim_height`).
     pub aim_world: Option<Vec3>,
+    /// Right mouse button held; requests the combat/aim stance.
+    pub aim_held: bool,
     pub fire_held: bool,
     pub fire_just_pressed: bool,
     pub reload_just_pressed: bool,

@@ -13,5 +13,8 @@ combat.workspace = true
 enemies.workspace = true
 extraction.workspace = true
 
+[features]
+dev-ik-gizmo = []
+
 [dev-dependencies]
 ron.workspace = true

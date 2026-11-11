@@ -2,6 +2,7 @@
     muzzle_offset: 0.75,
     sprint_spread_multiplier: 1.65,
     swap_cooldown_cap: 0.12,
+    stance_hold_secs: 0.15,
     weapons: [
         (
             id: "assault_rifle",

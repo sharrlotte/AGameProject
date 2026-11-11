@@ -5,7 +5,8 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
 
 ### 1.1 Player Controls & Locomotion
 - **8-Directional Movement:** `WASD` moves relative to world/camera ground axes with crisp acceleration and minimal slide.
-- **Independent Mouse Aiming:** The character's upper body/weapon continuously rotates toward the 3D cursor raycast point on the aim plane, completely independent of movement direction (strafing backward while firing is core).
+- **Independent Mouse Aiming:** The character faces the 3D cursor raycast point on the aim plane, so strafing and backpedaling keep the weapon on target. The visual body turns to aim by default; sprinting above the movement threshold turns the body to horizontal velocity instead, even while aim is held.
+- **Aim Stance:** Hold `RMB` to raise the aim stance. Firing or reloading raises it too, and a short hold timer keeps the arms up between semi-auto shots. Releasing every trigger fades the stance down after the hold expires.
 - **Sprinting & Stamina:**
   - Holding `Shift` boosts speed (~1.45× walk speed) while draining a `Stamina` pool.
   - Sprinting prevents ADS/accurate fire (larger spread penalty or hip-fire only) to create a tactical choice: *reposition fast vs. stand and shoot accurately*.
@@ -28,8 +29,10 @@ Different weapon classes use the model that feels best:
 - **Dynamic Spread (Bloom):** Firing increases a `CurrentSpread` angle; stopping fire decays it back to base weapon accuracy. Moving/sprinting multiplies base spread.
 - **Recoil:** Applies visual kick to weapon/camera and temporarily widens the reticle; controlled by weapon `recoil_recovery`.
 - **Reload State Machine:**
-  - `Ready -> Reloading(timer) -> Ready` (can be interrupted by weapon swap or sprint if desired, or tactical reload vs. empty reload).
-  - Visual reload progress bar near the reticle so the player never has to look away from combat.
+  - `Ready -> Reloading(timer) -> Ready`. Reloading continues while walking, strafing, and sprinting; movement never pauses or modifies the timer.
+  - A weapon swap to a different slot cancels the reload with `ReloadCancelled(Swapped)`, applies no partial refill, and emits `WeaponSwapped`. Selecting the already-active slot keeps the reload running.
+  - Player death cancels an active reload with `ReloadCancelled(Died)`; the death animation overrides every body layer.
+  - Visual reload progress bar near the reticle so the player never has to look away from combat. The reload animation is driven by the simulation timer, so reload-speed upgrades stay in sync with the clip.
 - **Weapon Switching:** 2 Primary/Secondary slots + 1 Sidearm/Utility slot (`1`, `2`, `3`, or Scroll). Switch time varies by weapon weight.
 
 ### 2.3 Critical Hits, Knockback & Hit Feedback

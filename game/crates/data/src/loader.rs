@@ -165,10 +165,10 @@ fn sync_initial_config<T: RonConfig>(
         return;
     }
 
-    if let LoadState::Failed(err) = asset_server.load_state(&handle.0) {
-        if pending.failed.insert(id) {
-            error!("Failed to load RON config '{}': {err:?}", T::PATH);
-        }
+    if let LoadState::Failed(err) = asset_server.load_state(&handle.0)
+        && pending.failed.insert(id)
+    {
+        error!("Failed to load RON config '{}': {err:?}", T::PATH);
     }
 }
 
@@ -196,13 +196,12 @@ fn hot_reload_config<T: RonConfig>(
     };
     let mut updated = false;
     for event in events.read() {
-        if let AssetEvent::Modified { id } = event {
-            if *id == handle.0.id() {
-                if let Some(asset) = assets.get(*id) {
-                    *active = asset.clone();
-                    updated = true;
-                }
-            }
+        if let AssetEvent::Modified { id } = event
+            && *id == handle.0.id()
+            && let Some(asset) = assets.get(*id)
+        {
+            *active = asset.clone();
+            updated = true;
         }
     }
     if updated {

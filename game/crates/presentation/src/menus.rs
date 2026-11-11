@@ -69,9 +69,11 @@ fn spawn_action_button<E: Message + Clone>(
             BackgroundColor(idle),
             BorderColor::all(Color::srgb(0.65, 0.82, 1.0)),
         ))
-        .observe(move |_click: On<PointerClick>, mut writer: MessageWriter<E>| {
-            writer.write(message.clone());
-        })
+        .observe(
+            move |_click: On<PointerClick>, mut writer: MessageWriter<E>| {
+                writer.write(message.clone());
+            },
+        )
         .observe(
             |over: On<PointerOver>,
              mut buttons: Query<(&MenuButtonColors, &mut BackgroundColor)>| {
@@ -81,8 +83,7 @@ fn spawn_action_button<E: Message + Clone>(
             },
         )
         .observe(
-            |out: On<PointerOut>,
-             mut buttons: Query<(&MenuButtonColors, &mut BackgroundColor)>| {
+            |out: On<PointerOut>, mut buttons: Query<(&MenuButtonColors, &mut BackgroundColor)>| {
                 if let Ok((colors, mut bg)) = buttons.get_mut(out.entity) {
                     bg.0 = colors.idle;
                 }
@@ -132,11 +133,7 @@ fn spawn_loading_ui(mut commands: Commands) {
     });
 }
 
-fn spawn_game_over_ui(
-    mut commands: Commands,
-    outcome: Res<LastRunOutcome>,
-    bank: Res<ScrapBank>,
-) {
+fn spawn_game_over_ui(mut commands: Commands, outcome: Res<LastRunOutcome>, bank: Res<ScrapBank>) {
     let summary = match *outcome {
         LastRunOutcome::Died {
             scrap_lost,
@@ -209,7 +206,9 @@ fn spawn_upgrades_ui(
         } => (
             "EXTRACTION SUCCESSFUL!",
             Color::srgb(0.28, 0.92, 0.56),
-            format!("Banked +{scrap_banked} Scrap   |   Kills: {kills}   |   Time: {elapsed_secs:.1}s"),
+            format!(
+                "Banked +{scrap_banked} Scrap   |   Kills: {kills}   |   Time: {elapsed_secs:.1}s"
+            ),
         ),
         _ => (
             "UPGRADE WORKSHOP",
@@ -311,9 +310,7 @@ fn format_upgrade_label(
     match kind {
         UpgradeKind::WeaponDamage => {
             let bonus_pct = (modifiers.damage_multiplier - 1.0) * 100.0;
-            format!(
-                "+Weapon Damage   (Lv {lvl}/{max_lvl}, +{bonus_pct:.0}%)   |   {cost_str}"
-            )
+            format!("+Weapon Damage   (Lv {lvl}/{max_lvl}, +{bonus_pct:.0}%)   |   {cost_str}")
         }
         UpgradeKind::MaxHp => {
             format!(

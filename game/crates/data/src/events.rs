@@ -29,6 +29,38 @@ pub struct PlayerDiedMessage {
     pub survivor: Entity,
 }
 
+/// Why an active reload ended before the magazine was refilled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReloadCancelReason {
+    Swapped,
+    Died,
+    Interrupted,
+}
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ReloadStartedMessage {
+    pub entity: Entity,
+    pub duration: f32,
+}
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ReloadFinishedMessage {
+    pub entity: Entity,
+}
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ReloadCancelledMessage {
+    pub entity: Entity,
+    pub reason: ReloadCancelReason,
+}
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct WeaponSwappedMessage {
+    pub entity: Entity,
+    pub from: usize,
+    pub to: usize,
+}
+
 #[derive(Message, Debug, Clone, Copy)]
 pub struct ScrapCollectedMessage {
     pub collector: Entity,

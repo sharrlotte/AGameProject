@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use data::{GameState, RunStats, ScrapBank, SimUpdateSet};
 use combat::WeaponInventory;
+use data::{GameState, RunStats, ScrapBank, SimUpdateSet};
 use world::{Health, LocalPlayer, Stamina};
 
 #[derive(Component)]

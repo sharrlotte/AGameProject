@@ -43,17 +43,27 @@ game/
 │   ├── data/                  # CoreDataPlugin, DataPlugin (RonConfig + AppRonConfigExt::register_ron_config + PendingConfigs gate), GameState, typed Messages, shared tags
 │   ├── sim/
 │   │   ├── world/             # ArenaPlugin (ArenaConfig), PlayerPlugin (PlayerConfig), ActionIntent, movement/stamina/aim/HP
-│   │   ├── combat/            # CombatPlugin (WeaponsConfig, Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
+│   │   ├── combat/            # CombatPlugin (WeaponsConfig, Rifle + Shotgun, reload FSM + lifecycle messages, CombatStance, 3D Sensor+CCD projectiles, CollisionEvent)
 │   │   ├── enemies/           # EnemiesPlugin (EnemiesConfig, Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
 │   │   └── extraction/        # ExtractionPlugin (ExtractionConfig, Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin (UpgradesConfig)
-│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerVisualsPlugin (VisualsConfig, glTF + anim graph), HudPlugin, MenusPlugin
+│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerAnimPlugin (anim/*), HudPlugin, MenusPlugin
 └── core/
-    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals)
+    ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals, animation)
     ├── assets/models/         # 3D glTF/GLB character assets (player.glb)
     └── src/main.rs            # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
 ```
 
-- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `VisualsPlugin` attach/animate & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `CameraPlugin` & `VisualsPlugin` facing/hit-flash (`before(TransformSystems::Propagate)`).
+- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `VisualsPlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `AnimationSystems` → `PlayerIkSet` → player facing & `VisualsPlugin` enemy facing/hit-flash → `TransformSystems::Propagate`.
+
+### Player Animation Module (`presentation/src/anim/`)
+- **Layers:** lower-body locomotion blend, upper-body action blend (aim/reload), a reserved additive blend, and a full-body death override. Mask groups are explicit bone lists in `animation.ron` because `Hips` is the spine ancestor.
+- **Blend:** eight directions from four cardinal clips by projecting local movement onto forward/back/left/right, normalized so Bevy's blend node receives a stable weight set. Walk/strafe playback scales with horizontal speed.
+- **Director:** `DirectorState` per animation player; exponential weight fades from `locomotion_blend_secs` / `action_blend_secs`; reload clip seeks from `WeaponInventory::reload_progress()` so reload-speed upgrades stay synchronized.
+- **Facing:** `anim/facing.rs` owns the player rule: aim by default, sprint velocity overrides while above the movement threshold, previous facing is kept when aim is invalid, and `facing_blend_secs` smooths the return after sprint.
+- **IK:** analytic two-bone solver (`anim/ik.rs`) drives the left support hand to the rifle `Foregrip` only in combat stance and while alive; it composes local transforms from the visual root so it runs after `AnimationSystems` without stale `GlobalTransform`s.
+- **Config:** clip roles, layer membership, masks, blend times, speed clamps, IK chain, and target socket live in `game/core/assets/config/animation.ron`. `visuals.ron` keeps only the model path, safety scale/offset, and move threshold. `stance_hold_secs` lives in `weapons.ron` because the simulation owns `CombatStance`.
+- **Hot reload:** editing `animation.ron` rebuilds the graph from live `AnimationTargetId`s, re-registers masks, resets director state, and restarts looped clips. Editing `visuals.ron` reloads the glTF scene.
+- **States:** director, IK, and facing run only in `Playing`/`GameOver`; asset preparation runs outside `Loading`.
 
 ### Key Rules to Avoid Refactor Pain Later
 1. **No `Single<..., With<Player>>` inside simulation systems:** Query `With<Survivor>` and link UI/camera via a local `LocalPlayer` marker.

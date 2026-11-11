@@ -46,6 +46,7 @@ fn gather_local_input(
     let sprint = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
     let fire_held = mouse_buttons.pressed(MouseButton::Left);
     let fire_just_pressed = mouse_buttons.just_pressed(MouseButton::Left);
+    let aim_held = mouse_buttons.pressed(MouseButton::Right);
     let reload_just_pressed = keys.just_pressed(KeyCode::KeyR);
 
     let swap_slot = if keys.just_pressed(KeyCode::Digit1) {
@@ -65,6 +66,7 @@ fn gather_local_input(
             intent.aim_world = aim_world;
         }
         intent.fire_held = fire_held;
+        intent.aim_held = aim_held;
         if fire_just_pressed {
             intent.fire_just_pressed = true;
         }

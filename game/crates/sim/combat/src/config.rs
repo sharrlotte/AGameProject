@@ -24,7 +24,14 @@ pub struct WeaponsConfig {
     pub muzzle_offset: f32,
     pub sprint_spread_multiplier: f32,
     pub swap_cooldown_cap: f32,
+    /// Seconds the combat stance stays raised after aim, fire, and reload all end.
+    #[serde(default = "stance_hold")]
+    pub stance_hold_secs: f32,
     pub weapons: Vec<WeaponSpecData>,
+}
+
+fn stance_hold() -> f32 {
+    0.15
 }
 
 impl Default for WeaponsConfig {
@@ -33,6 +40,7 @@ impl Default for WeaponsConfig {
             muzzle_offset: 0.75,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
+            stance_hold_secs: stance_hold(),
             weapons: vec![
                 WeaponSpecData {
                     id: "assault_rifle".to_string(),

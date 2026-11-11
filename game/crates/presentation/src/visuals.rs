@@ -1,15 +1,13 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::Velocity;
 use combat::Projectile;
 use data::{
     ConfigHotReloadedMessage, DamageMessage, EnemyKind, GameState, SimPostPhysicsSet, SimUpdateSet,
 };
 use enemies::{EnemiesConfig, Enemy, FacingDirection};
 use extraction::{ExtractionZone, ScrapPickup};
-use world::{AimDirection, ArenaConfig, ArenaGround, ArenaObstacle, Stamina, Survivor};
+use world::{ArenaConfig, ArenaGround, ArenaObstacle, Survivor};
 
-use crate::config::VisualsConfig;
-use crate::player_visuals::PlayerVisualRoot;
+use crate::anim::PlayerVisualRoot;
 
 #[derive(Component)]
 pub struct VisualBody;
@@ -214,7 +212,6 @@ fn attach_actor_visuals(
             .with_children(|parent| {
                 parent.spawn((
                     Name::new("PlayerVisualRoot"),
-                    VisualBody,
                     PlayerVisualRoot,
                     Transform::default(),
                     Visibility::default(),
@@ -283,7 +280,10 @@ fn attach_extraction_visuals(
 
 fn update_extraction_pad_visual(
     materials: Res<SharedVisualMaterials>,
-    mut pads: Query<(&ExtractionZone, &mut MeshMaterial3d<StandardMaterial>), With<ExtractionPadVisual>>,
+    mut pads: Query<
+        (&ExtractionZone, &mut MeshMaterial3d<StandardMaterial>),
+        With<ExtractionPadVisual>,
+    >,
 ) {
     for (zone, mut mat) in &mut pads {
         mat.0 = if zone.active {
@@ -294,10 +294,7 @@ fn update_extraction_pad_visual(
     }
 }
 
-fn animate_scrap_pickups(
-    time: Res<Time>,
-    mut pickups: Query<&mut Transform, With<ScrapPickup>>,
-) {
+fn animate_scrap_pickups(time: Res<Time>, mut pickups: Query<&mut Transform, With<ScrapPickup>>) {
     let dt = time.delta_secs();
     for mut tf in &mut pickups {
         tf.rotate_y(2.4 * dt);
@@ -305,21 +302,9 @@ fn animate_scrap_pickups(
 }
 
 fn sync_visual_facing(
-    visuals_cfg: Res<VisualsConfig>,
-    survivors: Query<(&AimDirection, &Stamina, &Velocity, &Children), With<Survivor>>,
     enemies: Query<(&FacingDirection, &Children), With<Enemy>>,
     mut visual_bodies: Query<&mut Transform, With<VisualBody>>,
 ) {
-    let threshold_sq = visuals_cfg.player.move_speed_threshold.powi(2);
-    for (aim, stamina, vel, children) in &survivors {
-        let horiz_vel = Vec3::new(vel.linear.x, 0.0, vel.linear.z);
-        let facing = if stamina.is_sprinting && horiz_vel.length_squared() > threshold_sq {
-            horiz_vel
-        } else {
-            aim.0
-        };
-        apply_facing_to_children(facing, children, &mut visual_bodies);
-    }
     for (facing, children) in &enemies {
         apply_facing_to_children(facing.0, children, &mut visual_bodies);
     }
@@ -362,10 +347,10 @@ fn update_hit_flash(
     for mut flash in &mut flashes {
         if flash.timer > 0.0 {
             flash.timer = (flash.timer - dt).max(0.0);
-            if flash.timer <= 0.0 {
-                if let Ok(mut mat) = mesh_materials.get_mut(flash.visual_entity) {
-                    mat.0 = flash.base_material.clone();
-                }
+            if flash.timer <= 0.0
+                && let Ok(mut mat) = mesh_materials.get_mut(flash.visual_entity)
+            {
+                mat.0 = flash.base_material.clone();
             }
         }
     }

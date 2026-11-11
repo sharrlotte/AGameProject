@@ -198,12 +198,13 @@ pub fn escalated_spawn_params(elapsed_secs: f32, cfg: &EnemiesConfig) -> (f32, u
     };
     let interval =
         cfg.spawn_interval_start + (cfg.spawn_interval_min - cfg.spawn_interval_start) * t;
-    let max_active = cfg.max_active_start as f32
-        + (cfg.max_active_end as f32 - cfg.max_active_start as f32) * t;
+    let max_active =
+        cfg.max_active_start as f32 + (cfg.max_active_end as f32 - cfg.max_active_start as f32) * t;
     (interval.max(0.1), max_active.round().max(1.0) as usize)
 }
 
 /// Spawns Walkers and Runners along the arena edges, escalating over run time.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,
@@ -237,8 +238,12 @@ pub fn spawn_enemies(
     } else {
         (EnemyKind::Runner, enemies_cfg.runner)
     };
-    let spawn_pos =
-        pick_edge_spawn_pos(&survivor_positions, &arena_cfg, &enemies_cfg, player_cfg.aim_height);
+    let spawn_pos = pick_edge_spawn_pos(
+        &survivor_positions,
+        &arena_cfg,
+        &enemies_cfg,
+        player_cfg.aim_height,
+    );
     spawn_enemy_entity(&mut commands, kind, arch, spawn_pos);
 }
 
@@ -250,14 +255,18 @@ pub fn enemy_chase_and_attack(
     mut damage_writer: MessageWriter<DamageMessage>,
     survivors: Query<(Entity, &Transform), With<Survivor>>,
     mut enemies: Query<
-        (Entity, &mut Enemy, &mut Velocity, &Transform, &mut FacingDirection),
+        (
+            Entity,
+            &mut Enemy,
+            &mut Velocity,
+            &Transform,
+            &mut FacingDirection,
+        ),
         Without<Survivor>,
     >,
 ) {
-    let survivor_list: Vec<(Entity, Vec3)> = survivors
-        .iter()
-        .map(|(e, t)| (e, t.translation))
-        .collect();
+    let survivor_list: Vec<(Entity, Vec3)> =
+        survivors.iter().map(|(e, t)| (e, t.translation)).collect();
     if survivor_list.is_empty() {
         for (_, _, mut vel, _, _) in &mut enemies {
             vel.linear = Vec3::ZERO;

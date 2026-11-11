@@ -79,10 +79,9 @@ impl Plugin for RunFlowPlugin {
             )
             .add_systems(
                 Update,
-                handle_navigation_requests
-                    .run_if(|state: Res<State<GameState>>| {
-                        matches!(state.get(), GameState::GameOver | GameState::Upgrades)
-                    }),
+                handle_navigation_requests.run_if(|state: Res<State<GameState>>| {
+                    matches!(state.get(), GameState::GameOver | GameState::Upgrades)
+                }),
             );
     }
 }
@@ -418,7 +417,9 @@ mod tests {
         }
         assert!((app.world().resource::<RunStats>().extraction_progress_secs - 4.0).abs() < 0.01);
 
-        let msgs = app.world().resource::<Messages<ExtractionCompletedMessage>>();
+        let msgs = app
+            .world()
+            .resource::<Messages<ExtractionCompletedMessage>>();
         let mut cursor = msgs.get_cursor();
         let completed: Vec<_> = cursor.read(msgs).copied().collect();
         assert_eq!(completed.len(), 1);
@@ -445,6 +446,8 @@ mod tests {
 
         assert_eq!(app.world().resource::<ScrapBank>().banked, 15);
         assert_eq!(app.world().resource::<UpgradeLevels>().weapon_damage, 1);
-        assert!((app.world().resource::<UpgradeModifiers>().damage_multiplier - 1.15).abs() < 0.001);
+        assert!(
+            (app.world().resource::<UpgradeModifiers>().damage_multiplier - 1.15).abs() < 0.001
+        );
     }
 }
