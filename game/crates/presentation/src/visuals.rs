@@ -2,13 +2,13 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 use combat::Projectile;
 use data::{
-    ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyKind, GameState,
-    SimPostPhysicsSet, SimUpdateSet, VisualsConfig,
+    ConfigHotReloadedMessage, DamageMessage, EnemyKind, GameState, SimPostPhysicsSet, SimUpdateSet,
 };
-use enemies::{Enemy, FacingDirection};
+use enemies::{EnemiesConfig, Enemy, FacingDirection};
 use extraction::{ExtractionZone, ScrapPickup};
-use world::{AimDirection, ArenaGround, ArenaObstacle, Stamina, Survivor};
+use world::{AimDirection, ArenaConfig, ArenaGround, ArenaObstacle, Stamina, Survivor};
 
+use crate::config::VisualsConfig;
 use crate::player_visuals::PlayerVisualRoot;
 
 #[derive(Component)]

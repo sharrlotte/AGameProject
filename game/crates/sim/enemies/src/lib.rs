@@ -1,11 +1,14 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
-    ArenaConfig, ConfigHotReloadedMessage, DamageMessage, EnemiesConfig, EnemyArchetypeData,
-    EnemyKilledMessage, EnemyKind, EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE,
-    GROUP_WORLD, GameState, PlayerConfig, RunEntity, RunStats, SimPostPhysicsSet, SimUpdateSet,
+    AppRonConfigExt, ConfigHotReloadedMessage, DamageMessage, EnemyKilledMessage, EnemyKind,
+    EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, GameState, RunEntity,
+    RunStats, SimPostPhysicsSet, SimUpdateSet,
 };
-use world::{Health, Survivor};
+use world::{ArenaConfig, Health, PlayerConfig, Survivor};
+
+pub mod config;
+pub use config::{EnemiesConfig, EnemyArchetypeData};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct FacingDirection(pub Vec3);
@@ -48,7 +51,8 @@ pub struct EnemiesPlugin;
 
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EnemySpawner>()
+        app.register_ron_config::<EnemiesConfig>()
+            .init_resource::<EnemySpawner>()
             .add_systems(OnEnter(GameState::Playing), reset_spawner)
             .add_systems(OnEnter(GameState::GameOver), freeze_enemies_on_game_over)
             .add_systems(

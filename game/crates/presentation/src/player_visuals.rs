@@ -4,8 +4,10 @@ use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use bevy_rapier3d::prelude::Velocity;
-use data::{ConfigHotReloadedMessage, GameState, PlayerModelConfig, SimUpdateSet, VisualsConfig};
+use data::{AppRonConfigExt, ConfigHotReloadedMessage, GameState, SimUpdateSet};
 use world::{Health, Stamina, Survivor};
+
+use crate::config::{PlayerModelConfig, VisualsConfig};
 
 /// Marker on the `VisualBody` pivot entity spawned as a direct child of `Survivor`.
 #[derive(Component)]
@@ -70,7 +72,8 @@ pub struct PlayerVisualsPlugin;
 
 impl Plugin for PlayerVisualsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PlayerModelAssets>()
+        app.register_ron_config::<VisualsConfig>()
+            .init_resource::<PlayerModelAssets>()
             .add_systems(OnExit(GameState::Loading), start_loading_player_model)
             .add_systems(
                 Update,

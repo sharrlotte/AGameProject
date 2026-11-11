@@ -5,5 +5,9 @@ edition = "2024"
 
 [dependencies]
 bevy.workspace = true
+serde.workspace = true
 data.workspace = true
 world.workspace = true
+
+[dev-dependencies]
+ron.workspace = true

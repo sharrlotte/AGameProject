@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
-    ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD,
-    GameState, PlayerConfig, PlayerDiedMessage, RunEntity, SimPostPhysicsSet, SimUpdateSet,
-    SurvivorTag, UpgradeModifiers,
+    AppRonConfigExt, ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP,
+    GROUP_PLAYER, GROUP_WORLD, GameState, PlayerDiedMessage, RunEntity, SimPostPhysicsSet,
+    SimUpdateSet, SurvivorTag, UpgradeModifiers,
 };
 
+use crate::config::PlayerConfig;
 use crate::input_intent::ActionIntent;
 
 #[derive(Component)]
@@ -58,7 +59,8 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), spawn_player)
+        app.register_ron_config::<PlayerConfig>()
+            .add_systems(OnEnter(GameState::Playing), spawn_player)
             .add_systems(OnEnter(GameState::GameOver), freeze_survivor_on_game_over)
             .add_systems(
                 Update,

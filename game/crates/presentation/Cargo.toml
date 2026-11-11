@@ -6,8 +6,12 @@ edition = "2024"
 [dependencies]
 bevy.workspace = true
 bevy_rapier3d.workspace = true
+serde.workspace = true
 data.workspace = true
 world.workspace = true
 combat.workspace = true
 enemies.workspace = true
 extraction.workspace = true
+
+[dev-dependencies]
+ron.workspace = true

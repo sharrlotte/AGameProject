@@ -1,12 +1,15 @@
 use bevy::prelude::*;
 use data::{
-    ConfigHotReloadedMessage, DeployRequestedMessage, EnemyKilledMessage, EnemyKind,
-    ExtractionCompletedMessage, ExtractionConfig, GameState, LastRunOutcome,
-    OpenUpgradesRequestedMessage, PlayerDiedMessage, PurchaseUpgradeMessage, RunEntity, RunStats,
-    ScrapBank, ScrapCollectedMessage, SimPostPhysicsSet, SimUpdateSet, UpgradeLevels,
-    UpgradeModifiers, UpgradesChangedMessage, UpgradesConfig,
+    AppRonConfigExt, ConfigHotReloadedMessage, DeployRequestedMessage, EnemyKilledMessage,
+    EnemyKind, ExtractionCompletedMessage, GameState, LastRunOutcome, OpenUpgradesRequestedMessage,
+    PlayerDiedMessage, PurchaseUpgradeMessage, RunEntity, RunStats, ScrapBank,
+    ScrapCollectedMessage, SimPostPhysicsSet, SimUpdateSet, UpgradeLevels, UpgradeModifiers,
+    UpgradesChangedMessage,
 };
 use world::Survivor;
+
+pub mod config;
+pub use config::{ExtractionConfig, UpgradeLevelsExt, UpgradeModifiersExt, UpgradesConfig};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ScrapPickup {
@@ -28,7 +31,8 @@ pub struct ExtractionPlugin;
 
 impl Plugin for ExtractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), spawn_extraction_zone)
+        app.register_ron_config::<ExtractionConfig>()
+            .add_systems(OnEnter(GameState::Playing), spawn_extraction_zone)
             .add_systems(
                 Update,
                 (
@@ -87,7 +91,7 @@ pub struct UpgradesPlugin;
 
 impl Plugin for UpgradesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.register_ron_config::<UpgradesConfig>().add_systems(
             Update,
             (
                 handle_upgrade_purchases.run_if(in_state(GameState::Upgrades)),

@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use data::{
-    ArenaConfig, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleDef, ObstacleTag,
-    SimUpdateSet,
-};
+use data::{AppRonConfigExt, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleTag, SimUpdateSet};
+
+use crate::config::{ArenaConfig, ObstacleDef};
 
 #[derive(Component)]
 pub struct ArenaStaticEntity;
@@ -21,7 +20,8 @@ pub struct ArenaPlugin;
 
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::Loading), spawn_arena_physics)
+        app.register_ron_config::<ArenaConfig>()
+            .add_systems(OnExit(GameState::Loading), spawn_arena_physics)
             .add_systems(
                 Update,
                 hot_reload_arena

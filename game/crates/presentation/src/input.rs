@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use data::{GameState, PlayerConfig, SimUpdateSet};
-use world::{ActionIntent, LocalPlayer};
+use data::{GameState, SimUpdateSet};
+use world::{ActionIntent, LocalPlayer, PlayerConfig};
 
 use crate::camera::MainCamera;
 

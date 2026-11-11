@@ -2402,6 +2402,8 @@ dependencies = [
  "bevy_rapier3d",
  "data",
  "rand",
+ "ron",
+ "serde",
  "world",
 ]
 
@@ -2881,6 +2883,8 @@ dependencies = [
  "bevy_rapier3d",
  "data",
  "rand",
+ "ron",
+ "serde",
  "world",
 ]
 
@@ -2995,6 +2999,8 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "data",
+ "ron",
+ "serde",
  "world",
 ]
 
@@ -5207,6 +5213,8 @@ dependencies = [
  "data",
  "enemies",
  "extraction",
+ "ron",
+ "serde",
  "world",
 ]
 
@@ -7424,6 +7432,8 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "data",
+ "ron",
+ "serde",
 ]
 
 [[package]]

@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Group;
 
-use crate::config::UpgradesConfig;
-
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
@@ -100,25 +98,6 @@ impl UpgradeLevels {
         }
     }
 
-    pub fn max_level(&self, kind: UpgradeKind, cfg: &UpgradesConfig) -> u32 {
-        match kind {
-            UpgradeKind::WeaponDamage => cfg.damage_max_level,
-            UpgradeKind::MaxHp => cfg.max_hp_max_level,
-            UpgradeKind::MoveAndReloadSpeed => cfg.speed_reload_max_level,
-        }
-    }
-
-    pub fn next_cost(&self, kind: UpgradeKind, cfg: &UpgradesConfig) -> u32 {
-        let lvl = self.level(kind);
-        match kind {
-            UpgradeKind::WeaponDamage => cfg.damage_base_cost + lvl * cfg.damage_cost_step,
-            UpgradeKind::MaxHp => cfg.max_hp_base_cost + lvl * cfg.max_hp_cost_step,
-            UpgradeKind::MoveAndReloadSpeed => {
-                cfg.speed_reload_base_cost + lvl * cfg.speed_reload_cost_step
-            }
-        }
-    }
-
     pub fn increment(&mut self, kind: UpgradeKind) {
         match kind {
             UpgradeKind::WeaponDamage => self.weapon_damage += 1,
@@ -144,15 +123,5 @@ impl Default for UpgradeModifiers {
             move_speed_multiplier: 1.0,
             reload_speed_multiplier: 1.0,
         }
-    }
-}
-
-impl UpgradeModifiers {
-    pub fn recompute(&mut self, levels: &UpgradeLevels, cfg: &UpgradesConfig) {
-        self.damage_multiplier = 1.0 + levels.weapon_damage as f32 * cfg.damage_bonus_per_level;
-        self.bonus_max_hp = levels.max_hp as f32 * cfg.max_hp_bonus_per_level;
-        let speed_bonus = levels.move_and_reload as f32 * cfg.speed_reload_bonus_per_level;
-        self.move_speed_multiplier = 1.0 + speed_bonus;
-        self.reload_speed_multiplier = 1.0 + speed_bonus;
     }
 }

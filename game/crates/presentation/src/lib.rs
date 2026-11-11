@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod camera;
+pub mod config;
 pub mod hud;
 pub mod input;
 pub mod menus;
@@ -8,6 +9,7 @@ pub mod player_visuals;
 pub mod visuals;
 
 pub use camera::CameraPlugin;
+pub use config::{PlayerModelConfig, VisualsConfig};
 pub use hud::HudPlugin;
 pub use input::InputPlugin;
 pub use menus::MenusPlugin;

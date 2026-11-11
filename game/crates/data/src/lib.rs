@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 
-pub mod config;
 pub mod events;
 pub mod loader;
 pub mod state;
 
-pub use config::*;
 pub use events::*;
-pub use loader::DataPlugin;
+pub use loader::{AppRonConfigExt, ConfigSyncSet, DataPlugin, RonConfig};
 pub use state::*;
 
 /// Registers shared state, resources, messages, and `.ron` asset loaders.

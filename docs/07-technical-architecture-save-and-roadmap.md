@@ -40,13 +40,13 @@ game/core/src/
 ```
 game/
 ├── crates/
-│   ├── data/                  # CoreDataPlugin, DataPlugin (RonAssetLoader + hot reload), GameState, typed Messages, shared tags
+│   ├── data/                  # CoreDataPlugin, DataPlugin (RonConfig + AppRonConfigExt::register_ron_config + PendingConfigs gate), GameState, typed Messages, shared tags
 │   ├── sim/
-│   │   ├── world/             # ArenaPlugin, PlayerPlugin, ActionIntent, movement/stamina/aim/HP
-│   │   ├── combat/            # CombatPlugin (Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
-│   │   ├── enemies/           # EnemiesPlugin (Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
-│   │   └── extraction/        # ExtractionPlugin (Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin
-│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerVisualsPlugin (glTF + anim graph), HudPlugin, MenusPlugin
+│   │   ├── world/             # ArenaPlugin (ArenaConfig), PlayerPlugin (PlayerConfig), ActionIntent, movement/stamina/aim/HP
+│   │   ├── combat/            # CombatPlugin (WeaponsConfig, Rifle + Shotgun, reload FSM, 3D Sensor+CCD projectiles, CollisionEvent)
+│   │   ├── enemies/           # EnemiesPlugin (EnemiesConfig, Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
+│   │   └── extraction/        # ExtractionPlugin (ExtractionConfig, Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin (UpgradesConfig)
+│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerVisualsPlugin (VisualsConfig, glTF + anim graph), HudPlugin, MenusPlugin
 └── core/
     ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals)
     ├── assets/models/         # 3D glTF/GLB character assets (player.glb)

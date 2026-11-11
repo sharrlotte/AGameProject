@@ -1,17 +1,13 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use bevy::asset::io::Reader;
-use bevy::asset::{AssetLoader, LoadContext};
+use bevy::asset::{AssetLoader, LoadContext, LoadState, UntypedAssetId};
 use bevy::ecs::component::Mutable;
-use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
-use crate::config::{
-    ArenaConfig, EnemiesConfig, ExtractionConfig, PlayerConfig, UpgradesConfig, VisualsConfig,
-    WeaponsConfig,
-};
 use crate::events::ConfigHotReloadedMessage;
 use crate::state::{GameState, SimUpdateSet};
 
@@ -57,150 +53,155 @@ where
     }
 }
 
-#[derive(Resource)]
-pub struct ConfigHandles {
-    pub arena: Handle<ArenaConfig>,
-    pub player: Handle<PlayerConfig>,
-    pub weapons: Handle<WeaponsConfig>,
-    pub enemies: Handle<EnemiesConfig>,
-    pub extraction: Handle<ExtractionConfig>,
-    pub upgrades: Handle<UpgradesConfig>,
-    pub visuals: Handle<VisualsConfig>,
+/// System set for initial `.ron` config synchronization during `GameState::Loading`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ConfigSyncSet;
+
+/// Trait implemented by `.ron`-backed configuration resources.
+pub trait RonConfig:
+    Asset
+    + Resource<Mutability = Mutable>
+    + Clone
+    + Default
+    + DeserializeOwned
+    + TypePath
+    + Send
+    + Sync
+    + 'static
+{
+    /// Asset path relative to `game/core/assets`, e.g. `"config/arena.ron"`.
+    const PATH: &'static str;
 }
 
+#[derive(Resource)]
+struct ConfigHandle<T: Asset>(Handle<T>);
+
+#[derive(Resource)]
+struct RonConfigRegistered<T>(PhantomData<fn() -> T>);
+
+#[derive(Resource, Default)]
+struct PendingConfigs {
+    pending: HashSet<UntypedAssetId>,
+    failed: HashSet<UntypedAssetId>,
+    finished: bool,
+}
+
+/// Extension trait for registering `.ron`-backed configuration types on a Bevy [`App`].
+pub trait AppRonConfigExt {
+    /// Registers asset loading, active resource, initial loading gate sync, and hot-reload for `T`.
+    fn register_ron_config<T: RonConfig>(&mut self) -> &mut Self;
+}
+
+impl AppRonConfigExt for App {
+    fn register_ron_config<T: RonConfig>(&mut self) -> &mut Self {
+        if self.world().contains_resource::<RonConfigRegistered<T>>() {
+            return self;
+        }
+
+        self.insert_resource(RonConfigRegistered::<T>(PhantomData))
+            .init_resource::<PendingConfigs>()
+            .init_asset::<T>()
+            .register_asset_loader(RonAssetLoader::<T>::default())
+            .init_resource::<T>()
+            .add_systems(Startup, start_loading_config::<T>)
+            .add_systems(
+                Update,
+                sync_initial_config::<T>
+                    .in_set(ConfigSyncSet)
+                    .run_if(in_state(GameState::Loading)),
+            )
+            .add_systems(
+                Update,
+                hot_reload_config::<T>
+                    .before(SimUpdateSet)
+                    .run_if(not(in_state(GameState::Loading))),
+            )
+    }
+}
+
+/// Coordinates initial `.ron` config loading and transitions from `GameState::Loading` to `Playing`.
 pub struct DataPlugin;
 
 impl Plugin for DataPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<ArenaConfig>()
-            .init_asset::<PlayerConfig>()
-            .init_asset::<WeaponsConfig>()
-            .init_asset::<EnemiesConfig>()
-            .init_asset::<ExtractionConfig>()
-            .init_asset::<UpgradesConfig>()
-            .init_asset::<VisualsConfig>()
-            .register_asset_loader(RonAssetLoader::<ArenaConfig>::default())
-            .register_asset_loader(RonAssetLoader::<PlayerConfig>::default())
-            .register_asset_loader(RonAssetLoader::<WeaponsConfig>::default())
-            .register_asset_loader(RonAssetLoader::<EnemiesConfig>::default())
-            .register_asset_loader(RonAssetLoader::<ExtractionConfig>::default())
-            .register_asset_loader(RonAssetLoader::<UpgradesConfig>::default())
-            .register_asset_loader(RonAssetLoader::<VisualsConfig>::default())
-            .init_resource::<ArenaConfig>()
-            .init_resource::<PlayerConfig>()
-            .init_resource::<WeaponsConfig>()
-            .init_resource::<EnemiesConfig>()
-            .init_resource::<ExtractionConfig>()
-            .init_resource::<UpgradesConfig>()
-            .init_resource::<VisualsConfig>()
-            .add_systems(Startup, start_loading_configs)
-            .add_systems(
-                Update,
-                check_initial_configs_loaded.run_if(in_state(GameState::Loading)),
-            )
-            .add_systems(
-                Update,
-                (
-                    hot_reload_config::<ArenaConfig>,
-                    hot_reload_config::<PlayerConfig>,
-                    hot_reload_config::<WeaponsConfig>,
-                    hot_reload_config::<EnemiesConfig>,
-                    hot_reload_config::<ExtractionConfig>,
-                    hot_reload_config::<UpgradesConfig>,
-                    hot_reload_config::<VisualsConfig>,
-                )
-                    .before(SimUpdateSet),
-            );
+        app.init_resource::<PendingConfigs>().add_systems(
+            Update,
+            finish_initial_config_load
+                .after(ConfigSyncSet)
+                .run_if(in_state(GameState::Loading)),
+        );
     }
 }
 
-fn start_loading_configs(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(ConfigHandles {
-        arena: asset_server.load("config/arena.ron"),
-        player: asset_server.load("config/player.ron"),
-        weapons: asset_server.load("config/weapons.ron"),
-        enemies: asset_server.load("config/enemies.ron"),
-        extraction: asset_server.load("config/extraction.ron"),
-        upgrades: asset_server.load("config/upgrades.ron"),
-        visuals: asset_server.load("config/visuals.ron"),
-    });
+fn start_loading_config<T: RonConfig>(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut pending: ResMut<PendingConfigs>,
+) {
+    let handle = asset_server.load::<T>(T::PATH);
+    pending.pending.insert(handle.id().untyped());
+    commands.insert_resource(ConfigHandle(handle));
 }
 
-#[derive(SystemParam)]
-struct ConfigAssetStores<'w> {
-    arena: Res<'w, Assets<ArenaConfig>>,
-    player: Res<'w, Assets<PlayerConfig>>,
-    weapons: Res<'w, Assets<WeaponsConfig>>,
-    enemies: Res<'w, Assets<EnemiesConfig>>,
-    extraction: Res<'w, Assets<ExtractionConfig>>,
-    upgrades: Res<'w, Assets<UpgradesConfig>>,
-    visuals: Res<'w, Assets<VisualsConfig>>,
+fn sync_initial_config<T: RonConfig>(
+    handle: Option<Res<ConfigHandle<T>>>,
+    asset_server: Res<AssetServer>,
+    assets: Res<Assets<T>>,
+    mut active: ResMut<T>,
+    mut pending: ResMut<PendingConfigs>,
+) {
+    let Some(handle) = handle else {
+        return;
+    };
+    let id = handle.0.id().untyped();
+    if !pending.pending.contains(&id) {
+        return;
+    }
+
+    if let Some(asset) = assets.get(&handle.0) {
+        *active = asset.clone();
+        pending.pending.remove(&id);
+        pending.failed.remove(&id);
+        return;
+    }
+
+    if let LoadState::Failed(err) = asset_server.load_state(&handle.0) {
+        if pending.failed.insert(id) {
+            error!("Failed to load RON config '{}': {err:?}", T::PATH);
+        }
+    }
 }
 
-#[derive(SystemParam)]
-struct ActiveConfigs<'w> {
-    arena: ResMut<'w, ArenaConfig>,
-    player: ResMut<'w, PlayerConfig>,
-    weapons: ResMut<'w, WeaponsConfig>,
-    enemies: ResMut<'w, EnemiesConfig>,
-    extraction: ResMut<'w, ExtractionConfig>,
-    upgrades: ResMut<'w, UpgradesConfig>,
-    visuals: ResMut<'w, VisualsConfig>,
-}
-
-fn check_initial_configs_loaded(
-    handles: Res<ConfigHandles>,
-    stores: ConfigAssetStores,
-    mut active: ActiveConfigs,
+fn finish_initial_config_load(
+    mut pending: ResMut<PendingConfigs>,
     mut reloaded_writer: MessageWriter<ConfigHotReloadedMessage>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    let Some(arena) = stores.arena.get(&handles.arena) else {
-        return;
-    };
-    let Some(player) = stores.player.get(&handles.player) else {
-        return;
-    };
-    let Some(weapons) = stores.weapons.get(&handles.weapons) else {
-        return;
-    };
-    let Some(enemies) = stores.enemies.get(&handles.enemies) else {
-        return;
-    };
-    let Some(extraction) = stores.extraction.get(&handles.extraction) else {
-        return;
-    };
-    let Some(upgrades) = stores.upgrades.get(&handles.upgrades) else {
-        return;
-    };
-    let Some(visuals) = stores.visuals.get(&handles.visuals) else {
-        return;
-    };
-
-    *active.arena = arena.clone();
-    *active.player = player.clone();
-    *active.weapons = weapons.clone();
-    *active.enemies = enemies.clone();
-    *active.extraction = extraction.clone();
-    *active.upgrades = upgrades.clone();
-    *active.visuals = visuals.clone();
-
-    reloaded_writer.write(ConfigHotReloadedMessage);
-    next_state.set(GameState::Playing);
+    if !pending.finished && pending.pending.is_empty() {
+        pending.finished = true;
+        reloaded_writer.write(ConfigHotReloadedMessage);
+        next_state.set(GameState::Playing);
+    }
 }
 
-fn hot_reload_config<T: Asset + Resource<Mutability = Mutable> + Clone>(
+fn hot_reload_config<T: RonConfig>(
     mut events: MessageReader<AssetEvent<T>>,
+    handle: Option<Res<ConfigHandle<T>>>,
     assets: Res<Assets<T>>,
     mut active: ResMut<T>,
     mut reloaded_writer: MessageWriter<ConfigHotReloadedMessage>,
 ) {
+    let Some(handle) = handle else {
+        return;
+    };
     let mut updated = false;
     for event in events.read() {
         if let AssetEvent::Modified { id } = event {
-            if let Some(asset) = assets.get(*id) {
-                *active = asset.clone();
-                updated = true;
+            if *id == handle.0.id() {
+                if let Some(asset) = assets.get(*id) {
+                    *active = asset.clone();
+                    updated = true;
+                }
             }
         }
     }
@@ -209,48 +210,29 @@ fn hot_reload_config<T: Asset + Resource<Mutability = Mutable> + Clone>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn all_ron_config_files_parse_cleanly() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..");
-        let base = if root.join("core").join("assets").join("config").exists() {
-            root.join("core").join("assets").join("config")
-        } else {
-            root.join("assets").join("config")
-        };
-
-        let arena_str = std::fs::read_to_string(base.join("arena.ron")).unwrap();
-        let arena: ArenaConfig = ron::de::from_str(&arena_str).unwrap();
-        assert!(arena.half_size > 0.0);
-
-        let player_str = std::fs::read_to_string(base.join("player.ron")).unwrap();
-        let player: PlayerConfig = ron::de::from_str(&player_str).unwrap();
-        assert!(player.max_hp > 0.0);
-
-        let weapons_str = std::fs::read_to_string(base.join("weapons.ron")).unwrap();
-        let weapons: WeaponsConfig = ron::de::from_str(&weapons_str).unwrap();
-        assert_eq!(weapons.weapons.len(), 2);
-
-        let enemies_str = std::fs::read_to_string(base.join("enemies.ron")).unwrap();
-        let enemies: EnemiesConfig = ron::de::from_str(&enemies_str).unwrap();
-        assert!(enemies.walker.max_hp > 0.0);
-
-        let extraction_str = std::fs::read_to_string(base.join("extraction.ron")).unwrap();
-        let extraction: ExtractionConfig = ron::de::from_str(&extraction_str).unwrap();
-        assert!(extraction.hold_duration_secs > 0.0);
-
-        let upgrades_str = std::fs::read_to_string(base.join("upgrades.ron")).unwrap();
-        let upgrades: UpgradesConfig = ron::de::from_str(&upgrades_str).unwrap();
-        assert!(upgrades.damage_max_level > 0);
-
-        let visuals_str = std::fs::read_to_string(base.join("visuals.ron")).unwrap();
-        let visuals: VisualsConfig = ron::de::from_str(&visuals_str).unwrap();
-        assert!(!visuals.player.model_path.is_empty());
-        assert!(visuals.player.scale > 0.0);
-    }
+/// Resolves `game/core/assets/<T::PATH>` from any workspace crate and parses it with `ron`.
+#[macro_export]
+macro_rules! assert_ron_config_parses {
+    ($ty:ty) => {{
+        let path_rel = <$ty as $crate::RonConfig>::PATH;
+        let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .find_map(|dir| {
+                let core_assets = dir.join("core").join("assets");
+                if core_assets.join("config").exists() {
+                    return Some(core_assets);
+                }
+                let direct_assets = dir.join("assets");
+                if direct_assets.join("config").exists() {
+                    return Some(direct_assets);
+                }
+                None
+            })
+            .expect("Could not locate game/core/assets directory");
+        let path = assets_dir.join(path_rel);
+        let contents = std::fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("Failed to read {}: {err}", path.display()));
+        ron::de::from_str::<$ty>(&contents)
+            .unwrap_or_else(|err| panic!("Failed to parse {}: {err}", path.display()))
+    }};
 }

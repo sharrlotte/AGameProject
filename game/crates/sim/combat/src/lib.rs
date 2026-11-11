@@ -1,11 +1,14 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
-    ConfigHotReloadedMessage, DamageMessage, EnemyTag, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD,
-    GameState, ObstacleTag, PlayerConfig, RunEntity, SimPostPhysicsSet, SimUpdateSet,
-    UpgradeModifiers, WeaponFiredMessage, WeaponSpecData, WeaponsConfig,
+    AppRonConfigExt, ConfigHotReloadedMessage, DamageMessage, EnemyTag, GROUP_ENEMY,
+    GROUP_PROJECTILE, GROUP_WORLD, GameState, ObstacleTag, RunEntity, SimPostPhysicsSet,
+    SimUpdateSet, UpgradeModifiers, WeaponFiredMessage,
 };
-use world::{ActionIntent, AimDirection, Stamina, Survivor};
+use world::{ActionIntent, AimDirection, PlayerConfig, Stamina, Survivor};
+
+pub mod config;
+pub use config::{WeaponSpecData, WeaponsConfig};
 
 #[derive(Debug, Clone)]
 pub struct WeaponSlotState {
@@ -72,7 +75,7 @@ pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.register_ron_config::<WeaponsConfig>().add_systems(
             Update,
             (
                 attach_weapon_inventory,

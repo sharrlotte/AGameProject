@@ -2,8 +2,9 @@ use bevy::prelude::*;
 use data::{
     DeployRequestedMessage, GameState, LastRunOutcome, OpenUpgradesRequestedMessage,
     PurchaseUpgradeMessage, ScrapBank, UpgradeKind, UpgradeLevels, UpgradeModifiers,
-    UpgradesChangedMessage, UpgradesConfig,
+    UpgradesChangedMessage,
 };
+use extraction::{UpgradeLevelsExt, UpgradesConfig};
 
 const BTN_IDLE_COLOR: Color = Color::srgb(0.18, 0.45, 0.78);
 const BTN_HOVER_COLOR: Color = Color::srgb(0.25, 0.56, 0.90);

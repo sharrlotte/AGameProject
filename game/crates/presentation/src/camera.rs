@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
-use data::{ArenaConfig, ConfigHotReloadedMessage, GameState};
-use world::{ActionIntent, LocalPlayer};
+use data::{ConfigHotReloadedMessage, GameState};
+use world::{ActionIntent, ArenaConfig, LocalPlayer};
 
 #[derive(Component)]
 pub struct MainCamera;
