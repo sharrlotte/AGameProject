@@ -1,40 +1,87 @@
-## 1. Refactor `crates/sim/world`
+## 1. Refactor `crates/sim/world` (Completed)
 
-- [ ] 1.1 Rename `game/crates/sim/world/src/input_intent.rs` to `intent.rs` and keep `ActionIntent` re-exported from `world::lib`
-- [ ] 1.2 Split `arena.rs` into `arena/{mod.rs, state.rs, system.rs}` and `player.rs` into `player/{mod.rs, state.rs, system.rs}`, preserving `ArenaPlugin`, `PlayerPlugin`, and all public component/system exports
-- [ ] 1.3 Run `cargo check -p world` to verify zero errors or warnings
+- [x] 1.1 Rename `game/crates/sim/world/src/input_intent.rs` to `intent.rs` and keep `ActionIntent` re-exported from `world::lib`
+- [x] 1.2 Split `arena.rs` into `arena/{mod.rs, state.rs, system.rs}` and `player.rs` into `player/{mod.rs, state.rs, system.rs}`, preserving `ArenaPlugin`, `PlayerPlugin`, and all public component/system exports
+- [x] 1.3 Run `cargo check -p world` to verify zero errors or warnings
 
-## 2. Refactor `crates/sim/combat`
+## 2. Refactor `crates/sim/combat` (Completed)
 
-- [ ] 2.1 Extract weapon inventory state (`WeaponSlotState`, `WeaponInventory`) and weapon firing/swapping systems from `combat/src/lib.rs` into `weapon/{mod.rs, state.rs, system.rs}`
-- [ ] 2.2 Extract reload timer progression, completion/cancellation messages, and death cancellation into `reload/{mod.rs, system.rs}`
-- [ ] 2.3 Extract `Projectile` component, spawning, ticking, and Rapier collision handling into `projectile/{mod.rs, state.rs, system.rs}`
-- [ ] 2.4 Extract `CombatStance` and stance hold/update systems into `stance/{mod.rs, state.rs, system.rs}`
-- [ ] 2.5 Slim `combat/src/lib.rs` to module declarations, public re-exports, and `CombatPlugin` system-chain registration, then run `cargo check -p combat`
+- [x] 2.1 Extract weapon inventory state (`WeaponSlotState`, `WeaponInventory`) and weapon firing/swapping systems from `combat/src/lib.rs` into `weapon/{mod.rs, state.rs, system.rs}`
+- [x] 2.2 Extract reload timer progression, completion/cancellation messages, and death cancellation into `reload/{mod.rs, system.rs}`
+- [x] 2.3 Extract `Projectile` component, spawning, ticking, and Rapier collision handling into `projectile/{mod.rs, state.rs, system.rs}`
+- [x] 2.4 Extract `CombatStance` and stance hold/update systems into `stance/{mod.rs, state.rs, system.rs}`
+- [x] 2.5 Slim `combat/src/lib.rs` to module declarations, public re-exports, and `CombatPlugin` system-chain registration, then run `cargo check -p combat`
 
-## 3. Refactor `crates/sim/enemies`
+## 3. Refactor `crates/sim/enemies` (Completed)
 
-- [ ] 3.1 Split `enemies/src/lib.rs` into `spawn/{mod.rs, state.rs, system.rs}` (`EnemySpawner`, spawning), `ai/{mod.rs, state.rs, system.rs}` (`Enemy`, `FacingDirection`, chase/attack/freeze), and `damage/{mod.rs, system.rs}` (`apply_enemy_damage`)
-- [ ] 3.2 Update `enemies/src/lib.rs` to declare sub-feature modules, re-export public types, and wire `EnemiesPlugin` system chains
-- [ ] 3.3 Run `cargo test -p enemies` to confirm all enemy unit tests pass
+- [x] 3.1 Split `enemies/src/lib.rs` into `spawn/{mod.rs, state.rs, system.rs}` (`EnemySpawner`, spawning), `ai/{mod.rs, state.rs, system.rs}` (`Enemy`, `FacingDirection`, chase/attack/freeze), and `damage/{mod.rs, system.rs}` (`apply_enemy_damage`)
+- [x] 3.2 Update `enemies/src/lib.rs` to declare sub-feature modules, re-export public types, and wire `EnemiesPlugin` system chains
+- [x] 3.3 Run `cargo test -p enemies` to confirm all enemy unit tests pass
 
-## 4. Refactor `crates/sim/extraction`
+## 4. Refactor `crates/sim/extraction` (Completed)
 
-- [ ] 4.1 Extract `ScrapPickup`, magnet pickup, and enemy-drop spawning into `pickup/{mod.rs, state.rs, system.rs}`
-- [ ] 4.2 Extract `ExtractionZone` and zone holdout progression into `zone/{mod.rs, state.rs, system.rs}`
-- [ ] 4.3 Extract run start/end/outcome flow into `flow/{mod.rs, system.rs}` and upgrade config/purchase systems into `upgrade/{mod.rs, config.rs, system.rs}`
-- [ ] 4.4 Update `extraction/src/lib.rs` to expose `ExtractionPlugin`, `RunFlowPlugin`, and `UpgradesPlugin`, then run `cargo check -p extraction`
+- [x] 4.1 Extract `ScrapPickup`, magnet pickup, and enemy-drop spawning into `pickup/{mod.rs, state.rs, system.rs}`
+- [x] 4.2 Extract `ExtractionZone` and zone holdout progression into `zone/{mod.rs, state.rs, system.rs}`
+- [x] 4.3 Extract run start/end/outcome flow into `flow/{mod.rs, system.rs}` and upgrade config/purchase systems into `upgrade/{mod.rs, config.rs, system.rs}`
+- [x] 4.4 Update `extraction/src/lib.rs` to expose `ExtractionPlugin`, `RunFlowPlugin`, and `UpgradesPlugin`, then run `cargo check -p extraction`
 
-## 5. Refactor `crates/presentation`
+## 5. Refactor `crates/presentation` (Completed)
 
-- [ ] 5.1 Move `camera.rs` into `camera/{mod.rs, system.rs}` (keeping `MainCamera` and `CameraPlugin` exports) and `input.rs` into `input/{mod.rs, system.rs}` (keeping `InputPlugin`)
-- [ ] 5.2 Split `visuals.rs` into `scene/{mod.rs, material.rs, arena.rs, player.rs, combat.rs, enemy.rs, extract.rs}` (and extract `HitFlash` into `vfx/{mod.rs, flash.rs}` if separated from `scene/`)
-- [ ] 5.3 Split `hud.rs` and `menus.rs` into `ui/{mod.rs, theme.rs, hud.rs, menu.rs}` sharing common bar/button helpers in `ui/theme.rs`
-- [ ] 5.4 Review `presentation/src/anim/` for consistency with concern-folder conventions (keeping `anim/mod.rs` under 500 lines and clean separation between `anim/` and `scene/player.rs`)
-- [ ] 5.5 Update `presentation/src/lib.rs` and `AllPresentationPlugins`, then run `cargo check -p presentation`
+- [x] 5.1 Move `camera.rs` into `camera/{mod.rs, system.rs}` (keeping `MainCamera` and `CameraPlugin` exports) and `input.rs` into `input/{mod.rs, system.rs}` (keeping `InputPlugin`)
+- [x] 5.2 Split `visuals.rs` into `scene/{mod.rs, material.rs, arena.rs, player.rs, combat.rs, enemy.rs, extract.rs}` (and extract `HitFlash` into `vfx/{mod.rs, flash.rs}` if separated from `scene/`)
+- [x] 5.3 Split `hud.rs` and `menus.rs` into `ui/{mod.rs, theme.rs, hud.rs, menu.rs}` sharing common bar/button helpers in `ui/theme.rs`
+- [x] 5.4 Review `presentation/src/anim/` for consistency with concern-folder conventions (keeping `anim/mod.rs` under 500 lines and clean separation between `anim/` and `scene/player.rs`)
+- [x] 5.5 Update `presentation/src/lib.rs` and `AllPresentationPlugins`, then run `cargo check -p presentation`
 
-## 6. Documentation & Full Workspace Verification
+## 6. Documentation & Initial Verification (Completed)
 
-- [ ] 6.1 Update Section 2 of `docs/07-technical-architecture-save-and-roadmap.md` to document the refactored `sim/` sub-feature tree and `presentation/` concern layout
-- [ ] 6.2 Audit all `.rs` files in `game/crates/` to verify every file is under 500 lines, uses concise 1-word module/file names, and no `sim/*` crate depends on `presentation`
-- [ ] 6.3 Run `cargo check --workspace` and `cargo test --workspace` and verify all checks pass with zero warnings or errors
+- [x] 6.1 Update Section 2 of `docs/07-technical-architecture-save-and-roadmap.md` to document the refactored `sim/` sub-feature tree and `presentation/` concern layout
+- [x] 6.2 Audit all `.rs` files in `game/crates/` to verify every file is under 500 lines, uses concise 1-word module/file names, and no `sim/*` crate depends on `presentation`
+- [x] 6.3 Run `cargo check --workspace` and `cargo test --workspace` and verify all checks pass with zero warnings or errors
+
+---
+
+## 7. Foundation Layer Tripartite Split
+
+- [ ] 7.1 Create `crates/common`: Move `GameState`, `SimUpdateSet`, `SimPostPhysicsSet`, collision groups (`GROUP_*`), entity tags (`SurvivorTag`, `EnemyTag`, `ObstacleTag`, `RunEntity`), and shared enums (`EnemyKind`, `UpgradeKind`)
+- [ ] 7.2 Create `crates/config`: Move `RonConfig` trait, generic `RonAssetLoader<T>`, `DataPlugin`, `ConfigSyncSet`, `PendingConfigs`, `ConfigHotReloadedMessage`, and `assert_ron_config_parses!` macro
+- [ ] 7.3 Create `crates/message`: Move cross-feature Bevy `Message` definitions and shared resources (`RunStats`, `ScrapBank`, `LastRunOutcome`, `UpgradeLevels`, `UpgradeModifiers`)
+- [ ] 7.4 Update `game/Cargo.toml` workspace members and dependency specifications
+- [ ] 7.5 Verify with `cargo check -p common -p config -p message`
+
+## 8. Presentation Decoupling & Shared Component Layer
+
+- [ ] 8.1 Move queryable components needed by presentation (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`) into `common` (or a shared component layer in `common`)
+- [ ] 8.2 Remove dependencies on `world`, `combat`, `enemies`, and `extraction` from `crates/presentation/Cargo.toml`
+- [ ] 8.3 Update `presentation` imports to query components from `common`
+- [ ] 8.4 Run `cargo check -p presentation` to confirm presentation compiles without sim crate dependencies
+
+## 9. Contract-Based Cross-Crate System Ordering
+
+- [ ] 9.1 Define shared system set contracts in `common` (e.g. `DamageResolutionSet`, `ProjectileCollisionSet`)
+- [ ] 9.2 Refactor `combat/src/lib.rs` system ordering to use `DamageResolutionSet` instead of direct function pointer `world::player::apply_player_damage`
+- [ ] 9.3 Run `cargo check -p combat -p world` to verify clean decoupled ordering
+
+## 10. App Assembly Crate (`crates/game`) & Thin Binary
+
+- [ ] 10.1 Create `crates/game` library crate with `pub fn build_app() -> App` wiring all simulation, presentation, and data plugins
+- [ ] 10.2 Simplify `game/core/src/main.rs` to a thin one-liner calling `game::build_app().run()`
+- [ ] 10.3 Run `cargo check -p game -p core`
+
+## 11. Domain-Grouped Asset Hierarchy
+
+- [ ] 11.1 Move `core/assets/config/*.ron` into domain subfolders (`player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`)
+- [ ] 11.2 Update all `RonConfig::PATH` constants to reflect new subfolder paths
+- [ ] 11.3 Run workspace config parse unit tests to verify all `.ron` configs resolve and parse cleanly
+
+## 12. Dev Dependencies Feature-Flagging & Phase 2 Skeletons
+
+- [ ] 12.1 Make `bevy-inspector-egui` and dynamic linking optional under a `dev` cargo feature in `crates/game` and `core`
+- [ ] 12.2 Create structural crate skeletons for `crates/sim/automation`, `crates/sim/base`, and `crates/persistence`
+- [ ] 12.3 Run `cargo check --workspace`
+
+## 13. Workspace Integration Tests & Architecture Documentation
+
+- [ ] 13.1 Add headless integration tests under `game/tests/` running frame loops against `game::build_app()`
+- [ ] 13.2 Update `docs/07-technical-architecture-save-and-roadmap.md` with the new target dependency graph, tripartite foundation layer, and asset hierarchy
+- [ ] 13.3 Run `cargo check --workspace` and `cargo test --workspace` to ensure zero warnings or failures

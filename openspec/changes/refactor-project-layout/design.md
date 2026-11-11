@@ -1,81 +1,140 @@
 ## Context
 
-The workspace currently uses 7 crates (`data`, `world`, `combat`, `enemies`, `extraction`, `presentation`, `core`) in `game/Cargo.toml`:
-- `crates/data/` (4 files, 39–238 lines each) holds `GameState`, shared tags, `events.rs`, and the RON config loader.
-- `crates/sim/combat/src/lib.rs` has grown to 947 lines in a single file (well above the 500-line ceiling in `AGENTS.md`), and `crates/sim/extraction/src/lib.rs` is 450 lines containing three plugins (`ExtractionPlugin`, `RunFlowPlugin`, `UpgradesPlugin`).
-- `crates/sim/enemies/src/lib.rs` is 341 lines and `crates/sim/world/src/` uses flat feature files (`arena.rs`, `player.rs`, `input_intent.rs`, `config.rs`).
-- `crates/presentation/src/` mixes flat files (`visuals.rs` at 357 lines, `hud.rs` at 417 lines, `menus.rs` at 367 lines, `camera.rs`, `input.rs`) with the newer `anim/` folder (9 concise 1-word files, 52–369 lines).
+The workspace initially used 7 crates (`data`, `world`, `combat`, `enemies`, `extraction`, `presentation`, `core`) in `game/Cargo.toml`.
+Stage 1 completed the immediate refactoring of monolithic files into nested sub-features under 500 lines using standardized 1-word filenames.
 
-The codebase is about to expand into Phase 1–2 features (7 zombie archetypes, procedural biomes/chunks, deployables/drones, home base facilities, save/load). Refactoring the layout now establishes a repeatable module structure without changing runtime gameplay.
+To scale the architecture for large-scale development (7 zombie archetypes, biomes/chunks, deployables, home base, save/load, and co-op multiplayer), Stage 2 addresses structural coupling, build parallelization, asset organization, and testability.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Keep the strict two-layer separation between `crates/sim/*` (headless simulation) and `crates/presentation` (client visuals, audio, UI, input, camera, animation).
-- Keep feature crates in `crates/sim/` independent for fast incremental/parallel Cargo compilation.
-- Split oversized simulation crates and flat presentation files into nested sub-features and concern folders using concise 1-word file names under 500 lines each.
-- Enforce two-tier event ownership (`data/src/events.rs` for cross-feature messages, `<subfeature>/event.rs` for local messages).
-- Keep `docs/07-technical-architecture-save-and-roadmap.md` in sync with the implemented directory layout.
+- Decompose the `data` god-crate into `common` (leaf types), `config` (generic loader), and `message` (cross-crate events/progression).
+- Decouple `presentation` from individual simulation crates so rendering/animation queries shared ECS data rather than importing sim logic.
+- Replace fragile cross-crate system function ordering with explicit `SystemSet` contracts.
+- Introduce `crates/game` library crate (`build_app()`) to enable headless integration tests, benchmark harnesses, and future dedicated server builds.
+- Organize assets by domain folders (`config/<domain>/...`, `models/<domain>/...`).
+- Pre-plan Phase 2 crate boundaries (`crates/sim/automation/`, `crates/sim/base/`, `crates/persistence/`).
+- Feature-flag dev-only dependencies (`bevy-inspector-egui`, dynamic linking).
+- Keep all Rust source files under 500 lines with 1-word naming.
 
 **Non-Goals:**
-- Changing gameplay mechanics, physics, enemy behavior, UI appearance, or `.ron` schema/loading behavior (`ron-config-loading`).
-- Merging `sim/*` crates into one monolithic crate or splitting `presentation` into multiple Cargo crates at this stage.
-- Implementing Phase 1–2 features (`deploy`, `base`, `save`) prematurely; only prepare the layout conventions and folder boundaries they will follow.
-- Rewriting the layered animation design in `player-animation-layers` (only align module structure/file boundaries where needed).
+- Changing runtime gameplay mechanics, physics simulation, or enemy balance.
+- Implementing Phase 2 gameplay features (deployables, base progression, persistence) ahead of schedule; only define the structural crate and layout boundaries.
+- Splitting `presentation` into multiple Cargo crates prematurely before presentation compile times warrant it.
 
 ## Decisions
 
 ### D1. Two-Layer Cargo Boundary (`crates/sim/` vs `crates/presentation/`)
-- **Choice:** Retain `crates/sim/<feature>/` feature crates and a single `crates/presentation/` leaf crate, matching `docs/07` naming.
-- **Rationale:** Simulation crates stay headless-capable (future co-op/server and unit tests require zero rendering/UI dependencies), while editing presentation/UI never triggers downstream recompiles in simulation crates.
-- **Alternatives considered:**
-  - *Single `logic` crate + single `visual` crate*: fewer `Cargo.toml` files, but any edit in `combat` would recompile `enemies` and `extraction`.
-  - *UI files inside feature crates behind `#[cfg(feature = "client")]`*: creates feature-flag boilerplate, couples headless sim to UI widgets, and triggers sim recompiles on UI tweaks.
+- **Choice:** Retain `crates/sim/<feature>/` feature crates and a single `crates/presentation/` leaf crate.
+- **Rationale:** Simulation crates stay headless-capable, while editing presentation/UI never triggers downstream recompiles in simulation crates.
 
 ### D2. Nested Sub-Features with Standardized 1-Word Files in `crates/sim/`
-- **Choice:** Each `sim/<feature>/src/` crate splits into nested sub-feature folders where each sub-feature uses standardized 1-word file names (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`, plus `tests.rs` where needed). Only the files a sub-feature actually uses are created (no empty stub files). Shared crate-level `.ron` config stays in `config.rs` at the crate root when one `.ron` file feeds multiple sub-features (e.g., `combat`, `enemies`, `extraction`), with sub-feature `config.rs` re-exporting or holding sub-structs if split later.
-- **Mapping for existing sim crates:**
-  - `sim/combat/src/`: `lib.rs` (plugin wiring + `CombatPlugin`), `config.rs` (`WeaponsConfig`), `weapon/` (`state.rs`, `system.rs`), `reload/` (`system.rs`), `projectile/` (`state.rs`, `system.rs`), `stance/` (`state.rs`, `system.rs`), `tests.rs` (if unit tests are added/moved).
-  - `sim/extraction/src/`: `lib.rs` (re-exports `ExtractionPlugin`, `RunFlowPlugin`, `UpgradesPlugin`), `config.rs`, `pickup/` (`state.rs`, `system.rs`), `zone/` (`state.rs`, `system.rs`), `flow/` (`system.rs`), `upgrade/` (`config.rs`, `system.rs`).
-  - `sim/enemies/src/`: `lib.rs`, `config.rs`, `spawn/` (`state.rs`, `system.rs`), `ai/` (`state.rs`, `system.rs`), `damage/` (`system.rs`), `tests.rs`.
-  - `sim/world/src/`: `lib.rs`, `config.rs`, `intent.rs` (renamed from `input_intent.rs` for 1-word naming while re-exporting `ActionIntent`), `arena/` (`state.rs`, `system.rs`), `player/` (`state.rs`, `system.rs`).
-- **Rationale:** Splitting by domain sub-feature prevents `system.rs` from exceeding 500 lines and makes every feature predictable to navigate.
-- **Alternatives considered:**
-  - *Single `system.rs` at crate root*: would immediately create a ~900-line `combat/src/system.rs`, violating the 500-line limit.
-  - *Mandatory empty `event.rs`/`config.rs` in every folder*: creates noise files with zero types.
+- **Choice:** Each `sim/<feature>/src/` crate splits into nested sub-feature folders using standardized 1-word file names (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`, plus `tests.rs` where needed). Only the files a sub-feature actually uses are created.
+- **Rationale:** Prevents any file from exceeding 500 lines and makes navigating features intuitive and uniform.
 
 ### D3. Two-Tier Event Placement
-- **Choice:** Cross-feature typed Bevy `Message`s remain in `crates/data/src/events.rs`. Events produced and consumed solely within a single feature or sub-feature live in `<subfeature>/event.rs` and are registered by that feature's plugin.
-- **Rationale:** Prevents circular Cargo dependencies between `combat`, `enemies`, and `extraction` while allowing sub-features to decouple internally without polluting `data`.
+- **Choice:** Cross-feature typed Bevy messages remain in a shared event layer (`message` crate), while events produced and consumed solely within a single feature live in `<subfeature>/event.rs`.
+- **Rationale:** Prevents circular dependencies while avoiding polluting the shared message layer with feature-internal signals.
 
 ### D4. Concern-First `crates/presentation/` with Feature Sub-Modules in `scene/` and `ui/`
-- **Choice:** Keep `presentation` as one crate with top-level directories organized by visual concern:
-  - `camera/` (`mod.rs`, `system.rs` — migrated from `camera.rs`)
-  - `input/` (`mod.rs`, `system.rs` — migrated from `input.rs`)
-  - `anim/` (existing `PlayerAnimPlugin` submodules; ensure `anim/mod.rs` remains `<500` lines and only owns animation/rig binding)
-  - `vfx/` (module shell or extracted hit-flash/particle helpers ready for `bevy_hanabi`)
-  - `audio/` (module shell ready for Phase 1–3 spatial audio)
-  - `scene/` (migrated from `visuals.rs`: `mod.rs`, `material.rs`, `arena.rs`, `player.rs`, `combat.rs`, `enemy.rs`, `extract.rs`)
-  - `ui/` (migrated from `hud.rs` + `menus.rs`: `mod.rs`, `theme.rs`, `hud.rs` or `hud/`, `menu.rs` or `menu/`)
-- **Rationale:** Preserves shared visual pipelines (`camera`, `input`, `anim`, `vfx`, `audio`, `ui/theme`) while preventing `visuals.rs`, `hud.rs`, and `menus.rs` from growing past 500 lines as biomes, enemies, deployables, and base UI screens are added.
-- **Alternatives considered:**
-  - *Purely flat concern folders (`ui.rs`, `scene.rs`)*: would merge `hud.rs` (417) + `menus.rs` (367) into ~784 lines immediately.
-  - *Splitting `presentation` into 6 Cargo crates now*: premature Cargo overhead before compile times warrant it; concern folders can be promoted to crates later with minimal import changes.
+- **Choice:** Keep `presentation` organized by visual concern: `camera/`, `input/`, `anim/`, `vfx/`, `audio/`, `scene/`, `ui/`. Subdivide scaling concerns (`scene/` and `ui/`) by feature or screen.
+- **Rationale:** Preserves shared visual pipelines while preventing monolith files as more biomes, enemies, and screens are added.
 
 ### D5. Public Crate Re-Exports & System Ordering Preservation
-- **Choice:** Keep each crate's root `lib.rs` re-exporting its public plugins, components, configs, and system sets (`CombatPlugin`, `EnemiesPlugin`, `ExtractionPlugin`, `RunFlowPlugin`, `UpgradesPlugin`, `ArenaPlugin`, `PlayerPlugin`, `AllPresentationPlugins`, etc.) so `game/core/src/main.rs` and cross-crate imports remain clean and system `.chain()` / `SimUpdateSet` / `SimPostPhysicsSet` ordering stays identical.
+- **Choice:** Keep each crate's root `lib.rs` re-exporting its public plugins, components, configs, and system sets.
+
+### D6. Tripartite Split of `data` (`common`, `config`, `message`)
+- **Choice:** Split the monolithic `data` crate into:
+  1. `crates/common/`: `GameState`, `SimUpdateSet`, `SimPostPhysicsSet`, collision groups (`GROUP_WORLD`..`GROUP_PICKUP`), entity tags (`SurvivorTag`, `EnemyTag`, `ObstacleTag`, `RunEntity`), shared enums (`EnemyKind`, `UpgradeKind`), and shared queryable components (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`).
+  2. `crates/config/`: `RonConfig` trait, `RonAssetLoader<T>`, `DataPlugin`, `ConfigSyncSet`, `PendingConfigs`, `ConfigHotReloadedMessage`, and `assert_ron_config_parses!`.
+  3. `crates/message/`: Cross-feature Bevy `Message` definitions and shared progression/outcome resources (`RunStats`, `ScrapBank`, `LastRunOutcome`, `UpgradeLevels`, `UpgradeModifiers`).
+- **Rationale:** Prevents recompiling every crate whenever a message or config helper is edited. `common` becomes a stable leaf crate.
+
+### D7. Decoupled Presentation via Shared Component Queries
+- **Choice:** `presentation` depends on `common`, `config`, and `message`, but **NOT** on `world`, `combat`, `enemies`, or `extraction`.
+- **Rationale:** In ECS, components represent data and systems represent behavior. Presentation only needs to query component data to drive meshes, animations, HUD, and VFX. Eliminating the dependency on sim crates isolates presentation compile cycles and guarantees simulation crates can be rewritten without breaking presentation imports.
+
+### D8. Contract-Based System Ordering via `SystemSet`s
+- **Choice:** Replace direct function imports across crates (e.g. `combat` depending on `world::player::apply_player_damage`) with cross-crate `SystemSet`s defined in `common` (e.g. `PlayerDamageSet`, `ProjectileCollisionSet`).
+- **Rationale:** Decouples crate internals so system functions can be refactored or made private without breaking sibling crate schedules.
+
+### D9. App Assembly Library (`crates/game`) and Thin Binary (`core`)
+- **Choice:** Introduce `crates/game` library crate with `pub fn build_app() -> App`, leaving `game/core/src/main.rs` as a thin wrapper:
+  ```rust
+  fn main() {
+      game::build_app().run();
+  }
+  ```
+- **Rationale:** Enables headless integration tests (`App::new()` without windowing/audio), custom test runners, benchmarks, and future dedicated server binaries without code duplication.
+
+### D10. Domain-Grouped Asset Directory Hierarchy
+- **Choice:** Restructure `core/assets/` by domain:
+  - `config/`: `player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`
+  - `models/`: `player/`, `enemies/`, `weapons/`, `world/`
+  - `audio/`: `sfx/`, `music/`
+  - `texture/`: `materials/`, `ui/`
+- **Rationale:** Prevents hundreds of flat asset files as Phase 1–3 content expands.
+
+### D11. Feature-Gated Dev Tools & Test Harness
+- **Choice:** Move `bevy-inspector-egui` and `dynamic_linking` behind a `dev` cargo feature in `crates/game` and `core`. Provide headless integration tests in `game/tests/` running game loops against `game::build_app()`.
+
+---
+
+## Target Architecture Graph
+
+```mermaid
+graph TD
+    subgraph "Foundation Crates"
+        common["crates/common<br/>(GameState, Tags, Shared Components, SystemSets)"]
+        config["crates/config<br/>(RonConfig, Loader, DataPlugin)"]
+        message["crates/message<br/>(Cross-Feature Messages, Run/Upgrade Stats)"]
+    end
+
+    config --> common
+    message --> common
+
+    subgraph "Headless Simulation Crates"
+        world["crates/sim/world<br/>(Arena, Player Systems)"]
+        combat["crates/sim/combat<br/>(Weapons, Projectiles, Reload, Stance)"]
+        enemies["crates/sim/enemies<br/>(Spawner, AI, Damage)"]
+        extraction["crates/sim/extraction<br/>(Pickup, Zone, Flow, Upgrades)"]
+        automation["crates/sim/automation<br/>(Phase 2: Turrets, Traps, Drones)"]
+        base["crates/sim/base<br/>(Phase 2: Facilities, Power, Crafting)"]
+        persistence["crates/persistence<br/>(Phase 2: Save / Load)"]
+    end
+
+    world --> common & config & message
+    combat --> common & config & message
+    enemies --> common & config & message
+    extraction --> common & config & message
+    automation -.-> common & config & message
+    base -.-> common & config & message
+    persistence -.-> common & message
+
+    subgraph "Presentation Crate"
+        presentation["crates/presentation<br/>(Camera, Input, Anim, Scene, UI, VFX)"]
+    end
+
+    presentation --> common & config & message
+
+    subgraph "App Assembly & Binary"
+        game_lib["crates/game (lib)<br/>(build_app wiring)"]
+        core_bin["core (bin)<br/>(main.rs thin wrapper)"]
+        tests["tests/ (headless integration)"]
+    end
+
+    game_lib --> world & combat & enemies & extraction & presentation
+    core_bin --> game_lib
+    tests --> game_lib
+```
+
+---
 
 ## Risks / Trade-offs
 
-- **[Risk] Overlapping edits with active `player-animation-layers` change** → Keep `presentation/src/anim/` public exports (`PlayerAnimPlugin`, `PlayerVisualRoot`, `PlayerFacing`, `PlayerRig`, `AnimCatalog`, `PlayerIkSet`) and `sim/world` / `sim/combat` public symbols (`ActionIntent`, `CombatStance`, reload/swap messages) stable so in-flight animation work merges cleanly.
-- **[Risk] Broken system ordering during extraction from monolithic `lib.rs`** → Preserve exact `.chain()`, `.in_set(SimUpdateSet)`, `.in_set(SimPostPhysicsSet)`, `.after(...)`, and `.before(...)` constraints when moving systems into sub-feature `system.rs` files, and verify with `cargo check` and `cargo test` after each crate migration.
-- **[Risk] Empty placeholder folders (`vfx/`, `audio/`) triggering dead-code warnings** → Only expose clean module/plugin hooks or add `vfx/` / `audio/` when extracting actual existing logic (e.g. `HitFlash` in `vfx` or keeping `audio/` documented in `docs/07` until audio systems are added) so there is zero unused code or lint suppression.
-
-## Migration Plan
-
-1. Refactor `crates/sim/world` (lightweight alignment + `intent.rs`).
-2. Refactor `crates/sim/combat` (split 947-line `lib.rs` into `weapon/`, `projectile/`, `reload/`, `stance/`).
-3. Refactor `crates/sim/enemies` (`spawn/`, `ai/`, `damage/`, `tests.rs`).
-4. Refactor `crates/sim/extraction` (`pickup/`, `zone/`, `flow/`, `upgrade/`).
-5. Refactor `crates/presentation` (`camera/`, `input/`, `scene/`, `ui/`, and `anim/` consistency check).
-6. Update `docs/07-technical-architecture-save-and-roadmap.md` and run `cargo check --workspace` and `cargo test --workspace` to verify zero regressions.
+- **[Risk] High crate count overhead:** Creating `common`, `config`, `message`, and `game` adds 4 `Cargo.toml` files.
+  - *Mitigation:* Cargo workspace inheritance (`[workspace.dependencies]`) keeps individual `Cargo.toml` files minimal (5–15 lines each).
+- **[Risk] Component migration churn:** Moving shared components (`Survivor`, `Health`, `WeaponInventory`, etc.) to `common` touches imports across multiple crates.
+  - *Mitigation:* Re-export them from their original module/crate roots during migration to preserve backward compatibility until all crates are updated.
+- **[Risk] Asset path changes breaking tests:** Changing `.ron` paths to domain subfolders could break existing tests.
+  - *Mitigation:* Update `RonConfig::PATH` and the asset directories in one atomic step and run parse tests immediately.

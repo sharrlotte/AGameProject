@@ -1,38 +1,66 @@
 ## Why
 
-Several workspace crates are already outgrowing flat single-file modules—`combat/src/lib.rs` is 947 lines, `extraction/src/lib.rs` is 450 lines, and `presentation/src/` mixes `visuals.rs` (357 lines), `hud.rs` (417 lines), and `menus.rs` (367 lines) alongside the newer `anim/` folder. Establishing a consistent, scalable layout before Phase 1–2 expansion keeps compilation fast, preserves the headless Simulation vs. Presentation boundary, and enforces the 500-line and concise 1-word naming rules in `AGENTS.md`.
+Several workspace crates had outgrown flat single-file modules—`combat/src/lib.rs` was 947 lines, `extraction/src/lib.rs` was 450 lines, and `presentation/src/` mixed `visuals.rs`, `hud.rs`, and `menus.rs`. While the immediate sub-feature split resolved the 500-line ceiling and established 1-word module files, scaling to a large-scale project (Phase 1–2: 7 zombie archetypes, procedural biomes/chunks, deployables, home base facilities, save/load, and future multiplayer) requires addressing fundamental structural bottlenecks:
+1. `data` is currently a god-crate combining tags, game states, collision groups, cross-feature messages, upgrade resources, and generic RON loader infrastructure.
+2. `presentation` directly depends on every simulation crate (`world`, `combat`, `enemies`, `extraction`), creating heavy coupling and cascade recompilation on every simulation change.
+3. Cross-crate system ordering directly references foreign system functions (e.g., `world::player::apply_player_damage`) rather than explicit `SystemSet` contracts.
+4. `core/src/main.rs` directly wires all plugins and dependencies, preventing headless integration testing and future dedicated server builds.
+5. All `.ron` assets sit in a flat `config/` directory, which will not scale as biomes, room templates, loot tables, and weapons multiply.
 
 ## What Changes
 
+### Stage 1: Nested Sub-Features & File Boundaries (Completed)
 - Standardize the two-layer workspace structure keeping `crates/sim/` (headless simulation feature crates) and `crates/presentation/` (visual/client concern crate) strictly separated.
 - Adopt a **nested sub-feature** convention inside `crates/sim/<feature>/src/` (`weapon/`, `projectile/`, `reload/`, `pickup/`, `zone/`, `flow/`, `upgrade/`, etc.), each containing standardized 1-word files (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`) as needed so every file stays under 500 lines.
-- Enforce a **two-tier event model**: cross-feature Bevy messages stay in `crates/data/src/events.rs` to prevent circular crate dependencies, while feature/sub-feature internal events live in `<subfeature>/event.rs`.
-- Reorganize `crates/presentation/src/` at top level by visual concern (`camera/`, `input/`, `anim/`, `vfx/`, `audio/`, `scene/`, `ui/`), nesting feature sub-modules inside `scene/` (`arena.rs`, `player.rs`, `combat.rs`, `enemy.rs`, `extract.rs`) and `ui/` (`theme.rs`, `hud/`, `menu/`) to prevent monolith files.
-- Refactor existing oversized modules (`sim/combat`, `sim/extraction`, `sim/enemies`, `sim/world`, and `presentation` including `anim/` module consistency) into the new structure without altering runtime gameplay behavior.
-- Update `docs/07-technical-architecture-save-and-roadmap.md` (and `AGENTS.md` if needed for layout conventions) to record the finalized directory and module standard.
+- Enforce a **two-tier event model**: cross-feature Bevy messages stay in `crates/data/src/events.rs`, while internal events live in `<subfeature>/event.rs`.
+- Reorganize `crates/presentation/src/` by visual concern (`camera/`, `input/`, `anim/`, `vfx/`, `audio/`, `scene/`, `ui/`), nesting feature sub-modules inside `scene/` and `ui/`.
+
+### Stage 2: Large-Scale Architecture Enhancements (New Scope)
+- **Split `data` God-Crate into Focused Crates:**
+  - `common`: `GameState`, core `SystemSet`s (`SimUpdateSet`, `SimPostPhysicsSet`), collision `Group` constants, entity tags (`SurvivorTag`, `EnemyTag`, `ObstacleTag`, `RunEntity`), and shared enums (`EnemyKind`, `UpgradeKind`).
+  - `config`: `RonConfig` trait, generic `RonAssetLoader<T>`, `DataPlugin`, `ConfigSyncSet`, `PendingConfigs`, `ConfigHotReloadedMessage`, and the `assert_ron_config_parses!` macro.
+  - `message`: Cross-feature Bevy messages (`DamageMessage`, `EnemyKilledMessage`, `WeaponFiredMessage`, etc.) and shared progression/run resources (`RunStats`, `ScrapBank`, `LastRunOutcome`, `UpgradeLevels`, `UpgradeModifiers`).
+- **Decouple `presentation` from Simulation Crates:**
+  - Push shared queryable ECS components (`Survivor`, `Health`, `MovementStats`, `AimDirection`, `WeaponInventory`, `CombatStance`, `Enemy`, `ExtractionZone`, `ScrapPickup`) down into `common` (or a `sim-api` shared component layer), allowing `presentation` to render and bind animations purely by querying components without importing simulation crates.
+  - Replace cross-crate foreign system function references with domain-level `SystemSet`s (e.g. `DamageResolutionSet`).
+- **Introduce `crates/game` Application Assembly Library:**
+  - Provide `pub fn build_app() -> App` wiring all plugins, Rapier physics, and state transitions.
+  - Turn `game/core/src/main.rs` into a thin one-liner binary wrapper (`fn main() { game::build_app().run(); }`).
+  - Enables headless end-to-end integration tests and paves the way for future dedicated server builds.
+- **Restructure Assets into Domain Directories:**
+  - Group `core/assets/config/` into domain subfolders: `player/`, `combat/`, `enemies/`, `world/`, `extraction/`, `base/`.
+  - Group `models/`, `audio/`, `texture/` along matching domain boundaries.
+- **Pre-define Phase 2 Crate Skeletons:**
+  - Establish crate boundaries for `crates/sim/automation/` (turrets, mines, traps, drones), `crates/sim/base/` (facilities, power, crafting, research), and `crates/persistence/` (profile save, expedition snapshots).
+- **Feature-Flag Dev Dependencies:**
+  - Move `bevy-inspector-egui` and dynamic linking behind explicit Cargo features (`dev`).
+- **Add Integration Testing Infrastructure:**
+  - Add workspace-level headless integration tests (`game/tests/`) running simulation scenarios against `game::build_app()`.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `project-layout`: Workspace crate layering (`data`, `sim/*`, `presentation`, `core`), nested sub-feature module conventions (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`), concern-based `presentation` organization with feature sub-modules under `scene/` and `ui/`, two-tier event ownership, and file-size/naming invariants.
+- `project-layout`:
+  - Workspace crate layering (`common`, `config`, `message`, `sim/*`, `presentation`, `game`, `core`).
+  - Nested sub-feature module conventions (`mod.rs`, `config.rs`, `state.rs`, `event.rs`, `system.rs`).
+  - Decoupled presentation querying shared ECS components rather than importing sim feature crates.
+  - App assembly library (`game::build_app()`) enabling headless testing.
+  - Domain-grouped asset directory layout (`assets/config/<domain>/...`).
+  - Two-tier event ownership and cross-crate `SystemSet` contracts.
+  - Strict file-size (<500 lines) and concise 1-word file naming invariants.
 
 ### Modified Capabilities
 
-<!-- No existing spec-level behavior changes (`ron-config-loading` requirements remain unchanged). -->
+- `ron-config-loading`: Config file path constants updated to support domain subfolders (e.g., `config/combat/weapons.ron`).
 
 ## Impact
 
-- **Simulation Crates (`game/crates/sim/`)**:
-  - `combat/src/lib.rs` (947 lines) split into `weapon/`, `projectile/`, `reload/` (plus thin `lib.rs` plugin wiring).
-  - `extraction/src/lib.rs` (450 lines) split into `pickup/`, `zone/`, `flow/`, `upgrade/`.
-  - `enemies/src/` (`lib.rs`, `config.rs`, `tests.rs`) and `world/src/` (`arena.rs`, `player.rs`, `input_intent.rs`, `config.rs`) aligned to the sub-feature module convention.
-- **Presentation Crate (`game/crates/presentation/src/`)**:
-  - `visuals.rs` split into `scene/` (`arena.rs`, `player.rs`, `combat.rs`, `enemy.rs`, `extract.rs`).
-  - `hud.rs` + `menus.rs` split into `ui/` (`theme.rs`, `hud/`, `menu/`).
-  - `camera.rs` and `input.rs` moved into `camera/` and `input/` concern modules (with `vfx/` and `audio/` ready as Phase 1–2 placeholders/modules when added).
-  - `anim/` reviewed/adjusted for consistency with the concern-folder conventions (including keeping `anim/mod.rs` under 500 lines and clean separation from `scene/player.rs`).
-- **Core & Data (`game/crates/data/`, `game/core/src/main.rs`)**:
-  - Public crate re-exports preserved or updated cleanly so `core/src/main.rs` and `ron-config-loading` continue working with zero gameplay regressions.
-- **Docs**:
-  - `docs/07-technical-architecture-save-and-roadmap.md` updated to reflect the refactored workspace tree.
+- **Crate Graph**:
+  - `data` decomposes into `common`, `config`, and `message`.
+  - `presentation` no longer depends on `world`, `combat`, `enemies`, `extraction`.
+  - `game` assembly crate created; `core` depends only on `game`.
+- **Assets**:
+  - `.ron` config files moved into domain subfolders; `PATH` constants updated accordingly.
+- **Documentation**:
+  - `docs/07-technical-architecture-save-and-roadmap.md` updated with the multi-crate dependency graph and target layout.
