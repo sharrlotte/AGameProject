@@ -27,6 +27,7 @@
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 - Use short and concise for name and file name, prefer using 1 word
 - Only write unit test, no smoke test unless i asked to
+- Do not write comment that explain what the code already does or changes, note from old code version
 
 ## Bevy
 
