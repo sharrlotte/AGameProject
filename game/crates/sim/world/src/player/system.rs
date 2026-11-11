@@ -1,84 +1,14 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
-    AppRonConfigExt, ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP,
-    GROUP_PLAYER, GROUP_WORLD, GameState, PlayerDiedMessage, RunEntity, SimPostPhysicsSet,
-    SimUpdateSet, SurvivorTag, UpgradeModifiers,
+    ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD,
+    PlayerDiedMessage, RunEntity, SurvivorTag, UpgradeModifiers,
 };
 
 use crate::config::PlayerConfig;
-use crate::input_intent::ActionIntent;
+use crate::intent::ActionIntent;
 
-#[derive(Component)]
-pub struct Survivor;
-
-#[derive(Component)]
-pub struct LocalPlayer;
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Health {
-    pub current: f32,
-    pub max: f32,
-}
-
-impl Health {
-    pub fn new(max: f32) -> Self {
-        Self { current: max, max }
-    }
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Stamina {
-    pub current: f32,
-    pub max: f32,
-    pub exhausted_timer: f32,
-    pub is_sprinting: bool,
-}
-
-impl Stamina {
-    pub fn new(max: f32) -> Self {
-        Self {
-            current: max,
-            max,
-            exhausted_timer: 0.0,
-            is_sprinting: false,
-        }
-    }
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct MovementStats {
-    pub walk_speed: f32,
-    pub sprint_speed: f32,
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct AimDirection(pub Vec3);
-
-pub struct PlayerPlugin;
-
-impl Plugin for PlayerPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_ron_config::<PlayerConfig>()
-            .add_systems(OnEnter(GameState::Playing), spawn_player)
-            .add_systems(OnEnter(GameState::GameOver), freeze_survivor_on_game_over)
-            .add_systems(
-                Update,
-                (sync_player_hot_reload, player_movement_and_aim)
-                    .chain()
-                    .in_set(SimUpdateSet)
-                    .run_if(in_state(GameState::Playing)),
-            )
-            .add_systems(
-                PostUpdate,
-                apply_player_damage
-                    .in_set(SimPostPhysicsSet)
-                    .after(PhysicsSet::Writeback)
-                    .before(TransformSystems::Propagate)
-                    .run_if(in_state(GameState::Playing)),
-            );
-    }
-}
+use super::state::{AimDirection, Health, LocalPlayer, MovementStats, Stamina, Survivor};
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -127,7 +57,7 @@ pub fn spawn_player(
     ));
 }
 
-fn sync_player_hot_reload(
+pub fn sync_player_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
@@ -233,7 +163,7 @@ pub fn apply_player_damage(
     }
 }
 
-fn freeze_survivor_on_game_over(
+pub fn freeze_survivor_on_game_over(
     mut survivors: Query<(&mut Velocity, &mut Stamina), With<Survivor>>,
 ) {
     for (mut vel, mut stamina) in &mut survivors {

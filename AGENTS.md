@@ -3,6 +3,7 @@
 - YOU ARE NOT ALLOW TO DECIDE ANYTHING, EVEYTHING MUST BE APPROVED BY ME BEFORE IMPL,
 - IF WE MAKE ANY CHANGES, MAKE SURE IT IS RECORDED INSIDE /docs
 - IF YOU SEE ANY CODE THAT VIOLATING ANY RULES BELLOW AND HAVE NO COMMENT TO PREVENT REFACTOR THEN ASK USER FOR PERMISSION TO REWIRTE
+- CARGO COMPILE, TEST, CHECK TOOK A REALLY LONG TIME SO MAKE SURE YOU ONLY RUN WHEN NEEDED AND ONLY CHECK WHAT NEEDED
 
 # PROJECT STRUCTURE
 
@@ -11,6 +12,8 @@
 - The folder structure must be prepared for future expansion
 
 # CODE RULE
+
+## Common
 
 - The coded must be designed for future proof in mind
 - NO unwrap() or unsafe code inside production code
@@ -23,6 +26,10 @@
 - Respect SOLID principle, when a file > 500 lines then extract
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 - Use short and concise for name and file name, prefer using 1 word
+
+## Bevy
+
+- Prefer Single over Query if you only need 1 and that entity always exists 1
 
 # Files
 

@@ -36,24 +36,24 @@ game/core/src/
 └── vehicles/                # [Post-Core] Drivable vehicle physics & mounted interactions
 ```
 
-### Current Implemented Stage 1 Layout (`Milestones 1.0–1.5`, Multi-Crate Feature Workspace)
+### Current Implemented Stage 1 Layout (`Milestones 1.0–1.5`, Two-Layer Feature Workspace)
 ```
 game/
 ├── crates/
-│   ├── data/                  # CoreDataPlugin, DataPlugin (RonConfig + AppRonConfigExt::register_ron_config + PendingConfigs gate), GameState, typed Messages, shared tags
-│   ├── sim/
-│   │   ├── world/             # ArenaPlugin (ArenaConfig), PlayerPlugin (PlayerConfig), ActionIntent, movement/stamina/aim/HP
-│   │   ├── combat/            # CombatPlugin (WeaponsConfig, Rifle + Shotgun, reload FSM + lifecycle messages, CombatStance, 3D Sensor+CCD projectiles, CollisionEvent)
-│   │   ├── enemies/           # EnemiesPlugin (EnemiesConfig, Walker + Runner, escalation spawn timer, chase + contact dmg, knockback)
-│   │   └── extraction/        # ExtractionPlugin (ExtractionConfig, Scrap magnet/pickup, 10s Extraction pad), RunFlowPlugin, UpgradesPlugin (UpgradesConfig)
-│   └── presentation/          # CameraPlugin, InputPlugin, VisualsPlugin (arena/enemies/props), PlayerAnimPlugin (anim/*), HudPlugin, MenusPlugin
+│   ├── data/                  # CoreDataPlugin, DataPlugin (RonConfig + AppRonConfigExt::register_ron_config + PendingConfigs gate), GameState, cross-feature Messages (events.rs), shared tags
+│   ├── sim/                   # Headless simulation feature crates (sub-features use 1-word files: mod.rs, config.rs, state.rs, event.rs, system.rs)
+│   │   ├── world/             # ArenaPlugin (arena/*), PlayerPlugin (player/*), ActionIntent (intent.rs)
+│   │   ├── combat/            # CombatPlugin: weapon/, reload/, projectile/, stance/
+│   │   ├── enemies/           # EnemiesPlugin: spawn/, ai/, damage/
+│   │   └── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/), UpgradesPlugin (upgrade/)
+│   └── presentation/          # Client concern modules: camera/, input/, anim/, vfx/ (VfxPlugin), scene/ (ScenePlugin: material/arena/player/combat/enemy/extract), ui/ (UiPlugin: theme/hud/menu)
 └── core/
     ├── assets/config/         # Hot-reloadable .ron configs (arena, player, weapons, enemies, extraction, upgrades, visuals, animation)
     ├── assets/models/         # 3D glTF/GLB character assets (player.glb)
     └── src/main.rs            # Thin App bootstrap wiring plugins & Rapier3D TimestepMode::Interpolated (default-members = ["core"])
 ```
 
-- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `VisualsPlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `AnimationSystems` → `PlayerIkSet` → player facing & `VisualsPlugin` enemy facing/hit-flash → `TransformSystems::Propagate`.
+- **Strict `Update` / `PostUpdate` Schedule Ordering:** `DataPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `ScenePlugin` attach/animate, `PlayerAnimPlugin` bind/director & `HudPlugin` (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `AnimationSystems` → `PlayerIkSet` → player facing & `ScenePlugin` enemy facing / `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
 
 ### Player Animation Module (`presentation/src/anim/`)
 - **Layers:** lower-body locomotion blend, upper-body action blend (aim/reload), a reserved additive blend, and a full-body death override. Mask groups are explicit bone lists in `animation.ron` because `Hips` is the spine ancestor.

@@ -6,19 +6,10 @@ use data::{
 };
 use extraction::{UpgradeLevelsExt, UpgradesConfig};
 
-const BTN_IDLE_COLOR: Color = Color::srgb(0.18, 0.45, 0.78);
-const BTN_HOVER_COLOR: Color = Color::srgb(0.25, 0.56, 0.90);
-const BTN_SECONDARY_IDLE: Color = Color::srgb(0.22, 0.30, 0.40);
-const BTN_SECONDARY_HOVER: Color = Color::srgb(0.30, 0.40, 0.52);
-
-#[derive(Component)]
-struct MenuRoot;
-
-#[derive(Component)]
-struct MenuButtonColors {
-    idle: Color,
-    hover: Color,
-}
+use super::theme::{
+    BTN_HOVER_COLOR, BTN_IDLE_COLOR, BTN_SECONDARY_HOVER, BTN_SECONDARY_IDLE, MenuRoot,
+    spawn_action_button, spawn_overlay_root,
+};
 
 #[derive(Component)]
 struct UpgradeBankText;
@@ -47,77 +38,6 @@ impl Plugin for MenusPlugin {
                 refresh_upgrades_ui.run_if(in_state(GameState::Upgrades)),
             );
     }
-}
-
-fn spawn_action_button<E: Message + Clone>(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    idle: Color,
-    hover: Color,
-    message: E,
-) {
-    parent
-        .spawn((
-            MenuButtonColors { idle, hover },
-            Node {
-                padding: UiRect::axes(Val::Px(24.0), Val::Px(12.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(idle),
-            BorderColor::all(Color::srgb(0.65, 0.82, 1.0)),
-        ))
-        .observe(
-            move |_click: On<PointerClick>, mut writer: MessageWriter<E>| {
-                writer.write(message.clone());
-            },
-        )
-        .observe(
-            |over: On<PointerOver>,
-             mut buttons: Query<(&MenuButtonColors, &mut BackgroundColor)>| {
-                if let Ok((colors, mut bg)) = buttons.get_mut(over.entity) {
-                    bg.0 = colors.hover;
-                }
-            },
-        )
-        .observe(
-            |out: On<PointerOut>, mut buttons: Query<(&MenuButtonColors, &mut BackgroundColor)>| {
-                if let Ok((colors, mut bg)) = buttons.get_mut(out.entity) {
-                    bg.0 = colors.idle;
-                }
-            },
-        )
-        .with_children(|btn| {
-            btn.spawn((
-                Pickable::IGNORE,
-                Text::new(label),
-                TextFont {
-                    font_size: FontSize::Px(20.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-}
-
-fn spawn_overlay_root<'a>(commands: &'a mut Commands, name: &'static str) -> EntityCommands<'a> {
-    commands.spawn((
-        Name::new(name),
-        MenuRoot,
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            row_gap: Val::Px(16.0),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.04, 0.05, 0.07, 0.84)),
-    ))
 }
 
 fn spawn_loading_ui(mut commands: Commands) {

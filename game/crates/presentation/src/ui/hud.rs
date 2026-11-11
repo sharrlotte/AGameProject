@@ -3,6 +3,8 @@ use combat::WeaponInventory;
 use data::{GameState, RunStats, ScrapBank, SimUpdateSet};
 use world::{Health, LocalPlayer, Stamina};
 
+use super::theme::spawn_progress_bar;
+
 #[derive(Component)]
 struct HudRoot;
 
@@ -48,36 +50,6 @@ impl Plugin for HudPlugin {
     }
 }
 
-fn spawn_progress_bar(
-    parent: &mut ChildSpawnerCommands,
-    width_px: f32,
-    height_px: f32,
-    bg_color: Color,
-    fill_color: Color,
-    fill_marker: impl Bundle,
-) {
-    parent
-        .spawn((
-            Node {
-                width: Val::Px(width_px),
-                height: Val::Px(height_px),
-                ..default()
-            },
-            BackgroundColor(bg_color),
-        ))
-        .with_children(|bar| {
-            bar.spawn((
-                fill_marker,
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(fill_color),
-            ));
-        });
-}
-
 fn spawn_hud(mut commands: Commands) {
     commands
         .spawn((
@@ -92,7 +64,6 @@ fn spawn_hud(mut commands: Commands) {
             Pickable::IGNORE,
         ))
         .with_children(|root| {
-            // Top-left: HP bar, Stamina bar, Weapon / Ammo / Reload indicator
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -165,7 +136,6 @@ fn spawn_hud(mut commands: Commands) {
                     });
             });
 
-            // Top-right: Run Timer, Scrap counter, Kills
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -189,7 +159,6 @@ fn spawn_hud(mut commands: Commands) {
                 ));
             });
 
-            // Bottom-center: Extraction Hold Progress
             root.spawn((
                 Node {
                     position_type: PositionType::Absolute,

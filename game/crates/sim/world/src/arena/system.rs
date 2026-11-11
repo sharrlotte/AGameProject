@@ -1,37 +1,10 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use data::{
-    AppRonConfigExt, ConfigHotReloadedMessage, GROUP_WORLD, GameState, ObstacleTag, SimUpdateSet,
-};
+use data::{ConfigHotReloadedMessage, GROUP_WORLD, ObstacleTag};
 
 use crate::config::{ArenaConfig, ObstacleDef};
 
-#[derive(Component)]
-pub struct ArenaStaticEntity;
-
-#[derive(Component)]
-pub struct ArenaGround;
-
-#[derive(Component)]
-pub struct ArenaObstacle {
-    pub half_extents: Vec3,
-    pub is_wall: bool,
-}
-
-pub struct ArenaPlugin;
-
-impl Plugin for ArenaPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_ron_config::<ArenaConfig>()
-            .add_systems(OnExit(GameState::Loading), spawn_arena_physics)
-            .add_systems(
-                Update,
-                hot_reload_arena
-                    .in_set(SimUpdateSet)
-                    .run_if(not(in_state(GameState::Loading))),
-            );
-    }
-}
+use super::state::{ArenaGround, ArenaObstacle, ArenaStaticEntity};
 
 fn perimeter_walls(cfg: &ArenaConfig) -> [ObstacleDef; 4] {
     let h = cfg.wall_height * 0.5;
@@ -103,7 +76,7 @@ pub fn spawn_arena_physics(mut commands: Commands, cfg: Res<ArenaConfig>) {
     }
 }
 
-fn hot_reload_arena(
+pub fn hot_reload_arena(
     mut commands: Commands,
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     existing: Query<Entity, With<ArenaStaticEntity>>,

@@ -1,24 +1,10 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use data::{GameState, SimUpdateSet};
 use world::{ActionIntent, LocalPlayer, PlayerConfig};
 
 use crate::camera::MainCamera;
 
-pub struct InputPlugin;
-
-impl Plugin for InputPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            gather_local_input
-                .before(SimUpdateSet)
-                .run_if(in_state(GameState::Playing)),
-        );
-    }
-}
-
-fn gather_local_input(
+pub fn gather_local_input(
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     player_cfg: Res<PlayerConfig>,

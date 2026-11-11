@@ -1,31 +1,11 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::PhysicsSet;
-use data::{ConfigHotReloadedMessage, GameState};
+use data::{ConfigHotReloadedMessage};
 use world::{ActionIntent, ArenaConfig, LocalPlayer};
 
 #[derive(Component)]
 pub struct MainCamera;
 
-pub struct CameraPlugin;
-
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::Loading), spawn_camera)
-            .add_systems(
-                Update,
-                sync_camera_on_hot_reload.run_if(not(in_state(GameState::Loading))),
-            )
-            .add_systems(
-                PostUpdate,
-                follow_local_player
-                    .after(PhysicsSet::Writeback)
-                    .before(TransformSystems::Propagate)
-                    .run_if(in_state(GameState::Playing)),
-            );
-    }
-}
-
-fn spawn_camera(mut commands: Commands, cfg: Res<ArenaConfig>) {
+pub fn spawn_camera(mut commands: Commands, cfg: Res<ArenaConfig>) {
     commands.spawn((
         Name::new("MainCamera"),
         MainCamera,
@@ -34,7 +14,7 @@ fn spawn_camera(mut commands: Commands, cfg: Res<ArenaConfig>) {
     ));
 }
 
-fn sync_camera_on_hot_reload(
+pub fn sync_camera_on_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<ArenaConfig>,
     mut cameras: Query<&mut Transform, With<MainCamera>>,
@@ -48,7 +28,7 @@ fn sync_camera_on_hot_reload(
     }
 }
 
-fn follow_local_player(
+pub fn follow_local_player(
     time: Res<Time>,
     cfg: Res<ArenaConfig>,
     players: Query<(&Transform, &ActionIntent), With<LocalPlayer>>,
