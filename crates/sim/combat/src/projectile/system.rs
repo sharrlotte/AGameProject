@@ -16,31 +16,33 @@ pub fn spawn_projectile(
     dir: Vec3,
     damage: f32,
     spec: &WeaponSpecData,
-) {
-    commands.spawn((
-        Name::new("Projectile"),
-        RunEntity,
-        Projectile {
-            owner,
-            damage,
-            knockback: spec.knockback,
-            direction: dir,
-            radius: spec.projectile_radius,
-            lifetime: spec.projectile_lifetime,
-            hit: false,
-        },
-        RigidBody::Dynamic,
-        GravityScale(0.0),
-        Ccd::enabled(),
-        Sensor,
-        ActiveEvents::COLLISION_EVENTS,
-        Collider::ball(spec.projectile_radius),
-        Velocity::linear(dir * spec.projectile_speed),
-        TransformInterpolation::default(),
-        LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
-        CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),
-        Transform::from_translation(muzzle_pos),
-    ));
+) -> Entity {
+    commands
+        .spawn((
+            Name::new("Projectile"),
+            RunEntity,
+            Projectile {
+                owner,
+                damage,
+                knockback: spec.knockback,
+                direction: dir,
+                radius: spec.projectile_radius,
+                lifetime: spec.projectile_lifetime,
+                hit: false,
+            },
+            RigidBody::Dynamic,
+            GravityScale(0.0),
+            Ccd::enabled(),
+            Sensor,
+            ActiveEvents::COLLISION_EVENTS,
+            Collider::ball(spec.projectile_radius),
+            Velocity::linear(dir * spec.projectile_speed),
+            TransformInterpolation::default(),
+            LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
+            CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),
+            Transform::from_translation(muzzle_pos),
+        ))
+        .id()
 }
 
 /// Resolves sensor collision events for 3D projectiles against enemies and arena obstacles.

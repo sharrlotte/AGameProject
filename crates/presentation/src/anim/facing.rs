@@ -76,10 +76,19 @@ pub fn sync_player_facing(
             continue;
         }
 
-        let target = Quat::from_rotation_arc(Vec3::NEG_Z, dir.normalize());
+        let flat = Vec3::new(dir.x, 0.0, dir.z);
+        if flat.length_squared() <= 1e-4 {
+            continue;
+        }
+        let target = yaw_from_neg_z(flat.normalize());
         facing.rotation = facing.rotation.slerp(target, alpha);
         transform.rotation = facing.rotation;
     }
+}
+
+/// Computes a pure Y-axis rotation from `-Z` toward a normalized horizontal `dir`.
+fn yaw_from_neg_z(dir: Vec3) -> Quat {
+    Quat::from_rotation_y((-dir.x).atan2(-dir.z))
 }
 
 #[cfg(test)]
@@ -97,7 +106,14 @@ mod tests {
 
     #[test]
     fn target_rotation_turns_negative_z_toward_a_direction() {
-        let target = Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::X);
+        let target = yaw_from_neg_z(Vec3::X);
         assert!((dir_after_facing(target) - Vec3::X).length() < 1e-4);
+    }
+
+    #[test]
+    fn opposite_direction_turns_around_y_without_flipping_upside_down() {
+        let target = yaw_from_neg_z(Vec3::Z);
+        assert!((dir_after_facing(target) - Vec3::Z).length() < 1e-4);
+        assert!((target * Vec3::Y - Vec3::Y).length() < 1e-4);
     }
 }

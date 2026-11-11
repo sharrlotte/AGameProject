@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use data::{ConfigHotReloadedMessage, GROUP_WORLD, ObstacleTag};
+use data::{ConfigHotReloadedMessage, GROUP_WORLD, ObstacleTag, GameScene};
 
 use crate::config::{ArenaConfig, ObstacleDef};
 
@@ -34,16 +34,33 @@ fn perimeter_walls(cfg: &ArenaConfig) -> [ObstacleDef; 4] {
     ]
 }
 
-/// Spawns the visual-only ground plane marker and zero-friction static obstacle colliders from `ArenaConfig`.
-pub fn spawn_arena_physics(mut commands: Commands, cfg: Res<ArenaConfig>) {
+/// Spawns the flat ground entity scoped to `scene`.
+pub fn spawn_ground(commands: &mut Commands, scene: GameScene) {
     commands.spawn((
         Name::new("ArenaGround"),
         ArenaStaticEntity,
         ArenaGround,
         Transform::from_xyz(0.0, -0.5, 0.0),
+        DespawnOnExit(scene),
     ));
+}
 
-    for def in perimeter_walls(&cfg)
+/// Spawns the visual-only ground plane marker and zero-friction static obstacle colliders from `ArenaConfig`.
+pub fn spawn_arena_physics(
+    mut commands: Commands,
+    cfg: Res<ArenaConfig>,
+    existing: Query<(), With<ArenaStaticEntity>>,
+) {
+    if !existing.is_empty() {
+        return;
+    }
+    spawn_arena_entities(&mut commands, &cfg);
+}
+
+fn spawn_arena_entities(commands: &mut Commands, cfg: &ArenaConfig) {
+    spawn_ground(commands, GameScene::Arena);
+
+    for def in perimeter_walls(cfg)
         .into_iter()
         .chain(cfg.obstacles.iter().cloned())
     {
@@ -72,6 +89,7 @@ pub fn spawn_arena_physics(mut commands: Commands, cfg: Res<ArenaConfig>) {
             },
             CollisionGroups::new(GROUP_WORLD, Group::ALL),
             Transform::from_translation(def.center),
+            DespawnOnExit(GameScene::Arena),
         ));
     }
 }
@@ -89,5 +107,5 @@ pub fn hot_reload_arena(
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    spawn_arena_physics(commands, cfg);
+    spawn_arena_entities(&mut commands, &cfg);
 }

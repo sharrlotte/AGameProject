@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
-use data::{AppRonConfigExt, GameState, SimPostPhysicsSet, SimUpdateSet};
+use data::{AppRonConfigExt, GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
 
 use crate::config::PlayerConfig;
 
@@ -16,6 +16,10 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.register_ron_config::<PlayerConfig>()
             .add_systems(OnEnter(GameState::Playing), system::spawn_player)
+            .add_systems(
+                OnEnter(GameScene::Arena),
+                system::spawn_player.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(OnEnter(GameState::GameOver), system::freeze_survivor_on_game_over)
             .add_systems(
                 Update,

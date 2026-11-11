@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
-use data::{AppRonConfigExt, GameState, SimPostPhysicsSet, SimUpdateSet};
+use data::{AppRonConfigExt, GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
 
 pub mod ai;
 pub mod config;
@@ -18,10 +18,17 @@ impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
         app.register_ron_config::<EnemiesConfig>()
             .init_resource::<EnemySpawner>()
-            .add_systems(OnEnter(GameState::Playing), spawn::reset_spawner)
+            .add_systems(
+                OnEnter(GameState::Playing),
+                spawn::reset_spawner.run_if(in_state(GameScene::Arena)),
+            )
+            .add_systems(
+                OnEnter(GameScene::Arena),
+                spawn::reset_spawner.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(
                 OnEnter(GameState::GameOver),
-                ai::freeze_enemies_on_game_over,
+                ai::freeze_enemies_on_game_over.run_if(in_state(GameScene::Arena)),
             )
             .add_systems(
                 Update,
@@ -32,7 +39,8 @@ impl Plugin for EnemiesPlugin {
                 )
                     .chain()
                     .in_set(SimUpdateSet)
-                    .run_if(in_state(GameState::Playing)),
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(in_state(GameScene::Arena)),
             )
             .add_systems(
                 PostUpdate,
@@ -40,7 +48,8 @@ impl Plugin for EnemiesPlugin {
                     .in_set(SimPostPhysicsSet)
                     .after(PhysicsSet::Writeback)
                     .before(TransformSystems::Propagate)
-                    .run_if(in_state(GameState::Playing)),
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(in_state(GameScene::Arena)),
             );
     }
 }

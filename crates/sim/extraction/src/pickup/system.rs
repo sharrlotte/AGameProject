@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use data::{EnemyKilledMessage, EnemyKind, RunEntity, ScrapCollectedMessage};
+use data::{EnemyKilledMessage, EnemyKind, RunEntity, GameScene, ScrapCollectedMessage};
 use world::Survivor;
 
 use crate::config::ExtractionConfig;
@@ -28,6 +28,7 @@ pub fn spawn_scrap_on_enemy_killed(
                 lifetime: cfg.scrap_lifetime_secs,
             },
             Transform::from_xyz(msg.position.x, cfg.scrap_radius + 0.05, msg.position.z),
+            DespawnOnExit(GameScene::Arena),
         ));
     }
 }

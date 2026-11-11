@@ -5,7 +5,13 @@ edition = "2024"
 
 [features]
 default = ["dev"]
-dev = ["bevy/dynamic_linking", "dep:bevy-inspector-egui"]
+dev = [
+    "bevy/dynamic_linking",
+    "dep:bevy-inspector-egui",
+    "data/dev",
+    "world/dev",
+    "presentation/dev",
+]
 
 [dependencies]
 bevy.workspace = true

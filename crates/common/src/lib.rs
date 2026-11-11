@@ -10,6 +10,14 @@ pub enum GameState {
     Upgrades,
 }
 
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GameScene {
+    #[default]
+    Arena,
+    #[cfg(feature = "dev")]
+    AnimTest,
+}
+
 /// System set for pre-physics gameplay simulation in `Update`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SimUpdateSet;

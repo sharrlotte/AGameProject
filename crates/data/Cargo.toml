@@ -3,6 +3,9 @@ name = "data"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+dev = ["common/dev"]
+
 [dependencies]
 bevy.workspace = true
 bevy_rapier3d.workspace = true

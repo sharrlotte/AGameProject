@@ -101,7 +101,12 @@ pub fn approach(current: f32, target: f32, delta_secs: f32, blend_secs: f32) -> 
         return target;
     }
     let alpha = 1.0 - (-delta_secs / blend_secs).exp();
-    current + (target - current) * alpha.clamp(0.0, 1.0)
+    let next = current + (target - current) * alpha.clamp(0.0, 1.0);
+    if (target - next).abs() < 1e-4 {
+        target
+    } else {
+        next
+    }
 }
 
 #[cfg(test)]

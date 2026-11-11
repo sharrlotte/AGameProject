@@ -26,10 +26,12 @@
 - Respect SOLID principle, when a file > 500 lines then extract
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 - Use short and concise for name and file name, prefer using 1 word
+- Only write unit test, no smoke test unless i asked to
 
 ## Bevy
 
 - Prefer Single over Query if you only need 1 and that entity always exists 1
+- Prefer DespawnOnExit
 
 # Files
 

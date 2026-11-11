@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 use combat::WeaponInventory;
-use data::{GameState, RunStats, ScrapBank, SimUpdateSet};
+use data::{GameState, RunStats, GameScene, ScrapBank, SimUpdateSet};
 use world::{Health, LocalPlayer, Stamina};
 
 use super::theme::spawn_progress_bar;
+#[cfg(feature = "dev")]
+use super::theme::{BTN_SECONDARY_HOVER, BTN_SECONDARY_IDLE, spawn_action_button};
 
 #[derive(Component)]
 struct HudRoot;
@@ -40,21 +42,43 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), spawn_hud)
-            .add_systems(OnExit(GameState::Playing), despawn_hud)
+            .add_systems(
+                OnEnter(GameScene::Arena),
+                spawn_hud.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(
                 Update,
                 update_hud
                     .after(SimUpdateSet)
                     .run_if(in_state(GameState::Playing)),
             );
+
+        #[cfg(feature = "dev")]
+        app.add_systems(
+            OnEnter(GameScene::AnimTest),
+            spawn_hud.run_if(in_state(GameState::Playing)),
+        );
     }
 }
 
-fn spawn_hud(mut commands: Commands) {
+fn spawn_hud(
+    mut commands: Commands,
+    scene: Res<State<GameScene>>,
+    existing: Query<(), With<HudRoot>>,
+) {
+    if !existing.is_empty() {
+        return;
+    }
+    #[cfg(feature = "dev")]
+    let is_anim_test = *scene.get() == GameScene::AnimTest;
+    #[cfg(not(feature = "dev"))]
+    let is_anim_test = false;
     commands
         .spawn((
             Name::new("HudRoot"),
             HudRoot,
+            DespawnOnExit(GameState::Playing),
+            DespawnOnExit(*scene.get()),
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -159,48 +183,90 @@ fn spawn_hud(mut commands: Commands) {
                 ));
             });
 
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    bottom: Val::Px(18.0),
-                    left: Val::Percent(50.0),
-                    margin: UiRect::left(Val::Px(-150.0)),
-                    width: Val::Px(300.0),
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    row_gap: Val::Px(6.0),
-                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(0.06, 0.08, 0.11, 0.78)),
-                Pickable::IGNORE,
-            ))
-            .with_children(|panel| {
-                panel.spawn((
-                    ExtractionLabelText,
-                    Text::new("EXTRACTION PAD (North): 0.0 / 10.0s"),
-                    TextFont {
-                        font_size: FontSize::Px(15.0),
+            #[cfg(feature = "dev")]
+            spawn_dev_stage_controls(root, is_anim_test);
+
+            if !is_anim_test {
+                root.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::Px(18.0),
+                        left: Val::Percent(50.0),
+                        margin: UiRect::left(Val::Px(-150.0)),
+                        width: Val::Px(300.0),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: Val::Px(6.0),
+                        padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
                         ..default()
                     },
-                    TextColor(Color::srgb(0.55, 0.95, 0.85)),
-                ));
-                spawn_progress_bar(
-                    panel,
-                    268.0,
-                    10.0,
-                    Color::srgb(0.10, 0.16, 0.16),
-                    Color::srgb(0.24, 0.92, 0.62),
-                    ExtractionBarFill,
-                );
-            });
+                    BackgroundColor(Color::srgba(0.06, 0.08, 0.11, 0.78)),
+                    Pickable::IGNORE,
+                ))
+                .with_children(|panel| {
+                    panel.spawn((
+                        ExtractionLabelText,
+                        Text::new("EXTRACTION PAD (North): 0.0 / 10.0s"),
+                        TextFont {
+                            font_size: FontSize::Px(15.0),
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.55, 0.95, 0.85)),
+                    ));
+                    spawn_progress_bar(
+                        panel,
+                        268.0,
+                        10.0,
+                        Color::srgb(0.10, 0.16, 0.16),
+                        Color::srgb(0.24, 0.92, 0.62),
+                        ExtractionBarFill,
+                    );
+                });
+            }
         });
 }
 
-fn despawn_hud(mut commands: Commands, roots: Query<Entity, With<HudRoot>>) {
-    for entity in &roots {
-        commands.entity(entity).despawn();
-    }
+#[cfg(feature = "dev")]
+fn spawn_dev_stage_controls(root: &mut ChildSpawnerCommands, is_anim_test: bool) {
+    root.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(14.0),
+            left: Val::Percent(50.0),
+            margin: UiRect::left(Val::Px(-180.0)),
+            width: Val::Px(360.0),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: Val::Px(6.0),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ))
+    .with_children(|panel| {
+        if is_anim_test {
+            panel.spawn((
+                Pickable::IGNORE,
+                Text::new("ANIMATION TEST STAGE (No Enemies)"),
+                TextFont {
+                    font_size: FontSize::Px(16.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.45, 0.92, 0.68)),
+            ));
+        }
+        let label = if is_anim_test {
+            "Exit Test Stage (F8)"
+        } else {
+            "Anim Test Stage (F8)"
+        };
+        spawn_action_button(
+            panel,
+            label,
+            BTN_SECONDARY_IDLE,
+            BTN_SECONDARY_HOVER,
+            super::ToggleAnimTestSceneMessage,
+        );
+    });
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]

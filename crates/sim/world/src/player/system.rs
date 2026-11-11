@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
     ConfigHotReloadedMessage, DamageMessage, GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD,
-    PlayerDiedMessage, RunEntity, SurvivorTag, UpgradeModifiers,
+    PlayerDiedMessage, RunEntity, GameScene, SurvivorTag, UpgradeModifiers,
 };
 
 use crate::config::PlayerConfig;
@@ -14,9 +14,15 @@ pub fn spawn_player(
     mut commands: Commands,
     cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
+    scene: Option<Res<State<GameScene>>>,
+    existing: Query<(), With<Survivor>>,
 ) {
+    if !existing.is_empty() {
+        return;
+    }
+
     let max_hp = cfg.max_hp + upgrades.bonus_max_hp;
-    commands.spawn((
+    let mut entity = commands.spawn((
         (
             Name::new("Survivor"),
             Survivor,
@@ -55,6 +61,9 @@ pub fn spawn_player(
             Transform::from_xyz(0.0, cfg.aim_height, 0.0),
         ),
     ));
+    if let Some(scene) = scene {
+        entity.insert(DespawnOnExit(*scene.get()));
+    }
 }
 
 pub fn sync_player_hot_reload(

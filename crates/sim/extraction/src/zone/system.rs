@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use data::{
-    ConfigHotReloadedMessage, ExtractionCompletedMessage, RunEntity, RunStats,
+    ConfigHotReloadedMessage, ExtractionCompletedMessage, RunEntity, RunStats, GameScene,
 };
 use world::Survivor;
 
@@ -8,7 +8,14 @@ use crate::config::ExtractionConfig;
 
 use super::state::ExtractionZone;
 
-pub fn spawn_extraction_zone(mut commands: Commands, cfg: Res<ExtractionConfig>) {
+pub fn spawn_extraction_zone(
+    mut commands: Commands,
+    cfg: Res<ExtractionConfig>,
+    existing: Query<(), With<ExtractionZone>>,
+) {
+    if !existing.is_empty() {
+        return;
+    }
     commands.spawn((
         Name::new("ExtractionZone"),
         RunEntity,
@@ -20,6 +27,7 @@ pub fn spawn_extraction_zone(mut commands: Commands, cfg: Res<ExtractionConfig>)
             completed: false,
         },
         Transform::from_translation(cfg.pad_center),
+        DespawnOnExit(GameScene::Arena),
     ));
 }
 

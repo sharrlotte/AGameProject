@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use data::{AppRonConfigExt, GameState, SimPostPhysicsSet, SimUpdateSet};
+use data::{AppRonConfigExt, GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
 
 pub mod config;
 pub mod flow;
@@ -17,7 +17,14 @@ pub struct ExtractionPlugin;
 impl Plugin for ExtractionPlugin {
     fn build(&self, app: &mut App) {
         app.register_ron_config::<ExtractionConfig>()
-            .add_systems(OnEnter(GameState::Playing), zone::spawn_extraction_zone)
+            .add_systems(
+                OnEnter(GameState::Playing),
+                zone::spawn_extraction_zone.run_if(in_state(GameScene::Arena)),
+            )
+            .add_systems(
+                OnEnter(GameScene::Arena),
+                zone::spawn_extraction_zone.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(
                 Update,
                 (
@@ -27,13 +34,15 @@ impl Plugin for ExtractionPlugin {
                 )
                     .chain()
                     .in_set(SimUpdateSet)
-                    .run_if(in_state(GameState::Playing)),
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(in_state(GameScene::Arena)),
             )
             .add_systems(
                 PostUpdate,
                 pickup::spawn_scrap_on_enemy_killed
                     .in_set(SimPostPhysicsSet)
-                    .run_if(in_state(GameState::Playing)),
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(in_state(GameScene::Arena)),
             );
     }
 }
@@ -43,6 +52,10 @@ pub struct RunFlowPlugin;
 impl Plugin for RunFlowPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), flow::reset_run_stats)
+            .add_systems(
+                OnEnter(GameScene::Arena),
+                flow::reset_run_stats.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(OnExit(GameState::GameOver), flow::cleanup_run_entities)
             .add_systems(OnEnter(GameState::Upgrades), flow::cleanup_run_entities)
             .add_systems(

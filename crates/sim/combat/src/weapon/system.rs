@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use data::{
     ConfigHotReloadedMessage, ReloadCancelReason, ReloadCancelledMessage, ReloadStartedMessage,
-    UpgradeModifiers, WeaponFiredMessage, WeaponSwappedMessage,
+    GameScene, UpgradeModifiers, WeaponFiredMessage, WeaponSwappedMessage,
 };
 use world::{ActionIntent, AimDirection, PlayerConfig, Stamina, Survivor};
 
@@ -90,6 +90,7 @@ pub fn handle_weapon_swap(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_weapon_fire(
     mut commands: Commands,
+    scene: Option<Res<State<GameScene>>>,
     weapons_cfg: Res<WeaponsConfig>,
     player_cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
@@ -173,7 +174,7 @@ pub fn handle_weapon_fire(
                 0.0
             };
             let dir = (Quat::from_rotation_y(angle) * forward).normalize();
-            spawn_projectile(
+            let projectile = spawn_projectile(
                 &mut commands,
                 entity,
                 muzzle_pos,
@@ -181,6 +182,11 @@ pub fn handle_weapon_fire(
                 scaled_damage,
                 &active_spec,
             );
+            if let Some(scene) = scene.as_deref() {
+                commands
+                    .entity(projectile)
+                    .insert(DespawnOnExit(*scene.get()));
+            }
         }
 
         fired_writer.write(WeaponFiredMessage {

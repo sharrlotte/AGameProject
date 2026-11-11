@@ -9,6 +9,7 @@ use crate::anim::blend::{self, Weights};
 use crate::anim::catalog::AnimCatalog;
 use crate::anim::graph::{ClipNodes, GraphNodes};
 use crate::anim::{PlayerAnimAssets, PlayerRig, stance};
+use crate::config::VisualsConfig;
 
 const LOCOMOTION_ROLES: [&str; 6] = [
     "idle",
@@ -53,6 +54,7 @@ pub fn drive_player_animation(
     time: Res<Time>,
     state: Res<State<GameState>>,
     catalog: Res<AnimCatalog>,
+    visuals: Res<VisualsConfig>,
     assets: Res<PlayerAnimAssets>,
     clips: Res<Assets<AnimationClip>>,
     survivors: Query<(&Health, &Stamina, &Velocity, &AimDirection), With<Survivor>>,
@@ -65,6 +67,7 @@ pub fn drive_player_animation(
     };
     let dt = time.delta_secs();
     let game_over = *state.get() == GameState::GameOver;
+    let move_threshold = visuals.player.move_speed_threshold.max(0.0);
 
     for (rig, mut player, mut director) in &mut players {
         let Ok((health, stamina, velocity, aim)) = survivors.get(rig.survivor) else {
@@ -84,7 +87,7 @@ pub fn drive_player_animation(
 
         let horizontal = Vec3::new(velocity.linear.x, 0.0, velocity.linear.z);
         let speed = horizontal.length();
-        let moving = speed > 0.05;
+        let moving = speed > move_threshold;
 
         let aim_dir = if aim.0.length_squared() > 1e-4 {
             aim.0.normalize()
@@ -171,7 +174,12 @@ pub fn drive_player_animation(
                 "strafe_r" => director.locomotion.right,
                 _ => 0.0,
             };
-            let clip_speed = if role == "idle" { 1.0 } else { playback };
+            let base_speed = clip_nodes.speed.max(0.01);
+            let clip_speed = if role == "idle" {
+                base_speed
+            } else {
+                playback * base_speed
+            };
             play_looped(&mut player, clip_nodes.lower_node(), weight, clip_speed);
             play_looped(
                 &mut player,

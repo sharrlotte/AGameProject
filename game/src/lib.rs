@@ -60,9 +60,11 @@ pub fn build_app() -> App {
 
     #[cfg(feature = "dev")]
     {
-        app.add_plugins(EguiPlugin::default()).add_plugins(
+        app.add_plugins((
+            world::AnimTestPlugin,
+            EguiPlugin::default(),
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
-        );
+        ));
     }
 
     app

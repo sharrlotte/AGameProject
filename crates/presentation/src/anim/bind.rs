@@ -269,7 +269,7 @@ fn rebuild_graph(
 
 pub fn disable_player_backface_culling(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_entities: Query<(Entity, &MeshMaterial3d<StandardMaterial>)>,
+    material_entities: Query<(Entity, &MeshMaterial3d<StandardMaterial>), Added<MeshMaterial3d<StandardMaterial>>>,
     parents: Query<&ChildOf>,
     roots: Query<(), With<PlayerVisualRoot>>,
 ) {

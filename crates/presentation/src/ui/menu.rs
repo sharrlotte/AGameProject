@@ -7,7 +7,7 @@ use data::{
 use extraction::{UpgradeLevelsExt, UpgradesConfig};
 
 use super::theme::{
-    BTN_HOVER_COLOR, BTN_IDLE_COLOR, BTN_SECONDARY_HOVER, BTN_SECONDARY_IDLE, MenuRoot,
+    BTN_HOVER_COLOR, BTN_IDLE_COLOR, BTN_SECONDARY_HOVER, BTN_SECONDARY_IDLE,
     spawn_action_button, spawn_overlay_root,
 };
 
@@ -22,11 +22,8 @@ pub struct MenusPlugin;
 impl Plugin for MenusPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Loading), spawn_loading_ui)
-            .add_systems(OnExit(GameState::Loading), despawn_menu_ui)
             .add_systems(OnEnter(GameState::GameOver), spawn_game_over_ui)
-            .add_systems(OnExit(GameState::GameOver), despawn_menu_ui)
             .add_systems(OnEnter(GameState::Upgrades), spawn_upgrades_ui)
-            .add_systems(OnExit(GameState::Upgrades), despawn_menu_ui)
             .add_systems(
                 Update,
                 handle_deploy_shortcut.run_if(|state: Res<State<GameState>>| {
@@ -41,7 +38,8 @@ impl Plugin for MenusPlugin {
 }
 
 fn spawn_loading_ui(mut commands: Commands) {
-    spawn_overlay_root(&mut commands, "LoadingUiRoot").with_children(|parent| {
+    spawn_overlay_root(&mut commands, "LoadingUiRoot", GameState::Loading).with_children(
+        |parent| {
         parent.spawn((
             Text::new("Loading .ron configurations..."),
             TextFont {
@@ -66,7 +64,8 @@ fn spawn_game_over_ui(mut commands: Commands, outcome: Res<LastRunOutcome>, bank
         _ => format!("Banked Scrap: {}", bank.banked),
     };
 
-    spawn_overlay_root(&mut commands, "GameOverUiRoot").with_children(|parent| {
+    spawn_overlay_root(&mut commands, "GameOverUiRoot", GameState::GameOver).with_children(
+        |parent| {
         parent.spawn((
             Text::new("YOU DIED"),
             TextFont {
@@ -106,6 +105,14 @@ fn spawn_game_over_ui(mut commands: Commands, outcome: Res<LastRunOutcome>, bank
                     BTN_HOVER_COLOR,
                     DeployRequestedMessage,
                 );
+                #[cfg(feature = "dev")]
+                spawn_action_button(
+                    row,
+                    "Anim Test Stage (F8)",
+                    BTN_SECONDARY_IDLE,
+                    BTN_SECONDARY_HOVER,
+                    super::ToggleAnimTestSceneMessage,
+                );
             });
     });
 }
@@ -137,7 +144,8 @@ fn spawn_upgrades_ui(
         ),
     };
 
-    spawn_overlay_root(&mut commands, "UpgradesUiRoot").with_children(|parent| {
+    spawn_overlay_root(&mut commands, "UpgradesUiRoot", GameState::Upgrades).with_children(
+        |parent| {
         parent.spawn((
             Text::new(title),
             TextFont {
@@ -203,13 +211,29 @@ fn spawn_upgrades_ui(
                 });
         }
 
-        spawn_action_button(
-            parent,
-            "Deploy Again (Enter)",
-            BTN_IDLE_COLOR,
-            BTN_HOVER_COLOR,
-            DeployRequestedMessage,
-        );
+        parent
+            .spawn(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(16.0),
+                ..default()
+            })
+            .with_children(|row| {
+                spawn_action_button(
+                    row,
+                    "Deploy Again (Enter)",
+                    BTN_IDLE_COLOR,
+                    BTN_HOVER_COLOR,
+                    DeployRequestedMessage,
+                );
+                #[cfg(feature = "dev")]
+                spawn_action_button(
+                    row,
+                    "Anim Test Stage (F8)",
+                    BTN_SECONDARY_IDLE,
+                    BTN_SECONDARY_HOVER,
+                    super::ToggleAnimTestSceneMessage,
+                );
+            });
     });
 }
 
@@ -265,12 +289,6 @@ fn refresh_upgrades_ui(
     }
     for (row, mut txt) in &mut row_texts {
         txt.0 = format_upgrade_label(row.0, &levels, &modifiers, &cfg);
-    }
-}
-
-fn despawn_menu_ui(mut commands: Commands, roots: Query<Entity, With<MenuRoot>>) {
-    for entity in &roots {
-        commands.entity(entity).despawn();
     }
 }
 

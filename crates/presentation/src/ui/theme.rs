@@ -1,12 +1,10 @@
 use bevy::prelude::*;
+use data::GameState;
 
 pub const BTN_IDLE_COLOR: Color = Color::srgb(0.18, 0.45, 0.78);
 pub const BTN_HOVER_COLOR: Color = Color::srgb(0.25, 0.56, 0.90);
 pub const BTN_SECONDARY_IDLE: Color = Color::srgb(0.22, 0.30, 0.40);
 pub const BTN_SECONDARY_HOVER: Color = Color::srgb(0.30, 0.40, 0.52);
-
-#[derive(Component)]
-pub struct MenuRoot;
 
 #[derive(Component)]
 pub struct MenuButtonColors {
@@ -100,10 +98,11 @@ pub fn spawn_action_button<E: Message + Clone>(
 pub fn spawn_overlay_root<'a>(
     commands: &'a mut Commands,
     name: &'static str,
+    exit_state: GameState,
 ) -> EntityCommands<'a> {
     commands.spawn((
         Name::new(name),
-        MenuRoot,
+        DespawnOnExit(exit_state),
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),

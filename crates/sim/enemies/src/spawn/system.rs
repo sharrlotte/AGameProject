@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use data::{
     EnemyKind, EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity,
-    RunStats,
+    RunStats, GameScene,
 };
 use world::{ArenaConfig, Health, PlayerConfig, Survivor};
 
@@ -65,6 +65,7 @@ pub fn spawn_enemy_entity(
                 Enemy::from_archetype(kind, arch),
                 FacingDirection(Vec3::NEG_Z),
                 Health::new(arch.max_hp),
+                DespawnOnExit(GameScene::Arena),
             ),
             (
                 RigidBody::Dynamic,
