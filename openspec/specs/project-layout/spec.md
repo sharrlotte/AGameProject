@@ -1,4 +1,9 @@
-## ADDED Requirements
+# project-layout Specification
+
+## Purpose
+Strict two-layer workspace layout separating headless simulation crates from a decoupled presentation crate, with tripartite foundation crates, nested sub-feature modules, contract-based cross-crate ordering, a unified `game/` app crate, domain-grouped assets, and synchronized architecture documentation.
+
+## Requirements
 
 ### Requirement: Two-Layer Crate Separation
 The workspace SHALL enforce a strict separation between simulation crates under `game/crates/sim/` and the client presentation crate under `game/crates/presentation/`. Simulation crates MUST NOT depend on `presentation` or any rendering, windowing, audio, or UI crate.
