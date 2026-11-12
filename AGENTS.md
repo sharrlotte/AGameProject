@@ -37,3 +37,8 @@
 # Files
 
 - Assets folder: game\assets
+
+# Available tools
+
+- Blender MCP
+- Python 3
