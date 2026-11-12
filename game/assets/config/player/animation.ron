@@ -66,4 +66,16 @@
         hand_align: true,
         hand_offset_deg: (0.0, 0.0, 0.0),
     ),
+    twist: (
+        enabled: true,
+        max_twist_deg: 45.0,
+        hysteresis_deg: 5.0,
+        idle_turn_stop_deg: 5.0,
+        twist_blend_secs: 0.10,
+        bones: [
+            ("Hips", 0.25),
+            ("Abdomen", 0.35),
+            ("Torso", 0.40),
+        ],
+    ),
 )

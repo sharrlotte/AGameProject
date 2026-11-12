@@ -15,10 +15,11 @@ pub mod graph;
 pub mod ik;
 pub mod rig;
 pub mod stance;
+pub mod twist;
 
 pub use catalog::AnimCatalog;
 pub use director::drive_player_animation;
-pub use facing::{PlayerFacing, sync_player_facing};
+pub use facing::{MoveZone, PlayerFacing, sync_player_facing};
 pub use rig::PlayerRig;
 
 /// Marker on the visual root entity spawned as a direct child of `Survivor`.
@@ -49,7 +50,7 @@ impl PlayerAnimAssets {
     }
 }
 
-/// Runs after animation evaluation and before transform propagation.
+/// Runs after animation evaluation and spine twist, before transform propagation.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlayerIkSet;
 
@@ -64,7 +65,7 @@ impl Plugin for PlayerAnimPlugin {
             .configure_sets(
                 PostUpdate,
                 PlayerIkSet
-                    .after(AnimationSystems)
+                    .after(twist::apply_upper_body_twist)
                     .before(TransformSystems::Propagate),
             )
             .add_systems(OnExit(GameState::Loading), bind::start_loading_player_model)
@@ -85,7 +86,8 @@ impl Plugin for PlayerAnimPlugin {
             )
             .add_systems(
                 Update,
-                drive_player_animation
+                (sync_player_facing, drive_player_animation)
+                    .chain()
                     .after(bind::bind_player_animation_players)
                     .run_if(|state: Res<State<GameState>>| {
                         matches!(state.get(), GameState::Playing | GameState::GameOver)
@@ -94,12 +96,10 @@ impl Plugin for PlayerAnimPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    twist::apply_upper_body_twist.after(AnimationSystems),
                     ik::apply_support_hand_ik.in_set(PlayerIkSet),
                     #[cfg(feature = "dev-ik-gizmo")]
                     ik::draw_ik_gizmo.in_set(PlayerIkSet),
-                    sync_player_facing
-                        .after(PlayerIkSet)
-                        .before(TransformSystems::Propagate),
                 )
                     .run_if(|state: Res<State<GameState>>| {
                         matches!(state.get(), GameState::Playing | GameState::GameOver)

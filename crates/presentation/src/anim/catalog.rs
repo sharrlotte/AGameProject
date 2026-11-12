@@ -75,6 +75,78 @@ impl Default for IkConfig {
     }
 }
 
+fn yes() -> bool {
+    true
+}
+
+fn default_max_twist_deg() -> f32 {
+    45.0
+}
+
+fn default_hysteresis_deg() -> f32 {
+    5.0
+}
+
+fn default_idle_turn_stop_deg() -> f32 {
+    5.0
+}
+
+fn default_twist_blend_secs() -> f32 {
+    0.10
+}
+
+fn default_twist_bones() -> Vec<TwistBone> {
+    vec![
+        TwistBone("Hips".to_string(), 0.25),
+        TwistBone("Abdomen".to_string(), 0.35),
+        TwistBone("Torso".to_string(), 0.40),
+    ]
+}
+
+/// Bone name and normalized share of procedural upper-body yaw twist.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct TwistBone(pub String, pub f32);
+
+impl TwistBone {
+    pub fn name(&self) -> &str {
+        &self.0
+    }
+
+    pub fn weight(&self) -> f32 {
+        self.1
+    }
+}
+
+/// Upper-body spine twist and lower-body cone thresholds.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TwistConfig {
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    #[serde(default = "default_max_twist_deg")]
+    pub max_twist_deg: f32,
+    #[serde(default = "default_hysteresis_deg")]
+    pub hysteresis_deg: f32,
+    #[serde(default = "default_idle_turn_stop_deg")]
+    pub idle_turn_stop_deg: f32,
+    #[serde(default = "default_twist_blend_secs")]
+    pub twist_blend_secs: f32,
+    #[serde(default = "default_twist_bones")]
+    pub bones: Vec<TwistBone>,
+}
+
+impl Default for TwistConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_twist_deg: default_max_twist_deg(),
+            hysteresis_deg: default_hysteresis_deg(),
+            idle_turn_stop_deg: default_idle_turn_stop_deg(),
+            twist_blend_secs: default_twist_blend_secs(),
+            bones: default_twist_bones(),
+        }
+    }
+}
+
 /// Hot-reloadable animation configuration.
 #[derive(Asset, Resource, TypePath, Debug, Clone, Deserialize)]
 pub struct AnimCatalog {
@@ -88,6 +160,8 @@ pub struct AnimCatalog {
     pub mask_groups: Vec<MaskGroupDef>,
     pub clips: Vec<ClipDef>,
     pub ik: IkConfig,
+    #[serde(default)]
+    pub twist: TwistConfig,
 }
 
 impl AnimCatalog {
@@ -136,6 +210,45 @@ impl AnimCatalog {
         }
         if self.walk_speed_ref <= 0.0 {
             return Err("walk_speed_ref must be greater than zero".to_string());
+        }
+        if self.twist.enabled {
+            if !self.twist.max_twist_deg.is_finite()
+                || self.twist.max_twist_deg <= 0.0
+                || self.twist.max_twist_deg > 90.0
+            {
+                return Err("twist.max_twist_deg must be within (0, 90]".to_string());
+            }
+            if !self.twist.hysteresis_deg.is_finite()
+                || self.twist.hysteresis_deg < 0.0
+                || self.twist.hysteresis_deg >= self.twist.max_twist_deg
+            {
+                return Err("twist.hysteresis_deg must be in [0, max_twist_deg)".to_string());
+            }
+            if !self.twist.idle_turn_stop_deg.is_finite()
+                || self.twist.idle_turn_stop_deg < 0.0
+                || self.twist.idle_turn_stop_deg > self.twist.max_twist_deg
+            {
+                return Err("twist.idle_turn_stop_deg must be in [0, max_twist_deg]".to_string());
+            }
+            if !self.twist.twist_blend_secs.is_finite() || self.twist.twist_blend_secs < 0.0 {
+                return Err("twist.twist_blend_secs must be non-negative".to_string());
+            }
+            if self.twist.bones.is_empty() {
+                return Err("twist.bones must not be empty when twist is enabled".to_string());
+            }
+            let mut total_weight = 0.0;
+            for entry in &self.twist.bones {
+                if entry.name().is_empty() {
+                    return Err("twist bone name must not be empty".to_string());
+                }
+                if !entry.weight().is_finite() || entry.weight() < 0.0 {
+                    return Err(format!("twist bone '{}' has invalid weight", entry.name()));
+                }
+                total_weight += entry.weight();
+            }
+            if total_weight <= 1e-4 {
+                return Err("twist.bones total weight must be greater than zero".to_string());
+            }
         }
         Ok(())
     }
@@ -209,6 +322,7 @@ impl Default for AnimCatalog {
                 },
             ],
             ik: IkConfig::default(),
+            twist: TwistConfig::default(),
         }
     }
 }
@@ -252,5 +366,23 @@ mod tests {
         assert!(catalog.mask_group("lower").is_some());
         assert!(catalog.mask_group("upper").is_some());
         assert_eq!(catalog.ik.chain.len(), 3);
+        assert!(catalog.twist.enabled);
+        assert!((catalog.twist.max_twist_deg - 45.0).abs() < 1e-4);
+        assert_eq!(catalog.twist.bones.len(), 3);
+    }
+
+    #[test]
+    fn twist_validation_rejects_invalid_thresholds() {
+        let mut catalog = AnimCatalog::default();
+        catalog.twist.max_twist_deg = 120.0;
+        assert!(catalog.validate().is_err());
+
+        let mut catalog = AnimCatalog::default();
+        catalog.twist.hysteresis_deg = 50.0;
+        assert!(catalog.validate().is_err());
+
+        let mut catalog = AnimCatalog::default();
+        catalog.twist.bones.clear();
+        assert!(catalog.validate().is_err());
     }
 }

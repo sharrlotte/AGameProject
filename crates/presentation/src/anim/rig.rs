@@ -1,8 +1,15 @@
 use bevy::prelude::*;
 
-use crate::anim::catalog::IkConfig;
+use crate::anim::catalog::{IkConfig, TwistConfig};
 
 const MAX_CHAIN_DEPTH: usize = 32;
+
+/// Resolved spine bone entity and its normalized share of upper-body twist.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TwistTarget {
+    pub entity: Entity,
+    pub weight: f32,
+}
 
 /// The bones the support-hand IK reaches for.
 #[derive(Debug, Clone, Copy, Default)]
@@ -22,12 +29,13 @@ impl BoneSet {
     }
 }
 
-/// Links an `AnimationPlayer` to its survivor, visual root, and IK bones.
-#[derive(Component, Debug, Clone, Copy)]
+/// Links an `AnimationPlayer` to its survivor, visual root, IK bones, and spine twist chain.
+#[derive(Component, Debug, Clone)]
 pub struct PlayerRig {
     pub survivor: Entity,
     pub root: Entity,
     pub bones: BoneSet,
+    pub twist_bones: Vec<TwistTarget>,
 }
 
 /// Resolves the catalog IK chain and target names against live named entities.
@@ -49,6 +57,40 @@ pub fn find_bones<'a>(ik: &IkConfig, named: impl Iterator<Item = (Entity, &'a st
         }
     }
     bones
+}
+
+/// Resolves and normalizes catalog spine twist bones against live named entities.
+pub fn find_twist_bones<'a>(
+    twist: &TwistConfig,
+    named: impl Iterator<Item = (Entity, &'a str)>,
+) -> Vec<TwistTarget> {
+    if !twist.enabled || twist.bones.is_empty() {
+        return Vec::new();
+    }
+    let named_list: Vec<(Entity, &str)> = named.collect();
+    let mut resolved = Vec::with_capacity(twist.bones.len());
+    let mut total_weight = 0.0;
+
+    for entry in &twist.bones {
+        if !entry.weight().is_finite() || entry.weight() <= 0.0 {
+            continue;
+        }
+        if let Some((entity, _)) = named_list.iter().find(|(_, name)| *name == entry.name()) {
+            resolved.push(TwistTarget {
+                entity: *entity,
+                weight: entry.weight(),
+            });
+            total_weight += entry.weight();
+        }
+    }
+
+    if total_weight <= 1e-4 {
+        return Vec::new();
+    }
+    for target in &mut resolved {
+        target.weight /= total_weight;
+    }
+    resolved
 }
 
 /// Composes a world transform by walking local transforms up to `stop`.
@@ -165,5 +207,26 @@ mod tests {
         let parents = parent_state.query(&world);
 
         assert!(compose_world(orphan, root, &transforms, &parents).is_none());
+    }
+
+    #[test]
+    fn find_twist_bones_resolves_and_normalizes_weights() {
+        let mut twist = TwistConfig::default();
+        twist.bones[0].1 = 1.0;
+        twist.bones[1].1 = 1.0;
+        twist.bones[2].1 = 2.0;
+
+        let mut world = World::new();
+        let hips = world.spawn_empty().id();
+        let abdomen = world.spawn_empty().id();
+        let torso = world.spawn_empty().id();
+        let resolved = find_twist_bones(
+            &twist,
+            [(hips, "Hips"), (abdomen, "Abdomen"), (torso, "Torso")].into_iter(),
+        );
+        assert_eq!(resolved.len(), 3);
+        assert!((resolved[0].weight - 0.25).abs() < 1e-4);
+        assert!((resolved[1].weight - 0.25).abs() < 1e-4);
+        assert!((resolved[2].weight - 0.50).abs() < 1e-4);
     }
 }

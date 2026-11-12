@@ -3,13 +3,13 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 use combat::{CombatStance, WeaponInventory};
 use data::GameState;
-use world::{AimDirection, Health, Stamina, Survivor};
-
 use crate::anim::blend::{self, Weights};
 use crate::anim::catalog::AnimCatalog;
+use crate::anim::facing::{MoveZone, PlayerFacing};
 use crate::anim::graph::{ClipNodes, GraphNodes};
 use crate::anim::{PlayerAnimAssets, PlayerRig, stance};
 use crate::config::VisualsConfig;
+use world::{Health, Stamina, Survivor};
 
 const LOCOMOTION_ROLES: [&str; 6] = [
     "idle",
@@ -57,7 +57,8 @@ pub fn drive_player_animation(
     visuals: Res<VisualsConfig>,
     assets: Res<PlayerAnimAssets>,
     clips: Res<Assets<AnimationClip>>,
-    survivors: Query<(&Health, &Stamina, &Velocity, &AimDirection), With<Survivor>>,
+    survivors: Query<(&Health, &Stamina, &Velocity), With<Survivor>>,
+    facings: Query<&PlayerFacing>,
     stances: Query<&CombatStance>,
     inventories: Query<&WeaponInventory>,
     mut players: Query<(&PlayerRig, &mut AnimationPlayer, &mut DirectorState)>,
@@ -70,7 +71,7 @@ pub fn drive_player_animation(
     let move_threshold = visuals.player.move_speed_threshold.max(0.0);
 
     for (rig, mut player, mut director) in &mut players {
-        let Ok((health, stamina, velocity, aim)) = survivors.get(rig.survivor) else {
+        let Ok((health, stamina, velocity)) = survivors.get(rig.survivor) else {
             continue;
         };
 
@@ -89,17 +90,12 @@ pub fn drive_player_animation(
         let speed = horizontal.length();
         let moving = speed > move_threshold;
 
-        let aim_dir = if aim.0.length_squared() > 1e-4 {
-            aim.0.normalize()
-        } else {
-            Vec3::NEG_Z
-        };
-        let facing = if stamina.is_sprinting && moving {
-            horizontal.normalize()
-        } else {
-            aim_dir
-        };
-        let right = facing.cross(Vec3::Y);
+        let (lower_rot, zone) = facings
+            .get(rig.root)
+            .map(|f| (f.lower, f.zone))
+            .unwrap_or((Quat::IDENTITY, MoveZone::Forward));
+        let facing = lower_rot * Vec3::NEG_Z;
+        let right = lower_rot * Vec3::X;
         let local = Vec2::new(horizontal.dot(right), horizontal.dot(facing));
 
         let reloading = inventories
@@ -121,7 +117,7 @@ pub fn drive_player_animation(
         director.reload = blend::approach(director.reload, targets.reload, dt, action_blend);
         let relaxed = 1.0 - director.aim.max(director.reload).clamp(0.0, 1.0);
 
-        let targets = locomotion_targets(local, nodes, stamina.is_sprinting, moving);
+        let targets = locomotion_targets(local, nodes, stamina.is_sprinting, moving, zone);
         let loco_blend = catalog.locomotion_blend_secs;
         director.idle = blend::approach(director.idle, targets.idle, dt, loco_blend);
         director.sprint = blend::approach(director.sprint, targets.sprint, dt, loco_blend);
@@ -236,6 +232,7 @@ fn locomotion_targets(
     nodes: &GraphNodes,
     sprinting: bool,
     moving: bool,
+    zone: MoveZone,
 ) -> Locomotion {
     if !moving {
         return Locomotion {
@@ -248,7 +245,7 @@ fn locomotion_targets(
             weights: Weights::default(),
         };
     }
-    if sprinting && nodes.get("sprint").is_some() {
+    if sprinting && zone == MoveZone::Forward && nodes.get("sprint").is_some() {
         return Locomotion {
             idle: 0.0,
             sprint: 1.0,
@@ -320,10 +317,21 @@ fn play_action(player: &mut AnimationPlayer, clip: &ClipNodes, weight: f32) {
 mod tests {
     use super::*;
 
+    fn dummy_clip() -> ClipNodes {
+        ClipNodes {
+            clip: Handle::default(),
+            lower: None,
+            upper: None,
+            action: None,
+            looped: true,
+            speed: 1.0,
+        }
+    }
+
     #[test]
     fn stationary_selection_is_idle_weighted() {
         let nodes = GraphNodes::default();
-        let result = locomotion_targets(Vec2::ZERO, &nodes, false, false);
+        let result = locomotion_targets(Vec2::ZERO, &nodes, false, false, MoveZone::Forward);
         assert_eq!(result.idle, 0.0, "no idle clip in an empty graph");
         assert!(result.weights.is_idle());
     }
@@ -331,17 +339,30 @@ mod tests {
     #[test]
     fn missing_cardinals_fall_back_to_forward() {
         let nodes = GraphNodes::default();
-        let result = locomotion_targets(Vec2::new(1.0, -1.0), &nodes, false, true);
+        let result =
+            locomotion_targets(Vec2::new(1.0, -1.0), &nodes, false, true, MoveZone::Forward);
         assert!((result.weights.forward - 1.0).abs() < 0.001);
         assert!(result.weights.left < 0.001);
         assert!(result.weights.right < 0.001);
     }
 
     #[test]
-    fn sprint_replaces_directional_blend() {
-        let nodes = GraphNodes::default();
-        let result = locomotion_targets(Vec2::new(0.0, 1.0), &nodes, true, true);
-        assert_eq!(result.sprint, 0.0, "no sprint clip in an empty graph");
-        assert!((result.weights.forward - 1.0).abs() < 0.001);
+    fn sprint_replaces_directional_blend_only_in_forward_cone() {
+        let mut nodes = GraphNodes::default();
+        nodes.clips.insert("sprint".to_string(), dummy_clip());
+        nodes.clips.insert("strafe_l".to_string(), dummy_clip());
+        nodes.clips.insert("strafe_r".to_string(), dummy_clip());
+        nodes.clips.insert("walk_back".to_string(), dummy_clip());
+
+        let fwd = locomotion_targets(Vec2::new(0.0, 1.0), &nodes, true, true, MoveZone::Forward);
+        assert_eq!(fwd.sprint, 1.0);
+
+        let side = locomotion_targets(Vec2::new(1.0, 0.0), &nodes, true, true, MoveZone::Sideways);
+        assert_eq!(side.sprint, 0.0);
+        assert!((side.weights.right - 1.0).abs() < 0.001);
+
+        let back = locomotion_targets(Vec2::new(0.0, -1.0), &nodes, true, true, MoveZone::Backward);
+        assert_eq!(back.sprint, 0.0);
+        assert!((back.weights.back - 1.0).abs() < 0.001);
     }
 }

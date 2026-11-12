@@ -103,11 +103,18 @@ pub fn sync_animation_catalog_hot_reload(
             .iter()
             .map(|(entity, _, name)| (entity, name.as_str())),
     );
+    let twist_bones = rig::find_twist_bones(
+        &catalog.twist,
+        targets
+            .iter()
+            .map(|(entity, _, name)| (entity, name.as_str())),
+    );
 
     for (mut graph_handle, mut player, mut state, mut rig) in &mut players {
         player.stop_all();
         *state = director::DirectorState::default();
         rig.bones = bones;
+        rig.twist_bones = twist_bones.clone();
         graph_handle.0 = handle.clone();
         director::prime_looped(&mut player, &nodes);
     }
@@ -206,6 +213,12 @@ pub fn bind_player_animation_players(
             .iter()
             .map(|(entity, _, name)| (entity, name.as_str())),
     );
+    let twist_bones = rig::find_twist_bones(
+        &catalog.twist,
+        targets
+            .iter()
+            .map(|(entity, _, name)| (entity, name.as_str())),
+    );
 
     for (anim_entity, first_parent, mut player) in &mut added_players {
         let Some((survivor, root)) =
@@ -219,6 +232,7 @@ pub fn bind_player_animation_players(
                 survivor,
                 root,
                 bones,
+                twist_bones: twist_bones.clone(),
             },
             director::DirectorState::default(),
         ));
