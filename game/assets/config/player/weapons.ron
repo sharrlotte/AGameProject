@@ -1,11 +1,11 @@
 (
     anchor: (
-        offset: (0.0, 1.0, 0.0),
+        offset: (0.0, 0.55, -0.2),
         rotation_deg: (0.0, 0.0, 0.0),
     ),
     weapons: [
         (
-            id: "assault_rifle",
+            id: "m16",
             model: "models/weapons/rifle.glb",
             sockets: (
                 grip: "Grip",
@@ -14,7 +14,7 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, 0.05),
+                offset: (0.1, -0.25, -0.25),
                 rotation_deg: (-30.0, 0.0, 0.0),
             ),
             aim: (
@@ -47,7 +47,7 @@
             socket_overrides: [],
         ),
         (
-            id: "shotgun",
+            id: "m1911",
             model: "models/weapons/rifle.glb",
             sockets: (
                 grip: "Grip",
@@ -65,10 +65,52 @@
             ),
             recoil: (
                 pitch_deg: 6.0,
-                back: 0.06,
-                recover_secs: 0.18,
-                max_deg: 16.0,
-                max_back: 0.18,
+                back: 0.05,
+                recover_secs: 0.15,
+                max_deg: 14.0,
+                max_back: 0.14,
+            ),
+            reload: (
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            ),
+            sway: (
+                amplitude: 0.010,
+                roll_deg: 1.2,
+                frequency: 1.3,
+            ),
+            swap: (
+                lower_secs: 0.10,
+                raise_secs: 0.16,
+                drop: 0.18,
+            ),
+            socket_overrides: [],
+        ),
+        (
+            id: "mp5",
+            model: "models/weapons/rifle.glb",
+            sockets: (
+                grip: "Grip",
+                foregrip: "Foregrip",
+                magazine: "Magazine",
+                muzzle: "Muzzle",
+            ),
+            relaxed: (
+                offset: (0.1, -0.25, 0.05),
+                rotation_deg: (-30.0, 0.0, 0.0),
+            ),
+            aim: (
+                offset: (0.1, 0.0, -0.2),
+                rotation_deg: (0.0, 0.0, 0.0),
+            ),
+            recoil: (
+                pitch_deg: 3.0,
+                back: 0.03,
+                recover_secs: 0.10,
+                max_deg: 10.0,
+                max_back: 0.10,
             ),
             reload: (
                 tilt_deg: 22.0,
@@ -89,7 +131,7 @@
             socket_overrides: [],
         ),
         (
-            id: "sniper",
+            id: "mp7",
             model: "models/weapons/rifle.glb",
             sockets: (
                 grip: "Grip",
@@ -106,11 +148,11 @@
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
-                pitch_deg: 8.0,
-                back: 0.08,
-                recover_secs: 0.25,
-                max_deg: 20.0,
-                max_back: 0.2,
+                pitch_deg: 3.0,
+                back: 0.03,
+                recover_secs: 0.10,
+                max_deg: 10.0,
+                max_back: 0.10,
             ),
             reload: (
                 tilt_deg: 22.0,
@@ -119,19 +161,19 @@
                 hand_return: 0.7,
             ),
             sway: (
-                amplitude: 0.008,
-                roll_deg: 1.0,
-                frequency: 1.0,
+                amplitude: 0.012,
+                roll_deg: 1.5,
+                frequency: 1.4,
             ),
             swap: (
-                lower_secs: 0.15,
-                raise_secs: 0.22,
+                lower_secs: 0.12,
+                raise_secs: 0.18,
                 drop: 0.2,
             ),
             socket_overrides: [],
         ),
         (
-            id: "rpg",
+            id: "scar",
             model: "models/weapons/rifle.glb",
             sockets: (
                 grip: "Grip",
@@ -148,11 +190,11 @@
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
-                pitch_deg: 10.0,
-                back: 0.12,
-                recover_secs: 0.3,
-                max_deg: 25.0,
-                max_back: 0.25,
+                pitch_deg: 5.0,
+                back: 0.05,
+                recover_secs: 0.15,
+                max_deg: 14.0,
+                max_back: 0.15,
             ),
             reload: (
                 tilt_deg: 22.0,
@@ -161,14 +203,14 @@
                 hand_return: 0.7,
             ),
             sway: (
-                amplitude: 0.015,
-                roll_deg: 2.0,
-                frequency: 1.2,
+                amplitude: 0.012,
+                roll_deg: 1.5,
+                frequency: 1.4,
             ),
             swap: (
-                lower_secs: 0.2,
-                raise_secs: 0.25,
-                drop: 0.25,
+                lower_secs: 0.12,
+                raise_secs: 0.18,
+                drop: 0.2,
             ),
             socket_overrides: [],
         ),

@@ -289,6 +289,9 @@ pub fn solve_player_arms(
     if !catalog.ik.enabled {
         return;
     }
+    for mount in &mounts {
+        info!("IK: mount profile={} survivor={:?}", mount.profile, mount.survivor);
+    }
 
     for mount in &mounts {
         let Ok(health) = survivors.get(mount.survivor) else {

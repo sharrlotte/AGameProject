@@ -24,6 +24,7 @@ impl ArmChain {
 pub struct Arms {
     pub right: ArmChain,
     pub left: ArmChain,
+    pub torso: Option<Entity>,
 }
 
 /// Links an `AnimationPlayer` to its survivor, visual root, and IK chains.
@@ -38,7 +39,9 @@ pub struct PlayerRig {
 pub fn find_arms<'a>(ik: &IkConfig, named: impl Iterator<Item = (Entity, &'a str)>) -> Arms {
     let mut arms = Arms::default();
     for (entity, name) in named {
-        if name == ik.right_shoulder {
+        if name == "Torso" {
+            arms.torso = Some(entity);
+        } else if name == ik.right_shoulder {
             arms.right.shoulder = Some(entity);
         } else if name == ik.left_shoulder {
             arms.left.shoulder = Some(entity);

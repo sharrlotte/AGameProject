@@ -7,6 +7,7 @@ use data::{AppRonConfigExt, GameState, SimUpdateSet};
 use crate::config::VisualsConfig;
 
 mod bind;
+mod idle;
 pub mod blend;
 pub mod catalog;
 pub mod director;

@@ -8,20 +8,19 @@ contract, and switching between slots.
 ## Requirements
 
 ### Requirement: Weapon roster defines multiple playable weapons
-The simulation SHALL define at least four weapons in `WeaponsConfig`: `assault_rifle`, `shotgun`, `sniper`,
-and `rpg`, each with distinct `WeaponSpecData` stats (fire rate, pellets, damage, spread, projectile
+The simulation SHALL define at least five weapons in `WeaponsConfig`: `m16`, `m1911`, `mp5`, `mp7`, and
+`scar`, each with distinct `WeaponSpecData` stats (fire rate, pellets, damage, spread, projectile
 speed/radius/lifetime, knockback, magazine size, reload time).
 
-#### Scenario: Roster contains four weapons
+#### Scenario: Roster contains five weapons
 
 - **WHEN** the combat weapons config is loaded
-- **THEN** `weapons` contains `assault_rifle`, `shotgun`, `sniper`, and `rpg`
+- **THEN** `weapons` contains `m16`, `m1911`, `mp5`, `mp7`, and `scar`
 
 #### Scenario: Stats differ by class
 
-- **WHEN** comparing `sniper` and `rpg` to `assault_rifle`
-- **THEN** sniper has higher damage and lower fire rate; rpg has larger projectile radius and lower
-  projectile speed
+- **WHEN** comparing the converted guns
+- **THEN** each has distinct fire rate, damage, and magazine size
 
 ### Requirement: Presentation profile exists for each weapon
 For every weapon id in the sim roster, the presentation catalog SHALL contain a weapon profile with the
@@ -56,11 +55,3 @@ slot, wrapping). Switching SHALL emit `WeaponSwappedMessage` and cancel active r
 - **WHEN** a weapon swap occurs during an active reload
 - **THEN** the reload timer clears and `ReloadCancelledMessage` is emitted with reason `Swapped`
 
-### Requirement: RPG uses existing projectile system
-The RPG SHALL be implemented as a `WeaponSpecData` with a single slow, large, high-damage projectile. No
-new projectile or damage type is required.
-
-#### Scenario: RPG fires one projectile
-
-- **WHEN** the player fires the RPG
-- **THEN** exactly one projectile spawns with the configured speed, radius, and damage

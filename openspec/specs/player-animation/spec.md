@@ -292,6 +292,33 @@ Clip roles, anchor angles, layer membership, masks, blend times, speed clamps, a
 - **WHEN** the workspace test suite runs
 - **THEN** the animation and weapon catalogs are deserialized and their required roles, anchor validity, masks, chains, and socket names are asserted to be present
 
+### Requirement: Idle pose relaxation
+When the player is idle (horizontal speed below `move_speed_threshold`) and alive, the presentation layer
+SHALL procedurally relax the shoulders, arms, and spine after IK evaluation: reduce shoulder abduction
+(blend shoulder Z rotation toward zero) and reduce the idle clip's torso X rotation by approximately
+50%. The correction SHALL run after `solve_player_arms` and before transform propagation, and SHALL
+apply to both armed and unarmed players.
+
+#### Scenario: Shoulders relax during idle
+
+- **WHEN** the player is idle and alive
+- **THEN** the shoulder Z rotation is reduced toward zero compared to the raw idle clip
+
+#### Scenario: Correction runs after IK
+
+- **WHEN** IK has written arm rotations for an armed idle player
+- **THEN** the relaxation applies on top without breaking grip reach beyond tolerance
+
+#### Scenario: No correction while moving
+
+- **WHEN** horizontal speed is at or above `move_speed_threshold`
+- **THEN** no idle relaxation is applied and arms follow locomotion/IK normally
+
+#### Scenario: Dead player is skipped
+
+- **WHEN** the player is dead
+- **THEN** no idle relaxation is applied and the death clip controls the pose
+
 ### Requirement: Animation systems run only when needed
 Animation, weapon pose, IK, and facing systems SHALL run only in `Playing` and `GameOver` states and SHALL NOT run during loading or menus.
 

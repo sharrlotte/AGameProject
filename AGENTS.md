@@ -25,8 +25,8 @@
 - Dev only code should not exists in Production build
 - Respect SOLID principle, when a file > 500 lines then extract
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
-- Use short and concise for name and file name, prefer using 1 word
-- Only write unit test, no smoke test unless i asked to
+- Use short and concise for name and file name, prefer using 1 word, use folder to group files and prefer creating folder to group for
+  future proof when more files is added
 - Do not write comment that explain what the code already does or changes, note from old code version
 
 ## Bevy

@@ -6,14 +6,14 @@ fn weapons_ron_parses_and_is_valid() {
     catalog.validate().expect("weapon catalog is valid");
 
     let rifle = catalog
-        .weapon("assault_rifle")
-        .expect("assault rifle profile");
+        .weapon("m16")
+        .expect("m16 profile");
     assert_eq!(rifle.sockets.grip, "Grip");
     assert_eq!(rifle.sockets.foregrip, "Foregrip");
     assert!(rifle.sockets.named().contains(&"Magazine"));
     assert!(rifle.sockets.named().contains(&"Muzzle"));
 
-    for id in ["shotgun", "sniper", "rpg"] {
+    for id in ["m1911", "mp5", "mp7", "scar"] {
         assert!(catalog.weapon(id).is_some(), "missing weapon profile {id}");
     }
 }

@@ -17,7 +17,11 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
   - **Aim-lead offset:** Camera subtly shifts toward the mouse cursor (10–20% of cursor distance from center) so the player can see further in the direction they are aiming.
   - **Dynamic screen shake:** Trauma-based micro-shake on heavy shots, explosions, and taking hits.
 
-### 1.1b Weapon Roster
+### 1.1b Weapon Roster & Presentation
+
+Weapons use converted GLB models (m16, m1911, mp5, mp7, scar) with approximate sockets. The weapon
+anchor sits at chest height (`anchor.offset.y = 1.4`). A muzzle flash VFX spawns at the projectile
+origin on fire. Bullets spawn at `muzzle_offset = 0.6` (tuned to the visual muzzle).
 
 The simulation defines four weapons in `game/assets/config/combat/weapons.ron`: `assault_rifle`,
 `shotgun`, `sniper`, and `rpg`. Presentation profiles live in `game/assets/config/player/weapons.ron`

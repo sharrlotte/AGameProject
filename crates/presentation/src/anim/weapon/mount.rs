@@ -8,6 +8,14 @@ use crate::anim::PlayerVisualRoot;
 use super::catalog::WeaponCatalog;
 use super::state::{PlayerWeaponAnchor, ResolvedSockets, WeaponMount, WeaponPoseState};
 
+/// Tracks an in-flight weapon GLTF load so its handle stays alive until the asset
+/// is ready (Bevy unloads assets with no live handles).
+#[derive(Component)]
+pub struct PendingWeaponLoad {
+    pub handle: Handle<Gltf>,
+    pub profile_id: String,
+}
+
 /// Spawns the chest-height weapon anchor under every new player visual root.
 pub fn init_weapon_anchors(
     mut commands: Commands,
@@ -50,12 +58,13 @@ pub fn sync_weapon_mounts(
         &PlayerWeaponAnchor,
         &mut Transform,
         Option<&WeaponMount>,
+        Option<&PendingWeaponLoad>,
         &mut WeaponPoseState,
     )>,
 ) {
     let reloaded = catalog.is_changed();
 
-    for (anchor_entity, anchor, mut transform, mount, mut pose) in &mut anchors {
+    for (anchor_entity, anchor, mut transform, mount, pending, mut pose) in &mut anchors {
         *transform = anchor_transform(&catalog);
         if reloaded {
             *pose = WeaponPoseState::default();
@@ -69,50 +78,79 @@ pub fn sync_weapon_mounts(
         };
         let profile_id = slot.spec.id.as_str();
 
+        // Despawn + clear mount/pending on profile change or reload.
         if let Some(mount) = mount {
             if !reloaded && mount.profile == profile_id {
+                // Already mounted and up to date; keep handle alive via pending? No pending exists.
                 continue;
             }
             commands.entity(mount.scene).despawn();
             commands.entity(anchor_entity).remove::<WeaponMount>();
+        }
+        if let Some(pending) = pending
+            && (reloaded || pending.profile_id != profile_id)
+        {
+            commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+        }
+
+        // If a pending load exists for this profile, check whether it finished.
+        if let Some(pending) = pending
+            && pending.profile_id == profile_id
+            && !reloaded
+        {
+            if let Some(gltf) = gltfs.get(&pending.handle) {
+                let Some(scene) = gltf.scenes.first().cloned() else {
+                    warn!("Weapon '{}' contains no scenes", profile_id);
+                    commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+                    continue;
+                };
+                let profile = match catalog.weapon(profile_id) {
+                    Some(p) => p,
+                    None => {
+                        warn!("No presentation profile for weapon '{profile_id}'");
+                        commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+                        continue;
+                    }
+                };
+                let scene_entity = commands
+                    .spawn((
+                        Name::new(format!("WeaponModel:{}", profile.id)),
+                        WorldAssetRoot(scene),
+                        Transform::default(),
+                        Visibility::default(),
+                        ChildOf(anchor_entity),
+                    ))
+                    .id();
+                commands.entity(anchor_entity).insert(WeaponMount {
+                    survivor: anchor.survivor,
+                    root: anchor.root,
+                    profile: profile.id.clone(),
+                    scene: scene_entity,
+                    sockets: ResolvedSockets {
+                        grip: scene_entity,
+                        foregrip: scene_entity,
+                        magazine: None,
+                        muzzle: None,
+                    },
+                    magazine_rest: Transform::IDENTITY,
+                    resolved: false,
+                });
+                commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+            }
+            // Still loading: keep pending (handle stays alive).
+            continue;
         }
 
         let Some(profile) = catalog.weapon(profile_id) else {
             warn!("No presentation profile for weapon '{profile_id}'");
             continue;
         };
-        let handle: Handle<Gltf> = asset_server.load(profile.model.clone());
-        let Some(gltf) = gltfs.get(&handle) else {
-            continue;
-        };
-        let Some(scene) = gltf.scenes.first().cloned() else {
-            warn!("Weapon '{}' contains no scenes", profile.id);
-            continue;
-        };
 
-        let scene_entity = commands
-            .spawn((
-                Name::new(format!("WeaponModel:{}", profile.id)),
-                WorldAssetRoot(scene),
-                Transform::default(),
-                Visibility::default(),
-                ChildOf(anchor_entity),
-            ))
-            .id();
-
-        commands.entity(anchor_entity).insert(WeaponMount {
-            survivor: anchor.survivor,
-            root: anchor.root,
-            profile: profile.id.clone(),
-            scene: scene_entity,
-            sockets: ResolvedSockets {
-                grip: scene_entity,
-                foregrip: scene_entity,
-                magazine: None,
-                muzzle: None,
-            },
-            magazine_rest: Transform::IDENTITY,
-            resolved: false,
+        // Start a new load, keeping the handle alive in a pending component.
+        let handle = asset_server.load(profile.model.clone());
+        commands.entity(anchor_entity).insert(PendingWeaponLoad {
+            handle,
+            profile_id: profile.id.clone(),
         });
     }
 }
