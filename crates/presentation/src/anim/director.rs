@@ -1,281 +1,313 @@
 use bevy::animation::RepeatAnimation;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
-use combat::{CombatStance, WeaponInventory};
 use data::GameState;
-use crate::anim::blend::{self, Weights};
+
+use crate::anim::blend::{self, AnchorWeights, MAX_ANCHORS, approach, wrap_turn};
 use crate::anim::catalog::AnimCatalog;
-use crate::anim::facing::{MoveZone, PlayerFacing};
-use crate::anim::graph::{ClipNodes, GraphNodes};
-use crate::anim::{PlayerAnimAssets, PlayerRig, stance};
-use crate::config::VisualsConfig;
+use crate::anim::facing::PlayerFacing;
+use crate::anim::graph::GraphNodes;
+use crate::anim::{PlayerAnimAssets, PlayerRig};
 use world::{Health, Stamina, Survivor};
 
-const LOCOMOTION_ROLES: [&str; 6] = [
-    "idle",
-    "walk_fwd",
-    "walk_back",
-    "sprint",
-    "strafe_l",
-    "strafe_r",
-];
-
-/// Per-player animation state that must survive across frames.
-#[derive(Component, Debug, Clone, Default)]
-pub struct DirectorState {
-    pub aim: f32,
-    pub reload: f32,
-    pub reload_active: bool,
-    pub dead: bool,
-    pub idle: f32,
-    pub sprint: f32,
-    pub locomotion: Weights,
+/// One bound locomotion anchor with its clip nodes and normalized duration.
+#[derive(Debug, Clone)]
+pub struct AnchorClip {
+    pub role: String,
+    pub angle: f32,
+    pub node: AnimationNodeIndex,
+    pub duration: f32,
+    pub speed: f32,
 }
 
-/// Plays all looped locomotion clips at zero weight once, so the director can
-/// move weights without restarting clips mid-gameplay.
-pub fn prime_looped(player: &mut AnimationPlayer, nodes: &GraphNodes) {
-    for role in LOCOMOTION_ROLES {
-        let Some(clip) = nodes.get(role) else {
-            continue;
-        };
-        for node in [clip.lower_node(), clip.upper_node()].into_iter().flatten() {
-            let active = player.play(node);
-            active.repeat();
-            active.set_weight(0.0);
-            active.set_speed(clip.speed.max(0.01));
+/// The always-playing idle clip, driven separately from the directional anchors.
+#[derive(Debug, Clone, Copy)]
+pub struct IdleClip {
+    pub node: AnimationNodeIndex,
+    pub speed: f32,
+}
+
+/// Locomotion clips resolved once at bind time.
+#[derive(Debug, Clone, Default)]
+pub struct LocomotionClips {
+    pub anchors: Vec<AnchorClip>,
+    pub angles: Vec<f32>,
+    pub idle: Option<IdleClip>,
+}
+
+/// Per-player animation state that must survive across frames.
+#[derive(Component, Debug, Clone)]
+pub struct DirectorState {
+    pub idle: f32,
+    pub weights: AnchorWeights,
+    pub phase: f32,
+    pub dominant: Option<usize>,
+    pub dead: bool,
+}
+
+impl Default for DirectorState {
+    fn default() -> Self {
+        Self {
+            idle: 1.0,
+            weights: AnchorWeights::default(),
+            phase: 0.0,
+            dominant: None,
+            dead: false,
         }
     }
 }
 
-/// Drives layer weights, clip playback speed, reload seeking, and death.
-#[allow(clippy::too_many_arguments)]
+/// Plays every locomotion clip at zero weight once, so the director can move
+/// weights without restarting clips mid-gameplay.
+pub fn prime_looped(player: &mut AnimationPlayer, locomotion: &LocomotionClips) {
+    if let Some(idle) = locomotion.idle {
+        let active = player.play(idle.node);
+        active.repeat();
+        active.set_weight(0.0);
+        active.set_speed(idle.speed.max(0.01));
+    }
+    for anchor in &locomotion.anchors {
+        let active = player.play(anchor.node);
+        active.repeat();
+        active.set_weight(0.0);
+        active.set_speed(anchor.speed.max(0.01));
+    }
+}
+
+/// Resolves anchor nodes and clip durations, dropping clips that are not in the glTF.
+pub fn resolve(
+    catalog: &AnimCatalog,
+    nodes: &GraphNodes,
+    clips: &Assets<AnimationClip>,
+) -> LocomotionClips {
+    let loco = &catalog.locomotion;
+    let idle = nodes.get(&loco.idle_role).and_then(|clip| {
+        Some(IdleClip {
+            node: clip.graph_node()?,
+            speed: clip.speed,
+        })
+    });
+
+    let mut anchors = Vec::with_capacity(loco.anchors.len().min(MAX_ANCHORS));
+    let mut missing = Vec::new();
+    for def in &loco.anchors {
+        if anchors.len() >= MAX_ANCHORS {
+            warn!("Locomotion defines more than {MAX_ANCHORS} anchors; extra anchors are ignored");
+            break;
+        }
+        let Some(clip) = nodes.get(&def.role) else {
+            missing.push(def.role.as_str());
+            continue;
+        };
+        let Some(node) = clip.graph_node() else {
+            missing.push(def.role.as_str());
+            continue;
+        };
+        let duration = clips
+            .get(&clip.clip)
+            .map(AnimationClip::duration)
+            .filter(|duration| duration.is_finite() && *duration > 0.0)
+            .unwrap_or(0.0);
+        anchors.push(AnchorClip {
+            role: def.role.clone(),
+            angle: wrap_turn(def.angle_rad()),
+            node,
+            duration,
+            speed: clip.speed,
+        });
+    }
+    if !missing.is_empty() {
+        warn!("Locomotion anchors missing their clips: {missing:?}");
+    }
+    anchors.sort_by(|a, b| a.angle.total_cmp(&b.angle));
+    let angles = anchors.iter().map(|anchor| anchor.angle).collect();
+
+    LocomotionClips {
+        anchors,
+        angles,
+        idle,
+    }
+}
+
+/// Drives anchor weights, shared phase, playback speed, and death.
 pub fn drive_player_animation(
     time: Res<Time>,
     state: Res<State<GameState>>,
     catalog: Res<AnimCatalog>,
-    visuals: Res<VisualsConfig>,
     assets: Res<PlayerAnimAssets>,
-    clips: Res<Assets<AnimationClip>>,
     survivors: Query<(&Health, &Stamina, &Velocity), With<Survivor>>,
     facings: Query<&PlayerFacing>,
-    stances: Query<&CombatStance>,
-    inventories: Query<&WeaponInventory>,
     mut players: Query<(&PlayerRig, &mut AnimationPlayer, &mut DirectorState)>,
 ) {
-    let Some(nodes) = assets.nodes.as_ref() else {
+    let Some(locomotion) = assets.locomotion.as_ref() else {
         return;
     };
     let dt = time.delta_secs();
     let game_over = *state.get() == GameState::GameOver;
-    let move_threshold = visuals.player.move_speed_threshold.max(0.0);
+    let loco_cfg = &catalog.locomotion;
+    let move_threshold = loco_cfg.move_speed_threshold.max(0.0);
 
     for (rig, mut player, mut director) in &mut players {
         let Ok((health, stamina, velocity)) = survivors.get(rig.survivor) else {
             continue;
         };
 
-        let alive = health.current > 0.0 && !game_over;
+        let alive = alive(health, game_over);
         if !alive {
-            apply_death(&mut player, &mut director, nodes);
+            apply_death(&mut player, &mut director, assets.as_ref());
             continue;
         }
         if director.dead {
-            director.dead = false;
             player.stop_all();
-            prime_looped(&mut player, nodes);
+            prime_looped(&mut player, locomotion);
+            *director = DirectorState::default();
         }
 
         let horizontal = Vec3::new(velocity.linear.x, 0.0, velocity.linear.z);
         let speed = horizontal.length();
-        let moving = speed > move_threshold;
+        let moving = speed > move_threshold && !locomotion.anchors.is_empty();
 
-        let (lower_rot, zone) = facings
+        let yaw = facings
             .get(rig.root)
-            .map(|f| (f.lower, f.zone))
-            .unwrap_or((Quat::IDENTITY, MoveZone::Forward));
-        let facing = lower_rot * Vec3::NEG_Z;
-        let right = lower_rot * Vec3::X;
-        let local = Vec2::new(horizontal.dot(right), horizontal.dot(facing));
+            .map(|facing| facing.yaw)
+            .unwrap_or(0.0);
+        let rotation = Quat::from_rotation_y(yaw);
+        let local_angle = if moving {
+            let forward = horizontal.dot(rotation * Vec3::NEG_Z);
+            let right = horizontal.dot(rotation * Vec3::X);
+            right.atan2(forward)
+        } else {
+            0.0
+        };
 
-        let reloading = inventories
-            .get(rig.survivor)
-            .ok()
-            .and_then(WeaponInventory::reload_progress)
-            .is_some();
-        let aiming = stances
-            .get(rig.survivor)
-            .map(|stance| stance.aiming)
-            .unwrap_or(false);
-        // Missing assets degrade to relaxed arms instead of freezing the upper body.
-        let reloading = reloading && nodes.get("reload").is_some();
-        let aiming = aiming && nodes.get("aim").is_some();
+        let targets = target_weights(local_angle, moving, locomotion.angles.as_slice());
+        director.idle = approach(director.idle, targets.idle, dt, loco_cfg.blend_secs);
+        resize_weights(&mut director.weights, locomotion.anchors.len());
+        for index in 0..director.weights.len() {
+            let current = director.weights.get(index);
+            director.weights.set(
+                index,
+                approach(current, targets.weights.get(index), dt, loco_cfg.blend_secs),
+            );
+        }
+        let idle = director.idle;
+        director.weights.normalize(idle);
 
-        let targets = stance::targets(aiming, reloading);
-        let action_blend = catalog.action_blend_secs;
-        director.aim = blend::approach(director.aim, targets.aim, dt, action_blend);
-        director.reload = blend::approach(director.reload, targets.reload, dt, action_blend);
-        let relaxed = 1.0 - director.aim.max(director.reload).clamp(0.0, 1.0);
-
-        let targets = locomotion_targets(local, nodes, stamina.is_sprinting, moving, zone);
-        let loco_blend = catalog.locomotion_blend_secs;
-        director.idle = blend::approach(director.idle, targets.idle, dt, loco_blend);
-        director.sprint = blend::approach(director.sprint, targets.sprint, dt, loco_blend);
-        director.locomotion.forward = blend::approach(
-            director.locomotion.forward,
-            targets.weights.forward,
-            dt,
-            loco_blend,
-        );
-        director.locomotion.back = blend::approach(
-            director.locomotion.back,
-            targets.weights.back,
-            dt,
-            loco_blend,
-        );
-        director.locomotion.left = blend::approach(
-            director.locomotion.left,
-            targets.weights.left,
-            dt,
-            loco_blend,
-        );
-        director.locomotion.right = blend::approach(
-            director.locomotion.right,
-            targets.weights.right,
-            dt,
-            loco_blend,
-        );
+        let dominant = director.weights.dominant();
+        if let Some(index) = dominant
+            && director.dominant != Some(index)
+            && let Some(anchor) = locomotion.anchors.get(index)
+        {
+            let seek = seek_secs(director.phase, anchor.duration);
+            seek_player(&mut player, anchor.node, seek);
+            director.dominant = Some(index);
+        }
 
         let playback = if stamina.is_sprinting && moving {
-            catalog.sprint_playback_speed.max(0.01)
+            loco_cfg.sprint_playback_speed.max(0.01)
         } else {
             blend::speed_scale(
                 speed,
-                catalog.walk_speed_ref,
-                catalog.speed_scale_min,
-                catalog.speed_scale_max,
+                loco_cfg.walk_speed_ref,
+                loco_cfg.speed_scale_min,
+                loco_cfg.speed_scale_max,
             )
         };
 
-        for role in LOCOMOTION_ROLES {
-            let Some(clip_nodes) = nodes.get(role) else {
-                continue;
-            };
-            let weight = match role {
-                "idle" => director.idle,
-                "walk_fwd" => director.locomotion.forward,
-                "walk_back" => director.locomotion.back,
-                "sprint" => director.sprint,
-                "strafe_l" => director.locomotion.left,
-                "strafe_r" => director.locomotion.right,
-                _ => 0.0,
-            };
-            let base_speed = clip_nodes.speed.max(0.01);
-            let clip_speed = if role == "idle" {
-                base_speed
-            } else {
-                playback * base_speed
-            };
-            play_looped(&mut player, clip_nodes.lower_node(), weight, clip_speed);
-            play_looped(
-                &mut player,
-                clip_nodes.upper_node(),
-                weight * relaxed,
-                clip_speed,
-            );
+        if moving
+            && let Some(index) = dominant
+            && let Some(anchor) = locomotion.anchors.get(index)
+        {
+            director.phase = advance_phase(director.phase, dt, playback, anchor.duration);
         }
 
-        let aim_weight = director.aim * (1.0 - director.reload);
-        if let Some(clip_nodes) = nodes.get("aim") {
-            play_action(&mut player, clip_nodes, aim_weight);
+        for (index, anchor) in locomotion.anchors.iter().enumerate() {
+            let weight = director.weights.get(index);
+            let clip_speed = anchor.speed.max(0.01) * playback;
+            play_looped(&mut player, anchor.node, weight, clip_speed);
         }
-        if let Some(clip_nodes) = nodes.get("reload") {
-            let was_reloading = director.reload_active;
-            if reloading
-                && !was_reloading
-                && let Some(node) = clip_nodes.action_node()
-            {
-                player.play(node).replay();
-            }
-            director.reload_active = reloading;
-            play_action(&mut player, clip_nodes, director.reload);
-
-            if reloading
-                && let Some(progress) = inventories
-                    .get(rig.survivor)
-                    .ok()
-                    .and_then(WeaponInventory::reload_progress)
-                && let Some(node) = clip_nodes.action_node()
-            {
-                let duration = clips
-                    .get(&clip_nodes.clip)
-                    .map(AnimationClip::duration)
-                    .unwrap_or(0.0);
-                if duration > 0.0
-                    && let Some(active) = player.animation_mut(node)
-                {
-                    active.set_seek_time(progress * duration);
-                }
-            }
+        if let Some(idle) = locomotion.idle {
+            play_looped(&mut player, idle.node, director.idle, idle.speed);
         }
     }
 }
 
-struct Locomotion {
+struct Targets {
+    weights: AnchorWeights,
     idle: f32,
-    sprint: f32,
-    weights: Weights,
 }
 
-fn locomotion_targets(
-    local: Vec2,
-    nodes: &GraphNodes,
-    sprinting: bool,
-    moving: bool,
-    zone: MoveZone,
-) -> Locomotion {
-    if !moving {
-        return Locomotion {
-            idle: if nodes.get("idle").is_some() {
-                1.0
-            } else {
-                0.0
-            },
-            sprint: 0.0,
-            weights: Weights::default(),
-        };
-    }
-    if sprinting && zone == MoveZone::Forward && nodes.get("sprint").is_some() {
-        return Locomotion {
-            idle: 0.0,
-            sprint: 1.0,
-            weights: Weights::default(),
-        };
-    }
+fn alive(health: &Health, game_over: bool) -> bool {
+    health.current > 0.0 && !game_over
+}
 
-    let mut weights = Weights::from_local(local);
-    if nodes.get("walk_back").is_none() {
-        weights = weights.fallback_back_to_forward();
+fn target_weights(angle: f32, moving: bool, anchors: &[f32]) -> Targets {
+    if !moving || anchors.is_empty() {
+        return Targets {
+            weights: AnchorWeights::new(anchors.len()),
+            idle: 1.0,
+        };
     }
-    if nodes.get("strafe_l").is_none() || nodes.get("strafe_r").is_none() {
-        weights = weights.fallback_sides_to_forward();
-    }
-    if weights.is_idle() {
-        weights.forward = 1.0;
-    }
-    Locomotion {
+    Targets {
+        weights: AnchorWeights::bracket(anchors, angle),
         idle: 0.0,
-        sprint: 0.0,
-        weights,
     }
 }
 
-fn apply_death(player: &mut AnimationPlayer, director: &mut DirectorState, nodes: &GraphNodes) {
+fn resize_weights(weights: &mut AnchorWeights, count: usize) {
+    if weights.len() != count.min(MAX_ANCHORS) {
+        let old = *weights;
+        let mut replacement = AnchorWeights::new(count);
+        for index in 0..replacement.len() {
+            replacement.set(index, old.get(index));
+        }
+        *weights = replacement;
+    }
+}
+
+pub fn seek_secs(phase: f32, duration: f32) -> f32 {
+    if !duration.is_finite() || duration <= 0.0 {
+        return 0.0;
+    }
+    phase.clamp(0.0, 1.0) * duration
+}
+
+pub fn advance_phase(phase: f32, dt: f32, playback: f32, duration: f32) -> f32 {
+    if !duration.is_finite() || duration <= 0.0 || !dt.is_finite() || dt <= 0.0 {
+        return phase;
+    }
+    let next = phase + dt * playback.max(0.0) / duration;
+    next.rem_euclid(1.0)
+}
+
+fn seek_player(player: &mut AnimationPlayer, node: AnimationNodeIndex, seek: f32) {
+    if seek <= 0.0 {
+        return;
+    }
+    if let Some(active) = player.animation_mut(node) {
+        active.set_seek_time(seek);
+    }
+}
+
+fn play_looped(player: &mut AnimationPlayer, node: AnimationNodeIndex, weight: f32, speed: f32) {
+    let active = player.play(node);
+    active.repeat();
+    active.set_speed(speed.max(0.01));
+    active.set_weight(weight.clamp(0.0, 1.0));
+}
+
+fn apply_death(
+    player: &mut AnimationPlayer,
+    director: &mut DirectorState,
+    assets: &PlayerAnimAssets,
+) {
     if director.dead {
         return;
     }
     player.stop_all();
-    if let Some(death) = nodes.death {
+    if let Some(nodes) = assets.nodes.as_ref()
+        && let Some(death) = nodes.death
+    {
         let active = player.play(death);
         active.set_repeat(RepeatAnimation::Never);
         active.set_speed(1.0);
@@ -284,85 +316,91 @@ fn apply_death(player: &mut AnimationPlayer, director: &mut DirectorState, nodes
     director.dead = true;
 }
 
-fn play_looped(
-    player: &mut AnimationPlayer,
-    node: Option<AnimationNodeIndex>,
-    weight: f32,
-    speed: f32,
-) {
-    let Some(node) = node else {
-        return;
-    };
-    let active = player.play(node);
-    active.repeat();
-    active.set_speed(speed.max(0.01));
-    active.set_weight(weight.clamp(0.0, 1.0));
-}
-
-fn play_action(player: &mut AnimationPlayer, clip: &ClipNodes, weight: f32) {
-    let Some(node) = clip.action_node() else {
-        return;
-    };
-    let active = player.play(node);
-    if clip.looped {
-        active.repeat();
-    } else {
-        active.set_repeat(RepeatAnimation::Never);
-    }
-    active.set_speed(clip.speed.max(0.01));
-    active.set_weight(weight.clamp(0.0, 1.0));
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::anim::graph::ClipNodes;
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
     fn dummy_clip() -> ClipNodes {
         ClipNodes {
             clip: Handle::default(),
-            lower: None,
-            upper: None,
-            action: None,
+            node: None,
             looped: true,
             speed: 1.0,
         }
     }
 
     #[test]
-    fn stationary_selection_is_idle_weighted() {
-        let nodes = GraphNodes::default();
-        let result = locomotion_targets(Vec2::ZERO, &nodes, false, false, MoveZone::Forward);
-        assert_eq!(result.idle, 0.0, "no idle clip in an empty graph");
-        assert!(result.weights.is_idle());
+    fn stationary_targets_are_idle_weighted() {
+        let targets = target_weights(0.4, false, &[0.0, FRAC_PI_2]);
+        assert_eq!(targets.idle, 1.0);
+        assert_eq!(targets.weights.sum(), 0.0);
     }
 
     #[test]
-    fn missing_cardinals_fall_back_to_forward() {
-        let nodes = GraphNodes::default();
-        let result =
-            locomotion_targets(Vec2::new(1.0, -1.0), &nodes, false, true, MoveZone::Forward);
-        assert!((result.weights.forward - 1.0).abs() < 0.001);
-        assert!(result.weights.left < 0.001);
-        assert!(result.weights.right < 0.001);
+    fn moving_targets_split_on_diagonals() {
+        let targets = target_weights(FRAC_PI_4, true, &[0.0, FRAC_PI_2, std::f32::consts::PI]);
+        assert_eq!(targets.idle, 0.0);
+        assert!((targets.weights.get(0) - 0.5).abs() < 1e-4);
+        assert!((targets.weights.get(1) - 0.5).abs() < 1e-4);
+        assert!((targets.weights.sum() - 1.0).abs() < 1e-4);
     }
 
     #[test]
-    fn sprint_replaces_directional_blend_only_in_forward_cone() {
+    fn missing_anchors_fall_back_to_idle() {
+        let targets = target_weights(0.0, true, &[]);
+        assert_eq!(targets.idle, 1.0);
+        assert!(targets.weights.is_empty());
+    }
+
+    #[test]
+    fn resolve_drops_anchors_without_clips() {
         let mut nodes = GraphNodes::default();
-        nodes.clips.insert("sprint".to_string(), dummy_clip());
-        nodes.clips.insert("strafe_l".to_string(), dummy_clip());
-        nodes.clips.insert("strafe_r".to_string(), dummy_clip());
-        nodes.clips.insert("walk_back".to_string(), dummy_clip());
+        nodes.clips.insert("walk_fwd".to_string(), dummy_clip());
+        let clips = Assets::<AnimationClip>::default();
+        let locomotion = resolve(&AnimCatalog::default(), &nodes, &clips);
+        assert!(locomotion.anchors.is_empty());
+        assert!(locomotion.idle.is_none());
+    }
 
-        let fwd = locomotion_targets(Vec2::new(0.0, 1.0), &nodes, true, true, MoveZone::Forward);
-        assert_eq!(fwd.sprint, 1.0);
+    #[test]
+    fn resolve_sorts_surviving_anchors() {
+        let mut nodes = GraphNodes::default();
+        let mut clip = dummy_clip();
+        clip.node = Some(AnimationNodeIndex::new(0));
+        for role in ["walk_back", "walk_fwd", "strafe_l", "strafe_r"] {
+            nodes.clips.insert(role.to_string(), clip.clone());
+        }
+        let clips = Assets::<AnimationClip>::default();
+        let locomotion = resolve(&AnimCatalog::default(), &nodes, &clips);
+        assert_eq!(locomotion.anchors.len(), 4);
+        assert!(locomotion.angles.windows(2).all(|pair| pair[0] <= pair[1]));
+    }
 
-        let side = locomotion_targets(Vec2::new(1.0, 0.0), &nodes, true, true, MoveZone::Sideways);
-        assert_eq!(side.sprint, 0.0);
-        assert!((side.weights.right - 1.0).abs() < 0.001);
+    #[test]
+    fn phase_seek_maps_normalized_time_into_duration() {
+        assert_eq!(seek_secs(0.0, 2.0), 0.0);
+        assert_eq!(seek_secs(0.5, 2.0), 1.0);
+        assert_eq!(seek_secs(1.0, 2.0), 2.0);
+        assert_eq!(seek_secs(0.5, 0.0), 0.0);
+    }
 
-        let back = locomotion_targets(Vec2::new(0.0, -1.0), &nodes, true, true, MoveZone::Backward);
-        assert_eq!(back.sprint, 0.0);
-        assert!((back.weights.back - 1.0).abs() < 0.001);
+    #[test]
+    fn phase_advances_and_wraps() {
+        let half = advance_phase(0.0, 0.5, 1.0, 2.0);
+        assert!((half - 0.25).abs() < 1e-4);
+        let wrapped = advance_phase(0.9, 0.5, 1.0, 2.0);
+        assert!((wrapped - 0.15).abs() < 1e-4);
+        assert_eq!(advance_phase(0.3, 1.0, 1.0, 0.0), 0.3);
+    }
+
+    #[test]
+    fn death_and_game_over_suppress_animation() {
+        let mut health = Health::new(100.0);
+        assert!(alive(&health, false));
+        assert!(!alive(&health, true));
+        health.current = 0.0;
+        assert!(!alive(&health, false));
     }
 }

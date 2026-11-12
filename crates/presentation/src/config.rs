@@ -8,7 +8,6 @@ pub struct PlayerModelConfig {
     pub scale: f32,
     pub y_offset: f32,
     pub yaw_offset_deg: f32,
-    pub move_speed_threshold: f32,
 }
 
 impl Default for PlayerModelConfig {
@@ -18,7 +17,6 @@ impl Default for PlayerModelConfig {
             scale: 0.37,
             y_offset: -0.9,
             yaw_offset_deg: 180.0,
-            move_speed_threshold: 0.25,
         }
     }
 }

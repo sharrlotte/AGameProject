@@ -4,8 +4,8 @@
 Combat responsiveness is the #1 priority. Movement and aiming are strictly decoupled.
 
 ### 1.1 Player Controls & Locomotion
-- **8-Directional Movement:** `WASD` moves relative to world/camera ground axes with crisp acceleration and minimal slide.
-- **Independent Mouse Aiming:** The character faces the 3D cursor raycast point on the aim plane, so strafing and backpedaling keep the weapon on target. The visual body turns to aim by default; sprinting above the movement threshold turns the body to horizontal velocity instead, even while aim is held.
+- **8-Directional Movement:** `WASD` projects onto the camera yaw basis (world axes when no camera exists), with crisp acceleration and minimal slide.
+- **Always-Aim Facing:** The character always faces the 3D cursor raycast point on the aim plane, including while sprinting, strafing, and backpedaling. There is no sprint-facing override and no residual spine twist; locomotion is chosen in aim space instead.
 - **Aim Stance:** Hold `RMB` to raise the aim stance. Firing or reloading raises it too, and a short hold timer keeps the arms up between semi-auto shots. Releasing every trigger fades the stance down after the hold expires.
 - **Sprinting & Stamina:**
   - Holding `Shift` boosts speed (~1.45× walk speed) while draining a `Stamina` pool.
@@ -16,6 +16,15 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
   - **Mouse-scroll zoom (`Ctrl + Scroll`):** Scales the camera offset along the fixed look ray between `zoom_min` and `zoom_max` with smooth exponential damping (`game/assets/config/camera.ron`), leaving plain `Scroll` available for weapon switching.
   - **Aim-lead offset:** Camera subtly shifts toward the mouse cursor (10–20% of cursor distance from center) so the player can see further in the direction they are aiming.
   - **Dynamic screen shake:** Trauma-based micro-shake on heavy shots, explosions, and taking hits.
+
+### 1.2 Player Animation Stack
+
+- **Aim-space locomotion:** The movement direction is projected onto the character's facing. A data-driven anchor list maps that angle to clips (`walk_fwd` 0°, `strafe_r` 90°, `walk_back` 180°, `strafe_l` -90° in `game/assets/config/player/animation.ron`). Each frame brackets the angle with the two nearest anchors and blends them, so diagonals already work with four cardinal clips and authored diagonals can be added without Rust changes.
+- **Shared phase:** All anchors replay on one normalized phase clock. The dominant anchor seeks to the shared phase when it changes, so feet keep their cadence through direction changes. Playback speed scales with movement speed, with a higher sprint multiplier.
+- **Layers:** Full-body base locomotion blend, an optional upper-body additive action layer (masked away from the lower body), and a death override. The always-aim yaw never overwrites locomotion.
+- **Procedural weapon handling:** One chest-height anchor under `PlayerVisualRoot` holds a per-weapon presentation profile from `game/assets/config/player/weapons.ron` (model, sockets, relaxed/aim offsets, sway, recoil, reload, swap). Loose and aim poses are blended procedurally; sway, recoil, reload tilt/drop, and swap lower/raise are timelines driven by combat state rather than baked clips.
+- **Dual-hand IK:** After animation evaluation, the right hand solves to the weapon `Grip` socket and the left to `Foregrip`, moving to `Magazine` during reload. Reach is clamped, elbows use pole hints, hands align to sockets, and optional shoulder settle is weighted and clamped.
+- **Schedule:** In `PostUpdate`: drive → Bevy animation evaluation → weapon pose → arm IK → root yaw, all before transform propagation, only in `Playing`/`GameOver`.
 
 ---
 
@@ -33,7 +42,7 @@ Different weapon classes use the model that feels best:
   - `Ready -> Reloading(timer) -> Ready`. Reloading continues while walking, strafing, and sprinting; movement never pauses or modifies the timer.
   - A weapon swap to a different slot cancels the reload with `ReloadCancelled(Swapped)`, applies no partial refill, and emits `WeaponSwapped`. Selecting the already-active slot keeps the reload running.
   - Player death cancels an active reload with `ReloadCancelled(Died)`; the death animation overrides every body layer.
-  - Visual reload progress bar near the reticle so the player never has to look away from combat. The reload animation is driven by the simulation timer, so reload-speed upgrades stay in sync with the clip.
+  - Visual reload progress bar near the reticle so the player never has to look away from combat. The reload pose is a procedural timeline driven by the simulation timer, so reload-speed upgrades stay in sync with the animation.
 - **Weapon Switching:** 2 Primary/Secondary slots + 1 Sidearm/Utility slot (`1`, `2`, `3`, or Scroll). Switch time varies by weapon weight.
 
 ### 2.3 Critical Hits, Knockback & Hit Feedback

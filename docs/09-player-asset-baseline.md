@@ -8,7 +8,7 @@ Source: `game/assets/models/player.glb`
 
 | Property | Value |
 | :--- | :--- |
-| Nodes | 45 |
+| Nodes | 33 |
 | Deform bones | 31 |
 | Triangles | 1,852 |
 | Materials | Low-poly, untextured / simple |
@@ -44,8 +44,11 @@ HumanArmature|Man_Run
 HumanArmature|Man_RunningJump
 HumanArmature|Man_Sitting
 HumanArmature|Man_Standing
+HumanArmature|Man_StrafeL
+HumanArmature|Man_StrafeR
 HumanArmature|Man_SwordSlash
 HumanArmature|Man_Walk
+HumanArmature|Man_WalkBack
 ```
 
 There is no aim, reload, fire, strafe, weapon socket, or rifle.
@@ -79,35 +82,50 @@ Shoulder.R, UpperArm.R, LowerArm.R, Palm.R, MiddleHand.R, Fingers.R, Thumb1.R, T
 | :--- | :--- | :--- | :--- |
 | `idle` | `HumanArmature\|Man_Idle` | locomotion | present |
 | `walk_fwd` | `HumanArmature\|Man_Walk` | locomotion | present |
-| `walk_back` | `HumanArmature\|Man_Walk` | locomotion | placeholder |
-| `sprint` | `HumanArmature\|Man_Run` | locomotion | present |
-| `strafe_l` | `HumanArmature\|Man_StrafeL` | locomotion | missing until authored |
-| `strafe_r` | `HumanArmature\|Man_StrafeR` | locomotion | missing until authored |
-| `aim` | `HumanArmature\|Man_Aim` | action | missing until authored |
-| `reload` | `HumanArmature\|Man_Reload` | action | missing until authored |
+| `walk_back` | `HumanArmature\|Man_WalkBack` | locomotion | present |
+| `strafe_l` | `HumanArmature\|Man_StrafeL` | locomotion | present |
+| `strafe_r` | `HumanArmature\|Man_StrafeR` | locomotion | present |
 | `death` | `HumanArmature\|Man_Death` | override | present |
 
-Missing clips are logged at graph build and the director degrades gracefully to relaxed arms. The
-graph and mask tests do not require the clips to exist in the GLB.
+Aim, reload, and fire have no clip roles: they are procedural layers driven by `CombatStance`,
+`WeaponInventory::reload_progress()`, and `WeaponFiredMessage`. Sprint uses the forward anchor with a
+higher playback multiplier instead of a separate clip role. Missing anchor clips are dropped once at
+bind with a warning, and the graph/mask tests do not require the clips to exist in the GLB.
 
-## Sockets and Rifle
+## Sockets and Weapons
 
-| Name | Parent | Purpose | Status |
-| :--- | :--- | :--- | :--- |
-| `WeaponSocket` | right hand | attaches the rifle | planned |
-| `Foregrip` | rifle | left support-hand IK target | planned |
-| `MuzzleSocket` | rifle | future muzzle flash/tracer origin | planned |
+Weapon presentation data lives in `game/assets/config/player/weapons.ron`, separate from the player
+model. The `assault_rifle` profile points at `models/weapons/rifle.glb`, converted from
+`game/assets/models/weapons/guns/M16.fbx` (M16-style, low-poly, 1,750 triangles, 8 materials, all
+shades of black: `Mat_Receiver`/`Mat_Barrel` dark gray metal, `Mat_Handguard`/`Mat_Stock`/
+`Mat_Grip` matte dark gray polymer, `Mat_Magazine`/`Mat_Sight` near-black, `Mat_Detail` dark gray).
+The magazine is a separate
+node under the `Magazine` socket so reload `mag_drop` moves it.
 
-The simulation remains authoritative for projectile origin; presentation sockets are cosmetic.
+Socket contract for every weapon glTF:
+
+| Name | Purpose | Fallback |
+| :--- | :--- | :--- |
+| `Grip` | right-hand IK target and weapon origin | weapon root |
+| `Foregrip` | left support-hand IK target | weapon root |
+| `Magazine` | left-hand target during reload and magazine drop animation | foregrip |
+| `Muzzle` | future muzzle flash/tracer origin | none |
+
+Required orientation: `-Z` forward, `+Y` up, meters, grip at the origin. Socket names are configurable
+per profile, so a re-export can rename them without code changes. Missing sockets are reported once and
+the affected hand falls back as listed above.
+
+Weapons are mounted under a chest-height anchor on `PlayerVisualRoot`; the simulation remains
+authoritative for projectile origin and presentation sockets are cosmetic.
 
 `Body`, `Bone`, and the pole targets are left unmasked.
 
 ## Remaining Asset Limitations
 
-- The current GLB still lacks `strafe_l`, `strafe_r`, `aim`, and `reload` clips; the director degrades to relaxed arms and forward locomotion until they are authored.
-- `walk_back` currently reuses `Man_Walk`, so backward locomotion reads as a forward clip until a dedicated clip is authored.
-- Runtime safety scale/offset/yaw hacks remain in `visuals.ron` until the corrected origin/scale asset is approved.
-- No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
+- Backward walk and left/right strafe clips are authored (`Man_WalkBack`, `Man_StrafeL`, `Man_StrafeR`) on the existing 31-bone rig; strafe is a procedural side-shuffle with upper body/arm motion carried over from `Man_Walk`.
+- `models/weapons/rifle.glb` ships with `Grip`, `Foregrip`, `Magazine`, `Muzzle` sockets (grip at origin, `-Z` forward, `+Y` up, meters). Socket rotations are identity; hand orientation may be tuned via `hand_offset_deg` or per-socket rotations during runtime verification.
+- Runtime safety scale/offset/yaw adjustments remain in `visuals.ron` until the corrected origin/scale asset is approved.
+- Finger closure on the grip is not authored: finger bones follow locomotion clips, so the hand does not fully close around the weapon. No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
 
 ## Validation
 

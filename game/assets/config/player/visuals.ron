@@ -4,6 +4,5 @@
         scale: 0.37,
         y_offset: -0.9,
         yaw_offset_deg: 180.0,
-        move_speed_threshold: 0.25,
     ),
 )

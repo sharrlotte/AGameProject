@@ -1,0 +1,50 @@
+(
+    anchor: (
+        offset: (0.0, 1.0, 0.0),
+        rotation_deg: (0.0, 0.0, 0.0),
+    ),
+    weapons: [
+        (
+            id: "assault_rifle",
+            model: "models/weapons/rifle.glb",
+            sockets: (
+                grip: "Grip",
+                foregrip: "Foregrip",
+                magazine: "Magazine",
+                muzzle: "Muzzle",
+            ),
+            relaxed: (
+                offset: (0.1, -0.25, 0.05),
+                rotation_deg: (-30.0, 0.0, 0.0),
+            ),
+            aim: (
+                offset: (0.1, 0.0, -0.2),
+                rotation_deg: (0.0, 0.0, 0.0),
+            ),
+            recoil: (
+                pitch_deg: 4.0,
+                back: 0.04,
+                recover_secs: 0.12,
+                max_deg: 12.0,
+                max_back: 0.12,
+            ),
+            reload: (
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            ),
+            sway: (
+                amplitude: 0.012,
+                roll_deg: 1.5,
+                frequency: 1.4,
+            ),
+            swap: (
+                lower_secs: 0.12,
+                raise_secs: 0.18,
+                drop: 0.2,
+            ),
+            socket_overrides: [],
+        ),
+    ],
+)

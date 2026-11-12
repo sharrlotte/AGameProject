@@ -8,8 +8,8 @@ use world::Survivor;
 use crate::config::{PlayerModelConfig, VisualsConfig};
 
 use super::{
-    PlayerAnimAssets, PlayerModelChild, PlayerModelSpawned, PlayerVisualRoot,
-    catalog::AnimCatalog, director, graph, rig, rig::PlayerRig,
+    PlayerAnimAssets, PlayerModelChild, PlayerModelSpawned, PlayerVisualRoot, catalog::AnimCatalog,
+    director, graph, rig, rig::PlayerRig,
 };
 
 pub fn start_loading_player_model(
@@ -67,6 +67,7 @@ pub fn sync_animation_catalog_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     catalog: Res<AnimCatalog>,
     gltfs: Res<Assets<Gltf>>,
+    clips: Res<Assets<AnimationClip>>,
     targets: Query<(Entity, &AnimationTargetId, &Name)>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut assets: ResMut<PlayerAnimAssets>,
@@ -91,20 +92,21 @@ pub fn sync_animation_catalog_hot_reload(
     };
 
     let target_list = collect_targets(&targets);
-    let Some(handle) = rebuild_graph(gltf, &catalog, &target_list, &mut graphs, &mut assets) else {
+    let Some(handle) = rebuild_graph(
+        gltf,
+        &catalog,
+        &target_list,
+        &clips,
+        &mut graphs,
+        &mut assets,
+    ) else {
         return;
     };
-    let Some(nodes) = assets.nodes.clone() else {
+    let Some(locomotion) = assets.locomotion.clone() else {
         return;
     };
-    let bones = rig::find_bones(
+    let arms = rig::find_arms(
         &catalog.ik,
-        targets
-            .iter()
-            .map(|(entity, _, name)| (entity, name.as_str())),
-    );
-    let twist_bones = rig::find_twist_bones(
-        &catalog.twist,
         targets
             .iter()
             .map(|(entity, _, name)| (entity, name.as_str())),
@@ -113,10 +115,9 @@ pub fn sync_animation_catalog_hot_reload(
     for (mut graph_handle, mut player, mut state, mut rig) in &mut players {
         player.stop_all();
         *state = director::DirectorState::default();
-        rig.bones = bones;
-        rig.twist_bones = twist_bones.clone();
+        rig.arms = arms;
         graph_handle.0 = handle.clone();
-        director::prime_looped(&mut player, &nodes);
+        director::prime_looped(&mut player, &locomotion);
     }
 }
 
@@ -166,14 +167,18 @@ pub fn attach_player_model_scene(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn bind_player_animation_players(
     mut commands: Commands,
     catalog: Res<AnimCatalog>,
     gltfs: Res<Assets<Gltf>>,
+    clips: Res<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut assets: ResMut<PlayerAnimAssets>,
-    mut added_players: Query<(Entity, &ChildOf, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    mut added_players: Query<
+        (Entity, &ChildOf, &mut AnimationPlayer),
+        Or<(Added<AnimationPlayer>, Without<PlayerRig>)>,
+    >,
     parents: Query<&ChildOf>,
     visual_roots: Query<&ChildOf, With<PlayerVisualRoot>>,
     survivors: Query<(), With<Survivor>>,
@@ -188,33 +193,44 @@ pub fn bind_player_animation_players(
     let Some(gltf) = gltfs.get(&gltf_handle) else {
         return;
     };
+    let clips_pending = catalog.clips.iter().any(|def| {
+        gltf.named_animations
+            .get(def.clip.as_str())
+            .is_some_and(|handle| !clips.contains(handle))
+    });
+    if clips_pending {
+        return;
+    }
     if let Err(err) = catalog.validate() {
         warn!("Animation catalog is invalid: {err}");
     }
 
-    let nodes = if let Some(nodes) = assets.nodes.clone() {
-        nodes
+    let locomotion = if let Some(locomotion) = assets.locomotion.clone() {
+        locomotion
     } else {
         let target_list = collect_targets(&targets);
-        if rebuild_graph(gltf, &catalog, &target_list, &mut graphs, &mut assets).is_none() {
+        if rebuild_graph(
+            gltf,
+            &catalog,
+            &target_list,
+            &clips,
+            &mut graphs,
+            &mut assets,
+        )
+        .is_none()
+        {
             return;
         }
-        let Some(nodes) = assets.nodes.clone() else {
+        let Some(locomotion) = assets.locomotion.clone() else {
             return;
         };
-        nodes
+        locomotion
     };
     let Some(graph_handle) = assets.graph.clone() else {
         return;
     };
-    let bones = rig::find_bones(
+    let arms = rig::find_arms(
         &catalog.ik,
-        targets
-            .iter()
-            .map(|(entity, _, name)| (entity, name.as_str())),
-    );
-    let twist_bones = rig::find_twist_bones(
-        &catalog.twist,
         targets
             .iter()
             .map(|(entity, _, name)| (entity, name.as_str())),
@@ -231,12 +247,11 @@ pub fn bind_player_animation_players(
             PlayerRig {
                 survivor,
                 root,
-                bones,
-                twist_bones: twist_bones.clone(),
+                arms,
             },
             director::DirectorState::default(),
         ));
-        director::prime_looped(&mut player, &nodes);
+        director::prime_looped(&mut player, &locomotion);
     }
 }
 
@@ -253,6 +268,7 @@ fn rebuild_graph(
     gltf: &Gltf,
     catalog: &AnimCatalog,
     targets: &[(AnimationTargetId, String)],
+    clips: &Assets<AnimationClip>,
     graphs: &mut Assets<AnimationGraph>,
     assets: &mut PlayerAnimAssets,
 ) -> Option<Handle<AnimationGraph>> {
@@ -277,13 +293,17 @@ fn rebuild_graph(
 
     let handle = graphs.add(result.graph);
     assets.graph = Some(handle.clone());
+    assets.locomotion = Some(director::resolve(catalog, &result.nodes, clips));
     assets.nodes = Some(result.nodes);
     Some(handle)
 }
 
 pub fn disable_player_backface_culling(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_entities: Query<(Entity, &MeshMaterial3d<StandardMaterial>), Added<MeshMaterial3d<StandardMaterial>>>,
+    material_entities: Query<
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        Added<MeshMaterial3d<StandardMaterial>>,
+    >,
     parents: Query<&ChildOf>,
     roots: Query<(), With<PlayerVisualRoot>>,
 ) {

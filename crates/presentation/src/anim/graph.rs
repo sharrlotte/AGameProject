@@ -8,8 +8,8 @@ use crate::anim::catalog::{AnimCatalog, AnimLayer, ClipDef};
 
 /// Mask group indices are fixed: `0` is lower body, `1` is upper body.
 ///
-/// A node's mask bit means "do not animate this group", so the locomotion
-/// layer masks the upper group and the action layer masks the lower group.
+/// A node's mask bit means "do not animate this group", so the upper-body
+/// additive layer masks the lower group.
 pub const LOWER_GROUP: u32 = 0;
 pub const UPPER_GROUP: u32 = 1;
 pub const LOWER_BIT: u64 = 1 << LOWER_GROUP;
@@ -19,22 +19,14 @@ pub const UPPER_BIT: u64 = 1 << UPPER_GROUP;
 #[derive(Debug, Clone)]
 pub struct ClipNodes {
     pub clip: Handle<AnimationClip>,
-    pub lower: Option<AnimationNodeIndex>,
-    pub upper: Option<AnimationNodeIndex>,
-    pub action: Option<AnimationNodeIndex>,
+    pub node: Option<AnimationNodeIndex>,
     pub looped: bool,
     pub speed: f32,
 }
 
 impl ClipNodes {
-    pub fn lower_node(&self) -> Option<AnimationNodeIndex> {
-        self.lower
-    }
-    pub fn upper_node(&self) -> Option<AnimationNodeIndex> {
-        self.upper
-    }
-    pub fn action_node(&self) -> Option<AnimationNodeIndex> {
-        self.action
+    pub fn graph_node(&self) -> Option<AnimationNodeIndex> {
+        self.node
     }
 }
 
@@ -62,10 +54,9 @@ pub struct BuildResult {
 
 /// Builds the layered graph and registers mask groups from live targets.
 ///
-/// Locomotion clips are duplicated under a lower-only blend and an
-/// upper-relaxed blend; upper-body action clips share `upper_blend` so
-/// crossfade weights normalize accurately against relaxed arms. The root node
-/// is an additive combiner over the base blend and the additive layer.
+/// Layers are the full-body locomotion blend, an optional upper-body additive
+/// layer, and the death override. Aim and reload are procedural, so they have
+/// no clip nodes.
 pub fn build(
     gltf: &Gltf,
     catalog: &AnimCatalog,
@@ -78,8 +69,6 @@ pub fn build(
     }
 
     let base_blend = graph.add_blend(1.0, root);
-    let lower_blend = graph.add_blend_with_mask(UPPER_BIT, 1.0, base_blend);
-    let upper_blend = graph.add_blend_with_mask(LOWER_BIT, 1.0, base_blend);
     let additive = graph.add_additive_blend_with_mask(LOWER_BIT, 1.0, root);
 
     let mut matched: Vec<bool> = Vec::new();
@@ -121,58 +110,29 @@ pub fn build(
             continue;
         };
 
-        let clip_nodes = match clip.layer {
-            AnimLayer::Locomotion => {
-                let lower = graph.add_clip(handle.clone(), 1.0, lower_blend);
-                let upper = graph.add_clip(handle.clone(), 1.0, upper_blend);
-                ClipNodes {
-                    clip: handle,
-                    lower: Some(lower),
-                    upper: Some(upper),
-                    action: None,
-                    looped: clip.looped,
-                    speed: clip.speed,
-                }
-            }
-            AnimLayer::Action => {
-                let action = graph.add_clip(handle.clone(), 1.0, upper_blend);
-                ClipNodes {
-                    clip: handle,
-                    lower: None,
-                    upper: None,
-                    action: Some(action),
-                    looped: clip.looped,
-                    speed: clip.speed,
-                }
-            }
-            AnimLayer::Additive => {
-                let action = graph.add_clip(handle.clone(), 1.0, additive);
-                ClipNodes {
-                    clip: handle,
-                    lower: None,
-                    upper: None,
-                    action: Some(action),
-                    looped: clip.looped,
-                    speed: clip.speed,
-                }
+        let node = match clip.layer {
+            AnimLayer::Locomotion => graph.add_clip(handle.clone(), 1.0, base_blend),
+            AnimLayer::Action | AnimLayer::Additive => {
+                graph.add_clip(handle.clone(), 1.0, additive)
             }
             AnimLayer::Override => {
                 let node = graph.add_clip(handle.clone(), 1.0, base_blend);
                 if clip.role == "death" {
                     nodes.death = Some(node);
                 }
-                ClipNodes {
-                    clip: handle,
-                    lower: None,
-                    upper: None,
-                    action: Some(node),
-                    looped: clip.looped,
-                    speed: clip.speed,
-                }
+                node
             }
         };
 
-        nodes.clips.insert(clip.role.clone(), clip_nodes);
+        nodes.clips.insert(
+            clip.role.clone(),
+            ClipNodes {
+                clip: handle,
+                node: Some(node),
+                looped: clip.looped,
+                speed: clip.speed,
+            },
+        );
     }
 
     BuildResult {
@@ -195,6 +155,30 @@ mod tests {
 
     fn catalog() -> AnimCatalog {
         AnimCatalog::default()
+    }
+
+    fn fake_gltf(catalog: &AnimCatalog) -> Gltf {
+        let mut gltf = Gltf {
+            scenes: Vec::new(),
+            named_scenes: Default::default(),
+            meshes: Vec::new(),
+            named_meshes: Default::default(),
+            materials: Vec::new(),
+            named_materials: Default::default(),
+            nodes: Vec::new(),
+            named_nodes: Default::default(),
+            skins: Vec::new(),
+            named_skins: Default::default(),
+            animations: Vec::new(),
+            named_animations: Default::default(),
+            default_scene: None,
+            source: None,
+        };
+        for clip in &catalog.clips {
+            gltf.named_animations
+                .insert(clip.clip.as_str().into(), Handle::default());
+        }
+        gltf
     }
 
     #[test]
@@ -235,7 +219,38 @@ mod tests {
 
     #[test]
     fn graph_nodes_have_unit_weight() {
-        let mut gltf = Gltf {
+        let catalog = catalog();
+        let gltf = fake_gltf(&catalog);
+        let result = build(&gltf, &catalog, &[]);
+        for idx in result.graph.nodes() {
+            let node = &result.graph[idx];
+            assert!(
+                (node.weight - 1.0).abs() < 1e-5,
+                "graph node {:?} should have unit weight, got {}",
+                idx,
+                node.weight
+            );
+        }
+    }
+
+    #[test]
+    fn locomotion_clips_share_the_full_body_blend() {
+        let catalog = catalog();
+        let gltf = fake_gltf(&catalog);
+        let result = build(&gltf, &catalog, &[]);
+
+        let idle = result.nodes.get("idle").expect("idle node");
+        assert!(idle.graph_node().is_some());
+        assert!(result.nodes.death.is_some());
+        assert!(result.nodes.additive.is_some());
+        assert!(result.nodes.get("aim").is_none());
+        assert!(result.nodes.get("reload").is_none());
+    }
+
+    #[test]
+    fn missing_clips_are_reported_without_nodes() {
+        let catalog = catalog();
+        let gltf = Gltf {
             scenes: Vec::new(),
             named_scenes: Default::default(),
             meshes: Vec::new(),
@@ -251,20 +266,9 @@ mod tests {
             default_scene: None,
             source: None,
         };
-        let catalog = catalog();
-        for clip in &catalog.clips {
-            gltf.named_animations
-                .insert(clip.clip.as_str().into(), Handle::default());
-        }
         let result = build(&gltf, &catalog, &[]);
-        for idx in result.graph.nodes() {
-            let node = &result.graph[idx];
-            assert!(
-                (node.weight - 1.0).abs() < 1e-5,
-                "graph node {:?} should have unit weight, got {}",
-                idx,
-                node.weight
-            );
-        }
+        assert_eq!(result.missing_clips.len(), catalog.clips.len());
+        assert!(result.nodes.clips.is_empty());
+        assert!(result.nodes.death.is_none());
     }
 }

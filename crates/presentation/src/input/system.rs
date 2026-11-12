@@ -14,28 +14,35 @@ pub fn gather_local_input(
     player_cfg: Res<PlayerConfig>,
     cam_cfg: Res<CameraConfig>,
     window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    cameras: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut intents: Query<&mut ActionIntent, With<LocalPlayer>>,
     mut zoom_writer: MessageWriter<CameraZoomMessage>,
 ) {
     emit_camera_zoom(&keys, &mut wheel_reader, &cam_cfg, &mut zoom_writer);
 
-    let mut move_dir = Vec2::ZERO;
+    let mut raw = Vec2::ZERO;
     if keys.pressed(KeyCode::KeyW) {
-        move_dir.y -= 1.0;
+        raw.y += 1.0;
     }
     if keys.pressed(KeyCode::KeyS) {
-        move_dir.y += 1.0;
+        raw.y -= 1.0;
     }
     if keys.pressed(KeyCode::KeyA) {
-        move_dir.x -= 1.0;
+        raw.x -= 1.0;
     }
     if keys.pressed(KeyCode::KeyD) {
-        move_dir.x += 1.0;
+        raw.x += 1.0;
     }
-    if move_dir.length_squared() > 1e-4 {
-        move_dir = move_dir.normalize();
+    if raw.length_squared() > 1e-4 {
+        raw = raw.normalize();
     }
+
+    let camera = cameras.single().ok();
+    let forward = camera
+        .map(|(_, transform)| transform.forward().as_vec3())
+        .unwrap_or(Vec3::NEG_Z);
+    let world = move_to_world(raw, forward);
+    let move_dir = Vec2::new(world.x, world.z);
 
     let sprint = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
     let fire_held = mouse_buttons.pressed(MouseButton::Left);
@@ -51,8 +58,9 @@ pub fn gather_local_input(
         None
     };
 
-    let (cam, cam_transform) = *camera;
-    let aim_world = compute_cursor_aim_world(&window, cam, cam_transform, player_cfg.aim_height);
+    let aim_world = camera.and_then(|(cam, transform)| {
+        compute_cursor_aim_world(&window, cam, transform, player_cfg.aim_height)
+    });
 
     for mut intent in &mut intents {
         intent.move_dir = move_dir;
@@ -110,6 +118,23 @@ fn compute_cursor_aim_world(
     let plane = InfinitePlane3d::new(Vec3::Y);
     let distance = ray.intersect_plane(Vec3::new(0.0, aim_height, 0.0), plane)?;
     Some(ray.get_point(distance))
+}
+
+/// Projects input onto the camera yaw basis, falling back to world axes.
+fn move_to_world(input: Vec2, forward: Vec3) -> Vec3 {
+    let flat = Vec3::new(forward.x, 0.0, forward.z);
+    let forward = if flat.length_squared() > 1e-6 {
+        flat.normalize()
+    } else {
+        Vec3::NEG_Z
+    };
+    let right = forward.cross(Vec3::Y);
+    let right = if right.length_squared() > 1e-6 {
+        right.normalize()
+    } else {
+        Vec3::X
+    };
+    forward * input.y + right * input.x
 }
 
 #[cfg(test)]
@@ -173,5 +198,52 @@ mod tests {
         let emitted: Vec<_> = cursor.read(messages).collect();
         assert_eq!(emitted.len(), 1);
         assert!((emitted[0].steps - 1.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn movement_is_projected_onto_the_camera_basis() {
+        let forward = move_to_world(Vec2::new(0.0, 1.0), Vec3::X);
+        assert!((forward - Vec3::X).length() < 1e-4);
+
+        let right = move_to_world(Vec2::new(1.0, 0.0), Vec3::X);
+        assert!((right - Vec3::Z).length() < 1e-4);
+    }
+
+    #[test]
+    fn movement_falls_back_to_world_axes_without_a_camera() {
+        let forward = move_to_world(Vec2::new(0.0, 1.0), Vec3::ZERO);
+        assert!((forward - Vec3::NEG_Z).length() < 1e-4);
+
+        let right = move_to_world(Vec2::new(1.0, 0.0), Vec3::Y);
+        assert!((right - Vec3::X).length() < 1e-4);
+    }
+
+    #[test]
+    fn w_moves_along_the_camera_forward() {
+        let mut app = setup_input_test_app();
+        {
+            let mut cameras = app
+                .world_mut()
+                .query_filtered::<&mut GlobalTransform, With<MainCamera>>();
+            let mut transform = cameras
+                .single_mut(app.world_mut())
+                .expect("main camera transform");
+            *transform =
+                GlobalTransform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2));
+        }
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyW);
+        app.update();
+
+        let mut intents = app
+            .world_mut()
+            .query_filtered::<&ActionIntent, With<LocalPlayer>>();
+        let intent = intents.single(app.world()).expect("local player intent");
+        assert!(
+            (intent.move_dir - Vec2::new(1.0, 0.0)).length() < 1e-4,
+            "expected +X, got {:?}",
+            intent.move_dir
+        );
     }
 }

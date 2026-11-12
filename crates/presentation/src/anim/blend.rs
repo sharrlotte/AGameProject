@@ -1,87 +1,143 @@
-use bevy::prelude::*;
+use std::f32::consts::TAU;
 
-/// Cardinal locomotion weights in character-local space.
-///
-/// `x` is right, `y` is forward. Weights always sum to `1.0` after
-/// normalization, or are all zero when there is no movement input.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct Weights {
-    pub forward: f32,
-    pub back: f32,
-    pub left: f32,
-    pub right: f32,
+/// Upper bound on locomotion anchors. Keeps weights in a fixed-size array.
+pub const MAX_ANCHORS: usize = 8;
+
+const ANGLE_EPS: f32 = 1e-4;
+
+/// Wraps an angle into `[0, TAU)`.
+pub fn wrap_turn(angle: f32) -> f32 {
+    if !angle.is_finite() {
+        return 0.0;
+    }
+    let wrapped = angle.rem_euclid(TAU);
+    if wrapped >= TAU { 0.0 } else { wrapped }
 }
 
-impl Weights {
-    /// Splits a local-space movement direction into four cardinal weights.
-    ///
-    /// A diagonal produces two weights of `0.707`; zero input produces all
-    /// zero weights so the caller can select idle.
-    pub fn from_local(dir: Vec2) -> Self {
-        let len = dir.length();
-        if len <= 1e-4 || !len.is_finite() {
-            return Self::default();
+/// Shortest signed delta between two angles, in `[-pi, pi]`.
+pub fn wrap_delta(delta: f32) -> f32 {
+    if !delta.is_finite() {
+        return 0.0;
+    }
+    wrap_turn(delta + std::f32::consts::PI) - std::f32::consts::PI
+}
+
+/// Fixed-capacity locomotion blend weights, indexed like the sorted anchor list.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AnchorWeights {
+    count: usize,
+    weights: [f32; MAX_ANCHORS],
+}
+
+impl Default for AnchorWeights {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            weights: [0.0; MAX_ANCHORS],
         }
-        let dir = dir / len;
-        let mut weights = Self {
-            forward: dir.y.max(0.0),
-            back: (-dir.y).max(0.0),
-            left: (-dir.x).max(0.0),
-            right: dir.x.max(0.0),
-        };
-        // Projections are normalized so the blend contract always sums to 1.0.
-        // Bevy's blend node normalizes its children again, so this is stable.
-        weights.normalize();
-        weights
+    }
+}
+
+impl AnchorWeights {
+    pub fn new(count: usize) -> Self {
+        Self {
+            count: count.min(MAX_ANCHORS),
+            weights: [0.0; MAX_ANCHORS],
+        }
     }
 
-    pub fn normalize(&mut self) {
-        let total = self.total();
+    pub fn len(&self) -> usize {
+        self.count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    pub fn get(&self, index: usize) -> f32 {
+        self.weights.get(index).copied().unwrap_or(0.0)
+    }
+
+    pub fn set(&mut self, index: usize, weight: f32) {
+        if index < self.count {
+            self.weights[index] = weight;
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
+        self.weights[..self.count].iter().copied()
+    }
+
+    pub fn sum(&self) -> f32 {
+        self.iter().sum()
+    }
+
+    pub fn scale(&mut self, factor: f32) {
+        for weight in &mut self.weights[..self.count] {
+            *weight *= factor;
+        }
+    }
+
+    pub fn normalize(&mut self, extra: f32) {
+        let total = self.sum() + extra;
         if total <= 1e-5 {
-            *self = Self::default();
             return;
         }
-        self.forward /= total;
-        self.back /= total;
-        self.left /= total;
-        self.right /= total;
-    }
-
-    pub fn normalized(mut self) -> Self {
-        self.normalize();
-        self
-    }
-
-    pub fn total(&self) -> f32 {
-        self.forward + self.back + self.left + self.right
-    }
-
-    pub fn scaled(self, factor: f32) -> Self {
-        Self {
-            forward: self.forward * factor,
-            back: self.back * factor,
-            left: self.left * factor,
-            right: self.right * factor,
+        for weight in &mut self.weights[..self.count] {
+            *weight /= total;
         }
     }
 
-    /// Moves backward weight to forward when the back clip is unavailable.
-    pub fn fallback_back_to_forward(mut self) -> Self {
-        self.forward += self.back;
-        self.back = 0.0;
-        self
+    /// Highest-weight anchor, or `None` when every weight is negligible.
+    pub fn dominant(&self) -> Option<usize> {
+        let mut best: Option<(usize, f32)> = None;
+        for (index, weight) in self.iter().enumerate() {
+            if best.is_none_or(|(_, value)| weight > value) {
+                best = Some((index, weight));
+            }
+        }
+        best.filter(|(_, weight)| *weight > 1e-5)
+            .map(|(index, _)| index)
     }
 
-    /// Moves diagonal side weight to forward when a strafe clip is missing.
-    pub fn fallback_sides_to_forward(mut self) -> Self {
-        self.forward += self.left + self.right;
-        self.left = 0.0;
-        self.right = 0.0;
-        self
-    }
+    /// Brackets `angle` with the two nearest anchors in a sorted `[0, TAU)` list.
+    ///
+    /// Exact anchor angles and the `+/-pi` seam produce a single or 50/50 blend
+    /// without an allocation.
+    pub fn bracket(angles: &[f32], angle: f32) -> Self {
+        let count = angles.len().min(MAX_ANCHORS);
+        let mut out = Self::new(count);
+        if count == 0 {
+            return out;
+        }
+        if count == 1 {
+            out.set(0, 1.0);
+            return out;
+        }
 
-    pub fn is_idle(&self) -> bool {
-        self.total() <= 1e-5
+        let target = wrap_turn(angle);
+        let high = angles[..count]
+            .iter()
+            .position(|value| wrap_turn(*value) >= target - ANGLE_EPS)
+            .unwrap_or(0);
+        let high_angle = wrap_turn(angles[high]);
+        if wrap_delta(high_angle - target).abs() <= ANGLE_EPS {
+            out.set(high, 1.0);
+            return out;
+        }
+
+        let low = (high + count - 1) % count;
+        let low_angle = wrap_turn(angles[low]);
+        let span = wrap_turn(high_angle - low_angle);
+        if span <= ANGLE_EPS {
+            out.set(low, 1.0);
+            return out;
+        }
+
+        let t = (wrap_turn(target - low_angle) / span).clamp(0.0, 1.0);
+        out.set(low, 1.0 - t);
+        out.set(high, t);
+        out
     }
 }
 
@@ -112,47 +168,98 @@ pub fn approach(current: f32, target: f32, delta_secs: f32, blend_secs: f32) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+
+    fn cardinals() -> Vec<f32> {
+        vec![0.0, FRAC_PI_2, PI, 3.0 * FRAC_PI_2]
+    }
+
+    fn eight() -> Vec<f32> {
+        (0..8).map(|index| index as f32 * FRAC_PI_4).collect()
+    }
 
     fn assert_close(a: f32, b: f32) {
-        assert!((a - b).abs() < 0.001, "expected {b}, got {a}");
+        assert!((a - b).abs() < 1e-4, "expected {b}, got {a}");
     }
 
     #[test]
-    fn eight_directions_split_into_cardinal_weights() {
-        let fwd = Weights::from_local(Vec2::new(0.0, 1.0));
-        assert_close(fwd.forward, 1.0);
-
-        let back = Weights::from_local(Vec2::new(0.0, -1.0));
-        assert_close(back.back, 1.0);
-
-        let left = Weights::from_local(Vec2::new(-1.0, 0.0));
-        assert_close(left.left, 1.0);
-
-        let right = Weights::from_local(Vec2::new(1.0, 0.0));
-        assert_close(right.right, 1.0);
-
-        let diagonal = Weights::from_local(Vec2::new(1.0, 1.0));
-        assert_close(diagonal.forward, 0.5);
-        assert_close(diagonal.right, 0.5);
-        assert_close(diagonal.total(), 1.0);
+    fn exact_anchor_angles_get_full_weight() {
+        for (index, angle) in cardinals().into_iter().enumerate() {
+            let weights = AnchorWeights::bracket(&cardinals(), angle);
+            assert_close(weights.get(index), 1.0);
+            assert_close(weights.sum(), 1.0);
+            assert_eq!(weights.dominant(), Some(index));
+        }
     }
 
     #[test]
-    fn zero_input_is_idle() {
-        let weights = Weights::from_local(Vec2::ZERO);
-        assert!(weights.is_idle());
-        assert_close(weights.total(), 0.0);
+    fn cardinal_diagonals_split_fifty_fifty() {
+        let angles = cardinals();
+        let right_forward = AnchorWeights::bracket(&angles, FRAC_PI_4);
+        assert_close(right_forward.get(0), 0.5);
+        assert_close(right_forward.get(1), 0.5);
+
+        let back_right = AnchorWeights::bracket(&angles, 3.0 * FRAC_PI_4);
+        assert_close(back_right.get(1), 0.5);
+        assert_close(back_right.get(2), 0.5);
     }
 
     #[test]
-    fn missing_cardinals_fall_back_to_forward() {
-        let back = Weights::from_local(Vec2::new(0.0, -1.0)).fallback_back_to_forward();
-        assert_close(back.forward, 1.0);
-        assert_close(back.back, 0.0);
+    fn eight_anchor_exact_diagonals_are_single_poses() {
+        let angles = eight();
+        let diagonal = AnchorWeights::bracket(&angles, FRAC_PI_4);
+        assert_close(diagonal.get(1), 1.0);
+        assert_close(diagonal.sum(), 1.0);
 
-        let sides = Weights::from_local(Vec2::new(1.0, 0.0)).fallback_sides_to_forward();
-        assert_close(sides.forward, 1.0);
-        assert_close(sides.right, 0.0);
+        let between = AnchorWeights::bracket(&angles, FRAC_PI_4 + FRAC_PI_4 * 0.5);
+        assert_close(between.get(1), 0.5);
+        assert_close(between.get(2), 0.5);
+    }
+
+    #[test]
+    fn seam_is_continuous_across_plus_minus_pi() {
+        let angles = cardinals();
+        let below = AnchorWeights::bracket(&angles, -FRAC_PI_4);
+        assert_close(below.get(3), 0.5);
+        assert_close(below.get(0), 0.5);
+
+        let above = AnchorWeights::bracket(&angles, TAU - FRAC_PI_4);
+        assert_close(above.get(3), 0.5);
+        assert_close(above.get(0), 0.5);
+
+        let almost = AnchorWeights::bracket(&angles, TAU - 0.01);
+        assert!(almost.get(0) > 0.99);
+        assert_close(almost.sum(), 1.0);
+    }
+
+    #[test]
+    fn zero_and_one_anchor_fallbacks() {
+        let empty = AnchorWeights::bracket(&[], 0.3);
+        assert!(empty.is_empty());
+        assert_eq!(empty.dominant(), None);
+
+        let single = AnchorWeights::bracket(&[1.2], -2.0);
+        assert_close(single.get(0), 1.0);
+    }
+
+    #[test]
+    fn dominant_picks_the_largest_weight() {
+        let mut weights = AnchorWeights::new(3);
+        weights.set(0, 0.2);
+        weights.set(1, 0.7);
+        weights.set(2, 0.1);
+        assert_eq!(weights.dominant(), Some(1));
+
+        let zero = AnchorWeights::new(3);
+        assert_eq!(zero.dominant(), None);
+    }
+
+    #[test]
+    fn wrap_turn_and_delta_handle_full_turns() {
+        assert_close(wrap_turn(TAU), 0.0);
+        assert_close(wrap_turn(-FRAC_PI_2), 3.0 * FRAC_PI_2);
+        assert_close(wrap_delta(0.1), 0.1);
+        assert_close(wrap_delta(PI - 0.1), PI - 0.1);
     }
 
     #[test]
