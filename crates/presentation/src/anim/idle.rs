@@ -31,18 +31,7 @@ pub fn relax_idle_pose(
             continue;
         }
 
-        // Relax shoulders: reduce Z abduction.
-        for shoulder in [rig.arms.right.shoulder, rig.arms.left.shoulder]
-            .into_iter()
-            .flatten()
-        {
-            if let Ok(mut transform) = transforms.get_mut(shoulder) {
-                let (x, y, z) = transform.rotation.to_euler(EulerRot::XYZ);
-                transform.rotation = Quat::from_euler(EulerRot::XYZ, x, y, z * 0.6);
-            }
-        }
-
-        // Relax torso: reduce X rotation by 50%.
+        // Relax torso: reduce X rotation by 50% (subtle).
         if let Some(torso) = rig.arms.torso
             && let Ok(mut transform) = transforms.get_mut(torso)
         {

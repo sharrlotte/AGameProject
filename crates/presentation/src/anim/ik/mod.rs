@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::anim::catalog::{AnimCatalog, IkConfig};
+use crate::anim::catalog::{AnimCatalog, FingerCurl, IkConfig};
 use crate::anim::rig::{ArmChain, PlayerRig, compose_world, parent_of};
 use crate::anim::weapon::{WeaponCatalog, WeaponMount};
 use combat::WeaponInventory;
@@ -173,6 +173,7 @@ fn solve_chain(
     chain: &ArmChain,
     target: ArmTarget,
     pole: [f32; 3],
+    hand_offset: Quat,
     ik: &IkConfig,
     root: Entity,
     transforms: &Query<&Transform>,
@@ -235,12 +236,6 @@ fn solve_chain(
     };
 
     let pole_hint = upper_parent_rot * Vec3::from_array(pole);
-    let hand_offset = Quat::from_euler(
-        EulerRot::XYZ,
-        ik.hand_offset_deg[0].to_radians(),
-        ik.hand_offset_deg[1].to_radians(),
-        ik.hand_offset_deg[2].to_radians(),
-    );
     let pose = solve_arm(
         ChainState {
             upper_pos,
@@ -359,6 +354,12 @@ pub fn solve_player_arms(
                     &rig.arms.right,
                     right_target,
                     catalog.ik.right_pole,
+                    Quat::from_euler(
+                        EulerRot::XYZ,
+                        catalog.ik.right_hand_offset_deg[0].to_radians(),
+                        catalog.ik.right_hand_offset_deg[1].to_radians(),
+                        catalog.ik.right_hand_offset_deg[2].to_radians(),
+                    ),
                     &catalog.ik,
                     rig.root,
                     &read,
@@ -368,6 +369,12 @@ pub fn solve_player_arms(
                     &rig.arms.left,
                     left_target,
                     catalog.ik.left_pole,
+                    Quat::from_euler(
+                        EulerRot::XYZ,
+                        catalog.ik.left_hand_offset_deg[0].to_radians(),
+                        catalog.ik.left_hand_offset_deg[1].to_radians(),
+                        catalog.ik.left_hand_offset_deg[2].to_radians(),
+                    ),
                     &catalog.ik,
                     rig.root,
                     &read,
@@ -394,6 +401,33 @@ pub fn solve_player_arms(
             {
                 transform.rotation = rotation;
             }
+        }
+
+        apply_finger_curl(&rig.arms.right, &catalog.ik.right_finger_curl, &mut write);
+        apply_finger_curl(&rig.arms.left, &catalog.ik.left_finger_curl, &mut write);
+    }
+}
+
+fn apply_finger_curl(chain: &ArmChain, curl: &FingerCurl, write: &mut Query<&mut Transform, ()>) {
+    for (bone_entity, angles) in [
+        (chain.middle_hand, curl.middle_hand_deg),
+        (chain.fingers, curl.fingers_deg),
+        (chain.thumb1, curl.thumb1_deg),
+        (chain.thumb2, curl.thumb2_deg),
+    ] {
+        if angles == [0.0; 3] {
+            continue;
+        }
+        if let Some(entity) = bone_entity
+            && let Ok(mut transform) = write.get_mut(entity)
+        {
+            let curl_rot = Quat::from_euler(
+                EulerRot::XYZ,
+                angles[0].to_radians(),
+                angles[1].to_radians(),
+                angles[2].to_radians(),
+            );
+            transform.rotation = (transform.rotation * curl_rot).normalize();
         }
     }
 }

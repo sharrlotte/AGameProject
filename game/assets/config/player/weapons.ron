@@ -1,6 +1,6 @@
 (
     anchor: (
-        offset: (0.0, 0.55, -0.2),
+        offset: (0.0, 0.55, 0.1),
         rotation_deg: (0.0, 0.0, 0.0),
     ),
     weapons: [
@@ -44,7 +44,13 @@
                 raise_secs: 0.18,
                 drop: 0.2,
             ),
-            socket_overrides: [],
+            socket_overrides: [
+                (
+                    socket: "Foregrip",
+                    offset: (0.0, 0.0, -0.15),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+            ],
         ),
         (
             id: "m1911",
@@ -56,8 +62,8 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, 0.05),
-                rotation_deg: (-30.0, 0.0, 0.0),
+                offset: (0.05, -0.15, 0.0),
+                rotation_deg: (-20.0, 0.0, 0.0),
             ),
             aim: (
                 offset: (0.1, 0.0, -0.2),
@@ -86,7 +92,13 @@
                 raise_secs: 0.16,
                 drop: 0.18,
             ),
-            socket_overrides: [],
+            socket_overrides: [
+                (
+                    socket: "Foregrip",
+                    offset: (0.0, 0.0, -0.15),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+            ],
         ),
         (
             id: "mp5",
@@ -98,8 +110,8 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, 0.05),
-                rotation_deg: (-30.0, 0.0, 0.0),
+                offset: (0.05, -0.15, 0.0),
+                rotation_deg: (-20.0, 0.0, 0.0),
             ),
             aim: (
                 offset: (0.1, 0.0, -0.2),
@@ -128,7 +140,13 @@
                 raise_secs: 0.18,
                 drop: 0.2,
             ),
-            socket_overrides: [],
+            socket_overrides: [
+                (
+                    socket: "Foregrip",
+                    offset: (0.0, 0.0, -0.15),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+            ],
         ),
         (
             id: "mp7",
@@ -140,8 +158,8 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, 0.05),
-                rotation_deg: (-30.0, 0.0, 0.0),
+                offset: (0.05, -0.15, 0.0),
+                rotation_deg: (-20.0, 0.0, 0.0),
             ),
             aim: (
                 offset: (0.1, 0.0, -0.2),
@@ -170,7 +188,13 @@
                 raise_secs: 0.18,
                 drop: 0.2,
             ),
-            socket_overrides: [],
+            socket_overrides: [
+                (
+                    socket: "Foregrip",
+                    offset: (0.0, 0.0, -0.15),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+            ],
         ),
         (
             id: "scar",
@@ -182,8 +206,8 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, 0.05),
-                rotation_deg: (-30.0, 0.0, 0.0),
+                offset: (0.05, -0.15, 0.0),
+                rotation_deg: (-20.0, 0.0, 0.0),
             ),
             aim: (
                 offset: (0.1, 0.0, -0.2),
@@ -212,7 +236,13 @@
                 raise_secs: 0.18,
                 drop: 0.2,
             ),
-            socket_overrides: [],
+            socket_overrides: [
+                (
+                    socket: "Foregrip",
+                    offset: (0.0, 0.0, -0.15),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+            ],
         ),
     ],
 )

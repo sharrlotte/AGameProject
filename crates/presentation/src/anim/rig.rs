@@ -11,6 +11,10 @@ pub struct ArmChain {
     pub upper_arm: Option<Entity>,
     pub lower_arm: Option<Entity>,
     pub hand: Option<Entity>,
+    pub middle_hand: Option<Entity>,
+    pub fingers: Option<Entity>,
+    pub thumb1: Option<Entity>,
+    pub thumb2: Option<Entity>,
 }
 
 impl ArmChain {
@@ -57,6 +61,22 @@ pub fn find_arms<'a>(ik: &IkConfig, named: impl Iterator<Item = (Entity, &'a str
             arms.left.lower_arm = Some(entity);
         } else if Some(name) == ik.left_chain.get(2).map(String::as_str) {
             arms.left.hand = Some(entity);
+        } else if name == "MiddleHand.R" {
+            arms.right.middle_hand = Some(entity);
+        } else if name == "Fingers.R" {
+            arms.right.fingers = Some(entity);
+        } else if name == "Thumb1.R" {
+            arms.right.thumb1 = Some(entity);
+        } else if name == "Thumb2.R" {
+            arms.right.thumb2 = Some(entity);
+        } else if name == "MiddleHand.L" {
+            arms.left.middle_hand = Some(entity);
+        } else if name == "Fingers.L" {
+            arms.left.fingers = Some(entity);
+        } else if name == "Thumb1.L" {
+            arms.left.thumb1 = Some(entity);
+        } else if name == "Thumb2.L" {
+            arms.left.thumb2 = Some(entity);
         }
     }
     arms

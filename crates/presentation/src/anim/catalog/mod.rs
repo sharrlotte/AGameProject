@@ -246,6 +246,19 @@ fn settle_limit() -> f32 {
     25.0
 }
 
+/// Per-finger curl angles (degrees) applied after arm IK.
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
+pub struct FingerCurl {
+    #[serde(default)]
+    pub middle_hand_deg: [f32; 3],
+    #[serde(default)]
+    pub fingers_deg: [f32; 3],
+    #[serde(default)]
+    pub thumb1_deg: [f32; 3],
+    #[serde(default)]
+    pub thumb2_deg: [f32; 3],
+}
+
 /// Dual-arm hand IK settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct IkConfig {
@@ -266,11 +279,19 @@ pub struct IkConfig {
     #[serde(default)]
     pub hand_align: bool,
     #[serde(default)]
+    pub right_hand_offset_deg: [f32; 3],
+    #[serde(default)]
+    pub left_hand_offset_deg: [f32; 3],
+    #[serde(default)]
     pub hand_offset_deg: [f32; 3],
     #[serde(default = "shoulder_settle")]
     pub shoulder_settle: f32,
     #[serde(default = "settle_limit")]
     pub settle_limit_deg: f32,
+    #[serde(default)]
+    pub right_finger_curl: FingerCurl,
+    #[serde(default)]
+    pub left_finger_curl: FingerCurl,
 }
 
 impl Default for IkConfig {
@@ -284,9 +305,13 @@ impl Default for IkConfig {
             right_pole: down_back(),
             left_pole: down_back(),
             hand_align: true,
+            right_hand_offset_deg: [0.0; 3],
+            left_hand_offset_deg: [0.0; 3],
             hand_offset_deg: [0.0; 3],
             shoulder_settle: shoulder_settle(),
             settle_limit_deg: settle_limit(),
+            right_finger_curl: FingerCurl::default(),
+            left_finger_curl: FingerCurl::default(),
         }
     }
 }

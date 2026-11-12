@@ -12,9 +12,9 @@ pub enum GameState {
 
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum GameScene {
-    #[default]
     Arena,
     #[cfg(feature = "dev")]
+    #[default]
     AnimTest,
 }
 

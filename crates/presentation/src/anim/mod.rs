@@ -122,6 +122,7 @@ impl Plugin for PlayerAnimPlugin {
                 (
                     director::drive_player_animation.in_set(PlayerAnimSet::Drive),
                     ik::solve_player_arms.in_set(PlayerAnimSet::Ik),
+                    idle::relax_idle_pose.in_set(PlayerAnimSet::Facing),
                     sync_player_facing.in_set(PlayerAnimSet::Facing),
                     #[cfg(feature = "dev-ik-gizmo")]
                     ik::draw_ik_gizmo.in_set(PlayerAnimSet::Ik),
