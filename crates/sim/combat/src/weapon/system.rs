@@ -61,7 +61,18 @@ pub fn handle_weapon_swap(
     for (entity, mut intent, mut inventory) in &mut shooters {
         inventory.cooldown_timer = (inventory.cooldown_timer - dt).max(0.0);
 
-        if let Some(target_slot) = intent.swap_slot.take()
+        let mut target_slot = intent.swap_slot.take();
+        if target_slot.is_none() && inventory.slots.len() > 1 {
+            if intent.swap_next {
+                target_slot = Some((inventory.active_slot + 1) % inventory.slots.len());
+            } else if intent.swap_prev {
+                target_slot = Some((inventory.active_slot + inventory.slots.len() - 1) % inventory.slots.len());
+            }
+        }
+        intent.swap_next = false;
+        intent.swap_prev = false;
+
+        if let Some(target_slot) = target_slot
             && target_slot < inventory.slots.len()
             && target_slot != inventory.active_slot
         {

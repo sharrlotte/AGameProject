@@ -17,6 +17,14 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
   - **Aim-lead offset:** Camera subtly shifts toward the mouse cursor (10–20% of cursor distance from center) so the player can see further in the direction they are aiming.
   - **Dynamic screen shake:** Trauma-based micro-shake on heavy shots, explosions, and taking hits.
 
+### 1.1b Weapon Roster
+
+The simulation defines four weapons in `game/assets/config/combat/weapons.ron`: `assault_rifle`,
+`shotgun`, `sniper`, and `rpg`. Presentation profiles live in `game/assets/config/player/weapons.ron`
+and must share the same id. Weapons are switched via Digit1/Digit2/Digit3 or the mouse wheel.
+Until dedicated GLB models with sockets land, new profiles reuse `models/weapons/rifle.glb` as a
+placeholder; missing models degrade with a warning.
+
 ### 1.2 Player Animation Stack
 
 - **Aim-space locomotion:** The movement direction is projected onto the character's facing. A data-driven anchor list maps that angle to clips (`walk_fwd` 0°, `strafe_r` 90°, `walk_back` 180°, `strafe_l` -90° in `game/assets/config/player/animation.ron`). Each frame brackets the angle with the two nearest anchors and blends them, so diagonals already work with four cardinal clips and authored diagonals can be added without Rust changes.

@@ -18,6 +18,9 @@ pub struct AnchorClip {
     pub node: AnimationNodeIndex,
     pub duration: f32,
     pub speed: f32,
+    pub sprint_node: Option<AnimationNodeIndex>,
+    pub sprint_duration: f32,
+    pub sprint_speed: f32,
 }
 
 /// The always-playing idle clip, driven separately from the directional anchors.
@@ -43,6 +46,7 @@ pub struct DirectorState {
     pub phase: f32,
     pub dominant: Option<usize>,
     pub dead: bool,
+    pub sprint_blend: f32,
 }
 
 impl Default for DirectorState {
@@ -53,6 +57,7 @@ impl Default for DirectorState {
             phase: 0.0,
             dominant: None,
             dead: false,
+            sprint_blend: 0.0,
         }
     }
 }
@@ -71,6 +76,12 @@ pub fn prime_looped(player: &mut AnimationPlayer, locomotion: &LocomotionClips) 
         active.repeat();
         active.set_weight(0.0);
         active.set_speed(anchor.speed.max(0.01));
+        if let Some(sprint_node) = anchor.sprint_node {
+            let active = player.play(sprint_node);
+            active.repeat();
+            active.set_weight(0.0);
+            active.set_speed(anchor.sprint_speed.max(0.01));
+        }
     }
 }
 
@@ -108,12 +119,41 @@ pub fn resolve(
             .map(AnimationClip::duration)
             .filter(|duration| duration.is_finite() && *duration > 0.0)
             .unwrap_or(0.0);
+
+        // Resolve optional sprint variant clip.
+        let (sprint_node, sprint_duration, sprint_speed) = match &def.sprint_role {
+            Some(role) => match nodes.get(role) {
+                Some(sclip) => match sclip.graph_node() {
+                    Some(snode) => {
+                        let sdur = clips
+                            .get(&sclip.clip)
+                            .map(AnimationClip::duration)
+                            .filter(|d| d.is_finite() && *d > 0.0)
+                            .unwrap_or(0.0);
+                        (Some(snode), sdur, sclip.speed)
+                    }
+                    None => {
+                        warn!("Sprint clip '{role}' has no graph node; dropping sprint variant");
+                        (None, 0.0, 1.0)
+                    }
+                },
+                None => {
+                    warn!("Sprint clip '{role}' missing at bind; dropping sprint variant");
+                    (None, 0.0, 1.0)
+                }
+            },
+            None => (None, 0.0, 1.0),
+        };
+
         anchors.push(AnchorClip {
             role: def.role.clone(),
             angle: wrap_turn(def.angle_rad()),
             node,
             duration,
             speed: clip.speed,
+            sprint_node,
+            sprint_duration,
+            sprint_speed,
         });
     }
     if !missing.is_empty() {
@@ -193,6 +233,14 @@ pub fn drive_player_animation(
         let idle = director.idle;
         director.weights.normalize(idle);
 
+        let sprint_target = if stamina.is_sprinting && moving { 1.0 } else { 0.0 };
+        director.sprint_blend = approach(
+            director.sprint_blend,
+            sprint_target,
+            dt,
+            loco_cfg.gait_blend_secs,
+        );
+
         let dominant = director.weights.dominant();
         if let Some(index) = dominant
             && director.dominant != Some(index)
@@ -200,31 +248,76 @@ pub fn drive_player_animation(
         {
             let seek = seek_secs(director.phase, anchor.duration);
             seek_player(&mut player, anchor.node, seek);
+            if let Some(sprint_node) = anchor.sprint_node {
+                let sprint_seek = seek_secs(director.phase, anchor.sprint_duration);
+                seek_player(&mut player, sprint_node, sprint_seek);
+            }
             director.dominant = Some(index);
         }
 
-        let playback = if stamina.is_sprinting && moving {
-            loco_cfg.sprint_playback_speed.max(0.01)
-        } else {
-            blend::speed_scale(
-                speed,
-                loco_cfg.walk_speed_ref,
-                loco_cfg.speed_scale_min,
-                loco_cfg.speed_scale_max,
-            )
-        };
-
+        // Advance phase with blended playback/duration for the dominant anchor.
         if moving
             && let Some(index) = dominant
             && let Some(anchor) = locomotion.anchors.get(index)
         {
-            director.phase = advance_phase(director.phase, dt, playback, anchor.duration);
+            if anchor.sprint_node.is_some() {
+                let blend = director.sprint_blend;
+                let dur = anchor.duration + (anchor.sprint_duration - anchor.duration) * blend;
+                let reference = loco_cfg.walk_speed_ref
+                    + (loco_cfg.sprint_speed_ref - loco_cfg.walk_speed_ref) * blend;
+                let pb = blend::speed_scale(
+                    speed,
+                    reference.max(0.01),
+                    loco_cfg.speed_scale_min,
+                    loco_cfg.speed_scale_max,
+                );
+                director.phase = advance_phase(director.phase, dt, pb, dur);
+            } else {
+                let walk_pb = blend::speed_scale(
+                    speed,
+                    loco_cfg.walk_speed_ref,
+                    loco_cfg.speed_scale_min,
+                    loco_cfg.speed_scale_max,
+                );
+                let sprint_pb = loco_cfg.sprint_playback_speed.max(0.01);
+                let blended = walk_pb + (sprint_pb - walk_pb) * director.sprint_blend;
+                director.phase = advance_phase(director.phase, dt, blended, anchor.duration);
+            }
         }
 
         for (index, anchor) in locomotion.anchors.iter().enumerate() {
-            let weight = director.weights.get(index);
-            let clip_speed = anchor.speed.max(0.01) * playback;
-            play_looped(&mut player, anchor.node, weight, clip_speed);
+            let w = director.weights.get(index);
+            if let Some(sprint_node) = anchor.sprint_node {
+                let walk_weight = w * (1.0 - director.sprint_blend);
+                let sprint_weight = w * director.sprint_blend;
+                let walk_speed = anchor.speed.max(0.01)
+                    * blend::speed_scale(
+                        speed,
+                        loco_cfg.walk_speed_ref,
+                        loco_cfg.speed_scale_min,
+                        loco_cfg.speed_scale_max,
+                    );
+                let sprint_speed = anchor.sprint_speed.max(0.01)
+                    * blend::speed_scale(
+                        speed,
+                        loco_cfg.sprint_speed_ref,
+                        loco_cfg.speed_scale_min,
+                        loco_cfg.speed_scale_max,
+                    );
+                play_looped(&mut player, anchor.node, walk_weight, walk_speed);
+                play_looped(&mut player, sprint_node, sprint_weight, sprint_speed);
+            } else {
+                let walk_pb = blend::speed_scale(
+                    speed,
+                    loco_cfg.walk_speed_ref,
+                    loco_cfg.speed_scale_min,
+                    loco_cfg.speed_scale_max,
+                );
+                let sprint_pb = loco_cfg.sprint_playback_speed.max(0.01);
+                let blended = walk_pb + (sprint_pb - walk_pb) * director.sprint_blend;
+                let clip_speed = anchor.speed.max(0.01) * blended;
+                play_looped(&mut player, anchor.node, w, clip_speed);
+            }
         }
         if let Some(idle) = locomotion.idle {
             play_looped(&mut player, idle.node, director.idle, idle.speed);

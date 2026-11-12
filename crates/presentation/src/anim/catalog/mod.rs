@@ -43,6 +43,10 @@ pub struct Anchor {
     pub role: String,
     /// Character-local angle: `0` forward, `+90` right, `180` backward, `-90` left.
     pub angle_deg: f32,
+    /// Optional sprint variant clip role (e.g. `sprint_fwd`). When set and the simulation
+    /// reports sprinting, the locomotion layer crossfades from `role` to this clip.
+    #[serde(default)]
+    pub sprint_role: Option<String>,
 }
 
 impl Anchor {
@@ -86,6 +90,14 @@ fn walk_speed_ref() -> f32 {
     7.5
 }
 
+fn gait_blend() -> f32 {
+    0.15
+}
+
+fn sprint_speed_ref() -> f32 {
+    8.0
+}
+
 fn sprint_playback() -> f32 {
     1.35
 }
@@ -107,18 +119,22 @@ fn cardinal_anchors() -> Vec<Anchor> {
         Anchor {
             role: "walk_fwd".to_string(),
             angle_deg: 0.0,
+            sprint_role: None,
         },
         Anchor {
             role: "strafe_r".to_string(),
             angle_deg: 90.0,
+            sprint_role: None,
         },
         Anchor {
             role: "walk_back".to_string(),
             angle_deg: 180.0,
+            sprint_role: None,
         },
         Anchor {
             role: "strafe_l".to_string(),
             angle_deg: -90.0,
+            sprint_role: None,
         },
     ]
 }
@@ -136,6 +152,10 @@ pub struct LocomotionConfig {
     pub walk_speed_ref: f32,
     #[serde(default = "sprint_playback")]
     pub sprint_playback_speed: f32,
+    #[serde(default = "gait_blend")]
+    pub gait_blend_secs: f32,
+    #[serde(default = "sprint_speed_ref")]
+    pub sprint_speed_ref: f32,
     #[serde(default = "speed_min")]
     pub speed_scale_min: f32,
     #[serde(default = "speed_max")]
@@ -154,6 +174,8 @@ impl Default for LocomotionConfig {
             phase_sync: true,
             walk_speed_ref: walk_speed_ref(),
             sprint_playback_speed: sprint_playback(),
+            gait_blend_secs: gait_blend(),
+            sprint_speed_ref: sprint_speed_ref(),
             speed_scale_min: speed_min(),
             speed_scale_max: speed_max(),
             blend_secs: locomotion_blend(),
@@ -344,6 +366,12 @@ impl AnimCatalog {
         if !loco.sprint_playback_speed.is_finite() || loco.sprint_playback_speed <= 0.0 {
             return Err("locomotion.sprint_playback_speed must be greater than zero".to_string());
         }
+        if !loco.gait_blend_secs.is_finite() || loco.gait_blend_secs < 0.0 {
+            return Err("locomotion.gait_blend_secs must be non-negative".to_string());
+        }
+        if !loco.sprint_speed_ref.is_finite() || loco.sprint_speed_ref <= 0.0 {
+            return Err("locomotion.sprint_speed_ref must be greater than zero".to_string());
+        }
         if loco.speed_scale_min <= 0.0 || loco.speed_scale_max < loco.speed_scale_min {
             return Err("locomotion speed scale range is invalid".to_string());
         }
@@ -356,6 +384,14 @@ impl AnimCatalog {
                 return Err(format!(
                     "locomotion anchor role '{}' must name an existing clip role",
                     anchor.role
+                ));
+            }
+            if let Some(sprint_role) = &anchor.sprint_role
+                && (sprint_role.is_empty() || self.clip(sprint_role).is_none())
+            {
+                return Err(format!(
+                    "locomotion anchor sprint_role '{}' must name an existing clip role",
+                    sprint_role
                 ));
             }
             if !anchor.angle_deg.is_finite() || !(-180.0..=180.0).contains(&anchor.angle_deg) {

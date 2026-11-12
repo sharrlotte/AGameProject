@@ -15,4 +15,8 @@ pub struct ActionIntent {
     pub reload_just_pressed: bool,
     /// Optional weapon slot index requested (`0` = Rifle, `1` = Shotgun).
     pub swap_slot: Option<usize>,
+    /// Request to switch to the next weapon slot (mouse wheel).
+    pub swap_next: bool,
+    /// Request to switch to the previous weapon slot (mouse wheel).
+    pub swap_prev: bool,
 }

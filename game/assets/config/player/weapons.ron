@@ -46,5 +46,131 @@
             ),
             socket_overrides: [],
         ),
+        (
+            id: "shotgun",
+            model: "models/weapons/rifle.glb",
+            sockets: (
+                grip: "Grip",
+                foregrip: "Foregrip",
+                magazine: "Magazine",
+                muzzle: "Muzzle",
+            ),
+            relaxed: (
+                offset: (0.1, -0.25, 0.05),
+                rotation_deg: (-30.0, 0.0, 0.0),
+            ),
+            aim: (
+                offset: (0.1, 0.0, -0.2),
+                rotation_deg: (0.0, 0.0, 0.0),
+            ),
+            recoil: (
+                pitch_deg: 6.0,
+                back: 0.06,
+                recover_secs: 0.18,
+                max_deg: 16.0,
+                max_back: 0.18,
+            ),
+            reload: (
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            ),
+            sway: (
+                amplitude: 0.012,
+                roll_deg: 1.5,
+                frequency: 1.4,
+            ),
+            swap: (
+                lower_secs: 0.12,
+                raise_secs: 0.18,
+                drop: 0.2,
+            ),
+            socket_overrides: [],
+        ),
+        (
+            id: "sniper",
+            model: "models/weapons/rifle.glb",
+            sockets: (
+                grip: "Grip",
+                foregrip: "Foregrip",
+                magazine: "Magazine",
+                muzzle: "Muzzle",
+            ),
+            relaxed: (
+                offset: (0.1, -0.25, 0.05),
+                rotation_deg: (-30.0, 0.0, 0.0),
+            ),
+            aim: (
+                offset: (0.1, 0.0, -0.2),
+                rotation_deg: (0.0, 0.0, 0.0),
+            ),
+            recoil: (
+                pitch_deg: 8.0,
+                back: 0.08,
+                recover_secs: 0.25,
+                max_deg: 20.0,
+                max_back: 0.2,
+            ),
+            reload: (
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            ),
+            sway: (
+                amplitude: 0.008,
+                roll_deg: 1.0,
+                frequency: 1.0,
+            ),
+            swap: (
+                lower_secs: 0.15,
+                raise_secs: 0.22,
+                drop: 0.2,
+            ),
+            socket_overrides: [],
+        ),
+        (
+            id: "rpg",
+            model: "models/weapons/rifle.glb",
+            sockets: (
+                grip: "Grip",
+                foregrip: "Foregrip",
+                magazine: "Magazine",
+                muzzle: "Muzzle",
+            ),
+            relaxed: (
+                offset: (0.1, -0.25, 0.05),
+                rotation_deg: (-30.0, 0.0, 0.0),
+            ),
+            aim: (
+                offset: (0.1, 0.0, -0.2),
+                rotation_deg: (0.0, 0.0, 0.0),
+            ),
+            recoil: (
+                pitch_deg: 10.0,
+                back: 0.12,
+                recover_secs: 0.3,
+                max_deg: 25.0,
+                max_back: 0.25,
+            ),
+            reload: (
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            ),
+            sway: (
+                amplitude: 0.015,
+                roll_deg: 2.0,
+                frequency: 1.2,
+            ),
+            swap: (
+                lower_secs: 0.2,
+                raise_secs: 0.25,
+                drop: 0.25,
+            ),
+            socket_overrides: [],
+        ),
     ],
 )

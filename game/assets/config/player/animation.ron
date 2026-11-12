@@ -12,7 +12,7 @@
         speed_scale_max: 2.5,
         blend_secs: 0.15,
         anchors: [
-            (role: "walk_fwd", angle_deg: 0.0),
+            (role: "walk_fwd", angle_deg: 0.0, sprint_role: Some("sprint_fwd")),
             (role: "strafe_r", angle_deg: 90.0),
             (role: "walk_back", angle_deg: 180.0),
             (role: "strafe_l", angle_deg: -90.0),
@@ -67,6 +67,7 @@
     clips: [
         (role: "idle", clip: "HumanArmature|Man_Idle", layer: locomotion, looped: true, speed: 1.0),
         (role: "walk_fwd", clip: "HumanArmature|Man_Walk", layer: locomotion, looped: true, speed: 1.0),
+        (role: "sprint_fwd", clip: "HumanArmature|Man_Run", layer: locomotion, looped: true, speed: 1.0),
         (role: "walk_back", clip: "HumanArmature|Man_WalkBack", layer: locomotion, looped: true, speed: 1.0),
         (role: "strafe_l", clip: "HumanArmature|Man_StrafeL", layer: locomotion, looped: true, speed: 1.0),
         (role: "strafe_r", clip: "HumanArmature|Man_StrafeR", layer: locomotion, looped: true, speed: 1.0),

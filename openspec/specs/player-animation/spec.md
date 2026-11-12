@@ -163,18 +163,62 @@ The locomotion layer SHALL produce movement in any direction from a catalog list
 - **WHEN** horizontal speed is below the configured `move_speed_threshold`
 - **THEN** the locomotion layer drives the idle clip at full weight and does not advance the locomotion phase
 
+### Requirement: Sprint gait
+
+An anchor MAY declare an optional `sprint_role` naming a sprint variant clip. When the simulation reports sprinting and an anchor has a sprint variant, the locomotion layer SHALL crossfade that anchor's walk clip and sprint clip by a smoothed gait blend instead of speeding up the walk clip. Anchors without a sprint variant SHALL fall back to the existing sprint playback multiplier, blended by the same gait factor. The gait blend SHALL be a smoothed 0..1 value tracking `Stamina.is_sprinting` while moving, over `gait_blend_secs`.
+
+#### Scenario: Forward sprint uses the run clip
+
+- **WHEN** the player sprints forward and the forward anchor has `sprint_role: sprint_fwd`
+- **THEN** the `sprint_fwd` clip gains weight and the `walk_fwd` clip loses weight over `gait_blend_secs`, and the legs read as a run rather than a fast walk
+
+#### Scenario: Missing sprint variant falls back
+
+- **WHEN** the player sprints with an anchor that has no `sprint_role`
+- **THEN** that anchor keeps using its walk clip with the sprint playback multiplier, blended by the gait factor
+
+#### Scenario: Gait blend crossfades smoothly
+
+- **WHEN** sprint is toggled during movement
+- **THEN** walk and sprint node weights change continuously over `gait_blend_secs` without a pop
+
+#### Scenario: Phase rate blends during crossfade
+
+- **WHEN** the gait blend is between 0 and 1 and the dominant anchor has a sprint variant
+- **THEN** phase advancement uses a duration and reference speed linearly interpolated between the walk and sprint clip values by the gait blend
+
+#### Scenario: Sprint variant seeks to the shared phase
+
+- **WHEN** the dominant anchor changes while sprinting
+- **THEN** the incoming sprint clip seeks to `phase * sprint_duration` before its weight rises
+
+#### Scenario: Strict validation of sprint_role
+
+- **WHEN** an anchor sets `sprint_role` to a role that does not exist in the catalog clips
+- **THEN** catalog validation fails
+
+#### Scenario: Hot reload resets gait state
+
+- **WHEN** the animation catalog is reloaded during gameplay
+- **THEN** the gait blend resets to zero together with the rebuilt graph and phase
+
 ### Requirement: Locomotion playback speed follows movement speed
-Locomotion playback speed SHALL scale with horizontal speed relative to the catalog reference speed, clamped to catalog minimum and maximum values, and SHALL apply the sprint multiplier while the simulation reports sprinting. An anchor MAY define an additional playback multiplier.
+Locomotion playback speed SHALL scale with horizontal speed relative to the catalog reference speed, clamped to catalog minimum and maximum values. An anchor MAY define an additional playback multiplier. While the simulation reports sprinting, anchors without a sprint variant SHALL apply the sprint playback multiplier (blended by the gait factor); anchors with a sprint variant SHALL instead crossfade to their sprint clip per the sprint gait requirement, with phase rate blended between walk and sprint values.
 
 #### Scenario: Slower movement slows the walk cycle
 
 - **WHEN** horizontal speed is half of the walk reference speed
 - **THEN** the locomotion playback speed is reduced proportionally and remains within the configured clamp
 
-#### Scenario: Sprinting speeds up the same anchor
+#### Scenario: Sprinting speeds up anchors without a sprint variant
 
-- **WHEN** the player sprints with a directional anchor selected
-- **THEN** that anchor plays faster by the sprint multiplier instead of switching to a movement-facing body
+- **WHEN** the player sprints with a directional anchor that has no `sprint_role`
+- **THEN** that anchor plays faster by the sprint multiplier (blended by the gait factor) instead of switching to a movement-facing body
+
+#### Scenario: Sprinting crossfades anchors with a sprint variant
+
+- **WHEN** the player sprints with a directional anchor that has `sprint_role`
+- **THEN** that anchor crossfades to its sprint clip per the sprint gait requirement instead of applying the sprint multiplier
 
 ### Requirement: Facing rules
 The player visual root SHALL face the horizontal aim direction at all times when a valid aim vector exists, including while strafing and sprinting. Movement direction MUST NOT write body yaw. Facing SHALL blend toward the aim direction using shortest-arc smoothing over the configured blend time and SHALL retain its previous yaw when aim is unavailable. Death SHALL stop aim tracking.

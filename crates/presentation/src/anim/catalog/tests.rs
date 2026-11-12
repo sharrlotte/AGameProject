@@ -62,3 +62,10 @@ fn defaults_cover_cardinal_anchors() {
     assert_eq!(catalog.locomotion.anchors.len(), 4);
     assert!(catalog.validate().is_ok());
 }
+
+#[test]
+fn rejects_unknown_sprint_role() {
+    let mut catalog = AnimCatalog::default();
+    catalog.locomotion.anchors[0].sprint_role = Some("missing_sprint".to_string());
+    assert!(catalog.validate().is_err());
+}

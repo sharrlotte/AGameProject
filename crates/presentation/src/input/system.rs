@@ -18,8 +18,6 @@ pub fn gather_local_input(
     mut intents: Query<&mut ActionIntent, With<LocalPlayer>>,
     mut zoom_writer: MessageWriter<CameraZoomMessage>,
 ) {
-    emit_camera_zoom(&keys, &mut wheel_reader, &cam_cfg, &mut zoom_writer);
-
     let mut raw = Vec2::ZERO;
     if keys.pressed(KeyCode::KeyW) {
         raw.y += 1.0;
@@ -50,13 +48,19 @@ pub fn gather_local_input(
     let aim_held = mouse_buttons.pressed(MouseButton::Right);
     let reload_just_pressed = keys.just_pressed(KeyCode::KeyR);
 
+    let weapon_scroll = emit_camera_zoom(&keys, &mut wheel_reader, &cam_cfg, &mut zoom_writer);
+
     let swap_slot = if keys.just_pressed(KeyCode::Digit1) {
         Some(0)
     } else if keys.just_pressed(KeyCode::Digit2) {
         Some(1)
+    } else if keys.just_pressed(KeyCode::Digit3) {
+        Some(2)
     } else {
         None
     };
+    let swap_next = weapon_scroll > 0.0;
+    let swap_prev = weapon_scroll < 0.0;
 
     let aim_world = camera.and_then(|(cam, transform)| {
         compute_cursor_aim_world(&window, cam, transform, player_cfg.aim_height)
@@ -79,6 +83,8 @@ pub fn gather_local_input(
         if let Some(slot) = swap_slot {
             intent.swap_slot = Some(slot);
         }
+        intent.swap_next = swap_next;
+        intent.swap_prev = swap_prev;
     }
 }
 
@@ -87,24 +93,28 @@ fn emit_camera_zoom(
     wheel_reader: &mut MessageReader<MouseWheel>,
     cam_cfg: &CameraConfig,
     zoom_writer: &mut MessageWriter<CameraZoomMessage>,
-) {
+) -> f32 {
     let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     let mut scroll_steps = 0.0;
+    let mut weapon_scroll = 0.0;
     // Drain all wheel events every frame so un-modified scrolling does not queue up before Ctrl is held.
     for event in wheel_reader.read() {
-        if !ctrl {
-            continue;
-        }
-        scroll_steps += match event.unit {
+        let step = match event.unit {
             MouseScrollUnit::Line => event.y,
             MouseScrollUnit::Pixel => event.y / cam_cfg.zoom_pixel_divisor.max(1.0),
         };
+        if ctrl {
+            scroll_steps += step;
+        } else {
+            weapon_scroll += step;
+        }
     }
     if scroll_steps.abs() > 1e-4 {
         zoom_writer.write(CameraZoomMessage {
             steps: scroll_steps,
         });
     }
+    weapon_scroll
 }
 
 fn compute_cursor_aim_world(

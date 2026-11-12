@@ -85,12 +85,15 @@ Shoulder.R, UpperArm.R, LowerArm.R, Palm.R, MiddleHand.R, Fingers.R, Thumb1.R, T
 | `walk_back` | `HumanArmature\|Man_WalkBack` | locomotion | present |
 | `strafe_l` | `HumanArmature\|Man_StrafeL` | locomotion | present |
 | `strafe_r` | `HumanArmature\|Man_StrafeR` | locomotion | present |
+| `sprint_fwd` | `HumanArmature\|Man_Run` | locomotion | present (sprint variant of `walk_fwd`) |
 | `death` | `HumanArmature\|Man_Death` | override | present |
 
 Aim, reload, and fire have no clip roles: they are procedural layers driven by `CombatStance`,
-`WeaponInventory::reload_progress()`, and `WeaponFiredMessage`. Sprint uses the forward anchor with a
-higher playback multiplier instead of a separate clip role. Missing anchor clips are dropped once at
-bind with a warning, and the graph/mask tests do not require the clips to exist in the GLB.
+`WeaponInventory::reload_progress()`, and `WeaponFiredMessage`. Sprint uses an optional per-anchor
+`sprint_role` (forward anchor → `sprint_fwd` → `Man_Run`) with a smooth gait crossfade; anchors
+without a sprint variant fall back to the forward anchor's higher playback multiplier. Missing anchor
+clips are dropped once at bind with a warning, and the graph/mask tests do not require the clips to
+exist in the GLB.
 
 ## Sockets and Weapons
 

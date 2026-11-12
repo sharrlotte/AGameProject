@@ -12,6 +12,10 @@ fn weapons_ron_parses_and_is_valid() {
     assert_eq!(rifle.sockets.foregrip, "Foregrip");
     assert!(rifle.sockets.named().contains(&"Magazine"));
     assert!(rifle.sockets.named().contains(&"Muzzle"));
+
+    for id in ["shotgun", "sniper", "rpg"] {
+        assert!(catalog.weapon(id).is_some(), "missing weapon profile {id}");
+    }
 }
 
 #[test]

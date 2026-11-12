@@ -72,6 +72,36 @@ impl Default for WeaponsConfig {
                     mag_size: 8,
                     reload_secs: 2.2,
                 },
+                WeaponSpecData {
+                    id: "sniper".to_string(),
+                    name: "Sniper Rifle".to_string(),
+                    full_auto: false,
+                    fire_interval: 1.2,
+                    pellets: 1,
+                    damage: 80.0,
+                    spread_deg: 0.5,
+                    projectile_speed: 90.0,
+                    projectile_radius: 0.06,
+                    projectile_lifetime: 2.0,
+                    knockback: 2.0,
+                    mag_size: 5,
+                    reload_secs: 2.8,
+                },
+                WeaponSpecData {
+                    id: "rpg".to_string(),
+                    name: "RPG".to_string(),
+                    full_auto: false,
+                    fire_interval: 1.5,
+                    pellets: 1,
+                    damage: 120.0,
+                    spread_deg: 0.0,
+                    projectile_speed: 18.0,
+                    projectile_radius: 0.35,
+                    projectile_lifetime: 3.0,
+                    knockback: 12.0,
+                    mag_size: 1,
+                    reload_secs: 3.5,
+                },
             ],
         }
     }
@@ -88,6 +118,6 @@ mod tests {
     #[test]
     fn weapons_ron_parses_cleanly() {
         let weapons: WeaponsConfig = data::assert_ron_config_parses!(WeaponsConfig);
-        assert_eq!(weapons.weapons.len(), 2);
+        assert_eq!(weapons.weapons.len(), 4);
     }
 }
