@@ -209,6 +209,18 @@ authoritative for projectile origin and presentation sockets are cosmetic.
 - Corrected `mp5`, `mp7`, and `scar` grip authoring so primary=back grip, support=front grip.
 - Moved non-M16 weapon pose offsets from positive to negative Z so they sit in front of the player.
 
+## Revision notes (2026-11-14)
+
+- Fixed the `m16` `Grip` socket override in `weapon/weapon.ron`: the X offset was `10.0`, which
+  placed the right-hand IK grip target ~14 m from the weapon; the arm solver clamped to max reach
+  and dragged the hand down across the body. Set to `(0.0, -0.060, -0.030)`, matching the other
+  weapon profiles. Verified live via BRP: the `Grip` socket now resolves at the weapon origin.
+  Open follow-up (not yet fixed): in the relaxed (`aim = 0`) pose the gun sits at hip height, yawed
+  90° across the body (`relaxed rotation_deg = (-32, 90, 0)`); measured reach from the shoulders is
+  ~0.56 m, while `Shoulder.R -> Grip` is ~0.60 m and `Shoulder.L -> Foregrip` is ~0.81 m, so the
+  hands land short of the sockets (Palm.R ~0.18 m, Palm.L ~0.5 m off). Whether the relaxed yaw/pose
+  or the reach shortfall should change is a design call.
+
 ## Validation
 
 `tools/blender/inspect_glb.py` reports nodes, bones, triangles, clip names, and can require
