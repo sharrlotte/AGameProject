@@ -23,3 +23,4 @@ serde_json.workspace = true
 rand.workspace = true
 uuid.workspace = true
 engine.workspace = true
+bevy_brp_extras = "0.23.0"

@@ -17,6 +17,9 @@ use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 #[cfg(feature = "dev")]
 use engine::world::AnimTestPlugin;
 
+#[cfg(feature = "dev")]
+use bevy_brp_extras::BrpExtrasPlugin;
+
 /// Builds the configured Bevy application with all plugins, systems, and diagnostics.
 pub fn build_app() -> App {
     let mut app = App::new();
@@ -39,6 +42,8 @@ pub fn build_app() -> App {
             .set(AudioPlugin::default()),
     )
     .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+    .add_plugins(bevy::remote::RemotePlugin::default()) // Enable BRP
+    .add_plugins(BrpExtrasPlugin) // Enhanced BRP features
     .insert_resource(TimestepMode::Interpolated {
         dt: 1.0 / 60.0,
         time_scale: 1.0,

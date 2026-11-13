@@ -7,7 +7,7 @@ members = [
 default-members = ["game"]
 
 [workspace.dependencies]
-bevy = { version = "0.20.0", features = ["serialize", "file_watcher"] }
+bevy = { version = "0.20.0", features = ["serialize", "file_watcher", "bevy_remote"] }
 bevy_rapier3d = "0.37.0"
 bevy-inspector-egui = "0.38"
 bevy_hanabi = "0.20"
