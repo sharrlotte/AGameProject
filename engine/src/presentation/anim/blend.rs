@@ -79,12 +79,14 @@ impl AnchorWeights {
     }
 
     pub fn normalize(&mut self, extra: f32) {
-        let total = self.sum() + extra;
-        if total <= 1e-5 {
+        let sum = self.sum();
+        if sum <= 1e-5 {
             return;
         }
+        let target = (1.0 - extra).max(0.0);
+        let scale = target / sum;
         for weight in &mut self.weights[..self.count] {
-            *weight /= total;
+            *weight *= scale;
         }
     }
 

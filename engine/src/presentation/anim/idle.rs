@@ -5,6 +5,7 @@ use crate::common::GameState;
 use crate::world::Survivor;
 use crate::world::Health;
 
+use crate::presentation::anim::catalog::AnimCatalog;
 use crate::presentation::anim::rig::PlayerRig;
 
 /// Procedurally relaxes the idle pose (torso) after animation evaluation and
@@ -12,6 +13,7 @@ use crate::presentation::anim::rig::PlayerRig;
 /// silhouette of the idle animation clip.
 pub fn relax_idle_pose(
     state: Res<State<GameState>>,
+    catalog: Res<AnimCatalog>,
     survivors: Query<(&Velocity, &Health), With<Survivor>>,
     rigs: Query<&PlayerRig>,
     mut transforms: Query<&mut Transform>,
@@ -19,7 +21,7 @@ pub fn relax_idle_pose(
     if !matches!(state.get(), GameState::Playing | GameState::GameOver) {
         return;
     }
-    let move_threshold = 0.25;
+    let move_threshold = catalog.locomotion.move_speed_threshold.max(0.0);
 
     for rig in &rigs {
         let Ok((velocity, health)) = survivors.get(rig.survivor) else {

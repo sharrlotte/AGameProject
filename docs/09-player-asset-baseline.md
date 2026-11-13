@@ -198,6 +198,14 @@ authoritative for projectile origin and presentation sockets are cosmetic.
 - Runtime safety scale/offset/yaw adjustments remain in `visuals.ron` until the corrected origin/scale asset is approved.
 - Finger closure is procedural: `IkConfig` supplies a default curl per hand and a weapon can override it per grip. No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
 
+## Revision notes (2026-11-13)
+
+- Fixed locomotion weight normalization so anchor weights sum to `1 - idle`.
+- Idle relaxation now uses `AnimCatalog.locomotion.move_speed_threshold`.
+- Weapon GLB loads with no scenes (or no profile) are marked failed instead of retrying forever.
+- Corrected `mp5`, `mp7`, and `scar` grip authoring so primary=back grip, support=front grip.
+- Moved non-M16 weapon pose offsets from positive to negative Z so they sit in front of the player.
+
 ## Validation
 
 `tools/blender/inspect_glb.py` reports nodes, bones, triangles, clip names, and can require

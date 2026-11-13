@@ -14,7 +14,10 @@ use super::state::{PlayerWeaponAnchor, ResolvedSockets, WeaponMount, WeaponPoseS
 pub struct PendingWeaponLoad {
     pub handle: Handle<Gltf>,
     pub profile_id: String,
+    pub failed: bool,
 }
+
+
 
 /// Spawns the chest-height weapon anchor under every new player visual root.
 pub fn init_weapon_anchors(
@@ -98,10 +101,18 @@ pub fn sync_weapon_mounts(
             && pending.profile_id == profile_id
             && !reloaded
         {
+            if pending.failed {
+                continue;
+            }
             if let Some(gltf) = gltfs.get(&pending.handle) {
                 let Some(scene) = gltf.scenes.first().cloned() else {
                     warn!("Weapon '{}' contains no scenes", profile_id);
                     commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+                    commands.entity(anchor_entity).insert(PendingWeaponLoad {
+                        handle: pending.handle.clone(),
+                        profile_id: pending.profile_id.clone(),
+                        failed: true,
+                    });
                     continue;
                 };
                 let profile = match catalog.weapon(profile_id) {
@@ -109,6 +120,11 @@ pub fn sync_weapon_mounts(
                     None => {
                         warn!("No presentation profile for weapon '{profile_id}'");
                         commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
+                        commands.entity(anchor_entity).insert(PendingWeaponLoad {
+                            handle: pending.handle.clone(),
+                            profile_id: pending.profile_id.clone(),
+                            failed: true,
+                        });
                         continue;
                     }
                 };
@@ -151,6 +167,7 @@ pub fn sync_weapon_mounts(
         commands.entity(anchor_entity).insert(PendingWeaponLoad {
             handle,
             profile_id: profile.id.clone(),
+            failed: false,
         });
     }
 }
