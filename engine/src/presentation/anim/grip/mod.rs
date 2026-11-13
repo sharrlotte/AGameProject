@@ -17,14 +17,13 @@
 //! valid for idle, walking, strafing and aiming: the weapon moves, the hands
 //! follow.
 
-mod config;
 mod resolve;
 mod target;
 
 #[cfg(test)]
 mod tests;
 
-pub use config::{FingerCurl, GripHand, WeaponGripConfig};
+pub use crate::config::{FingerCurl, GripHand, WeaponGripConfig};
 pub use resolve::{
     ResolvedGrip, ResolvedHand, SocketFrames, resolve_curl, resolve_grip,
 };

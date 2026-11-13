@@ -2,14 +2,13 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
 use crate::config::AppRonConfigExt;
 use crate::common::{GameState, SimPostPhysicsSet, SimUpdateSet};
-use crate::config::WeaponsConfig;
+use crate::config::WeaponRoster;
 
 pub mod projectile;
 pub mod reload;
 pub mod stance;
 pub mod weapon;
 
-pub use crate::config::WeaponSpecData;
 pub use projectile::{Projectile, handle_projectile_collisions, tick_projectiles};
 pub use stance::{CombatStance, update_combat_stance};
 pub use weapon::{WeaponInventory, WeaponSlotState};
@@ -18,7 +17,7 @@ pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.register_ron_config::<WeaponsConfig>()
+        app.register_ron_config::<WeaponRoster>()
             .add_systems(
                 Update,
                 (

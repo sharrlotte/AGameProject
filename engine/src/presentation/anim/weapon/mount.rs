@@ -5,7 +5,7 @@ use crate::combat::WeaponInventory;
 
 use crate::presentation::anim::PlayerVisualRoot;
 
-use super::catalog::WeaponCatalog;
+use crate::config::WeaponRoster;
 use super::state::{PlayerWeaponAnchor, ResolvedSockets, WeaponMount, WeaponPoseState};
 
 /// Tracks an in-flight weapon GLTF load so its handle stays alive until the asset
@@ -17,12 +17,10 @@ pub struct PendingWeaponLoad {
     pub failed: bool,
 }
 
-
-
 /// Spawns the chest-height weapon anchor under every new player visual root.
 pub fn init_weapon_anchors(
     mut commands: Commands,
-    catalog: Res<WeaponCatalog>,
+    roster: Res<WeaponRoster>,
     roots: Query<(Entity, &ChildOf), Added<PlayerVisualRoot>>,
 ) {
     for (root, child_of) in &roots {
@@ -32,7 +30,7 @@ pub fn init_weapon_anchors(
                 root,
                 survivor: child_of.parent(),
             },
-            anchor_transform(&catalog),
+            anchor_transform(&roster),
             WeaponPoseState::default(),
             ChildOf(root),
             Visibility::default(),
@@ -40,19 +38,19 @@ pub fn init_weapon_anchors(
     }
 }
 
-fn anchor_transform(catalog: &WeaponCatalog) -> Transform {
+fn anchor_transform(roster: &WeaponRoster) -> Transform {
     Transform::from_xyz(
-        catalog.anchor.offset[0],
-        catalog.anchor.offset[1],
-        catalog.anchor.offset[2],
+        roster.anchor.offset[0],
+        roster.anchor.offset[1],
+        roster.anchor.offset[2],
     )
-    .with_rotation(super::state::euler_deg(catalog.anchor.rotation_deg))
+    .with_rotation(super::state::euler_deg(roster.anchor.rotation_deg))
 }
 
-/// Mounts the active weapon profile and remounts on swap or catalog reload.
+/// Mounts the active weapon and remounts on swap or roster reload.
 pub fn sync_weapon_mounts(
     mut commands: Commands,
-    catalog: Res<WeaponCatalog>,
+    roster: Res<WeaponRoster>,
     asset_server: Res<AssetServer>,
     gltfs: Res<Assets<Gltf>>,
     inventories: Query<&WeaponInventory>,
@@ -65,23 +63,29 @@ pub fn sync_weapon_mounts(
         &mut WeaponPoseState,
     )>,
 ) {
-    let reloaded = catalog.is_changed();
+    let reloaded = roster.is_changed();
 
     for (anchor_entity, anchor, mut transform, mount, pending, mut pose) in &mut anchors {
-        *transform = anchor_transform(&catalog);
+        let weapon = inventories
+            .get(anchor.survivor)
+            .ok()
+            .and_then(|inventory| {
+                inventory
+                    .slots
+                    .get(inventory.active_slot)
+                    .map(|slot| &slot.weapon)
+            });
+        let Some(weapon) = weapon else {
+            continue;
+        };
+        let profile_id = weapon.id.clone();
+
+        *transform = anchor_transform(&roster);
         if reloaded {
             *pose = WeaponPoseState::default();
         }
 
-        let Ok(inventory) = inventories.get(anchor.survivor) else {
-            continue;
-        };
-        let Some(slot) = inventory.slots.get(inventory.active_slot) else {
-            continue;
-        };
-        let profile_id = slot.spec.id.as_str();
-
-        // Despawn + clear mount/pending on profile change or reload.
+        // Despawn + clear mount/pending on weapon change or reload.
         if let Some(mount) = mount {
             if !reloaded && mount.profile == profile_id {
                 // Already mounted and up to date; keep handle alive via pending? No pending exists.
@@ -96,7 +100,7 @@ pub fn sync_weapon_mounts(
             commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
         }
 
-        // If a pending load exists for this profile, check whether it finished.
+        // If a pending load exists for this weapon, check whether it finished.
         if let Some(pending) = pending
             && pending.profile_id == profile_id
             && !reloaded
@@ -115,22 +119,9 @@ pub fn sync_weapon_mounts(
                     });
                     continue;
                 };
-                let profile = match catalog.weapon(profile_id) {
-                    Some(p) => p,
-                    None => {
-                        warn!("No presentation profile for weapon '{profile_id}'");
-                        commands.entity(anchor_entity).remove::<PendingWeaponLoad>();
-                        commands.entity(anchor_entity).insert(PendingWeaponLoad {
-                            handle: pending.handle.clone(),
-                            profile_id: pending.profile_id.clone(),
-                            failed: true,
-                        });
-                        continue;
-                    }
-                };
                 let scene_entity = commands
                     .spawn((
-                        Name::new(format!("WeaponModel:{}", profile.id)),
+                        Name::new(format!("WeaponModel:{}", weapon.id)),
                         WorldAssetRoot(scene),
                         Transform::default(),
                         Visibility::default(),
@@ -140,7 +131,7 @@ pub fn sync_weapon_mounts(
                 commands.entity(anchor_entity).insert(WeaponMount {
                     survivor: anchor.survivor,
                     root: anchor.root,
-                    profile: profile.id.clone(),
+                    profile: weapon.id.clone(),
                     scene: scene_entity,
                     sockets: ResolvedSockets {
                         grip: scene_entity,
@@ -157,16 +148,11 @@ pub fn sync_weapon_mounts(
             continue;
         }
 
-        let Some(profile) = catalog.weapon(profile_id) else {
-            warn!("No presentation profile for weapon '{profile_id}'");
-            continue;
-        };
-
         // Start a new load, keeping the handle alive in a pending component.
-        let handle = asset_server.load(profile.model.clone());
+        let handle = asset_server.load(&weapon.presentation.model);
         commands.entity(anchor_entity).insert(PendingWeaponLoad {
             handle,
-            profile_id: profile.id.clone(),
+            profile_id: weapon.id.clone(),
             failed: false,
         });
     }
@@ -174,7 +160,7 @@ pub fn sync_weapon_mounts(
 
 /// Resolves `Grip`/`Foregrip`/`Magazine`/`Muzzle` once per mounted weapon.
 pub fn resolve_weapon_sockets(
-    catalog: Res<WeaponCatalog>,
+    roster: Res<WeaponRoster>,
     mut mounts: Query<&mut WeaponMount>,
     children: Query<&Children>,
     names: Query<&Name>,
@@ -184,7 +170,7 @@ pub fn resolve_weapon_sockets(
         if mount.resolved {
             continue;
         }
-        let Some(profile) = catalog.weapon(&mount.profile) else {
+        let Some(weapon) = roster.weapon(&mount.profile) else {
             mount.resolved = true;
             continue;
         };
@@ -195,7 +181,7 @@ pub fn resolve_weapon_sockets(
             continue;
         }
 
-        let wanted = profile.sockets.named();
+        let wanted = weapon.presentation.sockets.named();
         let mut found: [Option<Entity>; 4] = [None; 4];
         let mut stack: Vec<Entity> = root_children.iter().collect();
         while let Some(entity) = stack.pop() {
@@ -237,7 +223,12 @@ pub fn resolve_weapon_sockets(
             let Some(entity) = found[index] else {
                 continue;
             };
-            let Some(over) = profile.socket_override(socket_name) else {
+            let Some(over) = weapon
+                .presentation
+                .socket_overrides
+                .iter()
+                .find(|over| over.socket == *socket_name)
+            else {
                 continue;
             };
             if let Ok(mut transform) = socket_transforms.get_mut(entity) {
@@ -257,10 +248,3 @@ pub fn resolve_weapon_sockets(
         mount.resolved = true;
     }
 }
-
-
-
-
-
-
-

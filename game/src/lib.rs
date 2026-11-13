@@ -1,5 +1,5 @@
 use bevy::audio::AudioPlugin;
-use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
+use bevy::diagnostic::EntityCountDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
@@ -50,7 +50,6 @@ pub fn build_app() -> App {
         substeps: 1,
     })
     .add_plugins((
-        FrameTimeDiagnosticsPlugin::new(100),
         EntityCountDiagnosticsPlugin::new(100),
     ))
     .add_plugins((

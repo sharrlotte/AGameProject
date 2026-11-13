@@ -393,14 +393,14 @@ fn update_hud(
                     Some(rem) => format!(
                         "[{}] {}   RELOADING ({rem:.1}s)",
                         inventory.active_slot + 1,
-                        active.spec.name
+                        active.weapon.name
                     ),
                     None => format!(
                         "[{}] {}   {} / {}",
                         inventory.active_slot + 1,
-                        active.spec.name,
+                        active.weapon.name,
                         active.ammo,
-                        active.spec.mag_size
+                        active.weapon.stats.mag_size
                     ),
                 };
             }

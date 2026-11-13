@@ -18,7 +18,7 @@ use crate::presentation::anim::catalog::AnimCatalog;
 use crate::presentation::anim::grip::{FingerCurl, resolve_curl, resolve_grip};
 use crate::presentation::anim::rig::{ArmChain, PlayerRig, compose_world};
 use crate::presentation::anim::weapon::{
-    PlayerWeaponAnchor, WeaponCatalog, WeaponMount, WeaponPoseState, socket_frames,
+    PlayerWeaponAnchor, WeaponMount, WeaponPoseState, socket_frames,
 };
 use crate::combat::WeaponInventory;
 use crate::world::{Health, Survivor};
@@ -50,7 +50,6 @@ pub struct IkDebugEntry {
 /// weapon without a support grip leaves the left arm on its animated pose.
 pub fn solve_player_arms(
     catalog: Res<AnimCatalog>,
-    weapons: Res<WeaponCatalog>,
     rigs: Query<&PlayerRig>,
     mounts: Query<&WeaponMount>,
     anchors: Query<(&PlayerWeaponAnchor, &WeaponPoseState)>,
@@ -85,13 +84,16 @@ pub fn solve_player_arms(
             continue;
         };
 
-        let profile = weapons.weapon(&mount.profile);
+        let weapon = inventories
+            .get(mount.survivor)
+            .ok()
+            .and_then(|inventory| inventory.active().map(|slot| &slot.weapon));
         let progress = inventories
             .get(mount.survivor)
             .ok()
             .and_then(WeaponInventory::reload_progress);
-        let hand_return = profile
-            .map(|profile| profile.reload.hand_return)
+        let hand_return = weapon
+            .map(|weapon| weapon.presentation.reload.hand_return)
             .unwrap_or(0.7);
 
         let (targets, grip) = {
@@ -104,7 +106,7 @@ pub fn solve_player_arms(
             let weapon_frame = anchor_world.mul_transform(state.frame);
 
             let sockets = socket_frames(mount, &weapon_frame, &read, &parents, rig.root);
-            let resolved = resolve_grip(profile.and_then(|profile| profile.grip.as_ref()), &sockets);
+            let resolved = resolve_grip(weapon.and_then(|weapon| weapon.presentation.grip.as_ref()), &sockets);
 
             let magazine = mount.sockets.magazine.and_then(|entity| {
                 compose_world(entity, rig.root, &read, &parents).map(|frame| frame.translation)

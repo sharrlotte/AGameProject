@@ -8,7 +8,7 @@ use crate::message::messages::{
 use crate::message::resources::UpgradeModifiers;
 use crate::world::{ActionIntent, AimDirection, PlayerConfig, Stamina, Survivor};
 
-use crate::config::WeaponsConfig;
+use crate::config::WeaponRoster;
 use crate::combat::projectile::system::spawn_projectile;
 use crate::combat::reload::system::start_reload;
 use crate::combat::stance::state::CombatStance;
@@ -17,35 +17,35 @@ use super::state::{WeaponInventory, WeaponSlotState};
 
 pub fn attach_weapon_inventory(
     mut commands: Commands,
-    cfg: Res<WeaponsConfig>,
+    roster: Res<WeaponRoster>,
     new_survivors: Query<Entity, (With<Survivor>, Without<WeaponInventory>)>,
 ) {
     for entity in &new_survivors {
         commands
             .entity(entity)
-            .insert((WeaponInventory::from_config(&cfg), CombatStance::default()));
+            .insert((WeaponInventory::from_config(&roster), CombatStance::default()));
     }
 }
 
 pub fn sync_weapons_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
-    cfg: Res<WeaponsConfig>,
+    roster: Res<WeaponRoster>,
     mut inventories: Query<&mut WeaponInventory>,
 ) {
-    if reloaded.read().next().is_none() || !cfg.is_changed() || cfg.weapons.is_empty() {
+    if reloaded.read().next().is_none() || !roster.is_changed() || roster.weapons.is_empty() {
         return;
     }
 
     for mut inv in &mut inventories {
-        for (idx, spec) in cfg.weapons.iter().enumerate() {
+        for (idx, weapon) in roster.weapons.iter().enumerate() {
             if let Some(slot) = inv.slots.get_mut(idx) {
-                slot.spec = spec.clone();
-                slot.ammo = slot.ammo.min(spec.mag_size);
+                slot.weapon = weapon.clone();
+                slot.ammo = slot.ammo.min(weapon.stats.mag_size);
             } else {
-                inv.slots.push(WeaponSlotState::new(spec.clone()));
+                inv.slots.push(WeaponSlotState::new(weapon.clone()));
             }
         }
-        inv.slots.truncate(cfg.weapons.len());
+        inv.slots.truncate(roster.weapons.len());
         if inv.active_slot >= inv.slots.len() {
             inv.active_slot = 0;
         }
@@ -55,7 +55,6 @@ pub fn sync_weapons_hot_reload(
 /// Ticks weapon cooldowns and handles slot-swap requests (cancelling active reloads).
 pub fn handle_weapon_swap(
     time: Res<Time>,
-    weapons_cfg: Res<WeaponsConfig>,
     mut cancelled_writer: MessageWriter<ReloadCancelledMessage>,
     mut swapped_writer: MessageWriter<WeaponSwappedMessage>,
     mut shooters: Query<(Entity, &mut ActionIntent, &mut WeaponInventory), With<Survivor>>,
@@ -84,7 +83,12 @@ pub fn handle_weapon_swap(
             inventory.active_slot = target_slot;
             inventory.reload_timer = None;
             inventory.reload_total = 0.0;
-            inventory.cooldown_timer = inventory.cooldown_timer.min(weapons_cfg.swap_cooldown_cap);
+            let swap_cooldown_cap = inventory
+                .slots
+                .get(target_slot)
+                .map(|slot| slot.weapon.swap_cooldown_cap)
+                .unwrap_or(0.0);
+            inventory.cooldown_timer = inventory.cooldown_timer.min(swap_cooldown_cap);
             swapped_writer.write(WeaponSwappedMessage {
                 entity,
                 from,
@@ -105,7 +109,6 @@ pub fn handle_weapon_swap(
 pub fn handle_weapon_fire(
     mut commands: Commands,
     scene: Option<Res<State<GameScene>>>,
-    weapons_cfg: Res<WeaponsConfig>,
     player_cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
     mut fired_writer: MessageWriter<WeaponFiredMessage>,
@@ -132,12 +135,14 @@ pub fn handle_weapon_fire(
             continue;
         }
 
-        let Some(active_spec) = inventory.active().map(|s| s.spec.clone()) else {
+        let Some(active) = inventory.active().cloned() else {
             continue;
         };
-        let active_ammo = inventory.active().map(|s| s.ammo).unwrap_or(0);
+        let weapon = &active.weapon;
+        let stats = &weapon.stats;
+        let active_ammo = active.ammo;
 
-        let triggered = if active_spec.full_auto {
+        let triggered = if stats.full_auto {
             intent.fire_held
         } else {
             fire_just_pressed
@@ -149,7 +154,7 @@ pub fn handle_weapon_fire(
         if active_ammo == 0 {
             start_reload(
                 &mut inventory,
-                active_spec.reload_secs,
+                stats.reload_secs,
                 reload_speed,
                 entity,
                 &mut started_writer,
@@ -157,10 +162,10 @@ pub fn handle_weapon_fire(
             continue;
         }
 
-        if let Some(active) = inventory.active_mut() {
-            active.ammo -= 1;
+        if let Some(active_mut) = inventory.active_mut() {
+            active_mut.ammo -= 1;
         }
-        inventory.cooldown_timer = active_spec.fire_interval;
+        inventory.cooldown_timer = stats.fire_interval;
 
         let forward = if aim_dir.0.length_squared() > 1e-4 {
             aim_dir.0.normalize()
@@ -171,17 +176,17 @@ pub fn handle_weapon_fire(
             transform.translation.x,
             player_cfg.aim_height,
             transform.translation.z,
-        ) + forward * weapons_cfg.muzzle_offset;
+        ) + forward * weapon.muzzle_offset;
 
         let spread_mult = if stamina.is_sprinting {
-            weapons_cfg.sprint_spread_multiplier
+            weapon.sprint_spread_multiplier
         } else {
             1.0
         };
-        let half_spread_rad = (active_spec.spread_deg * spread_mult).to_radians() * 0.5;
-        let scaled_damage = active_spec.damage * upgrades.damage_multiplier;
+        let half_spread_rad = (stats.spread_deg * spread_mult).to_radians() * 0.5;
+        let scaled_damage = stats.damage * upgrades.damage_multiplier;
 
-        for _ in 0..active_spec.pellets {
+        for _ in 0..stats.pellets {
             let angle = if half_spread_rad > 0.0 {
                 rand::random_range(-half_spread_rad..=half_spread_rad)
             } else {
@@ -194,7 +199,7 @@ pub fn handle_weapon_fire(
                 muzzle_pos,
                 dir,
                 scaled_damage,
-                &active_spec,
+                weapon,
             );
             if let Some(scene) = scene.as_deref() {
                 commands

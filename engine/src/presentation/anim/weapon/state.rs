@@ -2,8 +2,8 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
+use crate::config::{WeaponDefinition, WeaponPresentationPose, WeaponPresentationReload};
 use crate::presentation::anim::blend::approach;
-use crate::presentation::anim::weapon::catalog::{ReloadConfig, WeaponPose, WeaponProfile};
 
 /// Socket entities resolved once from the mounted weapon glTF.
 #[derive(Debug, Clone, Copy)]
@@ -68,9 +68,9 @@ pub fn euler_deg(rotation_deg: [f32; 3]) -> Quat {
 }
 
 /// Blends the relaxed and aiming weapon offsets.
-pub fn weapon_pose(profile: &WeaponProfile, aim: f32) -> Transform {
+pub fn weapon_pose(weapon: &WeaponDefinition, aim: f32) -> Transform {
     let t = aim.clamp(0.0, 1.0);
-    TransformPose::blend(&profile.relaxed, &profile.aim, t).into_transform()
+    TransformPose::blend(&weapon.presentation.relaxed, &weapon.presentation.aim, t).into_transform()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -80,7 +80,7 @@ struct TransformPose {
 }
 
 impl TransformPose {
-    fn blend(relaxed: &WeaponPose, aim: &WeaponPose, t: f32) -> Self {
+    fn blend(relaxed: &WeaponPresentationPose, aim: &WeaponPresentationPose, t: f32) -> Self {
         let translation = Vec3::from_array(relaxed.offset).lerp(Vec3::from_array(aim.offset), t);
         let rotation = euler_deg(relaxed.rotation_deg)
             .slerp(euler_deg(aim.rotation_deg), t)
@@ -97,7 +97,7 @@ impl TransformPose {
 }
 
 /// Reload tilt and drops peak at the middle of the reload and vanish at both ends.
-pub fn reload_offset(progress: Option<f32>, cfg: &ReloadConfig) -> ReloadOffset {
+pub fn reload_offset(progress: Option<f32>, cfg: &WeaponPresentationReload) -> ReloadOffset {
     let Some(progress) = progress.map(|value| value.clamp(0.0, 1.0)) else {
         return ReloadOffset::default();
     };
@@ -118,42 +118,42 @@ pub fn swap_curve(elapsed: f32, duration: f32) -> f32 {
     (PI * t).sin().max(0.0)
 }
 
-/// Adds one shot impulse, clamped to the profile's recoil limits.
-pub fn add_kick(state: &mut WeaponPoseState, profile: &WeaponProfile) {
-    let pitch = profile.recoil.pitch_deg.to_radians();
-    let max_pitch = profile.recoil.max_deg.to_radians();
+/// Adds one shot impulse, clamped to the weapon's recoil limits.
+pub fn add_kick(state: &mut WeaponPoseState, weapon: &WeaponDefinition) {
+    let recoil = &weapon.presentation.recoil;
+    let pitch = recoil.pitch_deg.to_radians();
+    let max_pitch = recoil.max_deg.to_radians();
     state.kick_pitch = (state.kick_pitch + pitch).min(max_pitch);
-    state.kick_back = (state.kick_back + profile.recoil.back).min(profile.recoil.max_back);
+    state.kick_back = (state.kick_back + recoil.back).min(recoil.max_back);
 }
 
-/// Critically approaches zero using the profile's recovery time.
-pub fn decay_kick(state: &mut WeaponPoseState, dt: f32, profile: &WeaponProfile) {
-    let recover = profile.recoil.recover_secs;
+/// Critically approaches zero using the weapon's recovery time.
+pub fn decay_kick(state: &mut WeaponPoseState, dt: f32, weapon: &WeaponDefinition) {
+    let recover = weapon.presentation.recoil.recover_secs;
     state.kick_pitch = approach(state.kick_pitch, 0.0, dt, recover);
     state.kick_back = approach(state.kick_back, 0.0, dt, recover);
 }
 
 /// Composes the final weapon transform relative to its anchor.
 pub fn compose_weapon(
-    profile: &WeaponProfile,
+    weapon: &WeaponDefinition,
     state: &WeaponPoseState,
     reload: ReloadOffset,
     swap: f32,
 ) -> Transform {
-    let mut pose = weapon_pose(profile, state.aim);
-    let sway = sway_offset(profile, state);
+    let mut pose = weapon_pose(weapon, state.aim);
+    let sway = sway_offset(weapon, state);
     pose.translation += sway.translation;
     pose.rotation = (sway.rotation * pose.rotation).normalize();
-    pose.translation.y -= reload.drop + profile.swap.drop * swap;
+    pose.translation.y -= reload.drop + weapon.presentation.swap.drop * swap;
     pose.translation.z += state.kick_back;
-    pose.rotation =
-        (Quat::from_rotation_x(state.kick_pitch - reload.tilt) * pose.rotation).normalize();
+    pose.rotation = (Quat::from_rotation_x(state.kick_pitch - reload.tilt) * pose.rotation).normalize();
     pose
 }
 
 /// Low-frequency bob around the composed pose, damped while aiming.
-pub fn sway_offset(profile: &WeaponProfile, state: &WeaponPoseState) -> Transform {
-    let cfg = &profile.sway;
+pub fn sway_offset(weapon: &WeaponDefinition, state: &WeaponPoseState) -> Transform {
+    let cfg = &weapon.presentation.sway;
     let weight = 1.0 - 0.6 * state.aim.clamp(0.0, 1.0);
     let phase = state.sway;
     let translation = Vec3::new(
@@ -169,27 +169,75 @@ pub fn sway_offset(profile: &WeaponProfile, state: &WeaponPoseState) -> Transfor
 mod tests {
     use super::*;
 
-    fn profile() -> WeaponProfile {
-        WeaponProfile::default()
+    fn weapon() -> WeaponDefinition {
+        WeaponDefinition {
+            id: "m16".to_string(),
+            name: "M16".to_string(),
+            muzzle_offset: 0.6,
+            sprint_spread_multiplier: 1.65,
+            swap_cooldown_cap: 0.12,
+            stance_hold_secs: 0.15,
+            stats: crate::config::WeaponStats::default(),
+            presentation: crate::config::WeaponPresentation {
+                relaxed: crate::config::WeaponPresentationPose {
+                    offset: [0.16, -0.19, -0.51],
+                    rotation_deg: [-32.0, 90.0, 0.0],
+                },
+                aim: crate::config::WeaponPresentationPose {
+                    offset: [0.14, -0.03, -0.5],
+                    rotation_deg: [0.0, 0.0, 0.0],
+                },
+                recoil: crate::config::WeaponPresentationRecoil {
+                    pitch_deg: 4.0,
+                    back: 0.04,
+                    recover_secs: 0.12,
+                    max_deg: 12.0,
+                    max_back: 0.12,
+                },
+                reload: crate::config::WeaponPresentationReload {
+                    tilt_deg: 22.0,
+                    drop: 0.08,
+                    mag_drop: 0.12,
+                    hand_return: 0.7,
+                },
+                sway: crate::config::WeaponPresentationSway {
+                    amplitude: 0.012,
+                    roll_deg: 1.5,
+                    frequency: 1.4,
+                },
+                swap: crate::config::WeaponPresentationSwap {
+                    lower_secs: 0.12,
+                    raise_secs: 0.18,
+                    drop: 0.2,
+                },
+                model: "models/weapons/m16.glb".to_string(),
+                model_space: crate::config::ModelSpace::ForwardNegYUpZ,
+                model_rotation_deg: [0.0; 3],
+                model_scale: 1.4,
+                sockets: crate::config::WeaponSockets::default(),
+                socket_overrides: Vec::new(),
+                grip: None,
+            },
+        }
     }
 
     #[test]
     fn weapon_pose_blends_relaxed_and_aim_offsets() {
-        let profile = profile();
-        let relaxed = weapon_pose(&profile, 0.0);
-        let aim = weapon_pose(&profile, 1.0);
-        let halfway = weapon_pose(&profile, 0.5);
+        let weapon = weapon();
+        let relaxed = weapon_pose(&weapon, 0.0);
+        let aim = weapon_pose(&weapon, 1.0);
+        let halfway = weapon_pose(&weapon, 0.5);
 
-        assert!((relaxed.translation - Vec3::from_array(profile.relaxed.offset)).length() < 1e-4);
-        assert!((aim.translation - Vec3::from_array(profile.aim.offset)).length() < 1e-4);
-        assert!(
-            (halfway.translation - relaxed.translation.lerp(aim.translation, 0.5)).length() < 1e-4
-        );
+        assert!((relaxed.translation - Vec3::from_array(weapon.presentation.relaxed.offset)).length() < 1e-4);
+        assert!((aim.translation - Vec3::from_array(weapon.presentation.aim.offset)).length() < 1e-4);
+        let expected = relaxed.translation + (aim.translation - relaxed.translation) * 0.5;
+        assert!((halfway.translation - expected).length() < 1e-4);
     }
 
     #[test]
     fn reload_offset_peaks_midway_and_clears_at_ends() {
-        let cfg = profile().reload;
+        let weapon = weapon();
+        let cfg = weapon.presentation.reload;
         assert_eq!(reload_offset(None, &cfg), ReloadOffset::default());
         assert!(reload_offset(Some(0.0), &cfg).tilt.abs() < 1e-4);
         assert!(reload_offset(Some(1.0), &cfg).tilt.abs() < 1e-4);
@@ -210,16 +258,16 @@ mod tests {
 
     #[test]
     fn kick_clamps_and_decays() {
-        let profile = profile();
+        let weapon = weapon();
         let mut state = WeaponPoseState::default();
         for _ in 0..20 {
-            add_kick(&mut state, &profile);
+            add_kick(&mut state, &weapon);
         }
-        assert!((state.kick_pitch - profile.recoil.max_deg.to_radians()).abs() < 1e-4);
-        assert!((state.kick_back - profile.recoil.max_back).abs() < 1e-4);
+        assert!((state.kick_pitch - weapon.presentation.recoil.max_deg.to_radians()).abs() < 1e-4);
+        assert!((state.kick_back - weapon.presentation.recoil.max_back).abs() < 1e-4);
 
         for _ in 0..120 {
-            decay_kick(&mut state, 1.0 / 60.0, &profile);
+            decay_kick(&mut state, 1.0 / 60.0, &weapon);
         }
         assert!(state.kick_pitch < 0.01);
         assert!(state.kick_back < 0.01);
@@ -227,40 +275,33 @@ mod tests {
 
     #[test]
     fn compose_weapon_applies_reload_and_swap_drop() {
-        let profile = profile();
+        let weapon = weapon();
         let mut state = WeaponPoseState::default();
-        let base = compose_weapon(&profile, &state, ReloadOffset::default(), 0.0);
-        let reload = reload_offset(Some(0.5), &profile.reload);
-        let dropped = compose_weapon(&profile, &state, reload, 1.0);
-        let expected = reload.drop + profile.swap.drop;
+        let base = compose_weapon(&weapon, &state, ReloadOffset::default(), 0.0);
+        let reload = reload_offset(Some(0.5), &weapon.presentation.reload);
+        let dropped = compose_weapon(&weapon, &state, reload, 1.0);
+        let expected = reload.drop + weapon.presentation.swap.drop;
         assert!((base.translation.y - dropped.translation.y - expected).abs() < 1e-3);
 
         state.kick_back = 0.05;
-        let kicked = compose_weapon(&profile, &state, ReloadOffset::default(), 0.0);
+        let kicked = compose_weapon(&weapon, &state, ReloadOffset::default(), 0.0);
         assert!((kicked.translation.z - base.translation.z - 0.05).abs() < 1e-4);
     }
 
     #[test]
     fn sway_is_bounded_and_damped_while_aiming() {
-        let profile = profile();
+        let weapon = weapon();
         let mut state = WeaponPoseState::default();
-        let rest = sway_offset(&profile, &state);
+        let rest = sway_offset(&weapon, &state);
         assert!(rest.translation.length() < 1e-5);
 
         state.sway = std::f32::consts::FRAC_PI_2;
-        let relaxed = sway_offset(&profile, &state);
-        assert!((relaxed.translation.x - profile.sway.amplitude).abs() < 1e-5);
+        let relaxed = sway_offset(&weapon, &state);
+        assert!((relaxed.translation.x - weapon.presentation.sway.amplitude).abs() < 1e-5);
 
         state.aim = 1.0;
-        let aiming = sway_offset(&profile, &state);
+        let aiming = sway_offset(&weapon, &state);
         assert!(aiming.translation.x.abs() < relaxed.translation.x.abs());
-        assert!(aiming.translation.length() <= profile.sway.amplitude);
+        assert!(aiming.translation.length() <= weapon.presentation.sway.amplitude);
     }
 }
-
-
-
-
-
-
-

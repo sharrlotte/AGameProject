@@ -1,17 +1,17 @@
 use bevy::prelude::*;
 
-use crate::config::{WeaponSpecData, WeaponsConfig};
+use crate::config::{WeaponDefinition, WeaponRoster};
 
 #[derive(Debug, Clone)]
 pub struct WeaponSlotState {
-    pub spec: WeaponSpecData,
+    pub weapon: WeaponDefinition,
     pub ammo: u32,
 }
 
 impl WeaponSlotState {
-    pub fn new(spec: WeaponSpecData) -> Self {
-        let ammo = spec.mag_size;
-        Self { spec, ammo }
+    pub fn new(weapon: WeaponDefinition) -> Self {
+        let ammo = weapon.stats.mag_size;
+        Self { weapon, ammo }
     }
 }
 
@@ -26,12 +26,11 @@ pub struct WeaponInventory {
 }
 
 impl WeaponInventory {
-    pub fn from_config(cfg: &WeaponsConfig) -> Self {
-        let slots = cfg
+    pub fn from_config(roster: &WeaponRoster) -> Self {
+        let slots = roster
             .weapons
             .iter()
-            .cloned()
-            .map(WeaponSlotState::new)
+            .map(|weapon| WeaponSlotState::new(weapon.clone()))
             .collect();
         Self {
             slots,
@@ -59,4 +58,3 @@ impl WeaponInventory {
         Some((1.0 - remaining / self.reload_total).clamp(0.0, 1.0))
     }
 }
-

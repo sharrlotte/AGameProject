@@ -25,7 +25,7 @@ pub use director::drive_player_animation;
 pub use facing::{PlayerFacing, sync_player_facing};
 pub use grip::{FingerCurl, GripHand, WeaponGripConfig};
 pub use rig::PlayerRig;
-pub use weapon::WeaponCatalog;
+pub use weapon::{init_weapon_anchors, pose_player_weapon, resolve_weapon_sockets, socket_frames, sync_weapon_mounts, update_weapon_kick, update_weapon_swap};
 
 /// Marker on the visual root entity spawned as a direct child of `Survivor`.
 #[derive(Component)]
@@ -87,7 +87,6 @@ impl Plugin for PlayerAnimPlugin {
         configure_anim_sets(app);
         app.register_ron_config::<AnimCatalog>()
             .register_ron_config::<VisualsConfig>()
-            .register_ron_config::<weapon::WeaponCatalog>()
             .init_resource::<PlayerAnimAssets>()
             .add_systems(OnExit(GameState::Loading), bind::start_loading_player_model)
             .add_systems(

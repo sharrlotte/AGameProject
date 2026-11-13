@@ -7,7 +7,6 @@ use crate::world::{Health, Survivor};
 use crate::presentation::anim::blend::approach;
 use crate::presentation::anim::catalog::AnimCatalog;
 
-use super::catalog::WeaponCatalog;
 use super::state::{
     PlayerWeaponAnchor, WeaponMount, WeaponPoseState, add_kick, compose_weapon, decay_kick,
     reload_offset, swap_curve,
@@ -35,7 +34,7 @@ impl Default for PoseWrite {
 /// Adds a clamped recoil impulse when the player fires.
 pub fn update_weapon_kick(
     mut fired: MessageReader<WeaponFiredMessage>,
-    catalog: Res<WeaponCatalog>,
+    weapons: Query<&WeaponInventory>,
     mut mounts: Query<(&WeaponMount, &mut WeaponPoseState)>,
 ) {
     for message in fired.read() {
@@ -45,17 +44,19 @@ pub fn update_weapon_kick(
         else {
             continue;
         };
-        let Some(profile) = catalog.weapon(&mount.profile) else {
+        let Ok(inventory) = weapons.get(mount.survivor) else {
             continue;
         };
-        add_kick(&mut state, profile);
+        let Some(slot) = inventory.slots.get(inventory.active_slot) else {
+            continue;
+        };
+        add_kick(&mut state, &slot.weapon);
     }
 }
 
 /// Starts the lower/raise timeline when the player swaps weapons.
 pub fn update_weapon_swap(
     mut swapped: MessageReader<WeaponSwappedMessage>,
-    catalog: Res<WeaponCatalog>,
     inventories: Query<&WeaponInventory>,
     mut anchors: Query<(&PlayerWeaponAnchor, &mut WeaponPoseState)>,
 ) {
@@ -66,10 +67,8 @@ pub fn update_weapon_swap(
         let Some(slot) = inventory.slots.get(message.to) else {
             continue;
         };
-        let Some(profile) = catalog.weapon(&slot.spec.id) else {
-            continue;
-        };
-        let duration = profile.swap.total_secs();
+        let duration = slot.weapon.presentation.swap.lower_secs
+            + slot.weapon.presentation.swap.raise_secs;
         let Some((_, mut state)) = anchors
             .iter_mut()
             .find(|(anchor, _)| anchor.survivor == message.entity)
@@ -85,7 +84,6 @@ pub fn update_weapon_swap(
 #[allow(clippy::type_complexity)]
 pub fn pose_player_weapon(
     time: Res<Time>,
-    catalog: Res<WeaponCatalog>,
     anim: Res<AnimCatalog>,
     survivors: Query<(&Health, &CombatStance, &WeaponInventory), With<Survivor>>,
     mut param: ParamSet<(
@@ -105,9 +103,11 @@ pub fn pose_player_weapon(
             if health.current <= 0.0 {
                 continue;
             }
-            let Some(profile) = catalog.weapon(&mount.profile) else {
-                continue;
-            };
+            let weapon = inventory
+                .slots
+                .get(inventory.active_slot)
+                .map(|slot| &slot.weapon)
+                .unwrap_or_else(|| &inventory.slots[0].weapon);
 
             state.aim = approach(
                 state.aim,
@@ -115,15 +115,15 @@ pub fn pose_player_weapon(
                 dt,
                 anim.aim.blend_secs,
             );
-            decay_kick(&mut state, dt, profile);
-            state.sway = (state.sway + dt * profile.sway.frequency * std::f32::consts::TAU)
+            decay_kick(&mut state, dt, weapon);
+            state.sway = (state.sway + dt * weapon.presentation.sway.frequency * std::f32::consts::TAU)
                 .rem_euclid(std::f32::consts::TAU);
             state.swap_elapsed = (state.swap_elapsed + dt).min(state.swap_duration);
 
-            let reload = reload_offset(inventory.reload_progress(), &profile.reload);
+            let reload = reload_offset(inventory.reload_progress(), &weapon.presentation.reload);
             let swap = swap_curve(state.swap_elapsed, state.swap_duration);
-            let weapon = compose_weapon(profile, &state, reload, swap);
-            state.frame = weapon;
+            let composed = compose_weapon(weapon, &state, reload, swap);
+            state.frame = composed;
 
             let magazine = mount.sockets.magazine.map(|entity| {
                 let mut rest = mount.magazine_rest;
@@ -136,7 +136,7 @@ pub fn pose_player_weapon(
                 writes[count] = PoseWrite {
                     scene: mount.scene,
                     magazine,
-                    weapon: weapon.mul_transform(profile.model_transform()),
+                    weapon: composed.mul_transform(weapon.model_transform()),
                 };
                 count += 1;
             }
@@ -155,10 +155,3 @@ pub fn pose_player_weapon(
         }
     }
 }
-
-
-
-
-
-
-

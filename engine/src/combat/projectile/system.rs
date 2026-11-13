@@ -3,7 +3,7 @@ use bevy_rapier3d::prelude::*;
 use crate::common::{EnemyTag, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, ObstacleTag, RunEntity};
 use crate::message::messages::DamageMessage;
 
-use crate::config::WeaponSpecData;
+use crate::config::WeaponDefinition;
 
 use super::state::Projectile;
 
@@ -14,7 +14,7 @@ pub fn spawn_projectile(
     muzzle_pos: Vec3,
     dir: Vec3,
     damage: f32,
-    spec: &WeaponSpecData,
+    weapon: &WeaponDefinition,
 ) -> Entity {
     commands
         .spawn((
@@ -23,10 +23,10 @@ pub fn spawn_projectile(
             Projectile {
                 owner,
                 damage,
-                knockback: spec.knockback,
+                knockback: weapon.stats.knockback,
                 direction: dir,
-                radius: spec.projectile_radius,
-                lifetime: spec.projectile_lifetime,
+                radius: weapon.stats.projectile_radius,
+                lifetime: weapon.stats.projectile_lifetime,
                 hit: false,
             },
             RigidBody::Dynamic,
@@ -34,8 +34,8 @@ pub fn spawn_projectile(
             Ccd::enabled(),
             Sensor,
             ActiveEvents::COLLISION_EVENTS,
-            Collider::ball(spec.projectile_radius),
-            Velocity::linear(dir * spec.projectile_speed),
+            Collider::ball(weapon.stats.projectile_radius),
+            Velocity::linear(dir * weapon.stats.projectile_speed),
             TransformInterpolation::default(),
             LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
             CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),

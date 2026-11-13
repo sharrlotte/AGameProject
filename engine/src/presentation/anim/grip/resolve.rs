@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::config::{FingerCurl, GripHand, WeaponGripConfig};
+use crate::config::{FingerCurl, GripHand, WeaponGripConfig};
 
 /// Socket frames of a mounted weapon, in the weapon's own space.
 #[derive(Debug, Clone, Copy, Default)]
