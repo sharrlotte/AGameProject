@@ -44,7 +44,8 @@
 
 # Available tools
 
-- Blender MCP
+- Blender MCP: Read model data, generate model, convert model, etc
+- Bevy MCP: Read realtime data, modify, take screenshot
 - Python 3
-- cargo dev to run the game in dev env for testing
+- cargo dev: Run the game in dev env for testing
 - Additional scripts inside /tools
