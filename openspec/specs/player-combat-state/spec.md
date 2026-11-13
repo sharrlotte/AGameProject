@@ -127,21 +127,21 @@ Player death SHALL cancel an active reload and emit `ReloadCancelled` with the d
 - **WHEN** the player's health reaches zero during a reload
 - **THEN** the reload timer is cleared and `ReloadCancelled { reason: Died }` is emitted once
 
-### Requirement: Reload progress is exposed to presentation
+### Requirement: Presentation consumes reload through events and presentation-scoped state
 
-The simulation SHALL expose reload state through `WeaponInventory.reload_timer` and
-`WeaponInventory.reload_total` so presentation can compute normalized progress
-`1 - reload_timer / reload_total` without duplicating the reload clock.
+The simulation SHALL emit typed reload lifecycle messages (`ReloadStarted`, `ReloadFinished`,
+`ReloadCancelled`) and SHALL NOT require presentation to read reload timers. Presentation SHALL
+track reload progress through a presentation-scoped weapon runtime fed by those events.
 
 #### Scenario: Presentation reads exact progress
 
 - **WHEN** presentation computes reload progress for the animation layer
-- **THEN** the value matches the simulation timer for the same frame and never exceeds the `0..=1` range
+- **THEN** the value matches the reload lifecycle reported by the simulation for the same weapon and never exceeds the `0..=1` range
 
 #### Scenario: Reload duration reflects upgrades
 
 - **WHEN** a reload-speed upgrade changes the computed reload duration
-- **THEN** `reload_total` reflects the upgraded duration and progress remains normalized
+- **THEN** the reload lifecycle message carries the upgraded duration and the computed progress remains normalized
 
 ### Requirement: Combat state resets between runs
 

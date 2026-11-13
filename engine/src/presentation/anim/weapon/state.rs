@@ -5,6 +5,48 @@ use bevy::prelude::*;
 use crate::config::{WeaponDefinition, WeaponPresentationPose, WeaponPresentationReload};
 use crate::presentation::anim::blend::approach;
 
+/// Presentation-scoped equipped weapon runtime, fed by combat events.
+///
+/// Holds the equipped weapon definition, magazine state, and reload clock so
+/// the pose, IK, and HUD layers never read simulation inventory components.
+#[derive(Component, Debug, Clone)]
+pub struct PlayerWeaponRuntime {
+    pub weapon: WeaponDefinition,
+    pub ammo: u32,
+    pub slot: usize,
+    pub reload: PlayerReloadState,
+}
+
+/// Presentation-scoped reload clock fed by reload lifecycle events.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PlayerReloadState {
+    pub remaining: Option<f32>,
+    pub total: f32,
+}
+
+impl PlayerReloadState {
+    /// Starts a reload with the computed duration.
+    pub fn start(&mut self, duration: f32) {
+        self.remaining = Some(duration);
+        self.total = duration;
+    }
+
+    /// Clears the reload clock without refilling the magazine.
+    pub fn cancel(&mut self) {
+        self.remaining = None;
+        self.total = 0.0;
+    }
+
+    /// Normalized reload progress in `0..=1`, or `None` when no reload is active.
+    pub fn progress(&self) -> Option<f32> {
+        let remaining = self.remaining?;
+        if self.total <= 0.0 {
+            return Some(0.0);
+        }
+        Some((1.0 - remaining / self.total).clamp(0.0, 1.0))
+    }
+}
+
 /// Socket entities resolved once from the mounted weapon glTF.
 #[derive(Debug, Clone, Copy)]
 pub struct ResolvedSockets {

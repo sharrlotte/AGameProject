@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "skills": {
+    "openspec-sync-specs": {
+      "source": "PBH-BTN/PeerBanHelper",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/openspec-sync-specs/SKILL.md",
+      "computedHash": "d3cd9c8ecd269e574ce50279285cc16a4bff271c2147759785c92cb926da4092"
+    }
+  }
+}

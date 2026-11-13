@@ -30,7 +30,8 @@
 - Do not write comment that explain what the code already does or changes, note from old code version
 - Single source of struth is required
 - Should should be modular, as small as possible in order for futher extension
-- Make sure all inputs are validated, constrained 
+- Make sure all inputs are validated, constrained
+- Always proceed with tasks until everything are done, only stop when there is a road block
 
 ## Bevy
 

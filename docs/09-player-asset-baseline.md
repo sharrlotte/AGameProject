@@ -89,7 +89,8 @@ Shoulder.R, UpperArm.R, LowerArm.R, Palm.R, MiddleHand.R, Fingers.R, Thumb1.R, T
 | `death` | `HumanArmature\|Man_Death` | override | present |
 
 Aim, reload, and fire have no clip roles: they are procedural layers driven by `CombatStance`,
-`WeaponInventory::reload_progress()`, and `WeaponFiredMessage`. Sprint uses an optional per-anchor
+the presentation-scoped weapon runtime reload state fed by reload lifecycle events, and
+`WeaponFiredMessage`. Sprint uses an optional per-anchor
 `sprint_role` (forward anchor → `sprint_fwd` → `Man_Run`) with a smooth gait crossfade; anchors
 without a sprint variant fall back to the forward anchor's higher playback multiplier. Missing anchor
 clips are dropped once at bind with a warning, and the graph/mask tests do not require the clips to
@@ -97,9 +98,10 @@ exist in the GLB.
 
 ## Sockets and Weapons
 
-Weapon presentation data lives in `game/assets/config/player/weapons.ron`, separate from the player
-model. Each profile points at a converted GLB under `models/weapons/`: `m16.glb`, `m1911.glb`,
-`mp5.glb`, `rifle.glb` (the `mp7` profile), and `scar.glb`. The M16-style assets are low-poly with
+Weapon presentation data lives in the unified roster `game/assets/config/weapon/weapon.ron`, with
+simulation stats alongside presentation, separate from the player model. Each weapon points at a
+converted GLB under `models/weapons/`: `m16.glb`, `m1911.glb`, `mp5.glb`, `mp7.glb`, and `scar.glb`. The
+M16-style assets are low-poly with
 simple black materials; the magazine is a separate node under the `Magazine` socket so reload
 `mag_drop` moves it.
 
@@ -118,9 +120,9 @@ the affected hand falls back as listed above.
 
 ### Model spaces
 
-Converted assets keep the orientation they were exported with. `WeaponProfile::model_space` selects the
-rotation that maps the model into weapon space, and `model_rotation_deg` adds an optional extra rotation
-on top:
+Converted assets keep the orientation they were exported with. `WeaponDefinition.presentation.model_space`
+selects the rotation that maps the model into weapon space, and `model_rotation_deg` adds an optional
+extra rotation on top:
 
 | `model_space` | Source axes | Mapping into weapon space |
 | :--- | :--- | :--- |
@@ -140,7 +142,8 @@ the corrected muzzle end.
 
 ### Grip configuration
 
-Grips live in `weapons.ron` under each profile's `grip` field and are authored in weapon space:
+Grips live in the unified `weapon.ron` roster under each weapon's `presentation.grip` field and are
+authored in weapon space:
 
 ```ron
 grip: Some((

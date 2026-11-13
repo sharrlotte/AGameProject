@@ -23,18 +23,18 @@ Weapons use converted GLB models (m16, m1911, mp5, mp7, scar) with approximate s
 anchor sits at chest height (`anchor.offset.y = 1.4`). A muzzle flash VFX spawns at the projectile
 origin on fire. Bullets spawn at `muzzle_offset = 0.6` (tuned to the visual muzzle).
 
-The simulation defines four weapons in `game/assets/config/combat/weapons.ron`: `assault_rifle`,
-`shotgun`, `sniper`, and `rpg`. Presentation profiles live in `game/assets/config/player/weapons.ron`
-and must share the same id. Weapons are switched via Digit1/Digit2/Digit3 or the mouse wheel.
-Until dedicated GLB models with sockets land, new profiles reuse `models/weapons/rifle.glb` as a
-placeholder; missing models degrade with a warning.
+The single source of truth is the unified `WeaponDefinition` in `engine::config`, authored in
+`game/assets/config/weapon/weapon.ron`. One roster of `m16`, `m1911`, `mp5`, `mp7`, and `scar` carries
+both simulation stats and presentation data (model, sockets, poses, recoil, reload, swap, grip).
+Weapons are switched via Digit1/Digit2/Digit3 or the mouse wheel; missing models degrade with a
+warning.
 
 ### 1.2 Player Animation Stack
 
 - **Aim-space locomotion:** The movement direction is projected onto the character's facing. A data-driven anchor list maps that angle to clips (`walk_fwd` 0°, `strafe_r` 90°, `walk_back` 180°, `strafe_l` -90° in `game/assets/config/player/animation.ron`). Each frame brackets the angle with the two nearest anchors and blends them, so diagonals already work with four cardinal clips and authored diagonals can be added without Rust changes.
 - **Shared phase:** All anchors replay on one normalized phase clock. The dominant anchor seeks to the shared phase when it changes, so feet keep their cadence through direction changes. Playback speed scales with movement speed, with a higher sprint multiplier.
 - **Layers:** Full-body base locomotion blend, an optional upper-body additive action layer (masked away from the lower body), and a death override. The always-aim yaw never overwrites locomotion.
-- **Procedural weapon handling:** One chest-height anchor under `PlayerVisualRoot` holds a per-weapon presentation profile from `game/assets/config/player/weapons.ron` (model, sockets, relaxed/aim offsets, sway, recoil, reload, swap). Loose and aim poses are blended procedurally; sway, recoil, reload tilt/drop, and swap lower/raise are timelines driven by combat state rather than baked clips.
+- **Procedural weapon handling:** One chest-height anchor under `PlayerVisualRoot` holds the equipped weapon from the unified roster `game/assets/config/weapon/weapon.ron` (model, sockets, relaxed/aim offsets, sway, recoil, reload, swap). Loose and aim poses are blended procedurally; sway, recoil, reload tilt/drop, and swap lower/raise are timelines driven by combat state rather than baked clips.
 - **Dual-hand IK:** After animation evaluation, the right hand solves to the weapon `Grip` socket and the left to `Foregrip`, moving to `Magazine` during reload. Reach is clamped, elbows use pole hints, hands align to sockets, and optional shoulder settle is weighted and clamped.
 - **Schedule:** In `PostUpdate`: drive → Bevy animation evaluation → weapon pose → arm IK → root yaw, all before transform propagation, only in `Playing`/`GameOver`.
 

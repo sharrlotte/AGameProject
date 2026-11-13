@@ -25,7 +25,10 @@ pub use director::drive_player_animation;
 pub use facing::{PlayerFacing, sync_player_facing};
 pub use grip::{FingerCurl, GripHand, WeaponGripConfig};
 pub use rig::PlayerRig;
-pub use weapon::{init_weapon_anchors, pose_player_weapon, resolve_weapon_sockets, socket_frames, sync_weapon_mounts, update_weapon_kick, update_weapon_swap};
+pub use weapon::{
+    init_weapon_anchors, pose_player_weapon, resolve_weapon_sockets, socket_frames, sync_weapon_mounts,
+    update_weapon_kick, update_weapon_reload, update_weapon_swap,
+};
 
 /// Marker on the visual root entity spawned as a direct child of `Survivor`.
 #[derive(Component)]
@@ -110,6 +113,7 @@ impl Plugin for PlayerAnimPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    weapon::update_weapon_reload,
                     weapon::update_weapon_kick,
                     weapon::update_weapon_swap,
                     weapon::pose_player_weapon,

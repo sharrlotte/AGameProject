@@ -1,12 +1,13 @@
 use bevy::gltf::Gltf;
 use bevy::prelude::*;
 use bevy::world_serialization::WorldAssetRoot;
-use crate::combat::WeaponInventory;
-
 use crate::presentation::anim::PlayerVisualRoot;
 
 use crate::config::WeaponRoster;
-use super::state::{PlayerWeaponAnchor, ResolvedSockets, WeaponMount, WeaponPoseState};
+use super::state::{
+    PlayerReloadState, PlayerWeaponAnchor, PlayerWeaponRuntime, ResolvedSockets, WeaponMount,
+    WeaponPoseState,
+};
 
 /// Tracks an in-flight weapon GLTF load so its handle stays alive until the asset
 /// is ready (Bevy unloads assets with no live handles).
@@ -31,6 +32,12 @@ pub fn init_weapon_anchors(
                 survivor: child_of.parent(),
             },
             anchor_transform(&roster),
+            PlayerWeaponRuntime {
+                weapon: roster.weapons.first().cloned().unwrap_or_default(),
+                ammo: roster.weapons.first().map_or(0, |weapon| weapon.stats.mag_size),
+                slot: 0,
+                reload: PlayerReloadState::default(),
+            },
             WeaponPoseState::default(),
             ChildOf(root),
             Visibility::default(),
@@ -53,7 +60,6 @@ pub fn sync_weapon_mounts(
     roster: Res<WeaponRoster>,
     asset_server: Res<AssetServer>,
     gltfs: Res<Assets<Gltf>>,
-    inventories: Query<&WeaponInventory>,
     mut anchors: Query<(
         Entity,
         &PlayerWeaponAnchor,
@@ -61,23 +67,27 @@ pub fn sync_weapon_mounts(
         Option<&WeaponMount>,
         Option<&PendingWeaponLoad>,
         &mut WeaponPoseState,
+        &mut PlayerWeaponRuntime,
     )>,
 ) {
     let reloaded = roster.is_changed();
 
-    for (anchor_entity, anchor, mut transform, mount, pending, mut pose) in &mut anchors {
-        let weapon = inventories
-            .get(anchor.survivor)
-            .ok()
-            .and_then(|inventory| {
-                inventory
-                    .slots
-                    .get(inventory.active_slot)
-                    .map(|slot| &slot.weapon)
-            });
-        let Some(weapon) = weapon else {
-            continue;
-        };
+    for (
+        anchor_entity,
+        anchor,
+        mut transform,
+        mount,
+        pending,
+        mut pose,
+        mut runtime,
+    ) in &mut anchors {
+        if reloaded
+            && let Some(mount) = mount
+            && let Some(weapon) = roster.weapon(&mount.profile)
+        {
+            runtime.weapon = weapon.clone();
+        }
+        let weapon = &runtime.weapon;
         let profile_id = weapon.id.clone();
 
         *transform = anchor_transform(&roster);

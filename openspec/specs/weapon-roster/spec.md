@@ -8,32 +8,32 @@ contract, and switching between slots.
 ## Requirements
 
 ### Requirement: Weapon roster defines multiple playable weapons
-The simulation SHALL define at least five weapons in `WeaponsConfig`: `m16`, `m1911`, `mp5`, `mp7`, and
-`scar`, each with distinct `WeaponSpecData` stats (fire rate, pellets, damage, spread, projectile
-speed/radius/lifetime, knockback, magazine size, reload time).
+The simulation SHALL define the playable weapon roster through a single unified `WeaponDefinition` owned
+by the config foundation, containing at least five weapons — `m16`, `m1911`, `mp5`, `mp7`, and `scar` — each
+with distinct stats.
 
 #### Scenario: Roster contains five weapons
 
-- **WHEN** the combat weapons config is loaded
-- **THEN** `weapons` contains `m16`, `m1911`, `mp5`, `mp7`, and `scar`
+- **WHEN** the unified weapon definition is loaded
+- **THEN** the definition contains `m16`, `m1911`, `mp5`, `mp7`, and `scar`
 
 #### Scenario: Stats differ by class
 
 - **WHEN** comparing the converted guns
 - **THEN** each has distinct fire rate, damage, and magazine size
 
-### Requirement: Presentation profile exists for each weapon
-For every weapon id in the sim roster, the presentation catalog SHALL contain a weapon profile with the
-same id, a model path, socket names, and pose/recoil/reload/swap settings.
+### Requirement: Unified weapon definition carries presentation with stats
+The unified `WeaponDefinition` SHALL provide presentation data — model path, sockets, poses, recoil, reload,
+swap, and grip — for each weapon alongside its stats.
 
 #### Scenario: Profiles match roster
 
-- **WHEN** the presentation weapons catalog is loaded
-- **THEN** `weapons` contains a profile for each sim weapon id
+- **WHEN** the unified weapon definition is loaded
+- **THEN** each weapon has presentation data with its stats
 
-#### Scenario: Missing profile degrades safely
+#### Scenario: Missing weapon degrades safely
 
-- **WHEN** a sim weapon id has no presentation profile
+- **WHEN** a weapon id has no presentation data
 - **THEN** the mount system logs a warning and skips mounting without crashing
 
 ### Requirement: Weapon switching via slots and scroll

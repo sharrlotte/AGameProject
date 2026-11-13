@@ -35,14 +35,20 @@ The loader SHALL run initial synchronization only while in `GameState::Loading` 
 - **THEN** the corresponding `ResMut<T>` is updated with the new asset value and `ConfigHotReloadedMessage` is emitted before `SimUpdateSet`
 
 ### Requirement: Feature-crate config ownership
-Each feature crate SHALL own and register its domain configuration structs rather than centralizing them in `data`:
+Each feature crate SHALL own and register its domain configuration structs rather than centralizing them in `data`. Weapon configuration SHALL be owned by the shared config foundation through a single unified `WeaponDefinition`; feature crates SHALL NOT register separate weapon roster catalogs.
+
 - `world` owns `ArenaConfig` (`ObstacleDef`) and `PlayerConfig`
-- `combat` owns `WeaponsConfig` (`WeaponSpecData`)
+- `config` owns the unified `WeaponDefinition` roster (`WeaponRoster`) registered by the combat feature crate
 - `enemies` owns `EnemiesConfig` (`EnemyArchetypeData`)
 - `extraction` owns `ExtractionConfig` and `UpgradesConfig` (along with `UpgradesConfig`-dependent upgrade calculation helpers)
 - `presentation` owns `VisualsConfig` (`PlayerModelConfig`)
 
 Shared upgrade state types (`UpgradeLevels`, `UpgradeModifiers`) SHALL remain in `data::state` without depending on `UpgradesConfig`.
+
+#### Scenario: Weapon config ownership moves to the config foundation
+
+- **WHEN** the weapon configuration is registered
+- **THEN** it is owned by the shared config foundation rather than the combat feature crate
 
 #### Scenario: Feature crates compile without circular dependencies
 - **WHEN** each feature crate defines and registers its own config structs and `data` defines only generic loader infrastructure and shared state/messages

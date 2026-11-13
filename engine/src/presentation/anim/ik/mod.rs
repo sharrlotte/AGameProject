@@ -18,9 +18,8 @@ use crate::presentation::anim::catalog::AnimCatalog;
 use crate::presentation::anim::grip::{FingerCurl, resolve_curl, resolve_grip};
 use crate::presentation::anim::rig::{ArmChain, PlayerRig, compose_world};
 use crate::presentation::anim::weapon::{
-    PlayerWeaponAnchor, WeaponMount, WeaponPoseState, socket_frames,
+    PlayerWeaponAnchor, PlayerWeaponRuntime, WeaponMount, WeaponPoseState, socket_frames,
 };
-use crate::combat::WeaponInventory;
 use crate::world::{Health, Survivor};
 
 pub use solve::{ArmPose, ArmTarget, ChainState, ChainWrites, Solution, settle_delta, solve_arm, solve_chain, solve_two_bone};
@@ -52,9 +51,8 @@ pub fn solve_player_arms(
     catalog: Res<AnimCatalog>,
     rigs: Query<&PlayerRig>,
     mounts: Query<&WeaponMount>,
-    anchors: Query<(&PlayerWeaponAnchor, &WeaponPoseState)>,
+    anchors: Query<(&PlayerWeaponAnchor, &WeaponPoseState, &PlayerWeaponRuntime)>,
     survivors: Query<&Health, With<Survivor>>,
-    inventories: Query<&WeaponInventory>,
     parents: Query<&ChildOf>,
     mut transforms: ParamSet<(Query<&Transform>, Query<&mut Transform>)>,
     #[cfg(feature = "dev-ik-gizmo")] mut debug: ResMut<IkDebug>,
@@ -79,22 +77,15 @@ pub fn solve_player_arms(
         if !rig.arms.right.is_complete() && !rig.arms.left.is_complete() {
             continue;
         }
-        let Some((anchor, state)) = anchors.iter().find(|(anchor, _)| anchor.survivor == mount.survivor)
+        let Some((anchor, state, runtime)) = anchors
+            .iter()
+            .find(|(anchor, _, _)| anchor.survivor == mount.survivor)
         else {
             continue;
         };
-
-        let weapon = inventories
-            .get(mount.survivor)
-            .ok()
-            .and_then(|inventory| inventory.active().map(|slot| &slot.weapon));
-        let progress = inventories
-            .get(mount.survivor)
-            .ok()
-            .and_then(WeaponInventory::reload_progress);
-        let hand_return = weapon
-            .map(|weapon| weapon.presentation.reload.hand_return)
-            .unwrap_or(0.7);
+        let weapon = &runtime.weapon;
+        let progress = runtime.reload.progress();
+        let hand_return = weapon.presentation.reload.hand_return;
 
         let (targets, grip) = {
             let read = transforms.p0();
@@ -106,7 +97,7 @@ pub fn solve_player_arms(
             let weapon_frame = anchor_world.mul_transform(state.frame);
 
             let sockets = socket_frames(mount, &weapon_frame, &read, &parents, rig.root);
-            let resolved = resolve_grip(weapon.and_then(|weapon| weapon.presentation.grip.as_ref()), &sockets);
+            let resolved = resolve_grip(weapon.presentation.grip.as_ref(), &sockets);
 
             let magazine = mount.sockets.magazine.and_then(|entity| {
                 compose_world(entity, rig.root, &read, &parents).map(|frame| frame.translation)
