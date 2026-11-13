@@ -1,18 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/common",
-    "crates/config",
-    "crates/message",
-    "crates/data",
-    "crates/sim/world",
-    "crates/sim/combat",
-    "crates/sim/enemies",
-    "crates/sim/extraction",
-    "crates/sim/automation",
-    "crates/sim/base",
-    "crates/persistence",
-    "crates/presentation",
+    "engine",
     "game",
 ]
 default-members = ["game"]
@@ -30,18 +19,7 @@ thiserror = "2"
 rand = "0.10"
 uuid = { version = "1", features = ["v7"] }
 
-common = { path = "crates/common" }
-config = { path = "crates/config" }
-message = { path = "crates/message" }
-data = { path = "crates/data" }
-world = { path = "crates/sim/world" }
-combat = { path = "crates/sim/combat" }
-enemies = { path = "crates/sim/enemies" }
-extraction = { path = "crates/sim/extraction" }
-automation = { path = "crates/sim/automation" }
-base = { path = "crates/sim/base" }
-persistence = { path = "crates/persistence" }
-presentation = { path = "crates/presentation" }
+engine = { path = "engine" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

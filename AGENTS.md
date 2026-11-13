@@ -28,6 +28,8 @@
 - Use short and concise for name and file name, prefer using 1 word, use folder to group files and prefer creating folder to group for
   future proof when more files is added
 - Do not write comment that explain what the code already does or changes, note from old code version
+- Single source of struth is required
+- Should should be modular, as small as possible in order for futher extension
 
 ## Bevy
 

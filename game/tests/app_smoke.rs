@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use common::GameState;
+use engine::common::GameState;
 
 #[test]
 fn app_initializes_with_all_plugins() {

@@ -36,7 +36,9 @@ game/core/src/
 └── vehicles/                # [Post-Core] Drivable vehicle physics & mounted interactions
 ```
 
-### Current Large-Scale Multi-Crate Architecture (`Milestones 1.0–2.0`)
+### Current Architecture (Two-Crate Layout, post collapse-to-two-crates)
+
+Workspace now has two crates: `engine` (all simulation + presentation + config + message + common) and `game` (binary, assets, tests). The previous multi-crate layout (`crates/*`) has been removed. All domain configs live in `engine::config`, cross-feature messages in `engine::message::messages`, run state in `engine::message::resources`.
 ```
 ├── Cargo.toml                 # Root workspace (default-members = ["game"])
 ├── crates/

@@ -8,10 +8,8 @@ default = ["dev"]
 dev = [
     "bevy/dynamic_linking",
     "dep:bevy-inspector-egui",
-    "data/dev",
-    "world/dev",
-    "presentation/dev",
-    "presentation/dev-ik-gizmo",
+    "engine/dev",
+    "engine/dev-ik-gizmo",
 ]
 
 [dependencies]
@@ -24,16 +22,4 @@ serde.workspace = true
 serde_json.workspace = true
 rand.workspace = true
 uuid.workspace = true
-
-common.workspace = true
-config.workspace = true
-message.workspace = true
-data.workspace = true
-world.workspace = true
-combat.workspace = true
-enemies.workspace = true
-extraction.workspace = true
-automation.workspace = true
-base.workspace = true
-persistence.workspace = true
-presentation.workspace = true
+engine.workspace = true

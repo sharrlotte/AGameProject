@@ -3,17 +3,19 @@ use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin}
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
-use combat::CombatPlugin;
-use data::CoreDataPlugin;
-use enemies::EnemiesPlugin;
-use extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
-use presentation::AllPresentationPlugins;
-use world::{ArenaPlugin, PlayerPlugin};
+use engine::combat::CombatPlugin;
+use engine::common::CoreDataPlugin;
+use engine::enemies::EnemiesPlugin;
+use engine::extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
+use engine::presentation::AllPresentationPlugins;
+use engine::world::{ArenaPlugin, PlayerPlugin};
 
 #[cfg(feature = "dev")]
 use bevy::input::common_conditions::input_toggle_active;
 #[cfg(feature = "dev")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+#[cfg(feature = "dev")]
+use engine::world::AnimTestPlugin;
 
 /// Builds the configured Bevy application with all plugins, systems, and diagnostics.
 pub fn build_app() -> App {
@@ -62,7 +64,7 @@ pub fn build_app() -> App {
     #[cfg(feature = "dev")]
     {
         app.add_plugins((
-            world::AnimTestPlugin,
+            AnimTestPlugin,
             EguiPlugin::default(),
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
         ));
