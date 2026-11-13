@@ -161,7 +161,7 @@ pub fn resolve_weapon_sockets(
     mut mounts: Query<&mut WeaponMount>,
     children: Query<&Children>,
     names: Query<&Name>,
-    transforms: Query<&Transform>,
+    mut socket_transforms: Query<&mut Transform>,
 ) {
     for mut mount in &mut mounts {
         if mount.resolved {
@@ -215,8 +215,21 @@ pub fn resolve_weapon_sockets(
             );
         }
 
+        // Authored socket placements replace the ones baked into the model.
+        for (index, socket_name) in wanted.iter().enumerate() {
+            let Some(entity) = found[index] else {
+                continue;
+            };
+            let Some(over) = profile.socket_override(socket_name) else {
+                continue;
+            };
+            if let Ok(mut transform) = socket_transforms.get_mut(entity) {
+                *transform = over.transform();
+            }
+        }
+
         mount.magazine_rest = magazine
-            .and_then(|entity| transforms.get(entity).ok().copied())
+            .and_then(|entity| socket_transforms.get(entity).ok().copied())
             .unwrap_or(Transform::IDENTITY);
         mount.sockets = ResolvedSockets {
             grip: grip.unwrap_or(mount.scene),

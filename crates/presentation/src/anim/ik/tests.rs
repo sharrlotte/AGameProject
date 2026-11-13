@@ -8,6 +8,7 @@ fn chain_target(position: Vec3) -> ArmTarget {
     ArmTarget {
         position,
         rotation: Quat::IDENTITY,
+        wrist_offset: Quat::IDENTITY,
     }
 }
 

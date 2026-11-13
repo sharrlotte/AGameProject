@@ -1,7 +1,7 @@
 use bevy::audio::AudioPlugin;
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::window::{PresentMode, WindowPlugin};
+use bevy::window::{PresentMode, WindowMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
 use combat::CombatPlugin;
 use data::CoreDataPlugin;
@@ -29,6 +29,7 @@ pub fn build_app() -> App {
                 primary_window: Some(Window {
                     title: "AGameProject".to_string(),
                     present_mode: PresentMode::AutoVsync,
+                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
                     ..Default::default()
                 }),
                 ..Default::default()

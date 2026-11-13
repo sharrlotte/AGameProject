@@ -61,17 +61,32 @@ While a weapon is mounted and the player is alive, the presentation layer SHALL 
 - **THEN** the mounted weapon visual is respawned, sockets are re-resolved, and the current pose is reapplied
 
 ### Requirement: Dual-hand weapon IK
-While a weapon is mounted and the player is alive, the presentation layer SHALL solve both arms to the weapon sockets: the right chain to `Grip` and the left chain to `Foregrip`, with optional configurable shoulder settling and per-hand grip orientation offsets. IK SHALL clamp unreachable targets, MUST NOT modify simulation state, and SHALL be skipped when no weapon is mounted or the player is dead.
+While a weapon is mounted and the player is alive, the presentation layer SHALL resolve a per-hand grip from the weapon profile and solve both arms onto it: the right chain to the primary grip and the left chain to the support grip, with optional configurable shoulder settling. Each hand SHALL use its own position, finger direction, palm direction, elbow pole, wrist trim, and finger curl. IK SHALL clamp unreachable targets, MUST NOT modify simulation state, and SHALL be skipped when no weapon is mounted or the player is dead. A weapon whose grip sets `support` to `None` SHALL leave the left arm on its animated pose.
 
 #### Scenario: Both hands stay on the weapon
 
 - **WHEN** the player aims, walks, fires, or reloads with a weapon mounted
-- **THEN** the right hand remains on `Grip` and the left hand remains on `Foregrip` within the configured tolerance
+- **THEN** the right hand remains on the primary grip and the left hand remains on the support grip within the configured tolerance
 
 #### Scenario: Per-hand grip orientation
 
-- **WHEN** `right_hand_offset_deg` and `left_hand_offset_deg` are set differently
-- **THEN** each hand applies its own rotation offset, allowing right palm to face the pistol grip and left palm to face the fore-end
+- **WHEN** the primary and support grips author different finger, palm, elbow, wrist, or align values
+- **THEN** each hand applies its own orientation, letting the right palm face the pistol grip and the left palm face the fore-end
+
+#### Scenario: Authored fields merge over socket defaults
+
+- **WHEN** a grip authors only some fields
+- **THEN** the omitted fields come from the socket-derived grip and the authored fields replace them one by one
+
+#### Scenario: One-handed weapon
+
+- **WHEN** a weapon's grip sets `support` to `None`
+- **THEN** the left arm keeps its animated pose and only the right arm solves to the primary grip
+
+#### Scenario: Fingers close around the grip
+
+- **WHEN** a grip authors a finger curl or falls back to the catalog curl
+- **THEN** the hand bones curl after the arm solve without changing the solved wrist position
 
 #### Scenario: High and low aim keep the pose readable
 
@@ -298,21 +313,20 @@ Clip roles, anchor angles, layer membership, masks, blend times, speed clamps, a
 - **THEN** the animation and weapon catalogs are deserialized and their required roles, anchor validity, masks, chains, and socket names are asserted to be present
 
 ### Requirement: Idle pose relaxation
-When the player is idle (horizontal speed below `move_speed_threshold`) and alive, the presentation layer
-SHALL procedurally relax the shoulders, arms, and spine after IK evaluation: reduce shoulder abduction
-(blend shoulder Z rotation toward zero) and reduce the idle clip's torso X rotation by approximately
-50%. The correction SHALL run after `solve_player_arms` and before transform propagation, and SHALL
-apply to both armed and unarmed players.
+When the player is idle (horizontal speed below `move_speed_threshold`) and alive, the presentation layer SHALL
+procedurally relax the idle pose before IK evaluation: reduce the idle clip's torso X rotation by
+approximately 50%. The correction SHALL run after animation evaluation and before `solve_player_arms`, and
+SHALL apply to both armed and unarmed players.
 
-#### Scenario: Shoulders relax during idle
+#### Scenario: Torso relaxes during idle
 
 - **WHEN** the player is idle and alive
-- **THEN** the shoulder Z rotation is reduced toward zero compared to the raw idle clip
+- **THEN** the torso X rotation is reduced by approximately 50% compared to the raw idle clip
 
-#### Scenario: Correction runs after IK
+#### Scenario: Correction runs before IK
 
-- **WHEN** IK has written arm rotations for an armed idle player
-- **THEN** the relaxation applies on top without breaking grip reach beyond tolerance
+- **WHEN** IK solves an armed idle player
+- **THEN** the relaxation has already been applied, so the arm solve targets the relaxed torso instead of being corrected afterwards
 
 #### Scenario: No correction while moving
 

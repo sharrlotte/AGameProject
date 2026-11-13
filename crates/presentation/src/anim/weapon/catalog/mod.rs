@@ -2,8 +2,14 @@ use bevy::prelude::*;
 use data::RonConfig;
 use serde::Deserialize;
 
+use crate::anim::grip::WeaponGripConfig;
+
 fn zero() -> [f32; 3] {
     [0.0; 3]
+}
+
+fn one() -> f32 {
+    1.0
 }
 
 fn grip() -> String {
@@ -76,6 +82,9 @@ impl WeaponSockets {
 }
 
 /// Replaces one socket node transform for assets that cannot be re-exported.
+///
+/// The values are absolute: the socket node is placed at `offset` with
+/// `rotation_deg` inside the weapon model's own space.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SocketOverride {
     pub socket: String,
@@ -83,6 +92,20 @@ pub struct SocketOverride {
     pub offset: [f32; 3],
     #[serde(default = "zero")]
     pub rotation_deg: [f32; 3],
+}
+
+impl SocketOverride {
+    pub fn transform(&self) -> Transform {
+        Transform::from_translation(Vec3::from_array(self.offset)).with_rotation(
+            Quat::from_euler(
+                EulerRot::XYZ,
+                self.rotation_deg[0].to_radians(),
+                self.rotation_deg[1].to_radians(),
+                self.rotation_deg[2].to_radians(),
+            )
+            .normalize(),
+        )
+    }
 }
 
 fn recoil_pitch() -> f32 {
@@ -245,11 +268,50 @@ impl SwapConfig {
     }
 }
 
+/// The coordinate space a weapon model is authored in.
+///
+/// Converted FBX assets use `-Y` forward and `+Z` up, which is the Blender
+/// convention before the glTF Y-up conversion. Weapon space uses `-Z` forward
+/// and `+Y` up.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+pub enum ModelSpace {
+    /// Already matches weapon space: `-Z` forward, `+Y` up.
+    #[default]
+    Weapon,
+    /// `-Y` forward, `+Z` up.
+    ForwardNegYUpZ,
+}
+
+impl ModelSpace {
+    /// The rotation that maps the model space into weapon space.
+    pub fn rotation(self) -> Quat {
+        match self {
+            Self::Weapon => Quat::IDENTITY,
+            Self::ForwardNegYUpZ => Quat::from_euler(
+                EulerRot::XYZ,
+                std::f32::consts::FRAC_PI_2,
+                std::f32::consts::PI,
+                0.0,
+            )
+            .normalize(),
+        }
+    }
+}
+
 /// One weapon's presentation data.
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponProfile {
     pub id: String,
     pub model: String,
+    /// The space the model is authored in.
+    #[serde(default)]
+    pub model_space: ModelSpace,
+    /// Extra rotation in weapon space, applied after `model_space`.
+    #[serde(default = "zero")]
+    pub model_rotation_deg: [f32; 3],
+    /// Uniform scale applied to the model.
+    #[serde(default = "one")]
+    pub model_scale: f32,
     #[serde(default)]
     pub sockets: WeaponSockets,
     #[serde(default)]
@@ -266,6 +328,10 @@ pub struct WeaponProfile {
     pub swap: SwapConfig,
     #[serde(default)]
     pub socket_overrides: Vec<SocketOverride>,
+    /// How the character holds this weapon. Falls back to a grip derived from
+    /// the weapon's sockets when it is not authored.
+    #[serde(default)]
+    pub grip: Option<WeaponGripConfig>,
 }
 
 impl WeaponProfile {
@@ -274,6 +340,19 @@ impl WeaponProfile {
             .iter()
             .find(|over| over.socket == socket)
     }
+
+    /// The transform that maps the model into weapon space.
+    pub fn model_transform(&self) -> Transform {
+        let extra = Quat::from_euler(
+            EulerRot::XYZ,
+            self.model_rotation_deg[0].to_radians(),
+            self.model_rotation_deg[1].to_radians(),
+            self.model_rotation_deg[2].to_radians(),
+        )
+        .normalize();
+        Transform::from_rotation((extra * self.model_space.rotation()).normalize())
+            .with_scale(Vec3::splat(self.model_scale))
+    }
 }
 
 impl Default for WeaponProfile {
@@ -281,6 +360,9 @@ impl Default for WeaponProfile {
         Self {
             id: "assault_rifle".to_string(),
             model: "models/weapons/rifle.glb".to_string(),
+            model_space: ModelSpace::Weapon,
+            model_rotation_deg: zero(),
+            model_scale: 1.0,
             sockets: WeaponSockets::default(),
             relaxed: WeaponPose {
                 offset: [0.1, -0.25, 0.05],
@@ -295,6 +377,7 @@ impl Default for WeaponProfile {
             sway: SwayConfig::default(),
             swap: SwapConfig::default(),
             socket_overrides: Vec::new(),
+            grip: None,
         }
     }
 }
@@ -363,6 +446,21 @@ impl WeaponCatalog {
             }
             if weapon.model.is_empty() {
                 return Err(format!("weapon '{}' must name a model", weapon.id));
+            }
+            if !finite3(weapon.model_rotation_deg) {
+                return Err(format!(
+                    "weapon '{}' model rotation must be finite",
+                    weapon.id
+                ));
+            }
+            if !weapon.model_scale.is_finite() || weapon.model_scale <= 0.0 {
+                return Err(format!(
+                    "weapon '{}' model scale must be greater than zero",
+                    weapon.id
+                ));
+            }
+            if let Some(grip) = weapon.grip {
+                grip.validate(&weapon.id)?;
             }
             if weapon.sockets.named().iter().any(|name| name.is_empty()) {
                 return Err(format!("weapon '{}' has an empty socket name", weapon.id));

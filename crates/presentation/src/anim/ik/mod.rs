@@ -1,292 +1,71 @@
+//! Arm IK that drives the character's hands onto the equipped weapon.
+//!
+//! The pipeline is: evaluate the animation, resolve the weapon's grip, place
+//! the weapon, transform the grip targets into character space, solve both
+//! arms with a two-bone IK, then apply the finger curls. Every write happens
+//! after the animation evaluation so the animation and the IK never fight
+//! over the same bone in the same frame.
+
+mod solve;
+mod target;
+
+#[cfg(test)]
+mod tests;
+
 use bevy::prelude::*;
 
-use crate::anim::catalog::{AnimCatalog, FingerCurl, IkConfig};
-use crate::anim::rig::{ArmChain, PlayerRig, compose_world, parent_of};
-use crate::anim::weapon::{WeaponCatalog, WeaponMount};
+use crate::anim::catalog::AnimCatalog;
+use crate::anim::grip::{FingerCurl, resolve_curl, resolve_grip};
+use crate::anim::rig::{ArmChain, PlayerRig, compose_world};
+use crate::anim::weapon::{
+    PlayerWeaponAnchor, WeaponCatalog, WeaponMount, WeaponPoseState, socket_frames,
+};
 use combat::WeaponInventory;
 use world::{Health, Survivor};
 
-const EPSILON: f32 = 1e-4;
+pub use solve::{ArmPose, ArmTarget, ChainState, ChainWrites, Solution, settle_delta, solve_arm, solve_chain, solve_two_bone};
+pub use target::{WeaponGripTargets, build_targets};
 
-/// Result of the analytic two-bone solve.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Solution {
-    pub elbow: Vec3,
-    pub hand: Vec3,
+/// Targets captured for the optional in-game IK gizmo.
+#[cfg(feature = "dev-ik-gizmo")]
+#[derive(Resource, Default)]
+pub struct IkDebug {
+    pub entries: Vec<IkDebugEntry>,
 }
 
-/// Where a hand should sit and which way it should face.
+#[cfg(feature = "dev-ik-gizmo")]
 #[derive(Debug, Clone, Copy)]
-pub struct ArmTarget {
-    pub position: Vec3,
-    pub rotation: Quat,
+pub struct IkDebugEntry {
+    pub root: Entity,
+    pub primary: ArmTarget,
+    pub primary_pole: Vec3,
+    pub support: Option<(ArmTarget, Vec3)>,
+    pub right: ArmChain,
+    pub left: ArmChain,
 }
 
-/// Solved world-space rotations for one arm.
-#[derive(Debug, Clone, Copy)]
-pub struct ArmPose {
-    pub upper_world: Quat,
-    pub lower_world: Quat,
-    pub hand_world: Quat,
-}
-
-/// Current frame of a two-bone chain before targeting.
-#[derive(Debug, Clone, Copy)]
-pub struct ChainState {
-    pub upper_pos: Vec3,
-    pub mid_pos: Vec3,
-    pub hand_pos: Vec3,
-    pub upper_rot: Quat,
-    pub mid_rot: Quat,
-    pub hand_rot: Quat,
-}
-
-/// Solves elbow and hand positions for a two-bone chain.
+/// Solves both arms onto the equipped weapon's grip.
 ///
-/// `root` is the shoulder, `mid` the elbow, `end` the hand. `pole_hint` points
-/// roughly away from the desired bend direction. Unreachable targets are
-/// clamped to the chain's reach.
-pub fn solve_two_bone(
-    root: Vec3,
-    mid: Vec3,
-    end: Vec3,
-    target: Vec3,
-    pole_hint: Vec3,
-) -> Option<Solution> {
-    let upper_len = (mid - root).length();
-    let lower_len = (end - mid).length();
-    if !upper_len.is_finite()
-        || !lower_len.is_finite()
-        || upper_len <= EPSILON
-        || lower_len <= EPSILON
-    {
-        return None;
-    }
-
-    let to_target = target - root;
-    let raw_distance = to_target.length();
-    if !raw_distance.is_finite() || raw_distance <= EPSILON {
-        return None;
-    }
-    let direction = to_target / raw_distance;
-
-    let max_reach = upper_len + lower_len - EPSILON;
-    let min_reach = (upper_len - lower_len).abs() + EPSILON;
-    let low = min_reach.min(max_reach);
-    let high = max_reach.max(min_reach);
-    let distance = raw_distance.clamp(low, high);
-    let hand = root + direction * distance;
-
-    let mut pole = pole_hint - direction * pole_hint.dot(direction);
-    if !pole.is_finite() || pole.length_squared() <= EPSILON {
-        pole = direction.any_orthonormal_vector();
-    }
-    let pole = pole.normalize();
-
-    let along =
-        (upper_len * upper_len - lower_len * lower_len + distance * distance) / (2.0 * distance);
-    let height_sq = (upper_len * upper_len - along * along).max(0.0);
-    let elbow = root + direction * along + pole * height_sq.sqrt();
-
-    if !elbow.is_finite() || !hand.is_finite() {
-        return None;
-    }
-    Some(Solution { elbow, hand })
-}
-
-/// Rotates the current chain to reach an arbitrary target frame.
-pub fn solve_arm(
-    chain: ChainState,
-    target: ArmTarget,
-    pole_hint: Vec3,
-    align: bool,
-    hand_offset: Quat,
-) -> Option<ArmPose> {
-    let solution = solve_two_bone(
-        chain.upper_pos,
-        chain.mid_pos,
-        chain.hand_pos,
-        target.position,
-        pole_hint,
-    )?;
-
-    let current_upper = (chain.mid_pos - chain.upper_pos).normalize_or_zero();
-    let desired_upper = (solution.elbow - chain.upper_pos).normalize_or_zero();
-    if current_upper == Vec3::ZERO || desired_upper == Vec3::ZERO {
-        return None;
-    }
-    let upper_world =
-        (Quat::from_rotation_arc(current_upper, desired_upper) * chain.upper_rot).normalize();
-
-    let current_lower = (chain.hand_pos - chain.mid_pos).normalize_or_zero();
-    let desired_lower = (solution.hand - solution.elbow).normalize_or_zero();
-    if current_lower == Vec3::ZERO || desired_lower == Vec3::ZERO {
-        return None;
-    }
-    let lower_world =
-        (Quat::from_rotation_arc(current_lower, desired_lower) * chain.mid_rot).normalize();
-
-    let hand_world = if align {
-        (target.rotation * hand_offset).normalize()
-    } else {
-        chain.hand_rot
-    };
-
-    if !upper_world.is_finite() || !lower_world.is_finite() || !hand_world.is_finite() {
-        return None;
-    }
-    Some(ArmPose {
-        upper_world,
-        lower_world,
-        hand_world,
-    })
-}
-
-/// Yaw/pitch-style shoulder follow, scaled by weight and clamped to a limit.
-pub fn settle_delta(current_dir: Vec3, desired_dir: Vec3, weight: f32, limit_rad: f32) -> Quat {
-    let from = current_dir.normalize_or_zero();
-    let to = desired_dir.normalize_or_zero();
-    if from == Vec3::ZERO || to == Vec3::ZERO {
-        return Quat::IDENTITY;
-    }
-    let delta = Quat::from_rotation_arc(from, to);
-    if !delta.is_finite() {
-        return Quat::IDENTITY;
-    }
-    let (axis, angle) = delta.to_axis_angle();
-    if axis.length_squared() <= EPSILON || angle <= EPSILON {
-        return Quat::IDENTITY;
-    }
-    let scaled = (angle * weight.clamp(0.0, 1.0)).min(limit_rad.max(0.0));
-    Quat::from_axis_angle(axis, scaled).normalize()
-}
-
-/// Local rotations to write back for one solved arm.
-struct ChainWrites {
-    shoulder: Option<(Entity, Quat)>,
-    upper: (Entity, Quat),
-    lower: (Entity, Quat),
-    hand: Option<(Entity, Quat)>,
-}
-
-fn solve_chain(
-    chain: &ArmChain,
-    target: ArmTarget,
-    pole: [f32; 3],
-    hand_offset: Quat,
-    ik: &IkConfig,
-    root: Entity,
-    transforms: &Query<&Transform>,
-    parents: &Query<&ChildOf>,
-) -> Option<ChainWrites> {
-    let (Some(upper_entity), Some(mid_entity), Some(hand_entity)) =
-        (chain.upper_arm, chain.lower_arm, chain.hand)
-    else {
-        return None;
-    };
-
-    let upper_world = compose_world(upper_entity, root, transforms, parents)?;
-    let mid_world = compose_world(mid_entity, root, transforms, parents)?;
-    let hand_world = compose_world(hand_entity, root, transforms, parents)?;
-
-    let mut shoulder_write = None;
-    let mut upper_pos = upper_world.translation;
-    let mut mid_pos = mid_world.translation;
-    let mut hand_pos = hand_world.translation;
-    let mut upper_rot = upper_world.rotation;
-    let mut mid_rot = mid_world.rotation;
-
-    let upper_parent_rot = if let Some(shoulder_entity) = chain.shoulder {
-        let shoulder_world = compose_world(shoulder_entity, root, transforms, parents)?;
-        let parent_entity = parent_of(shoulder_entity, parents)?;
-        let shoulder_parent = compose_world(parent_entity, root, transforms, parents)?;
-
-        let current_dir = (mid_pos - upper_pos).normalize_or_zero();
-        let desired_dir = (target.position - upper_pos).normalize_or_zero();
-        let delta = settle_delta(
-            current_dir,
-            desired_dir,
-            ik.shoulder_settle,
-            ik.settle_limit_deg.to_radians(),
-        );
-
-        if delta != Quat::IDENTITY {
-            let shoulder_world_rot = (delta * shoulder_world.rotation).normalize();
-            let shoulder_local =
-                (shoulder_parent.rotation.inverse() * shoulder_world_rot).normalize();
-            if !shoulder_local.is_finite() {
-                return None;
-            }
-            shoulder_write = Some((shoulder_entity, shoulder_local));
-
-            upper_pos = shoulder_world.translation
-                + delta * (upper_world.translation - shoulder_world.translation);
-            mid_pos = upper_pos + delta * (mid_world.translation - upper_world.translation);
-            hand_pos = upper_pos + delta * (hand_world.translation - upper_world.translation);
-            upper_rot = (delta * upper_world.rotation).normalize();
-            mid_rot = (delta * mid_world.rotation).normalize();
-
-            shoulder_world_rot
-        } else {
-            shoulder_world.rotation
-        }
-    } else {
-        let parent_entity = parent_of(upper_entity, parents)?;
-        compose_world(parent_entity, root, transforms, parents)?.rotation
-    };
-
-    let pole_hint = upper_parent_rot * Vec3::from_array(pole);
-    let pose = solve_arm(
-        ChainState {
-            upper_pos,
-            mid_pos,
-            hand_pos,
-            upper_rot,
-            mid_rot,
-            hand_rot: hand_world.rotation,
-        },
-        target,
-        pole_hint,
-        ik.hand_align,
-        hand_offset,
-    )?;
-
-    let upper_local = (upper_parent_rot.inverse() * pose.upper_world).normalize();
-    let lower_local = (pose.upper_world.inverse() * pose.lower_world).normalize();
-    let hand_local = (pose.lower_world.inverse() * pose.hand_world).normalize();
-    if !upper_local.is_finite() || !lower_local.is_finite() || !hand_local.is_finite() {
-        return None;
-    }
-
-    Some(ChainWrites {
-        shoulder: shoulder_write,
-        upper: (upper_entity, upper_local),
-        lower: (mid_entity, lower_local),
-        hand: Some((hand_entity, hand_local)),
-    })
-}
-
-/// Solves both arms to the weapon sockets after animation evaluation.
-///
-/// The right hand targets `Grip`; the left targets `Foregrip`, or `Magazine`
-/// while reloading and blends back during the final part of the reload.
-#[allow(clippy::too_many_arguments)]
+/// The right hand takes the primary grip, the left hand the support grip. A
+/// weapon without a support grip leaves the left arm on its animated pose.
 pub fn solve_player_arms(
     catalog: Res<AnimCatalog>,
     weapons: Res<WeaponCatalog>,
     rigs: Query<&PlayerRig>,
     mounts: Query<&WeaponMount>,
+    anchors: Query<(&PlayerWeaponAnchor, &WeaponPoseState)>,
     survivors: Query<&Health, With<Survivor>>,
     inventories: Query<&WeaponInventory>,
     parents: Query<&ChildOf>,
     mut transforms: ParamSet<(Query<&Transform>, Query<&mut Transform>)>,
+    #[cfg(feature = "dev-ik-gizmo")] mut debug: ResMut<IkDebug>,
 ) {
     if !catalog.ik.enabled {
         return;
     }
-    for mount in &mounts {
-        info!("IK: mount profile={} survivor={:?}", mount.profile, mount.survivor);
-    }
+
+    #[cfg(feature = "dev-ik-gizmo")]
+    debug.entries.clear();
 
     for mount in &mounts {
         let Ok(health) = survivors.get(mount.survivor) else {
@@ -301,90 +80,96 @@ pub fn solve_player_arms(
         if !rig.arms.right.is_complete() && !rig.arms.left.is_complete() {
             continue;
         }
+        let Some((anchor, state)) = anchors.iter().find(|(anchor, _)| anchor.survivor == mount.survivor)
+        else {
+            continue;
+        };
 
+        let profile = weapons.weapon(&mount.profile);
         let progress = inventories
             .get(mount.survivor)
             .ok()
             .and_then(WeaponInventory::reload_progress);
-        let hand_return = weapons
-            .weapon(&mount.profile)
+        let hand_return = profile
             .map(|profile| profile.reload.hand_return)
             .unwrap_or(0.7);
 
-        let (right_target, left_target) = {
+        let (targets, grip) = {
             let read = transforms.p0();
-            let Some(grip) = compose_world(mount.sockets.grip, rig.root, &read, &parents) else {
+
+            // The weapon's own space inside the character space.
+            let Some(anchor_world) = compose_world(anchor.root, rig.root, &read, &parents) else {
                 continue;
             };
-            let Some(foregrip) = compose_world(mount.sockets.foregrip, rig.root, &read, &parents)
-            else {
+            let weapon_frame = anchor_world.mul_transform(state.frame);
+
+            let sockets = socket_frames(mount, &weapon_frame, &read, &parents, rig.root);
+            let resolved = resolve_grip(profile.and_then(|profile| profile.grip.as_ref()), &sockets);
+
+            let magazine = mount.sockets.magazine.and_then(|entity| {
+                compose_world(entity, rig.root, &read, &parents).map(|frame| frame.translation)
+            });
+
+            let Some(targets) = build_targets(
+                &resolved,
+                &weapon_frame,
+                magazine,
+                progress,
+                hand_return,
+                wrist_offset(catalog.ik.right_hand_offset_deg),
+                wrist_offset(catalog.ik.left_hand_offset_deg),
+            ) else {
                 continue;
             };
-
-            let left = if let (Some(progress), Some(magazine)) = (progress, mount.sockets.magazine)
-            {
-                let magazine_world =
-                    compose_world(magazine, rig.root, &read, &parents).unwrap_or(foregrip);
-                let t = if hand_return >= 1.0 {
-                    1.0
-                } else {
-                    ((progress - hand_return) / (1.0 - hand_return)).clamp(0.0, 1.0)
-                };
-                lerp_transform(magazine_world, foregrip, t)
-            } else {
-                foregrip
-            };
-
-            (
-                ArmTarget {
-                    position: grip.translation,
-                    rotation: grip.rotation,
-                },
-                ArmTarget {
-                    position: left.translation,
-                    rotation: left.rotation,
-                },
-            )
+            (targets, resolved)
         };
+
+        #[cfg(feature = "dev-ik-gizmo")]
+        debug.entries.push(IkDebugEntry {
+            root: rig.root,
+            primary: targets.primary,
+            primary_pole: targets.primary_pole,
+            support: targets.support,
+            right: rig.arms.right,
+            left: rig.arms.left,
+        });
 
         let writes = {
             let read = transforms.p0();
-            [
-                solve_chain(
+            let mut writes = Vec::with_capacity(2);
+            if rig.arms.right.is_complete() {
+                if let Some(chain) = solve_chain(
                     &rig.arms.right,
-                    right_target,
-                    catalog.ik.right_pole,
-                    Quat::from_euler(
-                        EulerRot::XYZ,
-                        catalog.ik.right_hand_offset_deg[0].to_radians(),
-                        catalog.ik.right_hand_offset_deg[1].to_radians(),
-                        catalog.ik.right_hand_offset_deg[2].to_radians(),
-                    ),
+                    targets.primary,
+                    targets.primary_pole,
                     &catalog.ik,
                     rig.root,
                     &read,
                     &parents,
-                ),
-                solve_chain(
-                    &rig.arms.left,
-                    left_target,
-                    catalog.ik.left_pole,
-                    Quat::from_euler(
-                        EulerRot::XYZ,
-                        catalog.ik.left_hand_offset_deg[0].to_radians(),
-                        catalog.ik.left_hand_offset_deg[1].to_radians(),
-                        catalog.ik.left_hand_offset_deg[2].to_radians(),
-                    ),
+                ) {
+                    writes.push(chain);
+                }
+            }
+            if let (Some(chain), Some((target, pole))) =
+                (rig.arms.left.is_complete().then_some(&rig.arms.left), targets.support)
+            {
+                if let Some(chain) = solve_chain(
+                    chain,
+                    target,
+                    pole,
                     &catalog.ik,
                     rig.root,
                     &read,
                     &parents,
-                ),
-            ]
+                ) {
+                    writes.push(chain);
+                }
+            }
+            writes
         };
 
         let mut write = transforms.p1();
-        for chain in writes.into_iter().flatten() {
+        for chain in writes {
             if let Some((entity, rotation)) = chain.shoulder
                 && let Ok(mut transform) = write.get_mut(entity)
             {
@@ -403,99 +188,169 @@ pub fn solve_player_arms(
             }
         }
 
-        apply_finger_curl(&rig.arms.right, &catalog.ik.right_finger_curl, &mut write);
-        apply_finger_curl(&rig.arms.left, &catalog.ik.left_finger_curl, &mut write);
+        apply_finger_curl(
+            &rig.arms.right,
+            &resolve_curl(&grip.primary, catalog.ik.right_finger_curl),
+            &mut write,
+        );
+        if let Some(support) = grip.support {
+            apply_finger_curl(
+                &rig.arms.left,
+                &resolve_curl(&support, catalog.ik.left_finger_curl),
+                &mut write,
+            );
+        }
     }
 }
 
+/// Trims the solved hand rotation in the hand bone's own frame.
+fn wrist_offset(degrees: [f32; 3]) -> Quat {
+    Quat::from_euler(
+        EulerRot::XYZ,
+        degrees[0].to_radians(),
+        degrees[1].to_radians(),
+        degrees[2].to_radians(),
+    )
+}
+
+/// Applies a finger curl to the hand bones of one arm.
+///
+/// The player skeleton folds its fingers around the local X axis of each
+/// bone, so the curl is a rotation about that axis.
 fn apply_finger_curl(chain: &ArmChain, curl: &FingerCurl, write: &mut Query<&mut Transform, ()>) {
-    for (bone_entity, angles) in [
+    for (bone_entity, degrees) in [
         (chain.middle_hand, curl.middle_hand_deg),
         (chain.fingers, curl.fingers_deg),
         (chain.thumb1, curl.thumb1_deg),
         (chain.thumb2, curl.thumb2_deg),
     ] {
-        if angles == [0.0; 3] {
+        if degrees.abs() < f32::EPSILON {
             continue;
         }
         if let Some(entity) = bone_entity
             && let Ok(mut transform) = write.get_mut(entity)
         {
-            let curl_rot = Quat::from_euler(
-                EulerRot::XYZ,
-                angles[0].to_radians(),
-                angles[1].to_radians(),
-                angles[2].to_radians(),
-            );
+            let curl_rot = Quat::from_rotation_x(degrees.to_radians());
             transform.rotation = (transform.rotation * curl_rot).normalize();
         }
     }
 }
 
-fn lerp_transform(from: Transform, to: Transform, t: f32) -> Transform {
-    let t = t.clamp(0.0, 1.0);
-    Transform {
-        translation: from.translation.lerp(to.translation, t),
-        rotation: from.rotation.slerp(to.rotation, t).normalize(),
-        scale: from.scale.lerp(to.scale, t),
+/// Draws the resolved hand targets and arm chains for calibration.
+#[cfg(feature = "dev-ik-gizmo")]
+pub fn draw_ik_gizmo(
+    debug: Res<IkDebug>,
+    roots: Query<&GlobalTransform>,
+    transforms: Query<&Transform>,
+    parents: Query<&ChildOf>,
+    mut gizmos: Gizmos,
+) {
+    for entry in &debug.entries {
+        let Ok(root) = roots.get(entry.root) else {
+            continue;
+        };
+        let root = root.compute_transform();
+
+        let primary_position = root.transform_point(entry.primary.position);
+        let primary_rotation = root.rotation * entry.primary.rotation;
+        draw_frame(&mut gizmos, primary_position, primary_rotation, 0.06);
+        draw_frame(
+            &mut gizmos,
+            primary_position,
+            primary_rotation * entry.primary.wrist_offset,
+            0.04,
+        );
+        gizmos.line(
+            primary_position,
+            primary_position
+                + root.rotation * entry.primary_pole.normalize_or_zero() * 0.12,
+            Color::srgb(1.0, 0.6, 0.1),
+        );
+
+        if let Some((support, pole)) = entry.support {
+            let position = root.transform_point(support.position);
+            let rotation = root.rotation * support.rotation;
+            draw_frame(&mut gizmos, position, rotation, 0.06);
+            draw_frame(
+                &mut gizmos,
+                position,
+                rotation * support.wrist_offset,
+                0.04,
+            );
+            gizmos.line(
+                position,
+                position + root.rotation * pole.normalize_or_zero() * 0.12,
+                Color::srgb(1.0, 0.6, 0.1),
+            );
+        }
+
+        draw_chain(
+            &mut gizmos,
+            &entry.right,
+            entry.root,
+            &transforms,
+            &parents,
+            &root,
+            Color::srgb(0.2, 0.8, 1.0),
+        );
+        draw_chain(
+            &mut gizmos,
+            &entry.left,
+            entry.root,
+            &transforms,
+            &parents,
+            &root,
+            Color::srgb(0.8, 0.3, 1.0),
+        );
     }
 }
 
 #[cfg(feature = "dev-ik-gizmo")]
-pub fn draw_ik_gizmo(
-    rigs: Query<&PlayerRig>,
-    mounts: Query<&WeaponMount>,
-    parents: Query<&ChildOf>,
-    transforms: Query<&Transform>,
-    global_transforms: Query<&GlobalTransform>,
-    mut gizmos: Gizmos,
-) {
-    for mount in &mounts {
-        let Some(rig) = rigs.iter().find(|rig| rig.survivor == mount.survivor) else {
-            continue;
-        };
-        let Some(root_global) = global_transforms.get(rig.root).copied().ok() else {
-            continue;
-        };
-        let to_world = |local: Transform| -> Vec3 { (root_global * local).translation() };
-
-        for (chain, socket) in [
-            (&rig.arms.right, mount.sockets.grip),
-            (&rig.arms.left, mount.sockets.foregrip),
-        ] {
-            let (Some(upper), Some(mid), Some(hand)) =
-                (chain.upper_arm, chain.lower_arm, chain.hand)
-            else {
-                continue;
-            };
-            let Some(upper_local) = compose_world(upper, rig.root, &transforms, &parents) else {
-                continue;
-            };
-            let Some(mid_local) = compose_world(mid, rig.root, &transforms, &parents) else {
-                continue;
-            };
-            let Some(hand_local) = compose_world(hand, rig.root, &transforms, &parents) else {
-                continue;
-            };
-            let Some(socket_local) = compose_world(socket, rig.root, &transforms, &parents) else {
-                continue;
-            };
-
-            let upper_pos = to_world(upper_local);
-            let mid_pos = to_world(mid_local);
-            let hand_pos = to_world(hand_local);
-            let target_pos = to_world(socket_local);
-            gizmos.line(upper_pos, mid_pos, Color::srgb(1.0, 0.5, 0.0));
-            gizmos.line(mid_pos, hand_pos, Color::srgb(1.0, 0.5, 0.0));
-            gizmos.line(hand_pos, target_pos, Color::srgb(0.0, 1.0, 0.5));
-            gizmos.sphere(
-                Isometry3d::from_translation(target_pos),
-                0.05,
-                Color::srgb(0.0, 1.0, 0.5),
-            );
-        }
-    }
+fn draw_frame(gizmos: &mut Gizmos, origin: Vec3, rotation: Quat, length: f32) {
+    gizmos.line(
+        origin,
+        origin + rotation * Vec3::X * length,
+        Color::srgb(1.0, 0.25, 0.25),
+    );
+    gizmos.line(
+        origin,
+        origin + rotation * Vec3::Y * length,
+        Color::srgb(0.25, 1.0, 0.25),
+    );
+    gizmos.line(
+        origin,
+        origin + rotation * Vec3::Z * length,
+        Color::srgb(0.25, 0.5, 1.0),
+    );
 }
 
-#[cfg(test)]
-mod tests;
+#[cfg(feature = "dev-ik-gizmo")]
+fn draw_chain(
+    gizmos: &mut Gizmos,
+    chain: &ArmChain,
+    root: Entity,
+    transforms: &Query<&Transform>,
+    parents: &Query<&ChildOf>,
+    root_transform: &Transform,
+    color: Color,
+) {
+    let mut previous = None;
+    for entity in [
+        chain.shoulder,
+        chain.upper_arm,
+        chain.lower_arm,
+        chain.hand,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let Some(frame) = compose_world(entity, root, transforms, parents) else {
+            continue;
+        };
+        let position = root_transform.transform_point(frame.translation);
+        if let Some(previous) = previous {
+            gizmos.line(previous, position, color);
+        }
+        previous = Some(position);
+    }
+}

@@ -1,12 +1,15 @@
 (
     anchor: (
-        offset: (0.0, 0.55, 0.1),
+        offset: (0.0, 0.25, 0.0),
         rotation_deg: (0.0, 0.0, 0.0),
     ),
     weapons: [
         (
             id: "m16",
-            model: "models/weapons/rifle.glb",
+            model: "models/weapons/m16.glb",
+            model_space: ForwardNegYUpZ,
+            model_scale: 1.4,
+            model_rotation_deg: (0.0, 180.0, 0.0),
             sockets: (
                 grip: "Grip",
                 foregrip: "Foregrip",
@@ -14,11 +17,11 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.1, -0.25, -0.25),
-                rotation_deg: (-30.0, 0.0, 0.0),
+                offset: (0.16, -0.19, -0.51),
+                rotation_deg: (-32.0, 0.0, 0.0),
             ),
             aim: (
-                offset: (0.1, 0.0, -0.2),
+                offset: (0.14, -0.03, -0.5),
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
@@ -46,15 +49,51 @@
             ),
             socket_overrides: [
                 (
+                    socket: "Grip",
+                    offset: (0.0, -0.060, -0.030),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
                     socket: "Foregrip",
-                    offset: (0.0, 0.0, -0.15),
+                    offset: (0.0, -0.250, -0.005),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
+                    socket: "Magazine",
+                    offset: (0.0, -0.160, -0.040),
                     rotation_deg: (0.0, 0.0, 0.0),
                 ),
             ],
+            grip: Some((
+                primary: (
+                    finger: (0.55, 0.10, -1.0),
+                    palm: (0.25, 1.0, 0.0),
+                    elbow: (-0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 20.0,
+                        fingers_deg: 42.0,
+                        thumb1_deg: 16.0,
+                        thumb2_deg: 20.0,
+                    )),
+                ),
+                support: Some((
+                    finger: (0.0, -0.15, -1.0),
+                    palm: (-1.0, 0.15, 0.0),
+                    elbow: (0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 22.0,
+                        fingers_deg: 45.0,
+                        thumb1_deg: 18.0,
+                        thumb2_deg: 22.0,
+                    )),
+                )),
+            )),
         ),
         (
             id: "m1911",
-            model: "models/weapons/rifle.glb",
+            model: "models/weapons/m1911.glb",
+            model_space: ForwardNegYUpZ,
+            model_scale: 0.87,
             sockets: (
                 grip: "Grip",
                 foregrip: "Foregrip",
@@ -62,11 +101,11 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.05, -0.15, 0.0),
-                rotation_deg: (-20.0, 0.0, 0.0),
+                offset: (0.16, -0.16, 0.08),
+                rotation_deg: (-30.0, 0.0, 0.0),
             ),
             aim: (
-                offset: (0.1, 0.0, -0.2),
+                offset: (0.15, -0.04, 0.02),
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
@@ -83,26 +122,47 @@
                 hand_return: 0.7,
             ),
             sway: (
-                amplitude: 0.010,
+                amplitude: 0.01,
                 roll_deg: 1.2,
                 frequency: 1.3,
             ),
             swap: (
-                lower_secs: 0.10,
+                lower_secs: 0.1,
                 raise_secs: 0.16,
                 drop: 0.18,
             ),
             socket_overrides: [
                 (
-                    socket: "Foregrip",
-                    offset: (0.0, 0.0, -0.15),
+                    socket: "Grip",
+                    offset: (0.0, -0.073, -0.020),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
+                    socket: "Magazine",
+                    offset: (0.0, -0.073, -0.020),
                     rotation_deg: (0.0, 0.0, 0.0),
                 ),
             ],
+            grip: Some((
+                primary: (
+                    finger: (0.0, -0.15, -1.0),
+                    palm: (-1.0, 0.15, 0.0),
+                    elbow: (0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 20.0,
+                        fingers_deg: 42.0,
+                        thumb1_deg: 16.0,
+                        thumb2_deg: 20.0,
+                    )),
+                ),
+                support: None,
+            )),
         ),
         (
             id: "mp5",
-            model: "models/weapons/rifle.glb",
+            model: "models/weapons/mp5.glb",
+            model_space: ForwardNegYUpZ,
+            model_scale: 1.65,
             sockets: (
                 grip: "Grip",
                 foregrip: "Foregrip",
@@ -110,19 +170,19 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.05, -0.15, 0.0),
-                rotation_deg: (-20.0, 0.0, 0.0),
+                offset: (0.16, -0.19, 0.09),
+                rotation_deg: (-32.0, 0.0, 0.0),
             ),
             aim: (
-                offset: (0.1, 0.0, -0.2),
+                offset: (0.14, -0.03, 0.05),
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
                 pitch_deg: 3.0,
                 back: 0.03,
-                recover_secs: 0.10,
+                recover_secs: 0.1,
                 max_deg: 10.0,
-                max_back: 0.10,
+                max_back: 0.1,
             ),
             reload: (
                 tilt_deg: 22.0,
@@ -142,15 +202,51 @@
             ),
             socket_overrides: [
                 (
+                    socket: "Grip",
+                    offset: (0.0, 0.020, -0.015),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
                     socket: "Foregrip",
-                    offset: (0.0, 0.0, -0.15),
+                    offset: (0.0, -0.190, 0.005),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
+                    socket: "Magazine",
+                    offset: (0.0, -0.061, -0.053),
                     rotation_deg: (0.0, 0.0, 0.0),
                 ),
             ],
+            grip: Some((
+                primary: (
+                    finger: (0.0, -0.15, -1.0),
+                    palm: (-1.0, 0.15, 0.0),
+                    elbow: (0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 22.0,
+                        fingers_deg: 45.0,
+                        thumb1_deg: 18.0,
+                        thumb2_deg: 22.0,
+                    )),
+                ),
+                support: Some((
+                    finger: (0.55, 0.10, -1.0),
+                    palm: (0.25, 1.0, 0.0),
+                    elbow: (-0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 20.0,
+                        fingers_deg: 42.0,
+                        thumb1_deg: 16.0,
+                        thumb2_deg: 20.0,
+                    )),
+                )),
+            )),
         ),
         (
             id: "mp7",
             model: "models/weapons/rifle.glb",
+            model_space: Weapon,
+            model_scale: 1.0,
             sockets: (
                 grip: "Grip",
                 foregrip: "Foregrip",
@@ -158,19 +254,19 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.05, -0.15, 0.0),
-                rotation_deg: (-20.0, 0.0, 0.0),
+                offset: (0.16, -0.19, 0.1),
+                rotation_deg: (-32.0, 0.0, 0.0),
             ),
             aim: (
-                offset: (0.1, 0.0, -0.2),
+                offset: (0.14, -0.03, 0.05),
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
                 pitch_deg: 3.0,
                 back: 0.03,
-                recover_secs: 0.10,
+                recover_secs: 0.1,
                 max_deg: 10.0,
-                max_back: 0.10,
+                max_back: 0.1,
             ),
             reload: (
                 tilt_deg: 22.0,
@@ -188,17 +284,36 @@
                 raise_secs: 0.18,
                 drop: 0.2,
             ),
-            socket_overrides: [
-                (
-                    socket: "Foregrip",
-                    offset: (0.0, 0.0, -0.15),
-                    rotation_deg: (0.0, 0.0, 0.0),
+            grip: Some((
+                primary: (
+                    finger: (0.0, -0.15, -1.0),
+                    palm: (-1.0, 0.15, 0.0),
+                    elbow: (0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 22.0,
+                        fingers_deg: 45.0,
+                        thumb1_deg: 18.0,
+                        thumb2_deg: 22.0,
+                    )),
                 ),
-            ],
+                support: Some((
+                    finger: (0.55, 0.10, -1.0),
+                    palm: (0.25, 1.0, 0.0),
+                    elbow: (-0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 20.0,
+                        fingers_deg: 42.0,
+                        thumb1_deg: 16.0,
+                        thumb2_deg: 20.0,
+                    )),
+                )),
+            )),
         ),
         (
             id: "scar",
-            model: "models/weapons/rifle.glb",
+            model: "models/weapons/scar.glb",
+            model_space: ForwardNegYUpZ,
+            model_scale: 1.2,
             sockets: (
                 grip: "Grip",
                 foregrip: "Foregrip",
@@ -206,11 +321,11 @@
                 muzzle: "Muzzle",
             ),
             relaxed: (
-                offset: (0.05, -0.15, 0.0),
-                rotation_deg: (-20.0, 0.0, 0.0),
+                offset: (0.16, -0.19, 0.1),
+                rotation_deg: (-32.0, 0.0, 0.0),
             ),
             aim: (
-                offset: (0.1, 0.0, -0.2),
+                offset: (0.14, -0.03, 0.05),
                 rotation_deg: (0.0, 0.0, 0.0),
             ),
             recoil: (
@@ -238,11 +353,45 @@
             ),
             socket_overrides: [
                 (
+                    socket: "Grip",
+                    offset: (0.0, 0.170, -0.050),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
                     socket: "Foregrip",
-                    offset: (0.0, 0.0, -0.15),
+                    offset: (0.0, -0.210, 0.005),
+                    rotation_deg: (0.0, 0.0, 0.0),
+                ),
+                (
+                    socket: "Magazine",
+                    offset: (0.0, 0.055, -0.043),
                     rotation_deg: (0.0, 0.0, 0.0),
                 ),
             ],
+            grip: Some((
+                primary: (
+                    finger: (0.0, -0.15, -1.0),
+                    palm: (-1.0, 0.15, 0.0),
+                    elbow: (0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 22.0,
+                        fingers_deg: 45.0,
+                        thumb1_deg: 18.0,
+                        thumb2_deg: 22.0,
+                    )),
+                ),
+                support: Some((
+                    finger: (0.55, 0.10, -1.0),
+                    palm: (0.25, 1.0, 0.0),
+                    elbow: (-0.35, -1.0, 0.25),
+                    fingers: Some((
+                        middle_hand_deg: 20.0,
+                        fingers_deg: 42.0,
+                        thumb1_deg: 16.0,
+                        thumb2_deg: 20.0,
+                    )),
+                )),
+            )),
         ),
     ],
 )

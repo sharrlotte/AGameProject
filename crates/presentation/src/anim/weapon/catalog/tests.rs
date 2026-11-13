@@ -90,3 +90,41 @@ fn socket_override_lookup_matches_name() {
     assert!(profile.socket_override("Foregrip").is_some());
     assert!(profile.socket_override("Muzzle").is_none());
 }
+
+#[test]
+fn converted_models_map_forward_neg_y_up_z_into_weapon_space() {
+    let catalog: WeaponCatalog = data::assert_ron_config_parses!(WeaponCatalog);
+
+    for id in ["m16", "m1911", "mp5", "scar"] {
+        let weapon = catalog.weapon(id).expect(id);
+        assert_eq!(weapon.model_space, ModelSpace::ForwardNegYUpZ, "{id}");
+        let rotation = weapon.model_space.rotation();
+        assert!((rotation * Vec3::NEG_Y - Vec3::NEG_Z).length() < 1e-4, "{id} forward");
+        assert!((rotation * Vec3::Z - Vec3::Y).length() < 1e-4, "{id} up");
+    }
+
+    let mp7 = catalog.weapon("mp7").expect("mp7");
+    assert_eq!(mp7.model_space, ModelSpace::Weapon);
+}
+
+#[test]
+fn model_transform_combines_space_rotation_and_scale() {
+    let profile = WeaponProfile {
+        model_space: ModelSpace::ForwardNegYUpZ,
+        model_scale: 2.0,
+        ..WeaponProfile::default()
+    };
+    let transform = profile.model_transform();
+
+    assert!((transform.rotation * Vec3::NEG_Y - Vec3::NEG_Z).length() < 1e-4);
+    assert!((transform.scale - Vec3::splat(2.0)).length() < 1e-4);
+}
+
+#[test]
+fn grip_min_support_separation_is_validated() {
+    let mut catalog = WeaponCatalog::default();
+    let mut grip = WeaponGripConfig::default();
+    grip.min_support_separation = -0.1;
+    catalog.weapons[0].grip = Some(grip);
+    assert!(catalog.validate().is_err());
+}

@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use data::RonConfig;
 use serde::Deserialize;
 
+use crate::anim::grip::FingerCurl;
+
 /// Which animation layer a clip belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -210,10 +212,6 @@ impl Default for AimConfig {
     }
 }
 
-fn down_back() -> [f32; 3] {
-    [0.0, -0.3, -1.0]
-}
-
 fn right_chain() -> Vec<String> {
     vec![
         "UpperArm.R".to_string(),
@@ -246,19 +244,6 @@ fn settle_limit() -> f32 {
     25.0
 }
 
-/// Per-finger curl angles (degrees) applied after arm IK.
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
-pub struct FingerCurl {
-    #[serde(default)]
-    pub middle_hand_deg: [f32; 3],
-    #[serde(default)]
-    pub fingers_deg: [f32; 3],
-    #[serde(default)]
-    pub thumb1_deg: [f32; 3],
-    #[serde(default)]
-    pub thumb2_deg: [f32; 3],
-}
-
 /// Dual-arm hand IK settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct IkConfig {
@@ -272,24 +257,22 @@ pub struct IkConfig {
     pub right_shoulder: String,
     #[serde(default = "left_shoulder")]
     pub left_shoulder: String,
-    #[serde(default = "down_back")]
-    pub right_pole: [f32; 3],
-    #[serde(default = "down_back")]
-    pub left_pole: [f32; 3],
     #[serde(default)]
     pub hand_align: bool,
+    /// Trims the solved right hand rotation in the hand bone's own frame.
     #[serde(default)]
     pub right_hand_offset_deg: [f32; 3],
+    /// Trims the solved left hand rotation in the hand bone's own frame.
     #[serde(default)]
     pub left_hand_offset_deg: [f32; 3],
-    #[serde(default)]
-    pub hand_offset_deg: [f32; 3],
     #[serde(default = "shoulder_settle")]
     pub shoulder_settle: f32,
     #[serde(default = "settle_limit")]
     pub settle_limit_deg: f32,
+    /// Default finger curl when a weapon does not author its own.
     #[serde(default)]
     pub right_finger_curl: FingerCurl,
+    /// Default finger curl when a weapon does not author its own.
     #[serde(default)]
     pub left_finger_curl: FingerCurl,
 }
@@ -302,12 +285,9 @@ impl Default for IkConfig {
             left_chain: left_chain(),
             right_shoulder: right_shoulder(),
             left_shoulder: left_shoulder(),
-            right_pole: down_back(),
-            left_pole: down_back(),
             hand_align: true,
             right_hand_offset_deg: [0.0; 3],
             left_hand_offset_deg: [0.0; 3],
-            hand_offset_deg: [0.0; 3],
             shoulder_settle: shoulder_settle(),
             settle_limit_deg: settle_limit(),
             right_finger_curl: FingerCurl::default(),

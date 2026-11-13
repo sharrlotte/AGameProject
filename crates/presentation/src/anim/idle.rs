@@ -6,8 +6,9 @@ use world::Health;
 
 use crate::anim::rig::PlayerRig;
 
-/// Procedurally relaxes the idle pose (shoulders, torso) after IK, before transform
-/// propagation. Reduces the spread-arm silhouette of the idle animation clip.
+/// Procedurally relaxes the idle pose (torso) after animation evaluation and
+/// before IK, so the arm solve targets the relaxed body. Reduces the spread-arm
+/// silhouette of the idle animation clip.
 pub fn relax_idle_pose(
     state: Res<State<GameState>>,
     survivors: Query<(&Velocity, &Health), With<Survivor>>,

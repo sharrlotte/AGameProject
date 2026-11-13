@@ -137,6 +137,7 @@ mod tests {
             upper_arm: Some(Entity::PLACEHOLDER),
             lower_arm: Some(Entity::PLACEHOLDER),
             hand: Some(Entity::PLACEHOLDER),
+            ..ArmChain::default()
         };
         assert!(complete.is_complete());
     }

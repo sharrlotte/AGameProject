@@ -42,3 +42,5 @@
 
 - Blender MCP
 - Python 3
+- cargo dev to run the game in dev env for testing
+- Additional scripts inside /tools

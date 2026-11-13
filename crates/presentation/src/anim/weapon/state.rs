@@ -35,6 +35,11 @@ pub struct WeaponPoseState {
     pub sway: f32,
     pub swap_elapsed: f32,
     pub swap_duration: f32,
+    /// The weapon's placement inside the anchor, without the model transform.
+    ///
+    /// Grip targets are expressed in the weapon's own space, so the IK needs
+    /// this frame rather than the weapon's world transform.
+    pub frame: Transform,
 }
 
 /// Marks the chest-height weapon anchor under `PlayerVisualRoot`.

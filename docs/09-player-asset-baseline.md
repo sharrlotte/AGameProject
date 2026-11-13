@@ -98,12 +98,10 @@ exist in the GLB.
 ## Sockets and Weapons
 
 Weapon presentation data lives in `game/assets/config/player/weapons.ron`, separate from the player
-model. The `assault_rifle` profile points at `models/weapons/rifle.glb`, converted from
-`game/assets/models/weapons/guns/M16.fbx` (M16-style, low-poly, 1,750 triangles, 8 materials, all
-shades of black: `Mat_Receiver`/`Mat_Barrel` dark gray metal, `Mat_Handguard`/`Mat_Stock`/
-`Mat_Grip` matte dark gray polymer, `Mat_Magazine`/`Mat_Sight` near-black, `Mat_Detail` dark gray).
-The magazine is a separate
-node under the `Magazine` socket so reload `mag_drop` moves it.
+model. Each profile points at a converted GLB under `models/weapons/`: `m16.glb`, `m1911.glb`,
+`mp5.glb`, `rifle.glb` (the `mp7` profile), and `scar.glb`. The M16-style assets are low-poly with
+simple black materials; the magazine is a separate node under the `Magazine` socket so reload
+`mag_drop` moves it.
 
 Socket contract for every weapon glTF:
 
@@ -118,6 +116,76 @@ Required orientation: `-Z` forward, `+Y` up, meters, grip at the origin. Socket 
 per profile, so a re-export can rename them without code changes. Missing sockets are reported once and
 the affected hand falls back as listed above.
 
+### Model spaces
+
+Converted assets keep the orientation they were exported with. `WeaponProfile::model_space` selects the
+rotation that maps the model into weapon space, and `model_rotation_deg` adds an optional extra rotation
+on top:
+
+| `model_space` | Source axes | Mapping into weapon space |
+| :--- | :--- | :--- |
+| `Weapon` | `-Z` forward, `+Y` up | identity |
+| `ForwardNegYUpZ` | `-Y` forward, `+Z` up | `(x, y, z) -> (-x, z, y)` |
+
+`rifle.glb` is authored in weapon space. The converted `m16`, `m1911`, `mp5`, and `scar` GLBs use
+`ForwardNegYUpZ`. Socket overrides are authored in the model's own space because they replace the socket
+node's local transform; `model_transform()` then maps them into weapon space together with the rest of
+the model.
+
+`model_rotation_deg` adds an extra rotation in weapon space on top of `model_space`. The `m16` profile
+uses `model_rotation_deg: (0.0, 180.0, 0.0)` because its GLB's muzzle faced `+Z` (opposite the
+character's `-Z` forward) after the `ForwardNegYUpZ` mapping; the extra yaw corrects it to `-Z`. Grip
+direction vectors for `m16` were flipped accordingly (X and Z components negated) so the hands aim at
+the corrected muzzle end.
+
+### Grip configuration
+
+Grips live in `weapons.ron` under each profile's `grip` field and are authored in weapon space:
+
+```ron
+grip: Some((
+    primary: (
+        finger: (0.0, -0.15, -1.0),
+        palm: (-1.0, 0.15, 0.0),
+        elbow: (0.35, -1.0, 0.25),
+        fingers: Some((middle_hand_deg: 22.0, fingers_deg: 45.0, thumb1_deg: 18.0, thumb2_deg: 22.0)),
+    ),
+    support: Some((
+        finger: (0.55, 0.10, -1.0),
+        palm: (0.25, 1.0, 0.0),
+        elbow: (-0.35, -1.0, 0.25),
+    )),
+)),
+```
+
+- `position` is optional. When omitted, the palm sits at the socket position plus a palm-side offset.
+- `finger` points from the wrist to the knuckles and `palm` is the direction the palm presses into the
+  grip. `elbow` is a weapon-space bend hint.
+- `wrist_deg` trims the solved hand rotation in the hand bone's own frame; `align_deg` tilts the hand in
+  weapon space after the palm frame.
+- `fingers` sets the per-hand curl; omitted values fall back to `IkConfig::right_finger_curl` or
+  `left_finger_curl`.
+- Every field is optional and merges field by field over the socket-derived grip, so a new gun only needs
+  a catalog entry. `support: None` makes the weapon one-handed.
+- `min_support_separation` (default `0.08`) keeps a foregrip socket that is too close to the grip from
+  producing a bogus support hand.
+
+The `m16` profile flips its grip direction vectors (`finger`, `palm`, `elbow`: X and Z components
+negated) because `model_rotation_deg: (0.0, 180.0, 0.0)` rotates the weapon 180° around Y in weapon
+space. All other weapon profiles use the unflipped vectors shown above.
+
+### Hand IK order
+
+Each frame runs, in order: animation evaluation (`Drive`), weapon pose and idle relaxation (`Weapon`),
+then both arm solves and finger curls (`Ik`). Idle relaxation therefore runs before IK, so the arm solve
+targets the relaxed torso instead of fighting a correction applied afterwards. The right chain solves to
+the primary grip and the left chain to the support grip; unreachable targets are clamped to arm reach and
+the shoulders settle within `settle_limit_deg`.
+
+Run with `cargo run --features dev,dev-ik-gizmo` to draw the resolved hand frames, wrist trims, elbow
+poles, and solved arm chains for calibration. The gizmo is dev-only and does not exist in production
+builds.
+
 Weapons are mounted under a chest-height anchor on `PlayerVisualRoot`; the simulation remains
 authoritative for projectile origin and presentation sockets are cosmetic.
 
@@ -126,9 +194,9 @@ authoritative for projectile origin and presentation sockets are cosmetic.
 ## Remaining Asset Limitations
 
 - Backward walk and left/right strafe clips are authored (`Man_WalkBack`, `Man_StrafeL`, `Man_StrafeR`) on the existing 31-bone rig; strafe is a procedural side-shuffle with upper body/arm motion carried over from `Man_Walk`.
-- `models/weapons/rifle.glb` ships with `Grip`, `Foregrip`, `Magazine`, `Muzzle` sockets (grip at origin, `-Z` forward, `+Y` up, meters). Socket rotations are identity; hand orientation may be tuned via `hand_offset_deg` or per-socket rotations during runtime verification.
+- `models/weapons/rifle.glb` ships with `Grip`, `Foregrip`, `Magazine`, `Muzzle` sockets (grip at origin, `-Z` forward, `+Y` up, meters). Hand orientation comes from the grip configuration and the per-hand wrist trims rather than per-socket rotations.
 - Runtime safety scale/offset/yaw adjustments remain in `visuals.ron` until the corrected origin/scale asset is approved.
-- Finger closure on the grip is not authored: finger bones follow locomotion clips, so the hand does not fully close around the weapon. No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
+- Finger closure is procedural: `IkConfig` supplies a default curl per hand and a weapon can override it per grip. No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
 
 ## Validation
 

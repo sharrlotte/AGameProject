@@ -122,6 +122,7 @@ pub fn pose_player_weapon(
             let reload = reload_offset(inventory.reload_progress(), &profile.reload);
             let swap = swap_curve(state.swap_elapsed, state.swap_duration);
             let weapon = compose_weapon(profile, &state, reload, swap);
+            state.frame = weapon;
 
             let magazine = mount.sockets.magazine.map(|entity| {
                 let mut rest = mount.magazine_rest;
@@ -134,7 +135,7 @@ pub fn pose_player_weapon(
                 writes[count] = PoseWrite {
                     scene: mount.scene,
                     magazine,
-                    weapon,
+                    weapon: weapon.mul_transform(profile.model_transform()),
                 };
                 count += 1;
             }

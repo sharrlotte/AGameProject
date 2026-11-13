@@ -11,6 +11,7 @@ dev = [
     "data/dev",
     "world/dev",
     "presentation/dev",
+    "presentation/dev-ik-gizmo",
 ]
 
 [dependencies]

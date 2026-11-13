@@ -13,6 +13,7 @@ pub mod catalog;
 pub mod director;
 pub mod facing;
 pub mod graph;
+pub mod grip;
 pub mod ik;
 pub mod rig;
 pub mod weapon;
@@ -20,6 +21,7 @@ pub mod weapon;
 pub use catalog::AnimCatalog;
 pub use director::drive_player_animation;
 pub use facing::{PlayerFacing, sync_player_facing};
+pub use grip::{FingerCurl, GripHand, WeaponGripConfig};
 pub use rig::PlayerRig;
 pub use weapon::WeaponCatalog;
 
@@ -110,6 +112,7 @@ impl Plugin for PlayerAnimPlugin {
                     weapon::update_weapon_kick,
                     weapon::update_weapon_swap,
                     weapon::pose_player_weapon,
+                    idle::relax_idle_pose,
                 )
                     .chain()
                     .in_set(PlayerAnimSet::Weapon)
@@ -122,15 +125,19 @@ impl Plugin for PlayerAnimPlugin {
                 (
                     director::drive_player_animation.in_set(PlayerAnimSet::Drive),
                     ik::solve_player_arms.in_set(PlayerAnimSet::Ik),
-                    idle::relax_idle_pose.in_set(PlayerAnimSet::Facing),
                     sync_player_facing.in_set(PlayerAnimSet::Facing),
                     #[cfg(feature = "dev-ik-gizmo")]
-                    ik::draw_ik_gizmo.in_set(PlayerAnimSet::Ik),
+                    ik::draw_ik_gizmo
+                        .in_set(PlayerAnimSet::Ik)
+                        .after(ik::solve_player_arms),
                 )
                     .run_if(|state: Res<State<GameState>>| {
                         matches!(state.get(), GameState::Playing | GameState::GameOver)
                     }),
             );
+
+        #[cfg(feature = "dev-ik-gizmo")]
+        app.init_resource::<ik::IkDebug>();
     }
 }
 
