@@ -41,6 +41,8 @@ pub struct IkDebugEntry {
     pub support: Option<(ArmTarget, Vec3)>,
     pub right: ArmChain,
     pub left: ArmChain,
+    /// Socket frames in the character frame, ordered grip, foregrip, magazine, muzzle.
+    pub sockets: [Option<Transform>; 4],
 }
 
 /// Solves both arms onto the equipped weapon's grip.
@@ -118,6 +120,23 @@ pub fn solve_player_arms(
         };
 
         #[cfg(feature = "dev-ik-gizmo")]
+        let sockets_character = {
+            let read = transforms.p0();
+            [
+                compose_world(mount.sockets.grip, rig.root, &read, &parents),
+                compose_world(mount.sockets.foregrip, rig.root, &read, &parents),
+                mount
+                    .sockets
+                    .magazine
+                    .and_then(|entity| compose_world(entity, rig.root, &read, &parents)),
+                mount
+                    .sockets
+                    .muzzle
+                    .and_then(|entity| compose_world(entity, rig.root, &read, &parents)),
+            ]
+        };
+
+        #[cfg(feature = "dev-ik-gizmo")]
         debug.entries.push(IkDebugEntry {
             root: rig.root,
             primary: targets.primary,
@@ -125,6 +144,7 @@ pub fn solve_player_arms(
             support: targets.support,
             right: rig.arms.right,
             left: rig.arms.left,
+            sockets: sockets_character,
         });
 
         let writes = {
@@ -295,6 +315,35 @@ pub fn draw_ik_gizmo(
             &root,
             Color::srgb(0.8, 0.3, 1.0),
         );
+
+        for socket in entry.sockets.iter().flatten() {
+            let position = root.transform_point(socket.translation);
+            let rotation = root.rotation * socket.rotation;
+            draw_frame(&mut gizmos, position, rotation, 0.035);
+        }
+
+        draw_hand_line(
+            &mut gizmos,
+            &entry.right,
+            Some(entry.primary),
+            entry.root,
+            &transforms,
+            &parents,
+            &root,
+            Color::srgb(0.2, 0.8, 1.0),
+        );
+        if let Some((target, _)) = entry.support {
+            draw_hand_line(
+                &mut gizmos,
+                &entry.left,
+                Some(target),
+                entry.root,
+                &transforms,
+                &parents,
+                &root,
+                Color::srgb(0.8, 0.3, 1.0),
+            );
+        }
     }
 }
 
@@ -345,6 +394,32 @@ fn draw_chain(
             gizmos.line(previous, position, color);
         }
         previous = Some(position);
+    }
+}
+
+/// Draws a sphere at the hand bone and a line to its IK target.
+#[cfg(feature = "dev-ik-gizmo")]
+fn draw_hand_line(
+    gizmos: &mut Gizmos,
+    chain: &ArmChain,
+    target: Option<ArmTarget>,
+    root: Entity,
+    transforms: &Query<&Transform>,
+    parents: &Query<&ChildOf>,
+    root_transform: &Transform,
+    color: Color,
+) {
+    let Some(hand) = chain.hand else {
+        return;
+    };
+    let Some(frame) = compose_world(hand, root, transforms, parents) else {
+        return;
+    };
+    let position = root_transform.transform_point(frame.translation);
+    gizmos.sphere(position, 0.022, color);
+    if let Some(target) = target {
+        let target_position = root_transform.transform_point(target.position);
+        gizmos.line(position, target_position, color);
     }
 }
 

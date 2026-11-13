@@ -356,7 +356,7 @@
                     raise_secs: 0.18,
                     drop: 0.2,
                 ),
-                model: "models/weapons/rifle.glb",
+                model: "models/weapons/mp7.glb",
                 model_space: Weapon,
                 model_scale: 1.0,
                 model_rotation_deg: (0.0, 0.0, 0.0),
