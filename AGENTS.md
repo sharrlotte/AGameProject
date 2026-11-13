@@ -32,6 +32,7 @@
 - Should should be modular, as small as possible in order for futher extension
 - Make sure all inputs are validated, constrained
 - Always proceed with tasks until everything are done, only stop when there is a road block
+- Current code is not perfect, so rewrite them all when needed if we have a new better solution is allowed
 
 ## Bevy
 

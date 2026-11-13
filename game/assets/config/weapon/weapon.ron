@@ -26,8 +26,8 @@
             ),
             presentation: (
                 relaxed: (
-                    offset: (0.16, -0.10, -0.22),
-                    rotation_deg: (-26.0, 90.0, 0.0),
+                    offset: (0.16, -0.13, -0.15),
+                    rotation_deg: (-15.0, 90.0, 0.0),
                 ),
                 aim: (
                     offset: (0.14, -0.03, -0.5),
