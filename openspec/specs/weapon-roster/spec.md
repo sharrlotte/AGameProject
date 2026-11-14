@@ -80,3 +80,24 @@ MUST NOT change projectiles already in flight.
 - **THEN** the next spawned projectile uses the new values and projectiles already in flight keep the
   values they were spawned with
 
+### Requirement: Physics cursor raycasting and 3D projectile aiming
+
+The input and combat simulation SHALL cast a physics ray from the camera through the mouse viewport position against world and enemy colliders (`GROUP_WORLD | GROUP_ENEMY`). If an entity collider is hit, its 3D world intersection point MUST be assigned to `ActionIntent::aim_world`. Projectiles spawned during weapon fire MUST calculate a 3D unit direction from the muzzle position toward `aim_world` and travel along that 3D trajectory without vertical translation locks.
+
+#### Scenario: Cursor over enemy collider resolves exact 3D hit point
+
+- **WHEN** the mouse cursor hovers over an enemy collider
+- **THEN** physics raycasting resolves the intersection point on the enemy collider and populates `ActionIntent::aim_world` with that 3D point
+
+#### Scenario: Cursor over ground or open void falls back to ground plane
+
+- **WHEN** physics raycasting does not intersect any enemy or obstacle collider
+- **THEN** the ray intersection with the horizontal ground plane is used as fallback for `aim_world`
+
+#### Scenario: Projectile fires in full 3D toward target hit point
+
+- **WHEN** the survivor fires an equipped weapon
+- **THEN** the projectile spawns at the survivor muzzle position with 3D linear velocity directed toward `aim_world`
+- **AND** the projectile entity does not have vertical translation locked (`LockedAxes::TRANSLATION_LOCKED_Y`), traveling directly toward the targeted 3D position
+
+

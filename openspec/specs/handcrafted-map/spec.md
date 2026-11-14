@@ -56,3 +56,23 @@ The simulation SHALL detect when the survivor enters an interior trigger volume 
 #### Scenario: Survivor exits building and roof restores
 - **WHEN** the survivor exits `Trigger_Interior_GasStation`
 - **THEN** all linked roof meshes return to visible
+
+### Requirement: Procedural ground elevation offset
+
+The simulation SHALL spawn procedural arena ground geometry below $Y = 0.0$ (specifically with top surface at $Y = -0.05\,\text{m}$) so that authored map ground surfaces at $Y = 0.0$ render without z-fighting or depth flickering.
+
+#### Scenario: Procedural ground top surface sits below zero elevation
+- **WHEN** `spawn_ground` executes during arena initialization
+- **THEN** the ground entity transform is positioned at $Y = -0.55\,\text{m}$, placing its upper cuboid face at $Y = -0.05\,\text{m}$
+
+### Requirement: Camera line-of-sight wall occlusion fading
+
+The presentation system SHALL perform raycasting from the active `Camera3d` towards the survivor character center. Any static world obstacle intersecting the ray between the camera and the survivor MUST have its visual material switched to a semi-transparent material ($\text{alpha} = 0.3$, `AlphaMode::Blend`) and tagged with `OccludedWall`. When an obstacle ceases to intersect the camera line of sight, its original material MUST be restored and `OccludedWall` removed.
+
+#### Scenario: Wall occluding survivor becomes semi-transparent
+- **WHEN** an obstacle mesh intercepts the ray between the camera and survivor
+- **THEN** the obstacle entity receives `OccludedWall` holding its original material handle, and its active material is replaced with a blend material with alpha 0.3
+
+#### Scenario: Wall no longer occluding survivor is restored
+- **WHEN** an occluded obstacle entity is no longer intersected by the camera ray
+- **THEN** its original material handle is restored and `OccludedWall` is removed

@@ -60,7 +60,7 @@ pub fn spawn_ground(commands: &mut Commands, scene: GameScene) {
         Name::new("ArenaGround"),
         ArenaStaticEntity,
         ArenaGround,
-        Transform::from_xyz(0.0, -0.5, 0.0),
+        Transform::from_xyz(0.0, -0.55, 0.0),
         DespawnOnExit(scene),
     ));
 }

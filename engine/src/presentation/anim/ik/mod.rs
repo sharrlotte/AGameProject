@@ -27,13 +27,13 @@ pub use solve::{ArmPose, ArmTarget, ChainState, ChainWrites, Solution, settle_de
 pub use target::{WeaponGripTargets, build_targets};
 
 /// Targets captured for the optional in-game IK gizmo.
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 #[derive(Resource, Default)]
 pub struct IkDebug {
     pub entries: Vec<IkDebugEntry>,
 }
 
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 #[derive(Debug, Clone, Copy)]
 pub struct IkDebugEntry {
     pub root: Entity,
@@ -59,13 +59,13 @@ pub fn solve_player_arms(
     survivors: Query<(&Health, Option<&WeaponInventory>), With<Survivor>>,
     parents: Query<&ChildOf>,
     mut transforms: ParamSet<(Query<&Transform>, Query<&mut Transform>)>,
-    #[cfg(feature = "dev-ik-gizmo")] mut debug: ResMut<IkDebug>,
+    #[cfg(feature = "dev")] mut debug: ResMut<IkDebug>,
 ) {
     if !catalog.ik.enabled {
         return;
     }
 
-    #[cfg(feature = "dev-ik-gizmo")]
+    #[cfg(feature = "dev")]
     debug.entries.clear();
 
     for mount in &mounts {
@@ -117,7 +117,7 @@ pub fn solve_player_arms(
             (targets, resolved)
         };
 
-        #[cfg(feature = "dev-ik-gizmo")]
+        #[cfg(feature = "dev")]
         let sockets_character = [
             Some(weapon_frame.mul_transform(weapon.hands.primary.transform())),
             weapon
@@ -129,7 +129,7 @@ pub fn solve_player_arms(
             Some(weapon_frame.mul_transform(weapon.sockets.muzzle.transform())),
         ];
 
-        #[cfg(feature = "dev-ik-gizmo")]
+        #[cfg(feature = "dev")]
         debug.entries.push(IkDebugEntry {
             root: rig.root,
             primary: targets.primary,
@@ -240,7 +240,7 @@ fn apply_finger_curl(chain: &ArmChain, curl: &FingerCurl, write: &mut Query<&mut
 }
 
 /// Draws the resolved hand targets and arm chains for calibration.
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 pub fn draw_ik_gizmo(
     debug: Res<IkDebug>,
     roots: Query<&GlobalTransform>,
@@ -337,7 +337,7 @@ pub fn draw_ik_gizmo(
     }
 }
 
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 fn draw_frame(gizmos: &mut Gizmos, origin: Vec3, rotation: Quat, length: f32) {
     gizmos.line(
         origin,
@@ -356,7 +356,7 @@ fn draw_frame(gizmos: &mut Gizmos, origin: Vec3, rotation: Quat, length: f32) {
     );
 }
 
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 fn draw_chain(
     gizmos: &mut Gizmos,
     chain: &ArmChain,
@@ -388,7 +388,7 @@ fn draw_chain(
 }
 
 /// Draws a sphere at the hand bone and a line to its IK target.
-#[cfg(feature = "dev-ik-gizmo")]
+#[cfg(feature = "dev")]
 fn draw_hand_line(
     gizmos: &mut Gizmos,
     chain: &ArmChain,

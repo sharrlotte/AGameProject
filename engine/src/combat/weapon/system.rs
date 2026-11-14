@@ -109,7 +109,7 @@ pub fn handle_weapon_swap(
 pub fn handle_weapon_fire(
     mut commands: Commands,
     scene: Option<Res<State<GameScene>>>,
-    player_cfg: Res<PlayerConfig>,
+    _player_cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
     mut fired_writer: MessageWriter<WeaponFiredMessage>,
     mut started_writer: MessageWriter<ReloadStartedMessage>,
@@ -171,11 +171,18 @@ pub fn handle_weapon_fire(
         } else {
             Vec3::NEG_Z
         };
-        let muzzle_pos = Vec3::new(
-            transform.translation.x,
-            transform.translation.y + player_cfg.aim_height,
-            transform.translation.z,
-        ) + forward * weapon.muzzle_offset();
+        let muzzle_pos = transform.translation + forward * weapon.muzzle_offset();
+
+        let base_dir = if let Some(target) = intent.aim_world {
+            let to_target = target - muzzle_pos;
+            if to_target.length_squared() > 1e-4 {
+                to_target.normalize()
+            } else {
+                forward
+            }
+        } else {
+            forward
+        };
 
         let spread_mult = if stamina.is_sprinting {
             weapon.sprint_spread_multiplier
@@ -191,7 +198,7 @@ pub fn handle_weapon_fire(
             } else {
                 0.0
             };
-            let dir = (Quat::from_rotation_y(angle) * forward).normalize();
+            let dir = (Quat::from_rotation_y(angle) * base_dir).normalize();
             let projectile = spawn_projectile(
                 &mut commands,
                 entity,
@@ -210,7 +217,7 @@ pub fn handle_weapon_fire(
         fired_writer.write(WeaponFiredMessage {
             shooter: entity,
             origin: muzzle_pos,
-            direction: forward,
+            direction: base_dir,
         });
     }
 }

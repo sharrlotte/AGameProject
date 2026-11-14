@@ -53,6 +53,14 @@ impl Plugin for ScenePlugin {
                     .before(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Playing)),
             );
+
+        #[cfg(feature = "dev")]
+        app.add_systems(
+            Update,
+            enemy::draw_enemy_dev_hp_bars
+                .after(SimUpdateSet)
+                .run_if(not(in_state(GameState::Loading))),
+        );
     }
 }
 

@@ -1,10 +1,14 @@
+use std::collections::HashSet;
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
+use crate::common::{GROUP_WORLD, Obstacle};
 use crate::config::ConfigHotReloadedMessage;
 use crate::world::{ActionIntent, LocalPlayer};
 
 use crate::config::CameraConfig;
 use crate::message::messages::CameraZoomMessage;
-use super::state::{CameraZoom, MainCamera};
+use crate::presentation::scene::SharedVisualMaterials;
+use super::state::{CameraZoom, MainCamera, OccludedWall};
 
 /// Spawns the primary 3D camera using the configured offset and default zoom.
 pub fn spawn_camera(mut commands: Commands, cfg: Res<CameraConfig>) {
@@ -85,6 +89,82 @@ pub fn follow_local_player(
     cam_tf.translation = cam_tf.translation.lerp(target_pos, follow_alpha);
 }
 
+/// Casts a ray from the camera toward the survivor to detect occluding world obstacles,
+/// swapping their material to a transparent blend and restoring original materials when clear.
+#[allow(clippy::type_complexity)]
+pub fn update_camera_wall_occlusion(
+    mut commands: Commands,
+    rapier_context: ReadRapierContext,
+    materials: Option<Res<SharedVisualMaterials>>,
+    camera: Single<&GlobalTransform, With<MainCamera>>,
+    player: Query<&GlobalTransform, With<LocalPlayer>>,
+    obstacles: Query<(), With<Obstacle>>,
+    mut occluded_walls: Query<(Entity, &OccludedWall, &mut MeshMaterial3d<StandardMaterial>)>,
+    unoccluded_materials: Query<&MeshMaterial3d<StandardMaterial>, Without<OccludedWall>>,
+    children_query: Query<&Children>,
+) {
+    let Ok(rapier) = rapier_context.single() else {
+        return;
+    };
+    let Some(materials) = materials else {
+        return;
+    };
+    let Ok(player_tf) = player.single() else {
+        return;
+    };
+
+    let cam_pos = camera.translation();
+    let player_pos = player_tf.translation();
+    let to_player = player_pos - cam_pos;
+    let distance = to_player.length();
+    if distance < 0.5 {
+        return;
+    }
+    let ray_dir = to_player / distance;
+
+    let mut filter = QueryFilter::default().groups(CollisionGroups::new(GROUP_WORLD, GROUP_WORLD));
+    let mut currently_occluded = HashSet::new();
+    let remaining_dist = distance - 0.2;
+
+    for _ in 0..4 {
+        if let Some((hit_entity, _toi)) = rapier.cast_ray(cam_pos, ray_dir, remaining_dist, true, filter) {
+            filter = filter.exclude_collider(hit_entity);
+            if obstacles.contains(hit_entity) {
+                // Find visual entity with MeshMaterial3d (either the obstacle entity itself or a child)
+                let target_visual = if unoccluded_materials.contains(hit_entity) || occluded_walls.contains(hit_entity) {
+                    Some(hit_entity)
+                } else if let Ok(children) = children_query.get(hit_entity) {
+                    children.iter().find(|c| unoccluded_materials.contains(*c) || occluded_walls.contains(*c))
+                } else {
+                    None
+                };
+
+                if let Some(visual_entity) = target_visual {
+                    currently_occluded.insert(visual_entity);
+                    if let Ok(mat) = unoccluded_materials.get(visual_entity) {
+                        commands.entity(visual_entity).insert((
+                            OccludedWall {
+                                original_material: mat.0.clone(),
+                            },
+                            MeshMaterial3d(materials.wall_occluded.clone()),
+                        ));
+                    }
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    // Restore walls that are no longer occluding
+    for (entity, occluded, mut mat) in &mut occluded_walls {
+        if !currently_occluded.contains(&entity) {
+            mat.0 = occluded.original_material.clone();
+            commands.entity(entity).remove::<OccludedWall>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 use super::*;
@@ -125,5 +205,81 @@ use super::*;
 
         let zoom = app.world().get::<CameraZoom>(cam).expect("camera zoom");
         assert!((zoom.target - (cfg.zoom_default - 2.0 * cfg.zoom_step)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn camera_wall_occlusion_swaps_material_and_restores() {
+        use std::time::Duration;
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, TransformPlugin))
+            .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+            .insert_resource(TimestepMode::Variable {
+                max_dt: 1.0 / 60.0,
+                time_scale: 1.0,
+                substeps: 1,
+            })
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs_f32(1.0 / 60.0),
+            ))
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<Mesh>>();
+
+        let materials = SharedVisualMaterials::from_world(app.world_mut());
+        let original_mat = materials.wall.clone();
+        let occluded_mat = materials.wall_occluded.clone();
+        app.insert_resource(materials)
+            .add_systems(Update, update_camera_wall_occlusion);
+
+        // Spawn player at (0, 0, 0)
+        app.world_mut().spawn((
+            LocalPlayer,
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            GlobalTransform::from_xyz(0.0, 0.0, 0.0),
+        ));
+
+        // Spawn camera at (0, 10, 10)
+        app.world_mut().spawn((
+            MainCamera,
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 10.0, 10.0),
+            GlobalTransform::from_xyz(0.0, 10.0, 10.0),
+        ));
+
+        // Spawn obstacle wall between camera and player at (0, 5, 5)
+        let wall = app.world_mut().spawn((
+            Obstacle,
+            RigidBody::Fixed,
+            Collider::cuboid(2.0, 2.0, 2.0),
+            CollisionGroups::new(GROUP_WORLD, GROUP_WORLD),
+            Transform::from_xyz(0.0, 5.0, 5.0),
+            GlobalTransform::from_xyz(0.0, 5.0, 5.0),
+            MeshMaterial3d(original_mat.clone()),
+        )).id();
+
+        app.update();
+        app.update();
+        app.update();
+
+        // Wall should now be occluded
+        assert!(app.world().get::<OccludedWall>(wall).is_some());
+        assert_eq!(
+            app.world().get::<MeshMaterial3d<StandardMaterial>>(wall).unwrap().0,
+            occluded_mat
+        );
+
+        // Move wall out of the line of sight to (20, 5, 5)
+        app.world_mut().get_mut::<Transform>(wall).unwrap().translation = Vec3::new(20.0, 5.0, 5.0);
+        *app.world_mut().get_mut::<GlobalTransform>(wall).unwrap() = GlobalTransform::from_xyz(20.0, 5.0, 5.0);
+
+        app.update();
+        app.update();
+        app.update();
+
+        // Wall should be restored
+        assert!(app.world().get::<OccludedWall>(wall).is_none());
+        assert_eq!(
+            app.world().get::<MeshMaterial3d<StandardMaterial>>(wall).unwrap().0,
+            original_mat
+        );
     }
 }

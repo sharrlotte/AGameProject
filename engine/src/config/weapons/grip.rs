@@ -26,14 +26,6 @@ pub struct FingerCurl {
     pub thumb2_deg: f32,
 }
 
-impl FingerCurl {
-    pub fn is_neutral(&self) -> bool {
-        self.middle_hand_deg.abs() < f32::EPSILON
-            && self.fingers_deg.abs() < f32::EPSILON
-            && self.thumb1_deg.abs() < f32::EPSILON
-            && self.thumb2_deg.abs() < f32::EPSILON
-    }
-}
 
 fn zero_vec() -> [f32; 3] {
     [0.0; 3]
@@ -62,7 +54,6 @@ pub struct GripHand {
     pub align_deg: Option<[f32; 3]>,
 }
 
-pub type HandConfig = GripHand;
 
 impl GripHand {
     pub fn offset(&self) -> Vec3 {

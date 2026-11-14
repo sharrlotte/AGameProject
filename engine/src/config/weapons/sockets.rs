@@ -24,13 +24,6 @@ impl Default for SocketPoint {
 }
 
 impl SocketPoint {
-    pub fn new(offset: [f32; 3]) -> Self {
-        Self {
-            offset,
-            rotation_deg: None,
-        }
-    }
-
     pub fn translation(&self) -> Vec3 {
         Vec3::from_array(self.offset)
     }
@@ -62,6 +55,4 @@ pub struct WeaponMechanicalSockets {
     pub muzzle: SocketPoint,
 }
 
-pub type WeaponSockets = WeaponMechanicalSockets;
-pub type SocketOverride = SocketPoint;
 

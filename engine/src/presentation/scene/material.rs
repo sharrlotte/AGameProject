@@ -27,6 +27,7 @@ pub struct ExploderMaterials {
 pub struct SharedVisualMaterials {
     pub ground: Handle<StandardMaterial>,
     pub wall: Handle<StandardMaterial>,
+    pub wall_occluded: Handle<StandardMaterial>,
     pub cover: Handle<StandardMaterial>,
     pub walker: Handle<StandardMaterial>,
     pub runner: Handle<StandardMaterial>,
@@ -53,6 +54,12 @@ impl FromWorld for SharedVisualMaterials {
             }),
             wall: materials.add(StandardMaterial {
                 base_color: Color::srgb(0.26, 0.29, 0.34),
+                perceptual_roughness: 0.85,
+                ..default()
+            }),
+            wall_occluded: materials.add(StandardMaterial {
+                base_color: Color::srgba(0.26, 0.29, 0.34, 0.30),
+                alpha_mode: AlphaMode::Blend,
                 perceptual_roughness: 0.85,
                 ..default()
             }),

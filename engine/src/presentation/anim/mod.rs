@@ -127,7 +127,7 @@ impl Plugin for PlayerAnimPlugin {
                     director::drive_player_animation.in_set(PlayerAnimSet::Drive),
                     ik::solve_player_arms.in_set(PlayerAnimSet::Ik),
                     sync_player_facing.in_set(PlayerAnimSet::Facing),
-                    #[cfg(feature = "dev-ik-gizmo")]
+                    #[cfg(feature = "dev")]
                     ik::draw_ik_gizmo
                         .in_set(PlayerAnimSet::Ik)
                         .after(ik::solve_player_arms),
@@ -137,7 +137,7 @@ impl Plugin for PlayerAnimPlugin {
                     }),
             );
 
-        #[cfg(feature = "dev-ik-gizmo")]
+        #[cfg(feature = "dev")]
         app.init_resource::<ik::IkDebug>();
     }
 }

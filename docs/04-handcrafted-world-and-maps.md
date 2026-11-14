@@ -49,6 +49,14 @@ Because the simulation uses full 3D from an angled top-down camera (55°–65° 
    - Inside the building: associated roof and upper-wall meshes are set to `Visibility::Hidden` (or material alpha faded), rendering the room fully readable from the top-down angle.
    - Outside the building: roofs render fully opaque with directional shadows cast on surrounding roads.
 
+3. **Camera Line-of-Sight Wall Occlusion Fading:**
+   - The presentation system raycasts from the active `Camera3d` toward the survivor center against static world obstacles (`GROUP_WORLD`).
+   - Any intervening obstacle receives an `OccludedWall` marker and swaps its `MeshMaterial3d<StandardMaterial>` to a semi-transparent blend material ($\alpha = 0.30$, `AlphaMode::Blend`).
+   - When the camera line-of-sight to the survivor clears, the obstacle's original material is restored and `OccludedWall` is removed.
+
+4. **Procedural Ground Elevation Offset:**
+   - Procedural arena ground geometry is spawned at $Y = -0.55\,\text{m}$ (top surface at $Y = -0.05\,\text{m}$) so authored map ground meshes at $Y = 0.0\,\text{m}$ render cleanly without z-fighting.
+
 ---
 
 ## 5. District 01 Specification: "Suburbs & Gas Station"

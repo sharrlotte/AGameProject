@@ -518,7 +518,40 @@ fn firing_respects_shooter_translation_elevation() {
         .iter()
         .find(|m| m.shooter == player)
         .expect("WeaponFiredMessage emitted");
-    let aim_h = app.world().resource::<PlayerConfig>().aim_height;
-    assert!((fire_msg.origin.y - (elevated_y + aim_h)).abs() < 1e-4);
+    assert!((fire_msg.origin.y - elevated_y).abs() < 1e-4);
+}
+
+#[test]
+fn firing_aims_in_3d_towards_aim_world() {
+    let mut app = test_app();
+    app.update();
+    let player = player_entity(&mut app);
+
+    app.world_mut()
+        .get_mut::<Transform>(player)
+        .expect("player transform")
+        .translation = Vec3::new(0.0, 1.0, 0.0);
+
+    // Aim at a target higher up and to the right
+    let target = Vec3::new(10.0, 6.0, 0.0);
+    {
+        let mut intent = app
+            .world_mut()
+            .get_mut::<ActionIntent>(player)
+            .expect("action intent");
+        intent.aim_world = Some(target);
+        intent.fire_just_pressed = true;
+    }
+    app.update();
+
+    let fired = messages::<WeaponFiredMessage>(&app);
+    let fire_msg = fired
+        .iter()
+        .find(|m| m.shooter == player)
+        .expect("WeaponFiredMessage emitted");
+
+    let expected_dir = (target - fire_msg.origin).normalize();
+    assert!((fire_msg.direction - expected_dir).length() < 1e-3);
+    assert!(fire_msg.direction.y > 0.0, "should pitch upward toward target");
 }
 

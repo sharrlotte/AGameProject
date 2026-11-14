@@ -9,7 +9,7 @@ pub mod system;
 
 pub use crate::config::CameraConfig;
 pub use crate::message::messages::CameraZoomMessage;
-pub use state::{CameraZoom, MainCamera};
+pub use state::{CameraZoom, MainCamera, OccludedWall};
 
 /// Manages the main 3D gameplay camera, hot-reload sync, follow damping, and zoom.
 pub struct CameraPlugin;
@@ -32,9 +32,13 @@ impl Plugin for CameraPlugin {
             )
             .add_systems(
                 PostUpdate,
-                system::follow_local_player
-                    .after(PhysicsSet::Writeback)
-                    .before(TransformSystems::Propagate)
+                (
+                    system::follow_local_player
+                        .after(PhysicsSet::Writeback)
+                        .before(TransformSystems::Propagate),
+                    system::update_camera_wall_occlusion
+                        .after(system::follow_local_player),
+                )
                     .run_if(in_state(GameState::Playing)),
             );
     }

@@ -71,11 +71,6 @@ impl WeaponDefinition {
             .with_scale(Vec3::splat(self.model_scale))
     }
 
-    /// Backwards-compatible accessor for hands config.
-    pub fn grip(&self) -> &WeaponHandsConfig {
-        &self.hands
-    }
-
     /// Authoritative forward muzzle offset distance derived from `sockets.muzzle`.
     pub fn muzzle_offset(&self) -> f32 {
         let z = -self.sockets.muzzle.offset[2];

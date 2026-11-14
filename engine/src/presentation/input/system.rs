@@ -1,6 +1,8 @@
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_rapier3d::prelude::*;
+use crate::common::{GROUP_ENEMY, GROUP_WORLD};
 use crate::world::{ActionIntent, LocalPlayer, PlayerConfig};
 
 use crate::presentation::camera::{CameraConfig, CameraZoomMessage, MainCamera};
@@ -15,6 +17,7 @@ pub fn gather_local_input(
     cam_cfg: Res<CameraConfig>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    rapier_context: ReadRapierContext,
     mut intent: Single<&mut ActionIntent, With<LocalPlayer>>,
     mut zoom_writer: MessageWriter<CameraZoomMessage>,
 ) {
@@ -63,7 +66,8 @@ pub fn gather_local_input(
     let swap_next = weapon_scroll > 0.0;
     let swap_prev = weapon_scroll < 0.0;
 
-    let aim_world = compute_cursor_aim_world(&window, camera.0, camera.1, player_cfg.aim_height);
+    let rapier = rapier_context.single().ok();
+    let aim_world = compute_cursor_aim_world(&window, camera.0, camera.1, rapier.as_ref(), player_cfg.aim_height);
 
     intent.move_dir = move_dir;
     intent.sprint = sprint;
@@ -118,10 +122,23 @@ fn compute_cursor_aim_world(
     window: &Window,
     camera: &Camera,
     cam_transform: &GlobalTransform,
+    rapier: Option<&RapierContext>,
     aim_height: f32,
 ) -> Option<Vec3> {
     let cursor_pos = window.cursor_position()?;
     let ray = camera.viewport_to_world(cam_transform, cursor_pos).ok()?;
+
+    if let Some(ctx) = rapier {
+        let filter = QueryFilter::default().groups(CollisionGroups::new(
+            GROUP_WORLD | GROUP_ENEMY,
+            GROUP_WORLD | GROUP_ENEMY,
+        ));
+        let dir = ray.direction.as_vec3();
+        if let Some((_entity, toi)) = ctx.cast_ray(ray.origin, dir, 1000.0, true, filter) {
+            return Some(ray.origin + dir * toi);
+        }
+    }
+
     let plane = InfinitePlane3d::new(Vec3::Y);
     let distance = ray.intersect_plane(Vec3::new(0.0, aim_height, 0.0), plane)?;
     Some(ray.get_point(distance))

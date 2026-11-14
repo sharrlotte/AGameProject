@@ -51,7 +51,7 @@ pub fn spawn_projectile(
             Collider::ball(weapon.projectile_radius),
             Velocity::linear(dir * weapon.projectile_speed),
             TransformInterpolation::default(),
-            LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED,
+            LockedAxes::ROTATION_LOCKED,
             CollisionGroups::new(GROUP_PROJECTILE, GROUP_WORLD | GROUP_ENEMY),
             Transform::from_translation(muzzle_pos),
         ))

@@ -6,6 +6,13 @@ use crate::config::CameraConfig;
 #[derive(Component)]
 pub struct MainCamera;
 
+/// Tracks an obstacle currently occluding the camera line-of-sight to the player,
+/// storing its original material handle so it can be restored when un-occluded.
+#[derive(Component, Debug, Clone)]
+pub struct OccludedWall {
+    pub original_material: Handle<StandardMaterial>,
+}
+
 /// Smoothed zoom multiplier scaling [`CameraConfig::offset`] along the camera look ray.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct CameraZoom {

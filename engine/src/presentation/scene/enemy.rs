@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use crate::common::EnemyKind;
+#[cfg(feature = "dev")]
+use crate::common::{Dying, Health};
 use crate::enemies::{Enemy, FacingDirection, Fuse};
+#[cfg(feature = "dev")]
+use crate::presentation::camera::MainCamera;
 
 use crate::presentation::vfx::HitFlash;
 
@@ -203,6 +207,44 @@ pub fn pulse_fuses(
             if let Ok(mut tf) = visual_bodies.get_mut(child) {
                 tf.scale = Vec3::splat(scale);
             }
+        }
+    }
+}
+
+/// Renders an overhead health bar using Gizmos in dev builds.
+#[cfg(feature = "dev")]
+pub fn draw_enemy_dev_hp_bars(
+    mut gizmos: Gizmos,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
+    enemies: Query<(&Health, &Transform, &Enemy), Without<Dying>>,
+) {
+    let right = camera
+        .single()
+        .map(|c| c.right().as_vec3())
+        .unwrap_or(Vec3::X);
+    let half_width = 0.45;
+
+    for (health, transform, enemy) in &enemies {
+        if health.current <= 0.0 {
+            continue;
+        }
+        let bar_y = transform.translation.y + enemy.half_height + enemy.radius + 0.35;
+        let center = Vec3::new(transform.translation.x, bar_y, transform.translation.z);
+
+        let bg_start = center - right * half_width;
+        let bg_end = center + right * half_width;
+        gizmos.line(bg_start, bg_end, Color::srgb(0.15, 0.15, 0.15));
+
+        let ratio = (health.current / health.max.max(1.0)).clamp(0.0, 1.0);
+        let color = if ratio > 0.5 {
+            Color::srgb(2.0 * (1.0 - ratio), 1.0, 0.1)
+        } else {
+            Color::srgb(1.0, 2.0 * ratio, 0.1)
+        };
+
+        let fg_end = bg_start + right * (half_width * 2.0 * ratio);
+        if ratio > 0.001 {
+            gizmos.line(bg_start, fg_end, color);
         }
     }
 }

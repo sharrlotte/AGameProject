@@ -44,8 +44,3 @@ pub struct WeaponAnchorConfig {
     pub rotation_deg: [f32; 3],
 }
 
-impl WeaponAnchorConfig {
-    pub fn offset(&self) -> Vec3 {
-        Vec3::from_array(self.offset)
-    }
-}

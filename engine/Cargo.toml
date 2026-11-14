@@ -6,8 +6,6 @@ edition = "2024"
 [features]
 default = []
 dev = ["dep:bevy-inspector-egui"]
-dev-ik-gizmo = []
-
 [dependencies]
 bevy.workspace = true
 bevy_rapier3d.workspace = true

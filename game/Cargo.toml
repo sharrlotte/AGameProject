@@ -10,7 +10,6 @@ dev = [
     "dep:bevy-inspector-egui",
     "dep:bevy_brp_extras",
     "engine/dev",
-    "engine/dev-ik-gizmo",
 ]
 
 [dependencies]

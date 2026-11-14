@@ -442,3 +442,18 @@ Tank MUST carry the highest cost in the authored roster.
 - **WHEN** the authored piercing costs are compared
 - **THEN** the Tank's cost is greater than every other archetype's cost, and a Runner costs less than a
   Walker
+
+### Requirement: Dev-only enemy overhead health indicator
+
+Under the dev build profile (`#[cfg(feature = "dev")]`), the presentation system SHALL render overhead health bars above all living enemies using Bevy 3D Gizmos (`gizmos.line`). The health bar MUST reflect current health as a proportion of maximum health, using color grading (green for full health, yellow for damaged, red for low health), and MUST only render while the enemy has positive health.
+
+#### Scenario: Living enemy renders overhead health bar in dev
+
+- **WHEN** an enemy is active in the arena with positive health in a dev build
+- **THEN** a billboarded horizontal gizmo line is drawn above the enemy's head with width and color corresponding to its health ratio
+
+#### Scenario: Health bar does not render in non-dev builds
+
+- **WHEN** building or running without the `dev` feature flag
+- **THEN** the dev health bar system is omitted at compile time with zero performance overhead
+

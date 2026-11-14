@@ -43,7 +43,8 @@ warning.
 ## 2. Weapon Mechanics & Feel
 
 ### 2.1 Firing Models (Hybrid Hitscan & Projectile)
-Different weapon classes use the model that feels best:
+- **Physics Cursor Aiming:** Cursor raycasts against Rapier physics colliders (`GROUP_WORLD | GROUP_ENEMY`) to resolve the exact 3D point $(X, Y, Z)$ on enemies and obstacles, falling back to the horizontal aim plane when ray misses.
+- **Physical Projectiles & 3D Flight:** Projectiles spawn at muzzle elevation and fire along the 3D unit vector `(aim_world - muzzle_pos).normalize()` without vertical translation locks, enabling full 3D pitch and yaw flight directly toward targeted enemy contact points.
 - **Fast Ballistic / Hitscan-like:** Pistols, SMGs, Rifles, Snipers can either use ultra-fast raycasts/tracers (clean hit registration) or high-speed physical projectiles with trail VFX.
 - **Physical Projectiles:** Shotguns (pellet spread), Crossbows/Launchers, Turret rounds, and Spitter acid use `bevy_rapier3d` swept/kinematic projectiles or raycast-stepped projectiles to prevent tunneling at high speed.
 
