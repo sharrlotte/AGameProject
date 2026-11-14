@@ -8,6 +8,7 @@ use crate::message::messages::{DamageMessage, PlayerDiedMessage};
 use crate::message::resources::UpgradeModifiers;
 
 use crate::config::PlayerConfig;
+use crate::world::arena::ActiveInteriors;
 use crate::world::intent::ActionIntent;
 
 use super::state::{
@@ -41,6 +42,7 @@ pub fn spawn_player(
             },
             AimDirection(Vec3::NEG_Z),
             Knockback::default(),
+            ActiveInteriors::default(),
         ),
         (
             RigidBody::Dynamic,

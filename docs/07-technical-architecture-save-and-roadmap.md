@@ -104,7 +104,7 @@ Workspace now has two crates: `engine` (all simulation + presentation + config +
 1. **No `Single<..., With<Player>>` inside simulation systems:** Query `With<Survivor>` and link UI/camera via a local `LocalPlayer` marker.
 2. **Intent-Driven Actions:** Input systems only write `ActionIntent`; gameplay systems consume `ActionIntent`.
 3. **Explicit Ownership & Events:** Projectiles, deployables, and kills carry `Owner(Entity)` and emit typed Bevy events (`DamageEvent`, `NoiseEmittedEvent`, `LootExtractedEvent`).
-4. **Seeded World Generation:** Store `expedition_seed: u64` + delta state (looted containers, dead bosses, built deployables) rather than serializing millions of static world transforms.
+4. **Authored Map & Delta State:** Store `map_id: String` + delta state (looted containers, dead bosses, built deployables) rather than serializing static world transforms.
 
 ---
 
@@ -114,7 +114,7 @@ Per the **Roguelite + No Save-Scumming** requirement:
 | Save File | Contents | When Written / Deleted |
 | :--- | :--- | :--- |
 | **`profile_base.json`** | Base facility levels, Generator power allocation, unlocked blueprints/research, Armory stash, Radio Room sectors, player stats. | Auto-saved on every base upgrade, loadout change, and immediately upon **Extraction** or **Death**. |
-| **`active_expedition.json`** | `expedition_seed`, elapsed escalation timer, player position/HP/inventory/ammo, placed deployables, completed/active objectives, opened container IDs, active extraction schedules. | **Written ONLY on clean exit/quit mid-expedition.** Immediately **deleted** on resume (anti-save-scum), death, or extraction. |
+| **`active_expedition.json`** | `map_id`, elapsed escalation timer, player position/HP/inventory/ammo, placed deployables, completed/active objectives, opened container IDs, active extraction schedules. | **Written ONLY on clean exit/quit mid-expedition.** Immediately **deleted** on resume (anti-save-scum), death, or extraction. |
 
 *Why this works:* If life interrupts a 20-minute run, the player can quit and resume right where they left off—but they cannot reload an old save after dying or taking a bad fight.
 
@@ -132,7 +132,7 @@ Vehicles are intentionally deferred until on-foot combat, world gen, and base pr
 | Phase | Milestone Goal | Deliverable Scope |
 | :--- | :--- | :--- |
 | **Phase 0: Core Feel Prototype** | *"Shooting & movement feel awesome in 3D"* | `bevy_rapier3d` switch, 3D top-down camera with aim-lead, 8-dir movement + sprint/stamina, 2–3 weapons (recoil, spread, reload, crits, knockback), Walkers + Runners, hit VFX/shake in a test arena. |
-| **Phase 1: Minimum Extraction Loop** | *"15-min run works start-to-finish"* | Seeded room/street generator (2 biomes), loot containers, all 7 zombie archetypes (gradual rollout), Escalation timer + fog/night, Timed Extraction holdout siege, Death vs. Extract outcomes. |
+| **Phase 1: Minimum Extraction Loop** | *"15-min run works start-to-finish"* | Hand-crafted district map loading (glTF scene hooks, static colliders, interior roof cutaways), loot containers, all 7 zombie archetypes (gradual rollout), Escalation timer + fog/night, Timed Extraction holdout siege, Death vs. Extract outcomes. |
 | **Phase 2: Automation & Home Base** | *"Tactical gadgets + meta progression"* | Gun/Heavy Turrets, Mines, Electric Traps, Scout/Combat Drones, 7 Base facilities + Generator power budget, Workshop crafting, Armory loadouts, Auto-save on exit. |
 | **Phase 3: Full Content & Variety** | *"Rich replayability"* | All 7 biomes, full handcrafted room template library + roof cutaways, all 7 mission objective types, 5 random events, full weapon/attachment roster, Polish & Audio. |
 | **Phase 4: Post-Core Expansion** | *"Scale up"* | Drivable vehicles on Highways/Districts, Co-op multiplayer refactor using `ActionIntent` + `Owner(Entity)` foundations. |

@@ -192,6 +192,7 @@ pub fn spawn_enemies(
     mut spawner: ResMut<EnemySpawner>,
     existing_enemies: Query<&Enemy>,
     survivors: Query<&Transform, With<Survivor>>,
+    spawner_markers: Query<(&Transform, &crate::world::arena::EnemySpawnerMarker)>,
 ) {
     spawner.timer -= time.delta_secs();
     if spawner.timer > 0.0 {
@@ -219,11 +220,32 @@ pub fn spawn_enemies(
         return;
     }
 
-    let spawn_pos = pick_edge_spawn_pos(
-        &survivor_positions,
-        &arena_cfg,
-        &enemies_cfg,
-        chosen.collider_center_y(),
-    );
+    let marker_candidates: Vec<Vec3> = spawner_markers
+        .iter()
+        .filter(|(_, marker)| {
+            marker.kind_filter.as_ref().is_none_or(|filter| {
+                filter.eq_ignore_ascii_case(chosen.kind.label())
+            })
+        })
+        .map(|(t, _)| Vec3::new(t.translation.x, chosen.collider_center_y(), t.translation.z))
+        .filter(|pos| {
+            survivor_positions.iter().all(|s| {
+                Vec2::new(pos.x - s.x, pos.z - s.z).length()
+                    >= enemies_cfg.min_spawn_dist_from_survivor
+            })
+        })
+        .collect();
+
+    let spawn_pos = if !marker_candidates.is_empty() {
+        let idx = rand::random_range(0..marker_candidates.len());
+        marker_candidates[idx]
+    } else {
+        pick_edge_spawn_pos(
+            &survivor_positions,
+            &arena_cfg,
+            &enemies_cfg,
+            chosen.collider_center_y(),
+        )
+    };
     spawn_enemy_entity(&mut commands, chosen, spawn_pos);
 }

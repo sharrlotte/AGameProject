@@ -45,7 +45,7 @@ A **single-player-first (multiplayer-ready) top-down 3D zombie extraction shoote
 
 ### Example Run Walkthrough (20-Minute Expedition)
 1. **Prepare (Base, 2 min):** You equip an Assault Rifle (hollow-point mod) + Shotgun, pack 4 magazines each, 2 medkits, 1 Gun Turret, and a Scout Drone. Your Generator currently caps you at 2 active base modules, so you bring a basic loadout.
-2. **Deploy (0:00):** You drop into the **Suburbs** edge of a seeded quarantine zone. Daylight visibility is clear.
+2. **Deploy (0:00):** You drop into the **Suburbs** insertion point of the hand-crafted quarantine district. Daylight visibility is clear.
 3. **Explore & Scavenge (0:00–10:00):** You clear houses for food/scrap, send the Scout Drone ahead into the **Hospital**, and complete a *Supply Recovery* objective while fighting Walkers and Runners.
 4. **Escalation Kicks In (10:00–16:00):** Dusk falls, fog thickens, and Spitters/Exploders start appearing. A migrating horde forces you to drop your Gun Turret in a choke point while you sprint into a pharmacy.
 5. **Extract (16:00–20:00):** Overencumbered with rare Lab Tech, you reach an active extraction helipad during its **timed window**. Triggering extraction fires a flare that draws a final siege horde; you survive the 45-second holdout with traps and extract.

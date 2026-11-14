@@ -1,11 +1,30 @@
 use bevy::prelude::*;
+use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::prelude::*;
 use crate::config::ConfigHotReloadedMessage;
 use crate::common::{GROUP_WORLD, Obstacle, GameScene};
 
 use crate::config::{ArenaConfig, ObstacleDef};
 
+use super::map::MapRoot;
 use super::state::{ArenaGround, ArenaObstacle, ArenaStaticEntity};
+
+/// Spawns the authored district glTF scene map when entering the arena scene.
+pub fn spawn_arena_map(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    existing: Query<(), With<MapRoot>>,
+) {
+    if !existing.is_empty() {
+        return;
+    }
+    commands.spawn((
+        Name::new("District01_Map"),
+        MapRoot,
+        WorldAssetRoot(asset_server.load("maps/district_01.glb#Scene0")),
+        DespawnOnExit(GameScene::Arena),
+    ));
+}
 
 fn perimeter_walls(cfg: &ArenaConfig) -> [ObstacleDef; 4] {
     let h = cfg.wall_height * 0.5;
