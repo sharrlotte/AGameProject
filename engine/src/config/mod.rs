@@ -18,7 +18,9 @@ pub mod weapons;
 
 pub use arena::{ArenaConfig, ObstacleDef};
 pub use camera::CameraConfig;
-pub use enemies::{EnemiesConfig, EnemyArchetypeData};
+pub use enemies::{
+    ArmorSpec, Behavior, EnemiesConfig, EnemyArchetypeData, MeleeSpec, SpawnPolicy,
+};
 pub use extraction::ExtractionConfig;
 pub use player::PlayerConfig;
 pub use upgrades::UpgradesConfig;
@@ -94,6 +96,11 @@ pub trait RonConfig:
 {
     /// Asset path relative to `game/assets`, e.g. `"config/world/arena.ron"`.
     const PATH: &'static str;
+
+    /// Rejects authored data before it becomes the active configuration.
+    fn validate(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 #[derive(Resource)]
@@ -184,6 +191,12 @@ fn sync_initial_config<T: RonConfig>(
     }
 
     if let Some(asset) = assets.get(&handle.0) {
+        if let Err(err) = asset.validate() {
+            error!("Invalid RON config '{}': {err}", T::PATH);
+            pending.pending.remove(&id);
+            pending.failed.insert(id);
+            return;
+        }
         *active = asset.clone();
         pending.pending.remove(&id);
         pending.failed.remove(&id);
@@ -225,6 +238,10 @@ fn hot_reload_config<T: RonConfig>(
             && *id == handle.0.id()
             && let Some(asset) = assets.get(*id)
         {
+            if let Err(err) = asset.validate() {
+                error!("Invalid RON config '{}': {err}", T::PATH);
+                continue;
+            }
             *active = asset.clone();
             updated = true;
         }

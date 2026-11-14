@@ -8,7 +8,7 @@ pub use arena::{ArenaGround, ArenaObstacle, ArenaPlugin};
 pub use crate::config::{ArenaConfig, ObstacleDef, PlayerConfig};
 pub use intent::ActionIntent;
 pub use player::{
-    AimDirection, Health, LocalPlayer, MovementStats, PlayerPlugin, Stamina, Survivor,
+    AimDirection, Health, Knockback, LocalPlayer, MovementStats, PlayerPlugin, Stamina, Survivor,
 };
 #[cfg(feature = "dev")]
 pub use testanim::AnimTestPlugin;

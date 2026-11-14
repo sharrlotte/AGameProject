@@ -8,7 +8,7 @@ use crate::config::PlayerConfig;
 pub mod state;
 pub mod system;
 
-pub use state::{AimDirection, Health, LocalPlayer, MovementStats, Stamina, Survivor};
+pub use state::{AimDirection, Health, Knockback, LocalPlayer, MovementStats, Stamina, Survivor};
 pub use system::{apply_player_damage, player_movement_and_aim, spawn_player};
 
 pub struct PlayerPlugin;

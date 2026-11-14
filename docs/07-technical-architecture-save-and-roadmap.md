@@ -43,13 +43,13 @@ Workspace now has two crates: `engine` (all simulation + presentation + config +
 ├── Cargo.toml                 # Root workspace (default-members = ["game"])
 ├── engine/                    # Engine library crate (simulation, presentation, config, messages, base)
 │   ├── src/
-│   │   ├── common/            # GameState, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, tags, shared components
+│   │   ├── common/            # GameState, GameScene, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, DeathResolutionSet, tags, shared components
 │   │   ├── config/            # RonConfig + AppRonConfigExt::register_ron_config, ConfigPlugin, weapons/, anim/, etc.
 │   │   ├── message/           # Cross-feature typed Messages, shared progression & run resources (RunStats, ScrapBank, UpgradeLevels)
 │   │   ├── base/              # BasePlugin: meta-progression upgrades (upgrade/) and home base facilities
 │   │   ├── world/             # ArenaPlugin (arena/*), PlayerPlugin (player/*), ActionIntent (intent.rs)
 │   │   ├── combat/            # CombatPlugin: weapon/, reload/, projectile/, stance/
-│   │   ├── enemies/           # EnemiesPlugin: spawn/, ai/, damage/
+│   │   ├── enemies/           # EnemiesPlugin: spawn/, ai/, brain/, melee/, damage/, death/
 │   │   ├── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/)
 │   │   ├── automation/        # [Phase 2] Turrets, mines, electric traps, scout & combat drones
 │   │   ├── persistence/       # [Phase 2] Save/load manager (profile_base + active_expedition)
@@ -62,7 +62,7 @@ Workspace now has two crates: `engine` (all simulation + presentation + config +
     └── tests/
 ```
 
-- **Strict `Update` / `PostUpdate` Schedule Ordering:** `ConfigPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `CameraPlugin` (`apply_camera_zoom`, `sync_camera_on_hot_reload`), `ScenePlugin` attach/animate, and `PlayerAnimPlugin` asset bind/director (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `DamageResolutionSet` → `PlayerAnimSet::Drive` (before `AnimationSystems`) → weapon messages/pose (after `AnimationSystems`) → `PlayerAnimSet::Ik` → `PlayerAnimSet::Facing` → `CameraPlugin::follow_local_player`, `ScenePlugin` enemy facing & `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
+- **Strict `Update` / `PostUpdate` Schedule Ordering:** `ConfigPlugin` hot-reload & `InputPlugin` (`before(SimUpdateSet)`) → `SimUpdateSet` (`Update`) → `CameraPlugin` (`apply_camera_zoom`, `sync_camera_on_hot_reload`), `ScenePlugin` attach/animate, and `PlayerAnimPlugin` asset bind/director (`after(SimUpdateSet)`) → `Rapier` `PhysicsSet` (`PostUpdate`) → `SimPostPhysicsSet` (`after(PhysicsSet::Writeback)`) → `DamageResolutionSet` → `DeathResolutionSet` → `PlayerAnimSet::Drive` (before `AnimationSystems`) → weapon messages/pose (after `AnimationSystems`) → `PlayerAnimSet::Ik` → `PlayerAnimSet::Facing` → `CameraPlugin::follow_local_player`, `ScenePlugin` enemy facing & `VfxPlugin` hit-flash → `TransformSystems::Propagate`.
 
 ### Camera & Input (`presentation/src/camera/`, `presentation/src/input/`)
 - **Config (`game/assets/config/camera.ron`):** `CameraConfig` owns `offset`, `follow_sharpness`, `aim_lead_factor`, `max_aim_lead`, and zoom parameters (`zoom_default`, `zoom_min`, `zoom_max`, `zoom_step`, `zoom_sharpness`, `zoom_pixel_divisor`) with async loading and hot-reload.
@@ -79,6 +79,15 @@ Workspace now has two crates: `engine` (all simulation + presentation + config +
 - **Config:** `animation.ron` holds facing, aim, anchors, speed, masks, clip roles, and dual-chain IK; `weapon/weapon.ron` holds per-weapon models, sockets, poses, recoil, reload, swap, and stats; `visuals.ron` keeps only the player model path and safety scale/offset.
 - **Hot reload:** editing `animation.ron` rebuilds the graph from live `AnimationTargetId`s, re-registers masks, rebinds arms, resets director state/phase, and restarts looped clips. Editing `visuals.ron` reloads the glTF scene; editing `weapon/weapon.ron` remounts the active weapon.
 - **States, Scenes & Dev Test Stage:** `GameState` (`Loading`, `Playing`, `GameOver`, `Upgrades`) controls the core loop while `Scene` (`Arena`, and `#[cfg(feature = "dev")] AnimTest`) scopes stage plugins/systems via `run_if(in_state(Scene::...))` and entity cleanup via Bevy's built-in `DespawnOnExit`. Director, IK, and facing run in `Playing` and `GameOver`; asset preparation runs outside `Loading`. `ArenaPlugin` owns `Scene::Arena`, while in `dev` builds `AnimTestPlugin` (`world::testanim`) owns `Scene::AnimTest` — an enemy-free, obstacle-free flat ground stage with player, weapons, camera, and HUD, toggled via `F8` or the HUD/menu `Anim Test Stage (F8)` button. Production builds (`--no-default-features`) strip `AnimTestPlugin`, `Scene::AnimTest`, and dev UI completely.
+
+### Enemy Threat Module (`engine/src/enemies/`)
+- **Modules:** `spawn/` selects and instantiates archetypes, `ai/` owns the `Enemy` state, hot-reload sync, and steering with separation, `brain/` owns `EnemyBrain` transitions, `melee/` owns the wind-up `Melee` capability and damage delivery, `damage/` owns armor mitigation, stagger, and death marking, `death/` owns the `Dying` cleanup pass.
+- **Archetype data:** `EnemiesConfig` in `game/assets/config/enemies/enemies.ron` is the single roster: per-archetype stats, `scrap_value`, `spawn` policy, and a `behaviors` list of `Melee`/`Armor` entries. Validation rejects duplicates, a missing Walker, invalid stats, invalid behavior values, and rosters with no positive spawn weight; invalid files are rejected at load and hot reload, keeping the previous config.
+- **Capabilities:** behavior components are inserted at spawn from the archetype list, so an archetype composes combat abilities without new branches in AI code. Armor resolves directional mitigation from `DamageMessage::hit_dir` and `kind`; melee resolves after a rooted wind-up and only if the target is still within reach.
+- **System ordering:** `Update` runs `sync_enemies_hot_reload` → `spawn_enemies` → `update_brains` → `enemy_melee` → `steer_enemies` in `SimUpdateSet` (chained, `Playing` + `Arena`). `PostUpdate` runs `apply_enemy_damage` (`DamageResolutionSet`) → `cleanup_dead` (`DeathResolutionSet`) inside `SimPostPhysicsSet`, after `PhysicsSet::Writeback` and before `TransformSystems::Propagate`.
+- **Death contract:** lethal damage inserts `Dying` and emits `EnemyKilledMessage` once with the archetype's `scrap_value`; death effects resolve in `DeathResolutionSet` while the entity and its transform still exist, then cleanup despawns it in the same frame. `Dying` enemies are excluded from AI, steering, melee, and projectile collisions.
+- **Presentation:** `scene/enemy.rs` builds a per-kind primitive assembly under a rotating `VisualBody` root at a feet offset of `-(radius + half_height)`; the Tank assembles torso, front plate, weak back plate, shoulders, head, arms, legs, and boots from cached meshes and steel/rust/suit/weak materials. `vfx/flash.rs` stores every part's base material and restores each one after the flash.
+- **Hot reload:** live enemies take stat and behavior-value changes; spawn policy and scrap changes apply to subsequent spawns and kills. A behavior added to or removed from a live archetype logs a warning and applies on the next deploy instead of panicking.
 
 ### Key Rules to Avoid Refactor Pain Later
 1. **No `Single<..., With<Player>>` inside simulation systems:** Query `With<Survivor>` and link UI/camera via a local `LocalPlayer` marker.

@@ -7,6 +7,4 @@
     scrap_magnet_speed: 11.0,
     scrap_radius: 0.25,
     scrap_lifetime_secs: 60.0,
-    walker_scrap: 2,
-    runner_scrap: 3,
 )

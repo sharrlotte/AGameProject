@@ -9,4 +9,6 @@
     stamina_regen_per_sec: 22.0,
     stamina_exhaustion_delay: 1.0,
     max_hp: 100.0,
+    knockback_decay_rate: 12.0,
+    knockback_max_speed: 12.0,
 )

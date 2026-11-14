@@ -1,3 +1,3 @@
-pub use crate::common::{AimDirection, Health, LocalPlayer, MovementStats, Stamina, Survivor};
-
-
+pub use crate::common::{
+    AimDirection, Health, Knockback, LocalPlayer, MovementStats, Stamina, Survivor,
+};

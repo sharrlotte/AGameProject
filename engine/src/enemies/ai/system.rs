@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::config::ConfigHotReloadedMessage;
-use crate::message::messages::DamageMessage;
-use crate::common::EnemyKind;
-use crate::world::{PlayerConfig, Survivor};
+use crate::common::{Armor, Dying};
+use crate::world::Survivor;
 
 use crate::config::EnemiesConfig;
+use crate::enemies::brain::{BrainState, EnemyBrain};
+use crate::enemies::melee::Melee;
 
 use super::state::{Enemy, FacingDirection};
 
@@ -16,34 +17,63 @@ pub fn freeze_enemies_on_game_over(mut enemies: Query<&mut Velocity, With<Enemy>
     }
 }
 
+/// Applies authored stat and behavior values to live enemies; composition changes wait for redeploy.
 pub fn sync_enemies_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<EnemiesConfig>,
-    mut enemies: Query<&mut Enemy>,
+    mut enemies: Query<(&mut Enemy, Option<&mut Melee>, Option<&mut Armor>)>,
 ) {
     if reloaded.read().next().is_none() || !cfg.is_changed() {
         return;
     }
 
-    for mut enemy in &mut enemies {
-        let arch = match enemy.kind {
-            EnemyKind::Walker => cfg.walker,
-            EnemyKind::Runner => cfg.runner,
+    for (mut enemy, melee, armor) in &mut enemies {
+        let Some(arch) = cfg.archetype(enemy.kind) else {
+            continue;
         };
         enemy.move_speed = arch.move_speed;
-        enemy.attack_damage = arch.attack_damage;
-        enemy.attack_cooldown = arch.attack_cooldown;
         enemy.mass = arch.mass;
+        enemy.scrap_value = arch.scrap_value;
+
+        match (melee, arch.melee()) {
+            (Some(mut melee), Some(spec)) => melee.sync(spec),
+            (None, Some(_)) => warn!(
+                "enemy '{}' gained a Melee behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (Some(_), None) => warn!(
+                "enemy '{}' lost its Melee behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (None, None) => {}
+        }
+
+        match (armor, arch.armor()) {
+            (Some(mut armor), Some(spec)) => {
+                armor.front_mult = spec.front_mult;
+                armor.back_mult = spec.back_mult;
+                armor.arc_deg = spec.arc_deg;
+                armor.bypass = spec.bypass;
+            }
+            (None, Some(_)) => warn!(
+                "enemy '{}' gained an Armor behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (Some(_), None) => warn!(
+                "enemy '{}' lost its Armor behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (None, None) => {}
+        }
     }
 }
 
-/// Moves zombies directly toward the survivor and applies contact damage on cooldown.
-pub fn enemy_chase_and_attack(
+/// Drives horizontal velocity from brain intent, separation, and residual knockback.
+#[allow(clippy::type_complexity)]
+pub fn steer_enemies(
     time: Res<Time>,
-    player_cfg: Res<PlayerConfig>,
-    enemies_cfg: Res<EnemiesConfig>,
-    mut damage_writer: MessageWriter<DamageMessage>,
-    survivor: Option<Single<(Entity, &Transform), With<Survivor>>>,
+    cfg: Res<EnemiesConfig>,
+    survivor: Option<Single<&Transform, With<Survivor>>>,
     mut enemies: Query<
         (
             Entity,
@@ -51,50 +81,83 @@ pub fn enemy_chase_and_attack(
             &mut Velocity,
             &Transform,
             &mut FacingDirection,
+            &EnemyBrain,
+            Option<&Melee>,
+            Has<Dying>,
         ),
         Without<Survivor>,
     >,
 ) {
-    let Some(survivor) = survivor else {
-        for (_, _, mut vel, _, _) in &mut enemies {
-            vel.linear = Vec3::ZERO;
-        }
-        return;
-    };
-
-    let (target_entity, target_tf) = *survivor;
-    let target_pos = target_tf.translation;
     let dt = time.delta_secs();
-    let decay = (1.0 - enemies_cfg.knockback_decay_rate * dt).max(0.0);
+    let decay = (1.0 - cfg.knockback_decay_rate * dt).max(0.0);
+    let survivor_pos = survivor.as_ref().map(|s| s.translation);
 
-    for (enemy_entity, mut enemy, mut vel, transform, mut facing) in &mut enemies {
-        enemy.attack_timer = (enemy.attack_timer - dt).max(0.0);
+    let mut snapshot: Vec<(Entity, Vec3, f32)> = Vec::with_capacity(enemies.iter().count());
+    for (entity, enemy, _, transform, _, _, _, _) in &mut enemies {
+        snapshot.push((entity, transform.translation, enemy.radius));
+    }
+
+    for (entity, mut enemy, mut vel, transform, mut facing, brain, melee, dying) in &mut enemies {
         enemy.knockback_vel *= decay;
+        if enemy.knockback_vel.length_squared() < 1e-4 {
+            enemy.knockback_vel = Vec3::ZERO;
+        }
+        if dying {
+            vel.linear = Vec3::ZERO;
+            continue;
+        }
 
         let pos = transform.translation;
-        let to_target = Vec3::new(target_pos.x - pos.x, 0.0, target_pos.z - pos.z);
-        let dist = to_target.length();
-        let chase_dir = if dist > 1e-4 {
-            to_target / dist
-        } else {
-            Vec3::ZERO
-        };
+        let mut linear = enemy.knockback_vel;
+        let rooted = matches!(brain.state, BrainState::Idle | BrainState::Stagger)
+            || melee.is_some_and(Melee::is_winding);
 
-        vel.linear = chase_dir * enemy.move_speed + enemy.knockback_vel;
-        if chase_dir.length_squared() > 1e-4 {
-            facing.0 = chase_dir;
+        if !rooted {
+            let goal = match brain.state {
+                BrainState::Engage => survivor_pos.or(brain.last_known),
+                BrainState::Alert => brain.last_known,
+                _ => None,
+            };
+            if let Some(dir) = goal.and_then(|goal| flat_dir(goal - pos)) {
+                linear += dir * enemy.move_speed;
+                facing.0 = dir;
+            }
+            linear += separation(entity, pos, enemy.radius, &snapshot, &cfg);
         }
 
-        let reach = player_cfg.radius + enemy.radius + enemies_cfg.contact_reach_buffer;
-        if dist <= reach && enemy.attack_timer <= 0.0 {
-            enemy.attack_timer = enemy.attack_cooldown;
-            damage_writer.write(DamageMessage {
-                target: target_entity,
-                amount: enemy.attack_damage,
-                knockback: Vec3::ZERO,
-                source: enemy_entity,
-            });
-        }
+        vel.linear = linear;
     }
 }
 
+fn flat_dir(delta: Vec3) -> Option<Vec3> {
+    let flat = Vec3::new(delta.x, 0.0, delta.z);
+    if flat.length_squared() <= 1e-4 {
+        None
+    } else {
+        Some(flat.normalize())
+    }
+}
+
+fn separation(
+    entity: Entity,
+    pos: Vec3,
+    radius: f32,
+    neighbors: &[(Entity, Vec3, f32)],
+    cfg: &EnemiesConfig,
+) -> Vec3 {
+    let mut push = Vec3::ZERO;
+    for (other, other_pos, other_radius) in neighbors {
+        if *other == entity {
+            continue;
+        }
+        let min_dist = radius + *other_radius;
+        let delta = Vec3::new(pos.x - other_pos.x, 0.0, pos.z - other_pos.z);
+        let dist = delta.length();
+        if dist <= 1e-4 || dist >= cfg.separation_radius.max(min_dist) {
+            continue;
+        }
+        let weight = 1.0 - (dist / cfg.separation_radius.max(min_dist));
+        push += (delta / dist) * weight;
+    }
+    push.clamp_length_max(1.0) * cfg.separation_strength
+}

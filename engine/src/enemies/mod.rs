@@ -1,15 +1,25 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
 use crate::config::AppRonConfigExt;
-use crate::common::{GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
+use crate::common::{
+    DamageResolutionSet, DeathResolutionSet, GameScene, GameState, SimPostPhysicsSet, SimUpdateSet,
+};
 
 pub mod ai;
+pub mod brain;
 pub mod damage;
+pub mod death;
+pub mod melee;
 pub mod spawn;
 
-pub use ai::{Enemy, FacingDirection, enemy_chase_and_attack};
-pub use crate::config::{EnemiesConfig, EnemyArchetypeData};
+pub use ai::{Enemy, FacingDirection, steer_enemies, sync_enemies_hot_reload};
+pub use brain::{BrainState, EnemyBrain};
+pub use melee::Melee;
+pub use crate::config::{
+    ArmorSpec, Behavior, EnemiesConfig, EnemyArchetypeData, MeleeSpec, SpawnPolicy,
+};
 pub use damage::apply_enemy_damage;
+pub use death::cleanup_dead;
 pub use spawn::{EnemySpawner, escalated_spawn_params, spawn_enemies, spawn_enemy_entity};
 
 pub struct EnemiesPlugin;
@@ -35,7 +45,9 @@ impl Plugin for EnemiesPlugin {
                 (
                     ai::sync_enemies_hot_reload,
                     spawn::spawn_enemies,
-                    ai::enemy_chase_and_attack,
+                    brain::update_brains,
+                    melee::enemy_melee,
+                    ai::steer_enemies,
                 )
                     .chain()
                     .in_set(SimUpdateSet)
@@ -44,7 +56,11 @@ impl Plugin for EnemiesPlugin {
             )
             .add_systems(
                 PostUpdate,
-                damage::apply_enemy_damage
+                (
+                    damage::apply_enemy_damage.in_set(DamageResolutionSet),
+                    death::cleanup_dead.in_set(DeathResolutionSet),
+                )
+                    .chain()
                     .in_set(SimPostPhysicsSet)
                     .after(PhysicsSet::Writeback)
                     .before(TransformSystems::Propagate)
@@ -56,4 +72,3 @@ impl Plugin for EnemiesPlugin {
 
 #[cfg(test)]
 mod tests;
-

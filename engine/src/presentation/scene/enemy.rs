@@ -10,6 +10,13 @@ use super::mesh::SharedVisualMeshes;
 #[derive(Component)]
 pub struct VisualBody;
 
+/// One mesh part of an enemy assembly, positioned in feet space.
+struct PartSpec {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    transform: Transform,
+}
+
 pub fn attach_enemy_visuals(
     mut commands: Commands,
     meshes: Res<SharedVisualMeshes>,
@@ -17,30 +24,98 @@ pub fn attach_enemy_visuals(
     enemies: Query<(Entity, &Enemy), Added<Enemy>>,
 ) {
     for (entity, enemy) in &enemies {
-        let (body_mesh, base_mat) = match enemy.kind {
-            EnemyKind::Walker => (meshes.walker.clone(), materials.walker.clone()),
-            EnemyKind::Runner => (meshes.runner.clone(), materials.runner.clone()),
+        let parts = match enemy.kind {
+            EnemyKind::Walker => simple_body(&meshes.walker, &materials.walker, enemy),
+            EnemyKind::Runner => simple_body(&meshes.runner, &materials.runner, enemy),
+            EnemyKind::Tank => tank_body(&meshes, &materials),
         };
-        let visual_entity = commands
-            .spawn((
-                VisualBody,
-                Mesh3d(body_mesh),
-                MeshMaterial3d(base_mat.clone()),
-                Transform::default(),
-            ))
-            .id();
-        commands
-            .entity(entity)
-            .insert((
-                Visibility::default(),
-                HitFlash {
-                    timer: 0.0,
-                    base_material: base_mat,
-                    visual_entity,
-                },
-            ))
-            .add_child(visual_entity);
+        spawn_assembly(&mut commands, entity, enemy, parts);
     }
+}
+
+fn simple_body(
+    mesh: &Handle<Mesh>,
+    material: &Handle<StandardMaterial>,
+    enemy: &Enemy,
+) -> Vec<PartSpec> {
+    vec![PartSpec {
+        mesh: mesh.clone(),
+        material: material.clone(),
+        transform: Transform::from_xyz(0.0, enemy.radius + enemy.half_height, 0.0),
+    }]
+}
+
+fn tank_body(meshes: &SharedVisualMeshes, materials: &SharedVisualMaterials) -> Vec<PartSpec> {
+    let tank = &meshes.tank;
+    let steel = &materials.tank.steel;
+    let rust = &materials.tank.rust;
+    let suit = &materials.tank.suit;
+    let weak = &materials.tank.weak;
+
+    vec![
+        part(&tank.pelvis, suit, Vec3::new(0.0, 1.14, 0.0)),
+        part(&tank.torso, suit, Vec3::new(0.0, 1.68, 0.0)),
+        part(&tank.plate, steel, Vec3::new(0.0, 1.72, -0.40)),
+        part(&tank.weak, weak, Vec3::new(0.0, 1.72, 0.40)),
+        part(&tank.shoulder, steel, Vec3::new(-0.82, 2.12, 0.0)),
+        part(&tank.shoulder, steel, Vec3::new(0.82, 2.12, 0.0)),
+        part(&tank.head, steel, Vec3::new(0.0, 2.50, -0.02)),
+        part(&tank.arm, suit, Vec3::new(-0.86, 1.56, 0.0)),
+        part(&tank.arm, suit, Vec3::new(0.86, 1.56, 0.0)),
+        part(&tank.leg, suit, Vec3::new(-0.24, 0.72, 0.0)),
+        part(&tank.leg, suit, Vec3::new(0.24, 0.72, 0.0)),
+        part(&tank.boot, rust, Vec3::new(-0.24, 0.12, -0.05)),
+        part(&tank.boot, rust, Vec3::new(0.24, 0.12, -0.05)),
+    ]
+}
+
+fn part(mesh: &Handle<Mesh>, material: &Handle<StandardMaterial>, at: Vec3) -> PartSpec {
+    PartSpec {
+        mesh: mesh.clone(),
+        material: material.clone(),
+        transform: Transform::from_translation(at),
+    }
+}
+
+fn spawn_assembly(
+    commands: &mut Commands,
+    entity: Entity,
+    enemy: &Enemy,
+    parts: Vec<PartSpec>,
+) {
+    let feet_offset = -(enemy.radius + enemy.half_height);
+    let root = commands
+        .spawn((
+            VisualBody,
+            Transform::from_xyz(0.0, feet_offset, 0.0),
+            Visibility::default(),
+        ))
+        .id();
+
+    let mut flash_parts = Vec::with_capacity(parts.len());
+    commands.entity(root).with_children(|parent| {
+        for spec in parts {
+            let child = parent
+                .spawn((
+                    Mesh3d(spec.mesh),
+                    MeshMaterial3d(spec.material.clone()),
+                    spec.transform,
+                ))
+                .id();
+            flash_parts.push((child, spec.material));
+        }
+    });
+
+    commands
+        .entity(entity)
+        .insert((
+            Visibility::default(),
+            HitFlash {
+                timer: 0.0,
+                parts: flash_parts,
+            },
+        ))
+        .add_child(root);
 }
 
 pub fn sync_visual_facing(
@@ -68,9 +143,83 @@ fn apply_facing_to_children(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::EnemiesConfig;
 
+    fn app_with_assembly() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>();
+        let meshes = SharedVisualMeshes::from_world(app.world_mut());
+        let materials = SharedVisualMaterials::from_world(app.world_mut());
+        app.insert_resource(meshes)
+            .insert_resource(materials)
+            .add_systems(Update, (attach_enemy_visuals, sync_visual_facing));
+        app
+    }
 
+    fn spawn_tank(app: &mut App) -> Entity {
+        let config: EnemiesConfig = crate::assert_ron_config_parses!(EnemiesConfig);
+        let tank = config
+            .archetype(EnemyKind::Tank)
+            .expect("authored tank")
+            .clone();
+        app.world_mut()
+            .spawn((
+                Enemy::from_archetype(&tank),
+                FacingDirection(Vec3::NEG_Z),
+                Transform::default(),
+            ))
+            .id()
+    }
 
+    #[test]
+    fn tank_assembly_uses_authored_materials_for_every_part() {
+        let mut app = app_with_assembly();
+        let tank = spawn_tank(&mut app);
+        app.update();
 
+        let flash = app
+            .world()
+            .get::<HitFlash>(tank)
+            .expect("tank carries hit flash");
+        assert_eq!(flash.parts.len(), 13, "tank part count");
 
+        for (part, base) in &flash.parts {
+            let material = app
+                .world()
+                .get::<MeshMaterial3d<StandardMaterial>>(*part)
+                .expect("part material");
+            assert_ne!(material.0, Handle::default(), "default material handle");
+            assert_eq!(material.0, *base, "part must start on its base material");
+        }
+    }
 
+    #[test]
+    fn facing_rotates_the_visual_root() {
+        let mut app = app_with_assembly();
+        let tank = spawn_tank(&mut app);
+        app.update();
+
+        app.world_mut()
+            .get_mut::<FacingDirection>(tank)
+            .expect("facing")
+            .0 = Vec3::X;
+        app.update();
+
+        let children = app.world().get::<Children>(tank).expect("root child");
+        let root = children
+            .iter()
+            .find(|child| app.world().get::<VisualBody>(*child).is_some())
+            .expect("visual body child");
+        let rotation = app.world().get::<Transform>(root).expect("root transform").rotation;
+        let expected = Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::X);
+        assert!(
+            rotation.dot(expected).abs() > 1.0 - 1e-5,
+            "rotation {rotation:?} expected {expected:?}"
+        );
+    }
+}

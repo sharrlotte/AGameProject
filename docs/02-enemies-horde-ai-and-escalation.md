@@ -17,22 +17,59 @@ Zombies are **not** HP sponges with different numbers. Every archetype exists to
 | **6. Screamer** | Gaunt, elongated jaw, pale | Avoids direct melee; when spotting the player, emits a visible shockwave shriek that alerts & spawns nearby hordes. | **Priority Target:** Must be killed before it finishes its wind-up scream, or the room turns into a swarm. Suppressors help prevent early aggro. |
 | **7. Stalker** | Low-profile, shadowy/translucent | Semi-invisible at range; circles toward player's back/flanks; decloaks with a screech just before pouncing. | **Awareness & Tech Check:** Causes ambush panic in dark buildings. Counter with Scout Drones, Pulse Scans, flashlight beam, or Proximity Mines at your back. |
 
+Walker, Runner, and Tank are implemented. Spitter, Exploder, Screamer, and Stalker are planned.
+
+---
+
+## 2.1 Implemented Threat Set
+
+| Archetype | Stats | Behaviors | Spawn Policy |
+| :--- | :--- | :--- | :--- |
+| **Walker** | 75 HP, 4.2 m/s, mass 1.0, radius 0.45, half-height 0.45 | `Melee` 15 dmg, 0.9 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.70, `max_active` 60, scrap 2 |
+| **Runner** | 35 HP, 7.8 m/s, mass 0.65, radius 0.35, half-height 0.40 | `Melee` 10 dmg, 0.7 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.30, `max_active` 40, scrap 3 |
+| **Tank** | 420 HP, 3.1 m/s, mass 6.0, radius 0.75, half-height 0.70 | `Armor` 0.30 front / 1.0 back, 120° arc, `Explosive` bypass; `Melee` 32 dmg, 1.6 s cooldown, 0.45 s wind-up, 0.35 reach, 7.5 knockback | Unlocked at 120 s, weight 0.18, `max_active` 6, scrap 8 |
+
+All values are authored in `game/assets/config/enemies/enemies.ron`; the table documents the shipped roster, not a second source of truth.
+
 ---
 
 ## 3. AI Architecture & Horde Performance
 
 ### 3.1 Per-Zombie Finite State Machine (FSM)
 ```
-        noise / sight                  in range
-[Idle / Wander] ──────▶ [Alert / Investigate] ──────▶ [Engage / Attack]
-       ▲                                                     │
-       │ lost target (timeout)                               ▼
-       └───────────────────────────────────────────── [Stagger / Disabled]
-                                                       (knockback / electric trap)
+        aggro radius                  target retained
+[Idle] ─────────────▶ [Engage] ─────────────▶ [Engage / Attack]
+   ▲                     │                          │
+   │  alert elapsed      │  deaggro radius +        │ knockback > threshold
+   │                     ▼  deaggro duration        ▼
+   └──────────────── [Alert] ◀── stagger elapsed ─ [Stagger]
 ```
-- **Sensory Triggers:** Vision cone + **Noise Radius** (gunshots without suppressors, explosions, car alarms, extraction flares).
+- **States:** `Idle`, `Alert`, `Engage`, `Stagger`, stored on `EnemyBrain` with the current target, last known target position, alert timer, stagger timer, and unseen duration.
+- **Aggro:** an `Idle` enemy enters `Engage` and records the survivor as target when the survivor is within `aggro_radius`.
+- **Deaggro:** an `Engage` enemy keeps updating its target while the survivor is within `deaggro_radius`; after the survivor has been outside that radius for `deaggro_secs` it enters `Alert` and remembers the last known position.
+- **Alert:** steering follows the remembered position. Re-entering `aggro_radius` returns to `Engage`; when `alert_secs` elapses the brain clears its target and returns to `Idle`.
+- **Stagger:** damage whose accumulated knockback velocity exceeds `stagger_threshold` enters `Stagger` for `stagger_secs`, cancels steering and wind-ups, then returns to `Engage` when a target exists, otherwise to `Alert`.
+- **Damage forces engagement:** damage delivered by a survivor always engages the enemy against that source, regardless of distance.
+- **Sensory Triggers (planned):** vision cone + **Noise Radius** (gunshots without suppressors, explosions, car alarms, extraction flares).
+- **Tuning:** `aggro_radius` 18, `deaggro_radius` 26, `deaggro_secs` 2.5, `alert_secs` 4.0, `stagger_threshold` 4.5, `stagger_secs` 0.35 in `enemies.ron`.
+
+### 3.1.1 Damage, Armor, and Death Contract
+- **Damage message:** every damage delivery carries `kind` (`Ballistic`, `Explosive`, `Acid`, `Shock`) and `hit_dir` in addition to amount, knockback, and source. Weapons default to `Ballistic` and projectiles forward their authored kind and travel direction.
+- **Armor:** an `Armor` component on an enemy holds `front_mult`, `back_mult`, `arc_deg`, and a `bypass` kind list. A hit travelling along `hit_dir` is frontal when `facing.dot(-hit_dir) >= cos(arc_deg / 2)`; frontal hits use `front_mult`, everything else uses `back_mult`, and any listed `bypass` kind applies full damage. A zero or non-finite `hit_dir` is treated as frontal so malformed data never grants the back bonus.
+- **Death pipeline:** lethal damage marks the enemy `Dying`, emits `EnemyKilledMessage` once with the archetype's `scrap_value`, and keeps the entity alive for the rest of the frame. Death effects run in `DeathResolutionSet`; the cleanup pass then despawns `Dying` entities. `Dying` enemies are excluded from targeting, steering, melee, and projectile collisions.
+- **Scrap:** `EnemyKilledMessage.scrap` is the single source for pickup value; `ExtractionConfig` no longer holds per-kind scrap amounts.
+
+### 3.1.2 Spawn Policy
+- **Tiering:** an archetype only joins the spawn roll once `RunStats.elapsed_secs` reaches its `spawn.unlock_secs`.
+- **Weighted roll:** eligible archetypes are selected proportionally to `spawn.weight`; a roster with no positive weight is rejected at load time.
+- **Caps:** each archetype stops spawning at `spawn.max_active`, and the global active-enemy cap from escalation stops all spawning for that tick.
+- **Placement:** enemies spawn on the arena edge at least `min_spawn_dist_from_survivor` away from every survivor, with the capsule center at `radius + half_height` so every archetype sits on the ground.
+- **Hot reload:** stat and behavior values, spawn policy, and scrap values update from `enemies.ron` while running. Adding or removing a behavior on a live archetype logs a warning and applies on the next deploy.
+
 
 ### 3.2 Horde AI & Spatial Partitioning
+Current implementation: separation is a pairwise `O(n²)` pass over active enemies, bounded by the escalation cap. The spatial grid below is the planned scaling step for large hordes.
+
 To support large hordes smoothly in 3D:
 - **Spatial Hash Grid:** Partition entities into uniform 2D/3D grid cells (e.g., 4m × 4m) rebuilt or updated every fixed tick.
   - Zombies query only neighbor cells for **separation steering** (avoid stacking into one point) and **local flanking**.
@@ -54,6 +91,8 @@ The longer you stay in the 15–25 minute expedition, the more hostile the quara
 | **18:00 – 25:00+** | Tier 4 (Overrun) | **Nightfall** (flashlight & muzzle flashes light the dark); frequent roaming elites; relentless horde pressure until extraction. |
 
 *Noise Escalation:* Making excessive loud noise (alarms, un-suppressed heavy gunfire) temporarily spikes local heat faster than the base timer.
+
+*Data-Driven Tiers:* the shipped arena derives its spawn pool from `spawn.unlock_secs` per archetype (Walker and Runner from 0 s, Tank from 120 s) and shapes density with `spawn.weight`, per-archetype `max_active`, and the escalating global cap. The time windows above remain the design target for the full expedition mode.
 
 ---
 

@@ -14,6 +14,8 @@ pub struct PlayerConfig {
     pub stamina_regen_per_sec: f32,
     pub stamina_exhaustion_delay: f32,
     pub max_hp: f32,
+    pub knockback_decay_rate: f32,
+    pub knockback_max_speed: f32,
 }
 
 impl Default for PlayerConfig {
@@ -29,6 +31,8 @@ impl Default for PlayerConfig {
             stamina_regen_per_sec: 22.0,
             stamina_exhaustion_delay: 1.0,
             max_hp: 100.0,
+            knockback_decay_rate: 12.0,
+            knockback_max_speed: 12.0,
         }
     }
 }

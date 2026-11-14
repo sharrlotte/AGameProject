@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::common::DamageKind;
 
 /// Physical 3D projectile sensor entity fired by weapons.
 #[derive(Component, Debug, Clone, Copy)]
@@ -10,5 +11,5 @@ pub struct Projectile {
     pub radius: f32,
     pub lifetime: f32,
     pub hit: bool,
+    pub kind: DamageKind,
 }
-

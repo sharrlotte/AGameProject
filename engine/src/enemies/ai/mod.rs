@@ -2,5 +2,4 @@ pub mod state;
 pub mod system;
 
 pub use state::{Enemy, FacingDirection};
-pub use system::{enemy_chase_and_attack, freeze_enemies_on_game_over, sync_enemies_hot_reload};
-
+pub use system::{freeze_enemies_on_game_over, steer_enemies, sync_enemies_hot_reload};

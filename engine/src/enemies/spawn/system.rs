@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::common::{
-    EnemyKind, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, GameScene,
+    Armor, EnemyKind, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, GameScene,
 };
 use crate::message::resources::RunStats;
-use crate::world::{ArenaConfig, Health, PlayerConfig, Survivor};
+use crate::world::{ArenaConfig, Health, Survivor};
 
 use crate::enemies::ai::state::{Enemy, FacingDirection};
+use crate::enemies::brain::EnemyBrain;
+use crate::enemies::melee::Melee;
 use crate::config::{EnemiesConfig, EnemyArchetypeData};
 
 use super::state::EnemySpawner;
@@ -19,7 +21,7 @@ fn pick_edge_spawn_pos(
     survivors: &[Vec3],
     arena_cfg: &ArenaConfig,
     enemies_cfg: &EnemiesConfig,
-    aim_height: f32,
+    spawn_y: f32,
 ) -> Vec3 {
     let edge_limit = (arena_cfg.half_size - enemies_cfg.edge_spawn_inset).max(2.0);
     let span_limit = (edge_limit - 1.5).max(1.0);
@@ -28,10 +30,10 @@ fn pick_edge_spawn_pos(
         let side = rand::random_range(0..4);
         let offset = rand::random_range(-span_limit..=span_limit);
         let candidate = match side {
-            0 => Vec3::new(offset, aim_height, -edge_limit),
-            1 => Vec3::new(offset, aim_height, edge_limit),
-            2 => Vec3::new(-edge_limit, aim_height, offset),
-            _ => Vec3::new(edge_limit, aim_height, offset),
+            0 => Vec3::new(offset, spawn_y, -edge_limit),
+            1 => Vec3::new(offset, spawn_y, edge_limit),
+            2 => Vec3::new(-edge_limit, spawn_y, offset),
+            _ => Vec3::new(edge_limit, spawn_y, offset),
         };
 
         let far_enough = survivors.iter().all(|s| {
@@ -43,25 +45,22 @@ fn pick_edge_spawn_pos(
         }
     }
 
-    Vec3::new(edge_limit, aim_height, edge_limit)
+    Vec3::new(edge_limit, spawn_y, edge_limit)
 }
 
-/// Spawns a single zombie of the given archetype at `spawn_pos`.
+/// Spawns one archetype at `spawn_pos` with the behaviors authored in its roster entry.
 pub fn spawn_enemy_entity(
     commands: &mut Commands,
-    kind: EnemyKind,
-    arch: EnemyArchetypeData,
+    arch: &EnemyArchetypeData,
     spawn_pos: Vec3,
 ) -> Entity {
-    commands
+    let entity = commands
         .spawn((
             (
-                Name::new(match kind {
-                    EnemyKind::Walker => "Walker",
-                    EnemyKind::Runner => "Runner",
-                }),
+                Name::new(arch.kind.label()),
                 RunEntity,
-                Enemy::from_archetype(kind, arch),
+                Enemy::from_archetype(arch),
+                EnemyBrain::default(),
                 FacingDirection(Vec3::NEG_Z),
                 Health::new(arch.max_hp),
                 DespawnOnExit(GameScene::Arena),
@@ -92,7 +91,20 @@ pub fn spawn_enemy_entity(
                 Transform::from_translation(spawn_pos),
             ),
         ))
-        .id()
+        .id();
+
+    if let Some(spec) = arch.melee() {
+        commands.entity(entity).insert(Melee::from_spec(spec));
+    }
+    if let Some(spec) = arch.armor() {
+        commands.entity(entity).insert(Armor {
+            front_mult: spec.front_mult,
+            back_mult: spec.back_mult,
+            arc_deg: spec.arc_deg,
+            bypass: spec.bypass,
+        });
+    }
+    entity
 }
 
 /// Computes current escalated spawn interval and cap from `RunStats.elapsed_secs`.
@@ -109,17 +121,68 @@ pub fn escalated_spawn_params(elapsed_secs: f32, cfg: &EnemiesConfig) -> (f32, u
     (interval.max(0.1), max_active.round().max(1.0) as usize)
 }
 
-/// Spawns Walkers and Runners along the arena edges, escalating over run time.
-#[allow(clippy::too_many_arguments)]
+fn count_kind(enemies: &Query<&Enemy>, kind: EnemyKind) -> usize {
+    enemies.iter().filter(|enemy| enemy.kind == kind).count()
+}
+
+fn collect_counts(enemies: &Query<&Enemy>, cfg: &EnemiesConfig) -> Vec<(EnemyKind, usize)> {
+    cfg.archetypes
+        .iter()
+        .map(|arch| (arch.kind, count_kind(enemies, arch.kind)))
+        .collect()
+}
+
+/// Archetypes that are unlocked, weighted, under their own cap, and within the global cap.
+pub fn eligible_archetypes<'a>(
+    cfg: &'a EnemiesConfig,
+    elapsed_secs: f32,
+    counts: &[(EnemyKind, usize)],
+    global_active: usize,
+    global_cap: usize,
+) -> Vec<&'a EnemyArchetypeData> {
+    if global_active >= global_cap {
+        return Vec::new();
+    }
+    cfg.archetypes
+        .iter()
+        .filter(|arch| elapsed_secs >= arch.spawn.unlock_secs && arch.spawn.weight > 0.0)
+        .filter(|arch| {
+            counts
+                .iter()
+                .find(|(kind, _)| *kind == arch.kind)
+                .is_none_or(|(_, count)| *count < arch.spawn.max_active)
+        })
+        .collect()
+}
+
+/// Picks one eligible archetype from a unit roll in `[0, 1)`.
+pub fn pick_archetype<'a>(
+    eligible: &[&'a EnemyArchetypeData],
+    roll: f32,
+) -> Option<&'a EnemyArchetypeData> {
+    let total: f32 = eligible.iter().map(|arch| arch.spawn.weight).sum();
+    if total <= 0.0 {
+        return None;
+    }
+    let mut cursor = roll.clamp(0.0, 1.0) * total;
+    for arch in eligible {
+        if cursor < arch.spawn.weight {
+            return Some(arch);
+        }
+        cursor -= arch.spawn.weight;
+    }
+    eligible.last().copied()
+}
+
+/// Rolls one eligible archetype and spawns it along the arena edge.
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,
     arena_cfg: Res<ArenaConfig>,
-    player_cfg: Res<PlayerConfig>,
     enemies_cfg: Res<EnemiesConfig>,
     stats: Res<RunStats>,
     mut spawner: ResMut<EnemySpawner>,
-    existing_enemies: Query<(), With<Enemy>>,
+    existing_enemies: Query<&Enemy>,
     survivors: Query<&Transform, With<Survivor>>,
 ) {
     spawner.timer -= time.delta_secs();
@@ -130,26 +193,29 @@ pub fn spawn_enemies(
     let (interval, max_active) = escalated_spawn_params(stats.elapsed_secs, &enemies_cfg);
     spawner.timer = interval;
 
-    if existing_enemies.iter().count() >= max_active {
+    let counts = collect_counts(&existing_enemies, &enemies_cfg);
+    let active = existing_enemies.iter().count();
+    let eligible = eligible_archetypes(
+        &enemies_cfg,
+        stats.elapsed_secs,
+        &counts,
+        active,
+        max_active,
+    );
+    let Some(chosen) = pick_archetype(&eligible, rand::random_range(0.0..1.0)) else {
         return;
-    }
+    };
 
     let survivor_positions: Vec<Vec3> = survivors.iter().map(|t| t.translation).collect();
     if survivor_positions.is_empty() {
         return;
     }
 
-    let (kind, arch) = if rand::random_range(0.0..1.0) < enemies_cfg.walker_spawn_weight {
-        (EnemyKind::Walker, enemies_cfg.walker)
-    } else {
-        (EnemyKind::Runner, enemies_cfg.runner)
-    };
     let spawn_pos = pick_edge_spawn_pos(
         &survivor_positions,
         &arena_cfg,
         &enemies_cfg,
-        player_cfg.aim_height,
+        chosen.collider_center_y(),
     );
-    spawn_enemy_entity(&mut commands, kind, arch, spawn_pos);
+    spawn_enemy_entity(&mut commands, chosen, spawn_pos);
 }
-

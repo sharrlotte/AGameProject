@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use crate::common::{GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, Obstacle, RunEntity};
+use crate::common::{
+    Dying, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, Obstacle, RunEntity,
+};
 use crate::enemies::Enemy;
 use crate::message::messages::DamageMessage;
 
@@ -29,6 +31,7 @@ pub fn spawn_projectile(
                 radius: weapon.projectile_radius,
                 lifetime: weapon.projectile_lifetime,
                 hit: false,
+                kind: weapon.damage_kind,
             },
             RigidBody::Dynamic,
             GravityScale(0.0),
@@ -51,7 +54,7 @@ pub fn handle_projectile_collisions(
     mut collision_reader: MessageReader<CollisionEvent>,
     mut damage_writer: MessageWriter<DamageMessage>,
     mut projectiles: Query<&mut Projectile>,
-    enemies: Query<(), With<Enemy>>,
+    enemies: Query<(), (With<Enemy>, Without<Dying>)>,
     obstacles: Query<(), With<Obstacle>>,
 ) {
     for event in collision_reader.read() {
@@ -81,6 +84,8 @@ pub fn handle_projectile_collisions(
                 amount: proj.damage,
                 knockback: proj.direction * proj.knockback,
                 source: proj.owner,
+                kind: proj.kind,
+                hit_dir: proj.direction,
             });
             commands.entity(proj_entity).despawn();
         } else if obstacles.contains(other_entity) {

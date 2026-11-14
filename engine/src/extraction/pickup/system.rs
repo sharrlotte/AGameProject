@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use crate::common::{RunEntity, GameScene};
-use crate::common::EnemyKind;
 use crate::message::messages::{EnemyKilledMessage, ScrapCollectedMessage};
 use crate::world::Survivor;
 
@@ -14,10 +13,7 @@ pub fn spawn_scrap_on_enemy_killed(
     mut killed_reader: MessageReader<EnemyKilledMessage>,
 ) {
     for msg in killed_reader.read() {
-        let amount = match msg.kind {
-            EnemyKind::Walker => cfg.walker_scrap,
-            EnemyKind::Runner => cfg.runner_scrap,
-        };
+        let amount = msg.scrap;
         if amount == 0 {
             continue;
         }

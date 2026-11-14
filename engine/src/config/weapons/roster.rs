@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::config::RonConfig;
+use crate::common::DamageKind;
 use serde::Deserialize;
 
 use super::grip::WeaponGripConfig;
@@ -28,6 +29,8 @@ pub struct WeaponDefinition {
     pub projectile_radius: f32,
     pub projectile_lifetime: f32,
     pub knockback: f32,
+    #[serde(default)]
+    pub damage_kind: DamageKind,
     pub mag_size: u32,
     pub reload_secs: f32,
 
@@ -212,5 +215,16 @@ mod tests {
     fn weapons_ron_parses_cleanly() {
         let roster: WeaponRoster = crate::assert_ron_config_parses!(WeaponRoster);
         assert_eq!(roster.weapons.len(), 5);
+    }
+
+    #[test]
+    fn existing_weapons_default_to_ballistic_damage() {
+        let roster: WeaponRoster = crate::assert_ron_config_parses!(WeaponRoster);
+        assert!(
+            roster
+                .weapons
+                .iter()
+                .all(|weapon| weapon.damage_kind == crate::common::DamageKind::Ballistic)
+        );
     }
 }

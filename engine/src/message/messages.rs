@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::common::{EnemyKind, UpgradeKind};
+use crate::common::{DamageKind, EnemyKind, UpgradeKind};
 
 #[derive(Message, Debug, Clone, Copy)]
 pub struct DamageMessage {
@@ -7,6 +7,9 @@ pub struct DamageMessage {
     pub amount: f32,
     pub knockback: Vec3,
     pub source: Entity,
+    pub kind: DamageKind,
+    /// Travel direction of the hit. Zero is treated as frontal by armor.
+    pub hit_dir: Vec3,
 }
 
 #[derive(Message, Debug, Clone, Copy)]
@@ -14,6 +17,7 @@ pub struct EnemyKilledMessage {
     pub entity: Entity,
     pub position: Vec3,
     pub kind: EnemyKind,
+    pub scrap: u32,
 }
 
 #[derive(Message, Debug, Clone, Copy)]

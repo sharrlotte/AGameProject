@@ -1,5 +1,14 @@
 use bevy::prelude::*;
 
+/// Armored Tank materials: steel plate, rusted trim, dark under-suit, and the exposed back.
+#[derive(Debug, Clone)]
+pub struct TankMaterials {
+    pub steel: Handle<StandardMaterial>,
+    pub rust: Handle<StandardMaterial>,
+    pub suit: Handle<StandardMaterial>,
+    pub weak: Handle<StandardMaterial>,
+}
+
 #[derive(Resource)]
 pub struct SharedVisualMaterials {
     pub ground: Handle<StandardMaterial>,
@@ -7,6 +16,7 @@ pub struct SharedVisualMaterials {
     pub cover: Handle<StandardMaterial>,
     pub walker: Handle<StandardMaterial>,
     pub runner: Handle<StandardMaterial>,
+    pub tank: TankMaterials,
     pub projectile: Handle<StandardMaterial>,
     pub hit_flash: Handle<StandardMaterial>,
     pub scrap: Handle<StandardMaterial>,
@@ -43,6 +53,30 @@ impl FromWorld for SharedVisualMaterials {
                 perceptual_roughness: 0.6,
                 ..default()
             }),
+            tank: TankMaterials {
+                steel: materials.add(StandardMaterial {
+                    base_color: Color::srgb_u8(0x3E, 0x46, 0x50),
+                    metallic: 0.65,
+                    perceptual_roughness: 0.45,
+                    ..default()
+                }),
+                rust: materials.add(StandardMaterial {
+                    base_color: Color::srgb_u8(0x8A, 0x5A, 0x32),
+                    metallic: 0.10,
+                    perceptual_roughness: 0.80,
+                    ..default()
+                }),
+                suit: materials.add(StandardMaterial {
+                    base_color: Color::srgb_u8(0x24, 0x27, 0x2C),
+                    perceptual_roughness: 0.90,
+                    ..default()
+                }),
+                weak: materials.add(StandardMaterial {
+                    base_color: Color::srgb_u8(0x7A, 0x3B, 0x32),
+                    perceptual_roughness: 0.70,
+                    ..default()
+                }),
+            },
             projectile: materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, 0.88, 0.35),
                 emissive: LinearRgba::rgb(4.0, 3.0, 0.6),
@@ -75,10 +109,3 @@ impl FromWorld for SharedVisualMaterials {
         }
     }
 }
-
-
-
-
-
-
-

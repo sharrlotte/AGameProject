@@ -10,7 +10,9 @@ use crate::message::resources::UpgradeModifiers;
 use crate::config::PlayerConfig;
 use crate::world::intent::ActionIntent;
 
-use super::state::{AimDirection, Health, LocalPlayer, MovementStats, Stamina, Survivor};
+use super::state::{
+    AimDirection, Health, Knockback, LocalPlayer, MovementStats, Stamina, Survivor,
+};
 
 pub fn spawn_player(
     mut commands: Commands,
@@ -38,6 +40,7 @@ pub fn spawn_player(
                 sprint_speed: cfg.sprint_speed * upgrades.move_speed_multiplier,
             },
             AimDirection(Vec3::NEG_Z),
+            Knockback::default(),
         ),
         (
             RigidBody::Dynamic,
@@ -101,13 +104,16 @@ pub fn player_movement_and_aim(
             &mut Velocity,
             &Transform,
             &mut AimDirection,
+            &mut Knockback,
         ),
         With<Survivor>,
     >,
 ) {
     let dt = time.delta_secs();
 
-    for (intent, stats, mut stamina, mut velocity, transform, mut aim_dir) in &mut query {
+    for (intent, stats, mut stamina, mut velocity, transform, mut aim_dir, mut knockback) in
+        &mut query
+    {
         let move_dir = if intent.move_dir.length_squared() > 1e-4 {
             intent.move_dir.normalize()
         } else {
@@ -139,7 +145,13 @@ pub fn player_movement_and_aim(
         } else {
             stats.walk_speed
         };
-        velocity.linear = Vec3::new(move_dir.x * speed, 0.0, move_dir.y * speed);
+        velocity.linear =
+            Vec3::new(move_dir.x * speed, 0.0, move_dir.y * speed) + knockback.velocity;
+
+        knockback.velocity *= (1.0 - cfg.knockback_decay_rate * dt).max(0.0);
+        if knockback.velocity.length_squared() < 1e-4 {
+            knockback.velocity = Vec3::ZERO;
+        }
 
         if let Some(aim_world) = intent.aim_world {
             let flat_dir = Vec3::new(
@@ -155,18 +167,29 @@ pub fn player_movement_and_aim(
 }
 
 pub fn apply_player_damage(
+    cfg: Res<PlayerConfig>,
     mut damage_reader: MessageReader<DamageMessage>,
     mut died_writer: MessageWriter<PlayerDiedMessage>,
-    mut survivors: Query<(Entity, &mut Health), With<Survivor>>,
+    mut survivors: Query<(Entity, &mut Health, &mut Knockback), With<Survivor>>,
 ) {
     for msg in damage_reader.read() {
-        let Ok((entity, mut health)) = survivors.get_mut(msg.target) else {
+        let Ok((entity, mut health, mut knockback)) = survivors.get_mut(msg.target) else {
             continue;
         };
         if health.current <= 0.0 {
             continue;
         }
         health.current = (health.current - msg.amount).max(0.0);
+
+        let impulse = Vec3::new(msg.knockback.x, 0.0, msg.knockback.z);
+        if impulse.length_squared() > 1e-4 {
+            knockback.velocity += impulse;
+            let max_speed = cfg.knockback_max_speed.max(0.0);
+            if knockback.velocity.length() > max_speed {
+                knockback.velocity = knockback.velocity.normalize() * max_speed;
+            }
+        }
+
         if health.current <= 0.0 {
             died_writer.write(PlayerDiedMessage { survivor: entity });
         }
@@ -186,6 +209,8 @@ pub fn freeze_survivor_on_game_over(
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
+
+    use crate::common::DamageKind;
 
     use super::*;
 
@@ -259,6 +284,8 @@ mod tests {
             amount: max_hp,
             knockback: Vec3::ZERO,
             source: Entity::PLACEHOLDER,
+            kind: DamageKind::Ballistic,
+            hit_dir: Vec3::NEG_Z,
         });
 
         app.update();
@@ -269,6 +296,88 @@ mod tests {
         let died: Vec<_> = cursor.read(msgs).copied().collect();
         assert_eq!(died.len(), 1);
         assert_eq!(died[0].survivor, player);
+    }
+
+    #[test]
+    fn knockback_displaces_horizontally_and_decays() {
+        let mut app = test_app();
+        app.update();
+
+        let player = app
+            .world_mut()
+            .query_filtered::<Entity, With<Survivor>>()
+            .single(app.world())
+            .expect("player spawned");
+
+        app.world_mut().write_message(DamageMessage {
+            target: player,
+            amount: 1.0,
+            knockback: Vec3::new(8.0, 40.0, 0.0),
+            source: Entity::PLACEHOLDER,
+            kind: DamageKind::Shock,
+            hit_dir: Vec3::X,
+        });
+        app.update();
+
+        let knockback = *app.world().get::<Knockback>(player).unwrap();
+        assert!(knockback.velocity.x > 0.0, "horizontal impulse missing");
+        assert_eq!(knockback.velocity.y, 0.0, "vertical impulse must be ignored");
+
+        for _ in 0..120 {
+            app.update();
+        }
+        let knockback = *app.world().get::<Knockback>(player).unwrap();
+        assert_eq!(knockback.velocity, Vec3::ZERO, "knockback must decay to zero");
+    }
+
+    #[test]
+    fn zero_knockback_leaves_player_velocity_untouched() {
+        let mut app = test_app();
+        app.update();
+
+        let player = app
+            .world_mut()
+            .query_filtered::<Entity, With<Survivor>>()
+            .single(app.world())
+            .expect("player spawned");
+
+        app.world_mut().write_message(DamageMessage {
+            target: player,
+            amount: 5.0,
+            knockback: Vec3::ZERO,
+            source: Entity::PLACEHOLDER,
+            kind: DamageKind::Ballistic,
+            hit_dir: Vec3::NEG_Z,
+        });
+        app.update();
+
+        let velocity = app.world().get::<Velocity>(player).unwrap().linear;
+        assert_eq!(velocity, Vec3::ZERO);
+        assert!(app.world().get::<Health>(player).unwrap().current < 100.0);
+    }
+
+    #[test]
+    fn movement_and_knockback_are_additive() {
+        let mut app = test_app();
+        app.update();
+
+        let player = app
+            .world_mut()
+            .query_filtered::<Entity, With<Survivor>>()
+            .single(app.world())
+            .expect("player spawned");
+
+        app.world_mut()
+            .get_mut::<ActionIntent>(player)
+            .unwrap()
+            .move_dir = Vec2::new(0.0, -1.0);
+        app.world_mut().get_mut::<Knockback>(player).unwrap().velocity = Vec3::new(4.0, 0.0, 0.0);
+
+        app.update();
+
+        let velocity = app.world().get::<Velocity>(player).unwrap().linear;
+        assert!(velocity.z < -1.0, "movement input missing");
+        assert!(velocity.x > 0.0, "knockback missing");
     }
 }
 
