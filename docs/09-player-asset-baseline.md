@@ -186,8 +186,8 @@ the primary grip and the left chain to the support grip; unreachable targets are
 the shoulders settle within `settle_limit_deg`.
 
 Run with `cargo run --features dev,dev-ik-gizmo` to draw the resolved hand frames, wrist trims, elbow
-poles, and solved arm chains for calibration. The gizmo is dev-only and does not exist in production
-builds.
+poles, socket frames, hand spheres, and hand-to-target gap lines, plus solved arm chains, for
+calibration. The gizmo is dev-only and does not exist in production builds.
 
 Weapons are mounted under a chest-height anchor on `PlayerVisualRoot`; the simulation remains
 authoritative for projectile origin and presentation sockets are cosmetic.
@@ -200,6 +200,15 @@ authoritative for projectile origin and presentation sockets are cosmetic.
 - `models/weapons/rifle.glb` ships with `Grip`, `Foregrip`, `Magazine`, `Muzzle` sockets (grip at origin, `-Z` forward, `+Y` up, meters). Hand orientation comes from the grip configuration and the per-hand wrist trims rather than per-socket rotations.
 - Runtime safety scale/offset/yaw adjustments remain in `visuals.ron` until the corrected origin/scale asset is approved.
 - Finger closure is procedural: `IkConfig` supplies a default curl per hand and a weapon can override it per grip. No jump, crouch, or hit-react clip exists yet; the override layer is reserved for death only.
+
+## Weapon pose reference (2026-11-14)
+
+- Long-gun relaxed poses hold the weapon sideways across the thighs (`yaw = 90°`, muzzle toward the
+  left side of the body), with `pitch = -15°`. Both hands reach the `Grip`/`Foregrip` sockets in
+  the relaxed stance; the right hand lands exactly on `Grip` (`d ≈ 0.043 m`) and the left hand on
+  `Foregrip` (`d ≤ 0.08 m`). Aim poses keep the muzzle forward.
+- The `m16` `Grip` socket pose override X offset is `0.0`; the right-hand IK target resolves at
+  the weapon origin, so the right hand lands on `Grip` without reach clamping.
 
 ## Validation
 
