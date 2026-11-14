@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::config::ConfigHotReloadedMessage;
-use crate::common::{GROUP_WORLD, ObstacleTag, GameScene};
+use crate::common::{GROUP_WORLD, Obstacle, GameScene};
 
 use crate::config::{ArenaConfig, ObstacleDef};
 
@@ -73,7 +73,7 @@ fn spawn_arena_entities(commands: &mut Commands, cfg: &ArenaConfig) {
         commands.spawn((
             Name::new(label),
             ArenaStaticEntity,
-            ObstacleTag,
+            Obstacle,
             ArenaObstacle {
                 half_extents: def.half_extents,
                 is_wall: def.is_wall,

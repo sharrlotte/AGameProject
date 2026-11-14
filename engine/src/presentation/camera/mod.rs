@@ -8,7 +8,8 @@ pub mod state;
 pub mod system;
 
 pub use crate::config::CameraConfig;
-pub use state::{CameraZoom, CameraZoomMessage, MainCamera};
+pub use crate::message::messages::CameraZoomMessage;
+pub use state::{CameraZoom, MainCamera};
 
 /// Manages the main 3D gameplay camera, hot-reload sync, follow damping, and zoom.
 pub struct CameraPlugin;
@@ -38,10 +39,4 @@ impl Plugin for CameraPlugin {
             );
     }
 }
-
-
-
-
-
-
 

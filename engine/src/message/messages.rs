@@ -84,3 +84,10 @@ pub struct DeployRequestedMessage;
 
 #[derive(Message, Debug, Clone, Copy)]
 pub struct OpenUpgradesRequestedMessage;
+
+/// Fired when user requests camera zoom adjustments (e.g. mouse wheel).
+#[derive(Message, Debug, Clone, Copy)]
+pub struct CameraZoomMessage {
+    pub steps: f32,
+}
+

@@ -3,7 +3,8 @@ use crate::config::ConfigHotReloadedMessage;
 use crate::world::{ActionIntent, LocalPlayer};
 
 use crate::config::CameraConfig;
-use super::state::{CameraZoom, CameraZoomMessage, MainCamera};
+use crate::message::messages::CameraZoomMessage;
+use super::state::{CameraZoom, MainCamera};
 
 /// Spawns the primary 3D camera using the configured offset and default zoom.
 pub fn spawn_camera(mut commands: Commands, cfg: Res<CameraConfig>) {
@@ -125,10 +126,4 @@ mod tests {
         assert!((zoom.target - (cfg.zoom_default - 2.0 * cfg.zoom_step)).abs() < 1e-5);
     }
 }
-
-
-
-
-
-
 

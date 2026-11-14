@@ -41,9 +41,3 @@ pub fn update_hit_flash(
     }
 }
 
-
-
-
-
-
-

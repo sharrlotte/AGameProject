@@ -20,7 +20,6 @@
     ),
     aim: (
         blend_secs: 0.12,
-        aim_height: 1.05,
     ),
     action_blend_secs: 0.12,
     mask_groups: [

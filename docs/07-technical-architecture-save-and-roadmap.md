@@ -41,20 +41,19 @@ game/core/src/
 Workspace now has two crates: `engine` (all simulation + presentation + config + message + common) and `game` (binary, assets, tests). The previous multi-crate layout (`crates/*`) has been removed. All domain configs live in `engine::config`, cross-feature messages in `engine::message::messages`, run state in `engine::message::resources`.
 ```
 ├── Cargo.toml                 # Root workspace (default-members = ["game"])
-├── crates/
-│   ├── common/                # GameState, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, tags, shared components
-│   ├── config/                # RonConfig + AppRonConfigExt::register_ron_config, ConfigPlugin, loader, parse test macro
-│   ├── message/               # Cross-feature typed Messages, shared progression & run resources (RunStats, ScrapBank, UpgradeLevels)
-│   ├── data/                  # Compatibility facade re-exporting common, config, and message (CoreDataPlugin)
-│   ├── sim/                   # Headless simulation feature crates (sub-features use 1-word files: mod.rs, config.rs, state.rs, system.rs)
+├── engine/                    # Engine library crate (simulation, presentation, config, messages, base)
+│   ├── src/
+│   │   ├── common/            # GameState, SimUpdateSet, SimPostPhysicsSet, DamageResolutionSet, tags, shared components
+│   │   ├── config/            # RonConfig + AppRonConfigExt::register_ron_config, ConfigPlugin, weapons/, anim/, etc.
+│   │   ├── message/           # Cross-feature typed Messages, shared progression & run resources (RunStats, ScrapBank, UpgradeLevels)
+│   │   ├── base/              # BasePlugin: meta-progression upgrades (upgrade/) and home base facilities
 │   │   ├── world/             # ArenaPlugin (arena/*), PlayerPlugin (player/*), ActionIntent (intent.rs)
 │   │   ├── combat/            # CombatPlugin: weapon/, reload/, projectile/, stance/
 │   │   ├── enemies/           # EnemiesPlugin: spawn/, ai/, damage/
-│   │   ├── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/), UpgradesPlugin (upgrade/)
+│   │   ├── extraction/        # ExtractionPlugin (pickup/, zone/), RunFlowPlugin (flow/)
 │   │   ├── automation/        # [Phase 2] Turrets, mines, electric traps, scout & combat drones
-│   │   └── base/              # [Phase 2] Base facilities, generator power budget, crafting, research
-│   ├── persistence/           # [Phase 2] Save/load manager (profile_base + active_expedition)
-│   └── presentation/          # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
+│   │   ├── persistence/       # [Phase 2] Save/load manager (profile_base + active_expedition)
+│   │   └── presentation/      # Client concern modules: camera/, input/, anim/, vfx/, scene/, ui/
 └── game/                      # Runnable game crate (build_app() in src/lib.rs, thin src/main.rs, tests/)
     ├── assets/
     │   ├── config/            # Domain-grouped .ron configs (player/, combat/, enemies/, world/, extraction/, base/)

@@ -167,6 +167,51 @@ pub fn approach(current: f32, target: f32, delta_secs: f32, blend_secs: f32) -> 
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Targets {
+    pub weights: AnchorWeights,
+    pub idle: f32,
+}
+
+pub fn target_weights(angle: f32, moving: bool, anchors: &[f32]) -> Targets {
+    if !moving || anchors.is_empty() {
+        return Targets {
+            weights: AnchorWeights::new(anchors.len()),
+            idle: 1.0,
+        };
+    }
+    Targets {
+        weights: AnchorWeights::bracket(anchors, angle),
+        idle: 0.0,
+    }
+}
+
+pub fn resize_weights(weights: &mut AnchorWeights, count: usize) {
+    if weights.len() != count.min(MAX_ANCHORS) {
+        let old = *weights;
+        let mut replacement = AnchorWeights::new(count);
+        for index in 0..replacement.len() {
+            replacement.set(index, old.get(index));
+        }
+        *weights = replacement;
+    }
+}
+
+pub fn seek_secs(phase: f32, duration: f32) -> f32 {
+    if !duration.is_finite() || duration <= 0.0 {
+        return 0.0;
+    }
+    phase.clamp(0.0, 1.0) * duration
+}
+
+pub fn advance_phase(phase: f32, dt: f32, playback: f32, duration: f32) -> f32 {
+    if !duration.is_finite() || duration <= 0.0 || !dt.is_finite() || dt <= 0.0 {
+        return phase;
+    }
+    let next = phase + dt * playback.max(0.0) / duration;
+    next.rem_euclid(1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,11 +323,38 @@ mod tests {
         let halfway = approach(0.0, 1.0, 0.12, 0.12);
         assert!(halfway > 0.5 && halfway < 1.0);
     }
+
+    #[test]
+    fn stationary_targets_are_idle_weighted() {
+        let targets = target_weights(0.4, false, &[0.0, FRAC_PI_2]);
+        assert_eq!(targets.idle, 1.0);
+        assert_eq!(targets.weights.sum(), 0.0);
+    }
+
+    #[test]
+    fn moving_targets_split_on_diagonals() {
+        let targets = target_weights(FRAC_PI_4, true, &[0.0, FRAC_PI_2, PI]);
+        assert_eq!(targets.idle, 0.0);
+        assert!((targets.weights.get(0) - 0.5).abs() < 1e-4);
+        assert!((targets.weights.get(1) - 0.5).abs() < 1e-4);
+        assert!((targets.weights.sum() - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn phase_seek_maps_normalized_time_into_duration() {
+        assert_eq!(seek_secs(0.0, 2.0), 0.0);
+        assert_eq!(seek_secs(0.5, 2.0), 1.0);
+        assert_eq!(seek_secs(1.0, 2.0), 2.0);
+        assert_eq!(seek_secs(0.5, 0.0), 0.0);
+    }
+
+    #[test]
+    fn phase_advances_and_wraps() {
+        let half = advance_phase(0.0, 0.5, 1.0, 2.0);
+        assert!((half - 0.25).abs() < 1e-4);
+        let wrapped = advance_phase(0.9, 0.5, 1.0, 2.0);
+        assert!((wrapped - 0.15).abs() < 1e-4);
+        assert_eq!(advance_phase(0.3, 1.0, 1.0, 0.0), 0.3);
+    }
 }
-
-
-
-
-
-
 

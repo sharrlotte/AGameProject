@@ -8,17 +8,20 @@ pub mod combat;
 pub mod enemy;
 pub mod extract;
 pub mod material;
+pub mod mesh;
 pub mod player;
 
 pub use enemy::VisualBody;
 pub use extract::ExtractionPadVisual;
 pub use material::SharedVisualMaterials;
+pub use mesh::SharedVisualMeshes;
 
 pub struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SharedVisualMaterials>()
+            .init_resource::<SharedVisualMeshes>()
             .add_systems(OnExit(GameState::Loading), arena::setup_lighting)
             .add_systems(
                 Update,

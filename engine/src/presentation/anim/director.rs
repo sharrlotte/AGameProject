@@ -3,7 +3,10 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 use crate::common::GameState;
 
-use crate::presentation::anim::blend::{self, AnchorWeights, MAX_ANCHORS, approach, wrap_turn};
+use crate::presentation::anim::blend::{
+    self, AnchorWeights, MAX_ANCHORS, advance_phase, approach, resize_weights, seek_secs,
+    target_weights, wrap_turn,
+};
 use crate::presentation::anim::catalog::AnimCatalog;
 use crate::presentation::anim::facing::PlayerFacing;
 use crate::presentation::anim::graph::GraphNodes;
@@ -325,52 +328,8 @@ pub fn drive_player_animation(
     }
 }
 
-struct Targets {
-    weights: AnchorWeights,
-    idle: f32,
-}
-
 fn alive(health: &Health, game_over: bool) -> bool {
     health.current > 0.0 && !game_over
-}
-
-fn target_weights(angle: f32, moving: bool, anchors: &[f32]) -> Targets {
-    if !moving || anchors.is_empty() {
-        return Targets {
-            weights: AnchorWeights::new(anchors.len()),
-            idle: 1.0,
-        };
-    }
-    Targets {
-        weights: AnchorWeights::bracket(anchors, angle),
-        idle: 0.0,
-    }
-}
-
-fn resize_weights(weights: &mut AnchorWeights, count: usize) {
-    if weights.len() != count.min(MAX_ANCHORS) {
-        let old = *weights;
-        let mut replacement = AnchorWeights::new(count);
-        for index in 0..replacement.len() {
-            replacement.set(index, old.get(index));
-        }
-        *weights = replacement;
-    }
-}
-
-pub fn seek_secs(phase: f32, duration: f32) -> f32 {
-    if !duration.is_finite() || duration <= 0.0 {
-        return 0.0;
-    }
-    phase.clamp(0.0, 1.0) * duration
-}
-
-pub fn advance_phase(phase: f32, dt: f32, playback: f32, duration: f32) -> f32 {
-    if !duration.is_finite() || duration <= 0.0 || !dt.is_finite() || dt <= 0.0 {
-        return phase;
-    }
-    let next = phase + dt * playback.max(0.0) / duration;
-    next.rem_euclid(1.0)
 }
 
 fn seek_player(player: &mut AnimationPlayer, node: AnimationNodeIndex, seek: f32) {
@@ -472,23 +431,6 @@ mod tests {
     }
 
     #[test]
-    fn phase_seek_maps_normalized_time_into_duration() {
-        assert_eq!(seek_secs(0.0, 2.0), 0.0);
-        assert_eq!(seek_secs(0.5, 2.0), 1.0);
-        assert_eq!(seek_secs(1.0, 2.0), 2.0);
-        assert_eq!(seek_secs(0.5, 0.0), 0.0);
-    }
-
-    #[test]
-    fn phase_advances_and_wraps() {
-        let half = advance_phase(0.0, 0.5, 1.0, 2.0);
-        assert!((half - 0.25).abs() < 1e-4);
-        let wrapped = advance_phase(0.9, 0.5, 1.0, 2.0);
-        assert!((wrapped - 0.15).abs() < 1e-4);
-        assert_eq!(advance_phase(0.3, 1.0, 1.0, 0.0), 0.3);
-    }
-
-    #[test]
     fn death_and_game_over_suppress_animation() {
         let mut health = Health::new(100.0);
         assert!(alive(&health, false));
@@ -497,10 +439,4 @@ mod tests {
         assert!(!alive(&health, false));
     }
 }
-
-
-
-
-
-
 

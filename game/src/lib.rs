@@ -3,10 +3,11 @@ use bevy::diagnostic::EntityCountDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowMode, WindowPlugin};
 use bevy_rapier3d::prelude::*;
+use engine::base::BasePlugin;
 use engine::combat::CombatPlugin;
 use engine::common::CoreDataPlugin;
 use engine::enemies::EnemiesPlugin;
-use engine::extraction::{ExtractionPlugin, RunFlowPlugin, UpgradesPlugin};
+use engine::extraction::{ExtractionPlugin, RunFlowPlugin};
 use engine::presentation::AllPresentationPlugins;
 use engine::world::{ArenaPlugin, PlayerPlugin};
 
@@ -42,8 +43,6 @@ pub fn build_app() -> App {
             .set(AudioPlugin::default()),
     )
     .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-    .add_plugins(bevy::remote::RemotePlugin::default()) // Enable BRP
-    .add_plugins(BrpExtrasPlugin) // Enhanced BRP features
     .insert_resource(TimestepMode::Interpolated {
         dt: 1.0 / 60.0,
         time_scale: 1.0,
@@ -60,7 +59,7 @@ pub fn build_app() -> App {
         EnemiesPlugin,
         ExtractionPlugin,
         RunFlowPlugin,
-        UpgradesPlugin,
+        BasePlugin,
         AllPresentationPlugins,
     ))
     .add_systems(Startup, configure_rapier);
@@ -68,6 +67,8 @@ pub fn build_app() -> App {
     #[cfg(feature = "dev")]
     {
         app.add_plugins((
+            bevy::remote::RemotePlugin::default(),
+            BrpExtrasPlugin,
             AnimTestPlugin,
             EguiPlugin::default(),
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
@@ -77,11 +78,9 @@ pub fn build_app() -> App {
     app
 }
 
-fn configure_rapier(mut query: Query<&mut RapierConfiguration, With<DefaultRapierContext>>) {
-    for mut config in &mut query {
-        config.gravity = Vec3::ZERO;
-        config.physics_pipeline_active = true;
-        config.scaled_shape_subdivision = 10;
-        config.force_update_from_transform_changes = false;
-    }
+fn configure_rapier(mut config: Single<&mut RapierConfiguration, With<DefaultRapierContext>>) {
+    config.gravity = Vec3::ZERO;
+    config.physics_pipeline_active = true;
+    config.scaled_shape_subdivision = 10;
+    config.force_update_from_transform_changes = false;
 }

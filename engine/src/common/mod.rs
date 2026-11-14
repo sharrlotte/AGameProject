@@ -44,15 +44,8 @@ pub const GROUP_PICKUP: Group = Group::GROUP_5;
 #[derive(Component)]
 pub struct RunEntity;
 
-/// Shared lightweight markers enabling feature crates to compile in parallel.
 #[derive(Component)]
-pub struct SurvivorTag;
-
-#[derive(Component)]
-pub struct EnemyTag;
-
-#[derive(Component)]
-pub struct ObstacleTag;
+pub struct Obstacle;
 
 #[derive(Component)]
 pub struct Survivor;

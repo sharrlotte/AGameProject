@@ -35,54 +35,50 @@ pub fn spawn_extraction_zone(
 pub fn sync_extraction_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<ExtractionConfig>,
-    mut zones: Query<(&mut ExtractionZone, &mut Transform)>,
+    mut zone: Single<(&mut ExtractionZone, &mut Transform)>,
 ) {
     if reloaded.read().next().is_none() || !cfg.is_changed() {
         return;
     }
 
-    for (mut zone, mut transform) in &mut zones {
-        zone.radius = cfg.pad_radius;
-        zone.hold_duration_secs = cfg.hold_duration_secs;
-        transform.translation = cfg.pad_center;
-    }
+    zone.0.radius = cfg.pad_radius;
+    zone.0.hold_duration_secs = cfg.hold_duration_secs;
+    zone.1.translation = cfg.pad_center;
 }
 
 pub fn update_extraction_zone(
     time: Res<Time>,
     mut stats: ResMut<RunStats>,
     mut extracted_writer: MessageWriter<ExtractionCompletedMessage>,
-    survivors: Query<(Entity, &Transform), With<Survivor>>,
-    mut zones: Query<(&mut ExtractionZone, &Transform)>,
+    survivor: Single<(Entity, &Transform), With<Survivor>>,
+    mut zone: Single<(&mut ExtractionZone, &Transform)>,
 ) {
     let dt = time.delta_secs();
+    let (ref mut zone_data, zone_tf) = *zone;
 
-    for (mut zone, zone_tf) in &mut zones {
-        if zone.completed {
-            continue;
-        }
-
-        let inside_survivor = survivors.iter().find_map(|(entity, tf)| {
-            let dist = Vec2::new(
-                tf.translation.x - zone_tf.translation.x,
-                tf.translation.z - zone_tf.translation.z,
-            )
-            .length();
-            (dist <= zone.radius).then_some(entity)
-        });
-
-        zone.active = inside_survivor.is_some();
-        if let Some(survivor) = inside_survivor {
-            zone.progress_secs = (zone.progress_secs + dt).min(zone.hold_duration_secs);
-            if zone.progress_secs >= zone.hold_duration_secs {
-                zone.completed = true;
-                extracted_writer.write(ExtractionCompletedMessage { survivor });
-            }
-        }
-
-        stats.in_extraction_zone = zone.active;
-        stats.extraction_progress_secs = zone.progress_secs;
-        stats.extraction_hold_secs = zone.hold_duration_secs;
+    if zone_data.completed {
+        return;
     }
+
+    let (survivor_entity, survivor_tf) = *survivor;
+    let dist = Vec2::new(
+        survivor_tf.translation.x - zone_tf.translation.x,
+        survivor_tf.translation.z - zone_tf.translation.z,
+    )
+    .length();
+    let inside_survivor = (dist <= zone_data.radius).then_some(survivor_entity);
+
+    zone_data.active = inside_survivor.is_some();
+    if let Some(survivor) = inside_survivor {
+        zone_data.progress_secs = (zone_data.progress_secs + dt).min(zone_data.hold_duration_secs);
+        if zone_data.progress_secs >= zone_data.hold_duration_secs {
+            zone_data.completed = true;
+            extracted_writer.write(ExtractionCompletedMessage { survivor });
+        }
+    }
+
+    stats.in_extraction_zone = zone_data.active;
+    stats.extraction_progress_secs = zone_data.progress_secs;
+    stats.extraction_hold_secs = zone_data.hold_duration_secs;
 }
 

@@ -35,15 +35,3 @@ impl CameraZoom {
     }
 }
 
-/// Request to zoom the camera by normalized scroll steps (positive = zoom in, negative = zoom out).
-#[derive(Message, Debug, Clone, Copy)]
-pub struct CameraZoomMessage {
-    pub steps: f32,
-}
-
-
-
-
-
-
-

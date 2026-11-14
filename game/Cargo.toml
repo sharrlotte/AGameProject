@@ -8,6 +8,7 @@ default = ["dev"]
 dev = [
     "bevy/dynamic_linking",
     "dep:bevy-inspector-egui",
+    "dep:bevy_brp_extras",
     "engine/dev",
     "engine/dev-ik-gizmo",
 ]
@@ -23,4 +24,4 @@ serde_json.workspace = true
 rand.workspace = true
 uuid.workspace = true
 engine.workspace = true
-bevy_brp_extras = "0.23.0"
+bevy_brp_extras = { version = "0.23.0", optional = true }

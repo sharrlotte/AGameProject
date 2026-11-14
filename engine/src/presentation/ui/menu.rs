@@ -9,7 +9,7 @@ use crate::common::UpgradeKind;
 use crate::message::resources::UpgradeLevels;
 use crate::message::resources::UpgradeModifiers;
 use crate::message::messages::UpgradesChangedMessage;
-use crate::extraction::{UpgradeLevelsExt, UpgradesConfig};
+use crate::base::{UpgradeLevelsExt, UpgradesConfig};
 
 use super::theme::{
     BTN_HOVER_COLOR, BTN_IDLE_COLOR, BTN_SECONDARY_HOVER, BTN_SECONDARY_IDLE,

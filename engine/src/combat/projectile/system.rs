@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use crate::common::{EnemyTag, GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, ObstacleTag, RunEntity};
+use crate::common::{GROUP_ENEMY, GROUP_PROJECTILE, GROUP_WORLD, Obstacle, RunEntity};
+use crate::enemies::Enemy;
 use crate::message::messages::DamageMessage;
 
 use crate::config::WeaponDefinition;
@@ -50,8 +51,8 @@ pub fn handle_projectile_collisions(
     mut collision_reader: MessageReader<CollisionEvent>,
     mut damage_writer: MessageWriter<DamageMessage>,
     mut projectiles: Query<&mut Projectile>,
-    enemies: Query<(), With<EnemyTag>>,
-    obstacles: Query<(), With<ObstacleTag>>,
+    enemies: Query<(), With<Enemy>>,
+    obstacles: Query<(), With<Obstacle>>,
 ) {
     for event in collision_reader.read() {
         let CollisionEvent::Started(e1, e2, _) = *event else {

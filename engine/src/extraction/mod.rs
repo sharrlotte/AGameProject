@@ -4,13 +4,10 @@ use crate::common::{GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
 
 pub mod flow;
 pub mod pickup;
-pub mod upgrade;
 pub mod zone;
 
 pub use crate::config::ExtractionConfig;
 pub use pickup::ScrapPickup;
-pub use crate::config::UpgradesConfig;
-pub use crate::config::upgrades::{UpgradeLevelsExt, UpgradeModifiersExt};
 pub use zone::ExtractionZone;
 
 pub struct ExtractionPlugin;
@@ -82,20 +79,6 @@ impl Plugin for RunFlowPlugin {
                     matches!(state.get(), GameState::GameOver | GameState::Upgrades)
                 }),
             );
-    }
-}
-
-pub struct UpgradesPlugin;
-
-impl Plugin for UpgradesPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_ron_config::<UpgradesConfig>().add_systems(
-            Update,
-            (
-                upgrade::handle_upgrade_purchases.run_if(in_state(GameState::Upgrades)),
-                upgrade::recompute_upgrades_on_hot_reload,
-            ),
-        );
     }
 }
 

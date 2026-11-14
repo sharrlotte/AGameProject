@@ -22,9 +22,3 @@ pub fn attach_player_visuals(
     }
 }
 
-
-
-
-
-
-

@@ -20,6 +20,7 @@ use crate::presentation::anim::rig::{ArmChain, PlayerRig, compose_world};
 use crate::presentation::anim::weapon::{
     PlayerWeaponAnchor, PlayerWeaponRuntime, WeaponMount, WeaponPoseState, socket_frames,
 };
+use crate::combat::WeaponInventory;
 use crate::world::{Health, Survivor};
 
 pub use solve::{ArmPose, ArmTarget, ChainState, ChainWrites, Solution, settle_delta, solve_arm, solve_chain, solve_two_bone};
@@ -54,7 +55,7 @@ pub fn solve_player_arms(
     rigs: Query<&PlayerRig>,
     mounts: Query<&WeaponMount>,
     anchors: Query<(&PlayerWeaponAnchor, &WeaponPoseState, &PlayerWeaponRuntime)>,
-    survivors: Query<&Health, With<Survivor>>,
+    survivors: Query<(&Health, Option<&WeaponInventory>), With<Survivor>>,
     parents: Query<&ChildOf>,
     mut transforms: ParamSet<(Query<&Transform>, Query<&mut Transform>)>,
     #[cfg(feature = "dev-ik-gizmo")] mut debug: ResMut<IkDebug>,
@@ -67,7 +68,7 @@ pub fn solve_player_arms(
     debug.entries.clear();
 
     for mount in &mounts {
-        let Ok(health) = survivors.get(mount.survivor) else {
+        let Ok((health, inventory)) = survivors.get(mount.survivor) else {
             continue;
         };
         if health.current <= 0.0 {
@@ -86,7 +87,7 @@ pub fn solve_player_arms(
             continue;
         };
         let weapon = &runtime.weapon;
-        let progress = runtime.reload.progress();
+        let progress = inventory.and_then(|inv| inv.reload_progress());
         let hand_return = weapon.presentation.reload.hand_return;
 
         let (targets, grip) = {

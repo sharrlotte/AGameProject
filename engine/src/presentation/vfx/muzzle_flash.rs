@@ -45,9 +45,3 @@ pub fn update_muzzle_flash(
         }
     }
 }
-
-
-
-
-
-

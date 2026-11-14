@@ -43,7 +43,7 @@ pub struct PlayerRig {
 pub fn find_arms<'a>(ik: &IkConfig, named: impl Iterator<Item = (Entity, &'a str)>) -> Arms {
     let mut arms = Arms::default();
     for (entity, name) in named {
-        if name == "Torso" {
+        if name == ik.torso_bone {
             arms.torso = Some(entity);
         } else if name == ik.right_shoulder {
             arms.right.shoulder = Some(entity);
@@ -61,21 +61,21 @@ pub fn find_arms<'a>(ik: &IkConfig, named: impl Iterator<Item = (Entity, &'a str
             arms.left.lower_arm = Some(entity);
         } else if Some(name) == ik.left_chain.get(2).map(String::as_str) {
             arms.left.hand = Some(entity);
-        } else if name == "MiddleHand.R" {
+        } else if name == ik.right_middle_hand {
             arms.right.middle_hand = Some(entity);
-        } else if name == "Fingers.R" {
+        } else if name == ik.right_fingers {
             arms.right.fingers = Some(entity);
-        } else if name == "Thumb1.R" {
+        } else if name == ik.right_thumb1 {
             arms.right.thumb1 = Some(entity);
-        } else if name == "Thumb2.R" {
+        } else if name == ik.right_thumb2 {
             arms.right.thumb2 = Some(entity);
-        } else if name == "MiddleHand.L" {
+        } else if name == ik.left_middle_hand {
             arms.left.middle_hand = Some(entity);
-        } else if name == "Fingers.L" {
+        } else if name == ik.left_fingers {
             arms.left.fingers = Some(entity);
-        } else if name == "Thumb1.L" {
+        } else if name == ik.left_thumb1 {
             arms.left.thumb1 = Some(entity);
-        } else if name == "Thumb2.L" {
+        } else if name == ik.left_thumb2 {
             arms.left.thumb2 = Some(entity);
         }
     }

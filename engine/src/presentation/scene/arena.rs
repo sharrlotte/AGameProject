@@ -31,15 +31,13 @@ pub fn sync_lighting_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<ArenaConfig>,
     mut ambient: ResMut<GlobalAmbientLight>,
-    mut suns: Query<&mut DirectionalLight, With<SunLightTag>>,
+    mut sun: Single<&mut DirectionalLight, With<SunLightTag>>,
 ) {
     if reloaded.read().next().is_none() || !cfg.is_changed() {
         return;
     }
     ambient.brightness = cfg.ambient_brightness;
-    for mut sun in &mut suns {
-        sun.illuminance = cfg.sun_illuminance;
-    }
+    sun.illuminance = cfg.sun_illuminance;
 }
 
 pub fn attach_arena_visuals(

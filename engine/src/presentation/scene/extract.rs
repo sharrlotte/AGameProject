@@ -2,20 +2,20 @@ use bevy::prelude::*;
 use crate::extraction::{ExtractionZone, ScrapPickup};
 
 use super::material::SharedVisualMaterials;
+use super::mesh::SharedVisualMeshes;
 
 #[derive(Component)]
 pub struct ExtractionPadVisual;
 
 pub fn attach_pickup_visuals(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: Res<SharedVisualMeshes>,
     materials: Res<SharedVisualMaterials>,
-    pickups: Query<(Entity, &ScrapPickup), Added<ScrapPickup>>,
+    pickups: Query<Entity, Added<ScrapPickup>>,
 ) {
-    for (entity, pickup) in &pickups {
-        let side = pickup.radius * 1.6;
+    for entity in &pickups {
         commands.entity(entity).insert((
-            Mesh3d(meshes.add(Cuboid::new(side, side, side))),
+            Mesh3d(meshes.scrap.clone()),
             MeshMaterial3d(materials.scrap.clone()),
         ));
     }
@@ -23,14 +23,14 @@ pub fn attach_pickup_visuals(
 
 pub fn attach_extraction_visuals(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: Res<SharedVisualMeshes>,
     materials: Res<SharedVisualMaterials>,
-    zones: Query<(Entity, &ExtractionZone), Added<ExtractionZone>>,
+    zones: Query<Entity, Added<ExtractionZone>>,
 ) {
-    for (entity, zone) in &zones {
+    for entity in &zones {
         commands.entity(entity).insert((
             ExtractionPadVisual,
-            Mesh3d(meshes.add(Cylinder::new(zone.radius, 0.06))),
+            Mesh3d(meshes.extraction_pad.clone()),
             MeshMaterial3d(materials.extraction_idle.clone()),
         ));
     }

@@ -8,7 +8,7 @@ use crate::message::messages::{
 };
 use crate::message::resources::{RunStats, ScrapBank, UpgradeLevels, UpgradeModifiers};
 use crate::world::Survivor;
-use crate::extraction::upgrade::{UpgradesConfig, handle_upgrade_purchases};
+use crate::base::upgrade::{UpgradesConfig, handle_upgrade_purchases};
 use crate::extraction::zone::{ExtractionZone, update_extraction_zone};
 
 #[test]

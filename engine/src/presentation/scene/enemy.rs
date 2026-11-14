@@ -5,21 +5,21 @@ use crate::enemies::{Enemy, FacingDirection};
 use crate::presentation::vfx::HitFlash;
 
 use super::material::SharedVisualMaterials;
+use super::mesh::SharedVisualMeshes;
 
 #[derive(Component)]
 pub struct VisualBody;
 
 pub fn attach_enemy_visuals(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: Res<SharedVisualMeshes>,
     materials: Res<SharedVisualMaterials>,
     enemies: Query<(Entity, &Enemy), Added<Enemy>>,
 ) {
     for (entity, enemy) in &enemies {
-        let body_mesh = meshes.add(Capsule3d::new(enemy.radius, enemy.half_height * 2.0));
-        let base_mat = match enemy.kind {
-            EnemyKind::Walker => materials.walker.clone(),
-            EnemyKind::Runner => materials.runner.clone(),
+        let (body_mesh, base_mat) = match enemy.kind {
+            EnemyKind::Walker => (meshes.walker.clone(), materials.walker.clone()),
+            EnemyKind::Runner => (meshes.runner.clone(), materials.runner.clone()),
         };
         let visual_entity = commands
             .spawn((

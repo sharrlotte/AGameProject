@@ -190,24 +190,17 @@ fn aim_blend() -> f32 {
     0.12
 }
 
-fn aim_height() -> f32 {
-    1.05
-}
-
 /// Weapon aim pose timing.
 #[derive(Debug, Clone, Deserialize)]
 pub struct AimConfig {
     #[serde(default = "aim_blend")]
     pub blend_secs: f32,
-    #[serde(default = "aim_height")]
-    pub aim_height: f32,
 }
 
 impl Default for AimConfig {
     fn default() -> Self {
         Self {
             blend_secs: aim_blend(),
-            aim_height: aim_height(),
         }
     }
 }
@@ -244,11 +237,49 @@ fn settle_limit() -> f32 {
     25.0
 }
 
+fn torso_bone() -> String {
+    "Torso".to_string()
+}
+
+fn right_middle_hand() -> String {
+    "MiddleHand.R".to_string()
+}
+
+fn right_fingers() -> String {
+    "Fingers.R".to_string()
+}
+
+fn right_thumb1() -> String {
+    "Thumb1.R".to_string()
+}
+
+fn right_thumb2() -> String {
+    "Thumb2.R".to_string()
+}
+
+fn left_middle_hand() -> String {
+    "MiddleHand.L".to_string()
+}
+
+fn left_fingers() -> String {
+    "Fingers.L".to_string()
+}
+
+fn left_thumb1() -> String {
+    "Thumb1.L".to_string()
+}
+
+fn left_thumb2() -> String {
+    "Thumb2.L".to_string()
+}
+
 /// Dual-arm hand IK settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct IkConfig {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "torso_bone")]
+    pub torso_bone: String,
     #[serde(default = "right_chain")]
     pub right_chain: Vec<String>,
     #[serde(default = "left_chain")]
@@ -257,6 +288,22 @@ pub struct IkConfig {
     pub right_shoulder: String,
     #[serde(default = "left_shoulder")]
     pub left_shoulder: String,
+    #[serde(default = "right_middle_hand")]
+    pub right_middle_hand: String,
+    #[serde(default = "right_fingers")]
+    pub right_fingers: String,
+    #[serde(default = "right_thumb1")]
+    pub right_thumb1: String,
+    #[serde(default = "right_thumb2")]
+    pub right_thumb2: String,
+    #[serde(default = "left_middle_hand")]
+    pub left_middle_hand: String,
+    #[serde(default = "left_fingers")]
+    pub left_fingers: String,
+    #[serde(default = "left_thumb1")]
+    pub left_thumb1: String,
+    #[serde(default = "left_thumb2")]
+    pub left_thumb2: String,
     #[serde(default)]
     pub hand_align: bool,
     /// Trims the solved right hand rotation in the hand bone's own frame.
@@ -281,10 +328,19 @@ impl Default for IkConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            torso_bone: torso_bone(),
             right_chain: right_chain(),
             left_chain: left_chain(),
             right_shoulder: right_shoulder(),
             left_shoulder: left_shoulder(),
+            right_middle_hand: right_middle_hand(),
+            right_fingers: right_fingers(),
+            right_thumb1: right_thumb1(),
+            right_thumb2: right_thumb2(),
+            left_middle_hand: left_middle_hand(),
+            left_fingers: left_fingers(),
+            left_thumb1: left_thumb1(),
+            left_thumb2: left_thumb2(),
             hand_align: true,
             right_hand_offset_deg: [0.0; 3],
             left_hand_offset_deg: [0.0; 3],
@@ -422,9 +478,6 @@ impl AnimCatalog {
         }
         if !self.aim.blend_secs.is_finite() || self.aim.blend_secs < 0.0 {
             return Err("aim.blend_secs must be non-negative".to_string());
-        }
-        if !self.aim.aim_height.is_finite() || self.aim.aim_height <= 0.0 {
-            return Err("aim.aim_height must be greater than zero".to_string());
         }
         if !self.action_blend_secs.is_finite() || self.action_blend_secs < 0.0 {
             return Err("action_blend_secs must be non-negative".to_string());

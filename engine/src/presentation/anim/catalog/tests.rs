@@ -48,7 +48,7 @@ fn rejects_invalid_ik_and_pose_settings() {
     assert!(catalog.validate().is_err());
 
     let mut catalog = AnimCatalog::default();
-    catalog.aim.aim_height = 0.0;
+    catalog.aim.blend_secs = -1.0;
     assert!(catalog.validate().is_err());
 
     let mut catalog = AnimCatalog::default();

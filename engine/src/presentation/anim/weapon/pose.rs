@@ -1,10 +1,6 @@
 use bevy::prelude::*;
-use crate::combat::CombatStance;
-use crate::message::messages::WeaponFiredMessage;
-use crate::message::messages::WeaponSwappedMessage;
-use crate::message::messages::ReloadStartedMessage;
-use crate::message::messages::ReloadFinishedMessage;
-use crate::message::messages::ReloadCancelledMessage;
+use crate::combat::{CombatStance, WeaponInventory};
+use crate::message::messages::{WeaponFiredMessage, WeaponSwappedMessage};
 use crate::world::{Health, Survivor};
 
 use crate::presentation::anim::blend::approach;
@@ -38,66 +34,16 @@ impl Default for PoseWrite {
 /// Adds a clamped recoil impulse when the player fires.
 pub fn update_weapon_kick(
     mut fired: MessageReader<WeaponFiredMessage>,
-    mut anchors: Query<(&PlayerWeaponAnchor, &mut WeaponPoseState, &mut PlayerWeaponRuntime)>,
+    mut anchors: Query<(&PlayerWeaponAnchor, &mut WeaponPoseState, &PlayerWeaponRuntime)>,
 ) {
     for message in fired.read() {
-        let Some((_, mut state, mut runtime)) = anchors
+        let Some((_, mut state, runtime)) = anchors
             .iter_mut()
             .find(|(anchor, _, _)| anchor.survivor == message.shooter)
         else {
             continue;
         };
         add_kick(&mut state, &runtime.weapon);
-        runtime.ammo = runtime.ammo.saturating_sub(1);
-    }
-}
-
-/// Feeds reload lifecycle events into the presentation-scoped weapon runtime.
-pub fn update_weapon_reload(
-    time: Res<Time>,
-    mut started: MessageReader<ReloadStartedMessage>,
-    mut finished: MessageReader<ReloadFinishedMessage>,
-    mut cancelled: MessageReader<ReloadCancelledMessage>,
-    mut anchors: Query<(&PlayerWeaponAnchor, &mut PlayerWeaponRuntime)>,
-) {
-    let dt = time.delta_secs();
-    for (_, mut runtime) in &mut anchors {
-        if let Some(remaining) = runtime.reload.remaining.as_mut() {
-            *remaining -= dt;
-            if *remaining <= 0.0 {
-                runtime.reload.remaining = None;
-                runtime.reload.total = 0.0;
-                runtime.ammo = runtime.weapon.stats.mag_size;
-            }
-        }
-    }
-    for message in started.read() {
-        let Some((_, mut runtime)) = anchors
-            .iter_mut()
-            .find(|(anchor, _)| anchor.survivor == message.entity)
-        else {
-            continue;
-        };
-        runtime.reload.start(message.duration);
-    }
-    for message in finished.read() {
-        let Some((_, mut runtime)) = anchors
-            .iter_mut()
-            .find(|(anchor, _)| anchor.survivor == message.entity)
-        else {
-            continue;
-        };
-        runtime.reload.cancel();
-        runtime.ammo = runtime.weapon.stats.mag_size;
-    }
-    for message in cancelled.read() {
-        let Some((_, mut runtime)) = anchors
-            .iter_mut()
-            .find(|(anchor, _)| anchor.survivor == message.entity)
-        else {
-            continue;
-        };
-        runtime.reload.cancel();
     }
 }
 
@@ -118,8 +64,6 @@ pub fn update_weapon_swap(
             continue;
         };
         runtime.weapon = weapon.clone();
-        runtime.ammo = weapon.stats.mag_size;
-        runtime.slot = message.to;
         state.swap_elapsed = 0.0;
         state.swap_duration = weapon.presentation.swap.lower_secs
             + weapon.presentation.swap.raise_secs;
@@ -131,9 +75,9 @@ pub fn update_weapon_swap(
 pub fn pose_player_weapon(
     time: Res<Time>,
     anim: Res<AnimCatalog>,
-    survivors: Query<(&Health, &CombatStance), With<Survivor>>,
+    survivors: Query<(&Health, &CombatStance, Option<&WeaponInventory>), With<Survivor>>,
     mut param: ParamSet<(
-        Query<(&PlayerWeaponAnchor, &mut WeaponPoseState, &WeaponMount, &mut PlayerWeaponRuntime)>,
+        Query<(&PlayerWeaponAnchor, &mut WeaponPoseState, &WeaponMount, &PlayerWeaponRuntime)>,
         Query<&mut Transform>,
     )>,
 ) {
@@ -143,7 +87,7 @@ pub fn pose_player_weapon(
 
     {
         for (anchor, mut state, mount, runtime) in &mut param.p0() {
-            let Ok((health, stance)) = survivors.get(anchor.survivor) else {
+            let Ok((health, stance, inventory)) = survivors.get(anchor.survivor) else {
                 continue;
             };
             if health.current <= 0.0 {
@@ -162,7 +106,8 @@ pub fn pose_player_weapon(
                 .rem_euclid(std::f32::consts::TAU);
             state.swap_elapsed = (state.swap_elapsed + dt).min(state.swap_duration);
 
-            let reload = reload_offset(runtime.reload.progress(), &weapon.presentation.reload);
+            let reload_progress = inventory.and_then(|inv| inv.reload_progress());
+            let reload = reload_offset(reload_progress, &weapon.presentation.reload);
             let swap = swap_curve(state.swap_elapsed, state.swap_duration);
             let composed = compose_weapon(weapon, &state, reload, swap);
             state.frame = composed;

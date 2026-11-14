@@ -37,13 +37,13 @@ pub fn sync_enemies_hot_reload(
     }
 }
 
-/// Moves zombies directly toward the nearest survivor and applies contact damage on cooldown.
+/// Moves zombies directly toward the survivor and applies contact damage on cooldown.
 pub fn enemy_chase_and_attack(
     time: Res<Time>,
     player_cfg: Res<PlayerConfig>,
     enemies_cfg: Res<EnemiesConfig>,
     mut damage_writer: MessageWriter<DamageMessage>,
-    survivors: Query<(Entity, &Transform), With<Survivor>>,
+    survivor: Option<Single<(Entity, &Transform), With<Survivor>>>,
     mut enemies: Query<
         (
             Entity,
@@ -55,15 +55,15 @@ pub fn enemy_chase_and_attack(
         Without<Survivor>,
     >,
 ) {
-    let survivor_list: Vec<(Entity, Vec3)> =
-        survivors.iter().map(|(e, t)| (e, t.translation)).collect();
-    if survivor_list.is_empty() {
+    let Some(survivor) = survivor else {
         for (_, _, mut vel, _, _) in &mut enemies {
             vel.linear = Vec3::ZERO;
         }
         return;
-    }
+    };
 
+    let (target_entity, target_tf) = *survivor;
+    let target_pos = target_tf.translation;
     let dt = time.delta_secs();
     let decay = (1.0 - enemies_cfg.knockback_decay_rate * dt).max(0.0);
 
@@ -72,14 +72,6 @@ pub fn enemy_chase_and_attack(
         enemy.knockback_vel *= decay;
 
         let pos = transform.translation;
-        let Some(&(target_entity, target_pos)) = survivor_list.iter().min_by(|a, b| {
-            let da = Vec2::new(a.1.x - pos.x, a.1.z - pos.z).length_squared();
-            let db = Vec2::new(b.1.x - pos.x, b.1.z - pos.z).length_squared();
-            da.total_cmp(&db)
-        }) else {
-            continue;
-        };
-
         let to_target = Vec3::new(target_pos.x - pos.x, 0.0, target_pos.z - pos.z);
         let dist = to_target.length();
         let chase_dir = if dist > 1e-4 {

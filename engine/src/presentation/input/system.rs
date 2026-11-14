@@ -14,8 +14,8 @@ pub fn gather_local_input(
     player_cfg: Res<PlayerConfig>,
     cam_cfg: Res<CameraConfig>,
     window: Single<&Window, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut intents: Query<&mut ActionIntent, With<LocalPlayer>>,
+    camera: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut intent: Single<&mut ActionIntent, With<LocalPlayer>>,
     mut zoom_writer: MessageWriter<CameraZoomMessage>,
 ) {
     let mut raw = Vec2::ZERO;
@@ -35,10 +35,7 @@ pub fn gather_local_input(
         raw = raw.normalize();
     }
 
-    let camera = cameras.single().ok();
-    let forward = camera
-        .map(|(_, transform)| transform.forward().as_vec3())
-        .unwrap_or(Vec3::NEG_Z);
+    let forward = camera.1.forward().as_vec3();
     let world = move_to_world(raw, forward);
     let move_dir = Vec2::new(world.x, world.z);
 
@@ -56,36 +53,36 @@ pub fn gather_local_input(
         Some(1)
     } else if keys.just_pressed(KeyCode::Digit3) {
         Some(2)
+    } else if keys.just_pressed(KeyCode::Digit4) {
+        Some(3)
+    } else if keys.just_pressed(KeyCode::Digit5) {
+        Some(4)
     } else {
         None
     };
     let swap_next = weapon_scroll > 0.0;
     let swap_prev = weapon_scroll < 0.0;
 
-    let aim_world = camera.and_then(|(cam, transform)| {
-        compute_cursor_aim_world(&window, cam, transform, player_cfg.aim_height)
-    });
+    let aim_world = compute_cursor_aim_world(&window, camera.0, camera.1, player_cfg.aim_height);
 
-    for mut intent in &mut intents {
-        intent.move_dir = move_dir;
-        intent.sprint = sprint;
-        if aim_world.is_some() {
-            intent.aim_world = aim_world;
-        }
-        intent.fire_held = fire_held;
-        intent.aim_held = aim_held;
-        if fire_just_pressed {
-            intent.fire_just_pressed = true;
-        }
-        if reload_just_pressed {
-            intent.reload_just_pressed = true;
-        }
-        if let Some(slot) = swap_slot {
-            intent.swap_slot = Some(slot);
-        }
-        intent.swap_next = swap_next;
-        intent.swap_prev = swap_prev;
+    intent.move_dir = move_dir;
+    intent.sprint = sprint;
+    if aim_world.is_some() {
+        intent.aim_world = aim_world;
     }
+    intent.fire_held = fire_held;
+    intent.aim_held = aim_held;
+    if fire_just_pressed {
+        intent.fire_just_pressed = true;
+    }
+    if reload_just_pressed {
+        intent.reload_just_pressed = true;
+    }
+    if let Some(slot) = swap_slot {
+        intent.swap_slot = Some(slot);
+    }
+    intent.swap_next = swap_next;
+    intent.swap_prev = swap_prev;
 }
 
 fn emit_camera_zoom(

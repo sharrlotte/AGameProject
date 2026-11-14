@@ -156,3 +156,14 @@ A new run SHALL start with no aim stance, no active reload, and no carry-over li
 
 - **WHEN** the game leaves `Playing` for menus or game over
 - **THEN** reload lifecycle messages from the previous run are not consumed as if they were new events
+
+### Requirement: Canonical core combat and survivor components
+Core player and survivor components — `Health`, `Stamina`, `MovementStats`, `AimDirection`, `Survivor`, and `LocalPlayer` — SHALL be canonically defined once in `engine::common` and re-exported cleanly through `engine::world::player`. Duplicate or conflicting definitions across crates/modules MUST NOT exist.
+
+#### Scenario: Subsystems import canonical components from common or world
+- **WHEN** combat, animation, UI, or enemy systems query player state
+- **THEN** they resolve the identical canonical component types without conflicting type ambiguity
+
+#### Scenario: Redundant marker tags consolidated
+- **WHEN** survivor or local player entities are spawned
+- **THEN** they use the canonical `Survivor` and `LocalPlayer` markers without duplicate `SurvivorTag` entities

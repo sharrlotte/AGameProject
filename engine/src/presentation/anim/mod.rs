@@ -9,7 +9,6 @@ use crate::common::SimUpdateSet;
 use crate::config::VisualsConfig;
 
 mod bind;
-mod idle;
 pub mod blend;
 pub mod catalog;
 pub mod director;
@@ -27,7 +26,7 @@ pub use grip::{FingerCurl, GripHand, WeaponGripConfig};
 pub use rig::PlayerRig;
 pub use weapon::{
     init_weapon_anchors, pose_player_weapon, resolve_weapon_sockets, socket_frames, sync_weapon_mounts,
-    update_weapon_kick, update_weapon_reload, update_weapon_swap,
+    update_weapon_kick, update_weapon_swap,
 };
 
 /// Marker on the visual root entity spawned as a direct child of `Survivor`.
@@ -101,7 +100,6 @@ impl Plugin for PlayerAnimPlugin {
                     bind::sync_animation_catalog_hot_reload,
                     bind::prepare_player_model_assets,
                     bind::attach_player_model_scene,
-                    bind::disable_player_backface_culling,
                     bind::bind_player_animation_players,
                     weapon::sync_weapon_mounts,
                     weapon::resolve_weapon_sockets,
@@ -113,11 +111,9 @@ impl Plugin for PlayerAnimPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    weapon::update_weapon_reload,
                     weapon::update_weapon_kick,
                     weapon::update_weapon_swap,
                     weapon::pose_player_weapon,
-                    idle::relax_idle_pose,
                 )
                     .chain()
                     .in_set(PlayerAnimSet::Weapon)

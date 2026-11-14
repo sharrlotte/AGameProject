@@ -312,31 +312,12 @@ Clip roles, anchor angles, layer membership, masks, blend times, speed clamps, a
 - **WHEN** the workspace test suite runs
 - **THEN** the animation and weapon catalogs are deserialized and their required roles, anchor validity, masks, chains, and socket names are asserted to be present
 
-### Requirement: Idle pose relaxation
-When the player is idle (horizontal speed below `move_speed_threshold`) and alive, the presentation layer SHALL
-procedurally relax the idle pose before IK evaluation: reduce the idle clip's torso X rotation by
-approximately 50%. The correction SHALL run after animation evaluation and before `solve_player_arms`, and
-SHALL apply to both armed and unarmed players.
+### Requirement: Data-driven rig bone configuration
+The IK configuration in `AnimCatalog` SHALL allow authoring bone names for finger bones (`middle_hand`, `fingers`, `thumb1`, `thumb2`) and torso, falling back to standard armature defaults when omitted, so custom or third-party armatures can be bound without Rust code changes.
 
-#### Scenario: Torso relaxes during idle
-
-- **WHEN** the player is idle and alive
-- **THEN** the torso X rotation is reduced by approximately 50% compared to the raw idle clip
-
-#### Scenario: Correction runs before IK
-
-- **WHEN** IK solves an armed idle player
-- **THEN** the relaxation has already been applied, so the arm solve targets the relaxed torso instead of being corrected afterwards
-
-#### Scenario: No correction while moving
-
-- **WHEN** horizontal speed is at or above `move_speed_threshold`
-- **THEN** no idle relaxation is applied and arms follow locomotion/IK normally
-
-#### Scenario: Dead player is skipped
-
-- **WHEN** the player is dead
-- **THEN** no idle relaxation is applied and the death clip controls the pose
+#### Scenario: Custom armature resolves non-standard finger bones
+- **WHEN** an authored `IkConfig` specifies custom finger and torso bone names
+- **THEN** `PlayerRig` resolves the corresponding entities against the model hierarchy without failing or requiring hardcoded string matches
 
 ### Requirement: Animation systems run only when needed
 Animation, weapon pose, IK, and facing systems SHALL run only in `Playing` and `GameOver` states and SHALL NOT run during loading or menus.

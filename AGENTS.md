@@ -38,6 +38,7 @@
 
 - Prefer Single over Query if you only need 1 and that entity always exists 1
 - Prefer DespawnOnExit
+- We are using bevy 0.20.0, make sure to make use of it new features and do not use old, deprecated features
 
 # Files
 

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::config::ConfigHotReloadedMessage;
 use crate::common::{
-    GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD, RunEntity, GameScene, SurvivorTag,
+    GROUP_ENEMY, GROUP_PICKUP, GROUP_PLAYER, GROUP_WORLD, RunEntity, GameScene,
 };
 use crate::message::messages::{DamageMessage, PlayerDiedMessage};
 use crate::message::resources::UpgradeModifiers;
@@ -28,7 +28,6 @@ pub fn spawn_player(
         (
             Name::new("Survivor"),
             Survivor,
-            SurvivorTag,
             LocalPlayer,
             RunEntity,
             ActionIntent::default(),

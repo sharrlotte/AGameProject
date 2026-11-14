@@ -37,13 +37,11 @@ swap, and grip — for each weapon alongside its stats.
 - **THEN** the mount system logs a warning and skips mounting without crashing
 
 ### Requirement: Weapon switching via slots and scroll
-The player SHALL switch weapons by Digit1/Digit2/Digit3 (direct slot) and by mouse wheel (next/prev
-slot, wrapping). Switching SHALL emit `WeaponSwappedMessage` and cancel active reloads.
+The player SHALL switch weapons by direct slot selection keys (`Digit1` through `Digit5`, corresponding to available roster slots) and by mouse wheel (next/prev slot, wrapping). Switching SHALL emit `WeaponSwappedMessage` and cancel active reloads.
 
-#### Scenario: Digit switches slot
-
-- **WHEN** the player presses Digit2
-- **THEN** `active_slot` becomes 1 and `WeaponSwappedMessage` is emitted
+#### Scenario: Direct digit switches slot across full roster
+- **WHEN** the player presses a digit key between Digit1 and Digit5
+- **THEN** if a weapon exists in that slot index, `active_slot` becomes that index and `WeaponSwappedMessage` is emitted
 
 #### Scenario: Scroll cycles slots
 

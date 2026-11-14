@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::common::{
-    EnemyKind, EnemyTag, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, GameScene,
+    EnemyKind, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, GameScene,
 };
 use crate::message::resources::RunStats;
 use crate::world::{ArenaConfig, Health, PlayerConfig, Survivor};
@@ -61,7 +61,6 @@ pub fn spawn_enemy_entity(
                     EnemyKind::Runner => "Runner",
                 }),
                 RunEntity,
-                EnemyTag,
                 Enemy::from_archetype(kind, arch),
                 FacingDirection(Vec3::NEG_Z),
                 Health::new(arch.max_hp),

@@ -78,15 +78,16 @@ only catalog data and no engine change.
 - **THEN** catalog validation fails and the runtime keeps the previous valid configuration
 
 ### Requirement: Presentation consumes weapon state through events and presentation-scoped state
-The presentation layer SHALL consume equipped weapon state through combat events and a
-presentation-scoped weapon runtime rather than reading simulation weapon inventory components.
+The presentation layer SHALL drive visual weapon kick, sway, and model mounting from weapon definitions and combat events, while HUD and UI components observe authoritative simulation state (`WeaponInventory`) directly rather than tracking duplicate magazine ammo and independent reload clocks in `PlayerWeaponRuntime`.
 
-#### Scenario: Firing consumes recoil through the runtime
-
+#### Scenario: Firing consumes recoil through events
 - **WHEN** a `WeaponFiredMessage` is received
-- **THEN** the presentation layer applies the recoil kick from the presentation-scoped runtime and decrements the runtime magazine count
+- **THEN** the presentation layer applies the recoil kick to `WeaponPoseState` without decrementing a shadow magazine count
 
-#### Scenario: Reload consumes lifecycle events
+#### Scenario: Visual weapon poses read authoritative inventory
+- **WHEN** the weapon pose and arm IK are evaluated
+- **THEN** active weapon definitions and reload status are referenced from authoritative simulation state (`WeaponInventory`)
 
-- **WHEN** a reload lifecycle message is emitted
-- **THEN** the presentation-scoped weapon runtime reload clock tracks the reported duration and normalized progress
+#### Scenario: HUD displays real simulation ammo across weapon swaps
+- **WHEN** a player swaps weapons after firing several rounds
+- **THEN** the HUD displays the actual remaining ammo of the swapped-to slot in `WeaponInventory` without falsely resetting to full magazine

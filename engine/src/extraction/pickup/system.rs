@@ -40,12 +40,14 @@ pub fn collect_scrap_pickups(
     time: Res<Time>,
     cfg: Res<ExtractionConfig>,
     mut scrap_writer: MessageWriter<ScrapCollectedMessage>,
-    survivors: Query<(Entity, &Transform), With<Survivor>>,
+    survivor: Option<Single<(Entity, &Transform), With<Survivor>>>,
     mut pickups: Query<(Entity, &mut ScrapPickup, &mut Transform), Without<Survivor>>,
 ) {
     let dt = time.delta_secs();
-    let survivor_positions: Vec<(Entity, Vec3)> =
-        survivors.iter().map(|(e, t)| (e, t.translation)).collect();
+    let survivor_data = survivor.as_ref().map(|s| {
+        let (e, t) = **s;
+        (e, t.translation)
+    });
 
     for (pickup_entity, mut pickup, mut transform) in &mut pickups {
         pickup.lifetime -= dt;
@@ -54,15 +56,11 @@ pub fn collect_scrap_pickups(
             continue;
         }
 
-        let pos = transform.translation;
-        let Some(&(collector, target)) = survivor_positions.iter().min_by(|a, b| {
-            let da = Vec2::new(a.1.x - pos.x, a.1.z - pos.z).length_squared();
-            let db = Vec2::new(b.1.x - pos.x, b.1.z - pos.z).length_squared();
-            da.total_cmp(&db)
-        }) else {
+        let Some((collector, target)) = survivor_data else {
             continue;
         };
 
+        let pos = transform.translation;
         let delta = Vec3::new(target.x - pos.x, 0.0, target.z - pos.z);
         let dist = delta.length();
         if dist <= cfg.scrap_pickup_radius {

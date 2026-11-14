@@ -78,3 +78,25 @@ The technical architecture document `docs/07-technical-architecture-save-and-roa
 #### Scenario: Documentation matches implemented layout
 - **WHEN** inspecting Section 2 of `docs/07-technical-architecture-save-and-roadmap.md` after the refactor
 - **THEN** the documented crate and module tree matches the actual directories under `game/crates/`
+
+### Requirement: Modular weapon configuration sub-modules
+The unified weapon configuration SHALL be split into focused sub-modules under `engine/src/config/weapons/` (`grip.rs`, `sockets.rs`, `model.rs`, `presentation.rs`, `stats.rs`, `roster.rs`), with `mod.rs` re-exporting all types, ensuring every source file remains under 500 lines.
+
+#### Scenario: All weapon config files are under 500 lines
+- **WHEN** inspecting lines of code in `engine/src/config/weapons/*`
+- **THEN** each file is strictly under 500 lines and adheres to single responsibility
+
+### Requirement: Home base progression module placement
+Meta-progression upgrades, upgrade cost formulas, modifiers, and scrap banking logic SHALL reside in `engine::base` (`BasePlugin`), matching the project roadmap.
+
+#### Scenario: Upgrades registered through BasePlugin
+- **WHEN** the application starts
+- **THEN** `BasePlugin` registers upgrade resources, configs, and purchase systems instead of `ExtractionPlugin`
+
+### Requirement: Strict dev tooling feature gating
+Development and remote debugging plugins — specifically `bevy::remote::RemotePlugin` and `BrpExtrasPlugin` — SHALL be compiled and registered only when the `dev` cargo feature is active, and production builds (`--no-default-features`) SHALL compile without opening remote network ports.
+
+#### Scenario: Release build compiles without dev plugins
+- **WHEN** building the game without the `dev` feature (`cargo build --no-default-features`)
+- **THEN** the compilation succeeds and no BRP or inspector plugins are instantiated
+

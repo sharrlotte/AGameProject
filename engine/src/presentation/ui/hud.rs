@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::common::GameState;
-use crate::presentation::anim::weapon::{PlayerWeaponAnchor, PlayerWeaponRuntime};
+use crate::combat::WeaponInventory;
 use crate::message::resources::RunStats;
 use crate::common::GameScene;
 use crate::message::resources::ScrapBank;
@@ -277,9 +277,7 @@ fn spawn_dev_stage_controls(root: &mut ChildSpawnerCommands, is_anim_test: bool)
 fn update_hud(
     stats: Res<RunStats>,
     bank: Res<ScrapBank>,
-    players: Query<(&Health, &Stamina), With<LocalPlayer>>,
-    local_players: Query<Entity, With<LocalPlayer>>,
-    weapons: Query<(&PlayerWeaponAnchor, &PlayerWeaponRuntime)>,
+    players: Query<(&Health, &Stamina, Option<&WeaponInventory>), With<LocalPlayer>>,
     mut hp_text: Query<
         &mut Text,
         (
@@ -367,8 +365,7 @@ fn update_hud(
         ),
     >,
 ) {
-    let player = local_players.iter().next();
-    if let Some((health, stamina)) = players.iter().next() {
+    if let Some((health, stamina, inventory)) = players.iter().next() {
         let hp_pct = if health.max > 0.0 {
             (health.current / health.max * 100.0).clamp(0.0, 100.0)
         } else {
@@ -390,41 +387,37 @@ fn update_hud(
             node.width = Val::Percent(stam_pct);
         }
 
-        let weapon = player.and_then(|player| {
-            weapons
-                .iter()
-                .find(|(anchor, _)| anchor.survivor == player)
-                .map(|(_, runtime)| runtime)
-        });
-        if let Some(runtime) = weapon {
+        if let Some(inv) = inventory
+            && let Some(active) = inv.active()
+        {
             if let Some(mut txt) = weapon_text.iter_mut().next() {
-                txt.0 = if runtime.reload.remaining.is_some() {
+                txt.0 = if let Some(remaining) = inv.reload_timer {
                     format!(
                         "[{}] {}   RELOADING ({:.1}s)",
-                        runtime.slot + 1,
-                        runtime.weapon.name,
-                        runtime.reload.remaining.unwrap_or(0.0)
+                        inv.active_slot + 1,
+                        active.weapon.name,
+                        remaining
                     )
                 } else {
                     format!(
                         "[{}] {}   {} / {}",
-                        runtime.slot + 1,
-                        runtime.weapon.name,
-                        runtime.ammo,
-                        runtime.weapon.stats.mag_size
+                        inv.active_slot + 1,
+                        active.weapon.name,
+                        active.ammo,
+                        active.weapon.stats.mag_size
                     )
                 };
             }
 
             if let Some(mut bg) = reload_bg.iter_mut().next() {
-                bg.display = if runtime.reload.remaining.is_some() {
+                bg.display = if inv.reload_timer.is_some() {
                     Display::Flex
                 } else {
                     Display::None
                 };
             }
             if let Some(mut fill) = reload_fill.iter_mut().next() {
-                let pct = match runtime.reload.progress() {
+                let pct = match inv.reload_progress() {
                     Some(progress) => (progress * 100.0).clamp(0.0, 100.0),
                     None => 0.0,
                 };

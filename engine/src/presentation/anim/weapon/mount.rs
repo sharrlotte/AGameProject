@@ -5,7 +5,7 @@ use crate::presentation::anim::PlayerVisualRoot;
 
 use crate::config::WeaponRoster;
 use super::state::{
-    PlayerReloadState, PlayerWeaponAnchor, PlayerWeaponRuntime, ResolvedSockets, WeaponMount,
+    PlayerWeaponAnchor, PlayerWeaponRuntime, ResolvedSockets, WeaponMount,
     WeaponPoseState,
 };
 
@@ -34,9 +34,6 @@ pub fn init_weapon_anchors(
             anchor_transform(&roster),
             PlayerWeaponRuntime {
                 weapon: roster.weapons.first().cloned().unwrap_or_default(),
-                ammo: roster.weapons.first().map_or(0, |weapon| weapon.stats.mag_size),
-                slot: 0,
-                reload: PlayerReloadState::default(),
             },
             WeaponPoseState::default(),
             ChildOf(root),

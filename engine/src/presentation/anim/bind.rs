@@ -298,37 +298,6 @@ fn rebuild_graph(
     Some(handle)
 }
 
-pub fn disable_player_backface_culling(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    material_entities: Query<
-        (Entity, &MeshMaterial3d<StandardMaterial>),
-        Added<MeshMaterial3d<StandardMaterial>>,
-    >,
-    parents: Query<&ChildOf>,
-    roots: Query<(), With<PlayerVisualRoot>>,
-) {
-    for (entity, material_handle) in &material_entities {
-        let mut cursor = entity;
-        let mut is_player = false;
-        for _ in 0..16 {
-            if roots.contains(cursor) {
-                is_player = true;
-                break;
-            }
-            let Ok(parent) = parents.get(cursor) else {
-                break;
-            };
-            cursor = parent.parent();
-        }
-        if !is_player {
-            continue;
-        }
-        if let Some(mut material) = materials.get_mut(&material_handle.0) {
-            material.cull_mode = None;
-        }
-    }
-}
-
 fn find_rig_owner(
     mut cursor: Entity,
     parents: &Query<&ChildOf>,
