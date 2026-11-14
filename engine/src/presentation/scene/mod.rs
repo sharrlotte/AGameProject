@@ -7,6 +7,7 @@ pub mod arena;
 pub mod combat;
 pub mod enemy;
 pub mod extract;
+pub mod hazard;
 pub mod material;
 pub mod mesh;
 pub mod player;
@@ -31,6 +32,11 @@ impl Plugin for ScenePlugin {
                     player::attach_player_visuals,
                     combat::attach_projectile_visuals,
                     enemy::attach_enemy_visuals,
+                    enemy::pulse_fuses,
+                    hazard::attach_hazard_visuals,
+                    hazard::attach_acid_visuals,
+                    hazard::spawn_blast_flashes,
+                    hazard::animate_blast_flashes,
                     extract::attach_pickup_visuals,
                     extract::attach_extraction_visuals,
                     extract::animate_scrap_pickups,

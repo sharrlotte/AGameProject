@@ -8,7 +8,9 @@ use crate::world::{ArenaConfig, Health, Survivor};
 
 use crate::enemies::ai::state::{Enemy, FacingDirection};
 use crate::enemies::brain::EnemyBrain;
+use crate::enemies::detonate::Fuse;
 use crate::enemies::melee::Melee;
+use crate::enemies::ranged::Ranged;
 use crate::config::{EnemiesConfig, EnemyArchetypeData};
 
 use super::state::EnemySpawner;
@@ -103,6 +105,12 @@ pub fn spawn_enemy_entity(
             arc_deg: spec.arc_deg,
             bypass: spec.bypass,
         });
+    }
+    if let Some(spec) = arch.ranged() {
+        commands.entity(entity).insert(Ranged::from_spec(spec));
+    }
+    if let Some(spec) = arch.detonate() {
+        commands.entity(entity).insert(Fuse::from_spec(spec));
     }
     entity
 }

@@ -17,6 +17,7 @@ impl Plugin for MessagePlugin {
             .init_resource::<resources::UpgradeModifiers>()
             .add_message::<messages::DamageMessage>()
             .add_message::<messages::EnemyKilledMessage>()
+            .add_message::<messages::DetonationMessage>()
             .add_message::<messages::WeaponFiredMessage>()
             .add_message::<messages::PlayerDiedMessage>()
             .add_message::<messages::ReloadStartedMessage>()

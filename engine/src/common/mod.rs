@@ -103,6 +103,8 @@ pub enum EnemyKind {
     Walker,
     Runner,
     Tank,
+    Spitter,
+    Exploder,
 }
 
 impl EnemyKind {
@@ -111,6 +113,8 @@ impl EnemyKind {
             Self::Walker => "Walker",
             Self::Runner => "Runner",
             Self::Tank => "Tank",
+            Self::Spitter => "Spitter",
+            Self::Exploder => "Exploder",
         }
     }
 }

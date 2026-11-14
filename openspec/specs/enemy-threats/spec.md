@@ -1,4 +1,13 @@
-## ADDED Requirements
+# enemy-threats Specification
+
+## Purpose
+
+Enemy threats: the authored archetype roster, the enemy brain state machine, stagger and steering
+behavior, directional damage and armor, the death pipeline, tiered spawning, the Tank, Spitter, and
+Exploder archetypes, ranged and detonation behaviors, enemy primitive presentation, and hot reload of
+enemy configuration.
+
+## Requirements
 
 ### Requirement: Authored enemy archetype roster
 
@@ -11,8 +20,8 @@ stats, invalid behavior values, and a roster with no positive spawn weight.
 #### Scenario: Authored roster loads
 
 - **WHEN** `enemies.ron` is parsed
-- **THEN** the roster contains unique entries for Walker, Runner, and Tank with positive stats and at
-  least one positive spawn weight
+- **THEN** the roster contains unique entries for Walker, Runner, Tank, Spitter, and Exploder with
+  positive stats and at least one positive spawn weight
 
 #### Scenario: Duplicate archetype is rejected
 
@@ -27,7 +36,10 @@ stats, invalid behavior values, and a roster with no positive spawn weight.
 #### Scenario: Invalid behavior parameters are rejected
 
 - **WHEN** an archetype declares an Armor behavior with `arc_deg` outside `(0, 360]` or a negative
-  multiplier, or a Melee behavior with a negative damage, cooldown, wind-up, reach, or knockback value
+  multiplier, a Melee behavior with a negative damage, cooldown, wind-up, reach, or knockback value, a
+  Ranged behavior with a negative damage, cooldown, wind-up, reach, or projectile speed value, an
+  `arc_deg` outside `(0, 90)`, or a pool with a non-positive radius or lifetime, or a Detonate behavior
+  with a non-positive trigger radius or radius or a negative fuse, damage, or knockback value
 - **THEN** validation fails with an error naming the archetype and behavior
 
 ### Requirement: Enemy brain state machine
@@ -61,8 +73,8 @@ alert duration elapses.
 
 An enemy SHALL enter `Stagger` when its received knockback velocity exceeds the configured stagger
 threshold, and MUST leave `Stagger` after the configured stagger duration. A staggered enemy MUST NOT
-steer toward its target or start a melee wind-up. The Tank's mass-based knockback resistance MUST make
-ordinary bullet hits insufficient to stagger it.
+steer toward its target or start a melee or ranged wind-up. The Tank's mass-based knockback resistance
+MUST make ordinary bullet hits insufficient to stagger it.
 
 #### Scenario: Heavy knockback staggers
 
@@ -82,8 +94,9 @@ ordinary bullet hits insufficient to stagger it.
 ### Requirement: Steering and separation
 
 Enemies SHALL steer toward their target while in `Engage`, toward the last known position while in
-`Alert`, and MUST NOT steer while in `Idle`, `Stagger`, or an active melee wind-up. Steering MUST include
-a separation term that pushes overlapping enemies apart without requiring a spatial grid.
+`Alert`, and MUST NOT steer while in `Idle`, `Stagger`, an active melee or ranged wind-up, or while an
+armed fuse roots the attacker. Steering MUST include a separation term that pushes overlapping enemies
+apart without requiring a spatial grid.
 
 #### Scenario: Engage chases the target
 
@@ -92,7 +105,7 @@ a separation term that pushes overlapping enemies apart without requiring a spat
 
 #### Scenario: Wind-up roots the attacker
 
-- **WHEN** an enemy is in an active melee wind-up
+- **WHEN** an enemy is in an active melee or ranged wind-up
 - **THEN** its horizontal velocity is zero for the duration of the wind-up
 
 #### Scenario: Separation prevents stacking
@@ -262,3 +275,137 @@ the next deploy.
 
 - **WHEN** a behavior is added to or removed from an archetype during a run
 - **THEN** the game logs a warning and does not panic
+
+### Requirement: Ranged attack behavior
+
+An archetype with a `Ranged` behavior SHALL hold a preferred distance from its target, telegraph before
+firing, and launch exactly one acid projectile per attack. The attack MUST root the attacker for the
+wind-up and MUST NOT deal damage during it. The projectile MUST arc under gravity, MUST pass through
+combatants, and MUST create a hazard pool where it first contacts world geometry or where its lifetime
+expires. The cooldown MUST gate the next attack.
+
+#### Scenario: Wind-up telegraphs the shot
+
+- **WHEN** a ranged enemy starts an attack
+- **THEN** it stops steering for the authored wind-up and no projectile exists yet
+
+#### Scenario: Shot fires after the wind-up
+
+- **WHEN** the wind-up completes and the target is still within the authored reach
+- **THEN** the enemy launches one acid projectile toward the target and starts its cooldown
+
+#### Scenario: Shot is cancelled when the target escapes
+
+- **WHEN** the wind-up completes and the target is beyond the authored reach
+- **THEN** no projectile is launched and the cooldown still starts
+
+#### Scenario: Cooldown gates the next attack
+
+- **WHEN** the enemy fires and the cooldown has not elapsed
+- **THEN** it does not start another wind-up
+
+#### Scenario: Preferred range is held
+
+- **WHEN** an engaged ranged enemy is closer than the authored preferred distance
+- **THEN** it backs away from the target instead of closing to contact
+
+#### Scenario: Projectile ignores combatants
+
+- **WHEN** an acid projectile passes through an enemy or the survivor
+- **THEN** it does not hit them and continues its arc
+
+#### Scenario: Projectile lands on world geometry
+
+- **WHEN** an acid projectile contacts world geometry or its lifetime expires
+- **THEN** it despawns and creates one hazard pool at that horizontal position
+
+### Requirement: Detonation behavior
+
+An archetype with a `Detonate` behavior SHALL arm an irreversible fuse when the survivor enters its
+trigger radius while it is engaged, and MUST detonate when the fuse elapses or when it dies while
+armed. A detonation MUST damage the survivor and every non-`Dying` enemy inside the authored radius,
+MUST use explosive damage, MUST apply horizontal knockback away from the blast, and MUST resolve at most
+once per entity.
+
+#### Scenario: Proximity arms the fuse
+
+- **WHEN** an engaged detonating enemy has the survivor inside its trigger radius
+- **THEN** it arms its fuse and roots in place for the authored fuse duration
+
+#### Scenario: The fuse is irreversible
+
+- **WHEN** an armed enemy's survivor leaves the trigger radius
+- **THEN** the fuse continues and the enemy still detonates when it elapses
+
+#### Scenario: Blast hits the survivor and nearby enemies
+
+- **WHEN** a detonation resolves
+- **THEN** the survivor and every non-`Dying` enemy inside the radius receive explosive damage and
+  outward knockback
+
+#### Scenario: Damage falls off with distance
+
+- **WHEN** a target is farther from the blast center
+- **THEN** it receives less damage than a target closer to the center, down to zero at the radius
+
+#### Scenario: Killing an armed enemy still detonates it
+
+- **WHEN** an armed enemy is killed before its fuse elapses
+- **THEN** it detonates once at its death position and the kill pipeline still reports one kill
+
+#### Scenario: Dying enemies are not damaged by blasts
+
+- **WHEN** a blast resolves near an enemy that is already `Dying`
+- **THEN** that enemy receives no damage and no second kill message is emitted
+
+### Requirement: Spitter archetype
+
+The Spitter SHALL spawn with moderate health and speed and a ranged acid attack that leaves a hazard
+pool. Its authored `scrap_value` MUST be awarded through the death pipeline, its pool MUST outlive it,
+and it MUST respect its spawn policy.
+
+#### Scenario: Spitter leaves acid behind
+
+- **WHEN** a Spitter's projectile lands
+- **THEN** a hazard pool exists at the impact point and damages the survivor over time
+
+#### Scenario: Pool outlives the Spitter
+
+- **WHEN** a Spitter dies after its projectile landed
+- **THEN** the existing pool continues until its authored lifetime expires
+
+#### Scenario: Spitter awards authored scrap
+
+- **WHEN** a Spitter dies
+- **THEN** the kill message carries the Spitter's authored `scrap_value`
+
+#### Scenario: Spitter respects its spawn policy
+
+- **WHEN** elapsed run time is below the Spitter's `unlock_secs`
+- **THEN** the Spitter is excluded from the spawn roll
+
+### Requirement: Exploder archetype
+
+The Exploder SHALL spawn with low health and moderate speed, MUST close to proximity range, and MUST
+detonate on proximity or death. Its blast MUST damage other enemies as well as the survivor, and its
+authored `scrap_value` MUST be awarded through the death pipeline.
+
+#### Scenario: Exploder threatens a crowd
+
+- **WHEN** the survivor enters an Exploder's trigger radius
+- **THEN** the Exploder arms and detonates after its fuse, damaging everything nearby
+
+#### Scenario: Exploder damages its own horde
+
+- **WHEN** an Exploder detonates inside a group of other enemies
+- **THEN** those enemies receive explosive damage
+
+#### Scenario: Exploder killed at range still blasts
+
+- **WHEN** an Exploder is killed before reaching the survivor
+- **THEN** it detonates at its death position
+
+#### Scenario: Exploder awards authored scrap
+
+- **WHEN** an Exploder dies from any cause
+- **THEN** its kill message reports the archetype's authored `scrap_value` exactly once

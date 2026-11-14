@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::common::EnemyKind;
-use crate::enemies::{Enemy, FacingDirection};
+use crate::enemies::{Enemy, FacingDirection, Fuse};
 
 use crate::presentation::vfx::HitFlash;
 
@@ -28,6 +28,8 @@ pub fn attach_enemy_visuals(
             EnemyKind::Walker => simple_body(&meshes.walker, &materials.walker, enemy),
             EnemyKind::Runner => simple_body(&meshes.runner, &materials.runner, enemy),
             EnemyKind::Tank => tank_body(&meshes, &materials),
+            EnemyKind::Spitter => spitter_body(&meshes, &materials),
+            EnemyKind::Exploder => exploder_body(&meshes, &materials),
         };
         spawn_assembly(&mut commands, entity, enemy, parts);
     }
@@ -75,6 +77,45 @@ fn part(mesh: &Handle<Mesh>, material: &Handle<StandardMaterial>, at: Vec3) -> P
         material: material.clone(),
         transform: Transform::from_translation(at),
     }
+}
+
+fn spitter_body(meshes: &SharedVisualMeshes, materials: &SharedVisualMaterials) -> Vec<PartSpec> {
+    let spitter = &meshes.spitter;
+    let skin = &materials.spitter.skin;
+    let sac = &materials.spitter.sac;
+
+    vec![
+        part(&spitter.body, skin, Vec3::new(0.0, 1.00, 0.0)),
+        part(&spitter.sac, sac, Vec3::new(0.0, 1.30, -0.24)),
+        part(&spitter.sac, sac, Vec3::new(-0.13, 1.13, -0.22)),
+        part(&spitter.sac, sac, Vec3::new(0.13, 1.13, -0.22)),
+        part(&spitter.jaw, skin, Vec3::new(0.0, 1.55, -0.20)),
+        part(&spitter.arm, skin, Vec3::new(-0.38, 1.02, 0.0)),
+        part(&spitter.arm, skin, Vec3::new(0.38, 1.02, 0.0)),
+        part(&spitter.leg, skin, Vec3::new(-0.16, 0.30, 0.0)),
+        part(&spitter.leg, skin, Vec3::new(0.16, 0.30, 0.0)),
+    ]
+}
+
+fn exploder_body(meshes: &SharedVisualMeshes, materials: &SharedVisualMaterials) -> Vec<PartSpec> {
+    let exploder = &meshes.exploder;
+    let skin = &materials.exploder.skin;
+    let pustule = &materials.exploder.pustule;
+
+    vec![
+        part(&exploder.body, skin, Vec3::new(0.0, 0.82, 0.0)),
+        part(&exploder.pustule, pustule, Vec3::new(0.0, 1.05, -0.42)),
+        part(&exploder.pustule, pustule, Vec3::new(-0.32, 0.95, -0.28)),
+        part(&exploder.pustule, pustule, Vec3::new(0.32, 0.95, -0.28)),
+        part(&exploder.pustule, pustule, Vec3::new(0.0, 0.62, -0.44)),
+        part(&exploder.pustule, pustule, Vec3::new(-0.40, 0.75, 0.05)),
+        part(&exploder.pustule, pustule, Vec3::new(0.40, 0.75, 0.05)),
+        part(&exploder.head, skin, Vec3::new(0.0, 1.32, -0.34)),
+        part(&exploder.limb, skin, Vec3::new(-0.52, 0.88, 0.0)),
+        part(&exploder.limb, skin, Vec3::new(0.52, 0.88, 0.0)),
+        part(&exploder.limb, skin, Vec3::new(-0.22, 0.20, 0.0)),
+        part(&exploder.limb, skin, Vec3::new(0.22, 0.20, 0.0)),
+    ]
 }
 
 fn spawn_assembly(
@@ -143,6 +184,29 @@ fn apply_facing_to_children(
     }
 }
 
+/// Scales the armed Exploder visual so the fuse telegraph reads from a distance.
+pub fn pulse_fuses(
+    time: Res<Time>,
+    fuses: Query<(&Fuse, &Children), With<Enemy>>,
+    mut visual_bodies: Query<&mut Transform, With<VisualBody>>,
+) {
+    let elapsed = time.elapsed_secs();
+    for (fuse, children) in &fuses {
+        let scale = if fuse.armed {
+            let progress = 1.0 - (fuse.timer / fuse.fuse.max(0.05)).clamp(0.0, 1.0);
+            let frequency = 6.0 + 18.0 * progress;
+            1.0 + 0.12 * (elapsed * frequency).sin().abs()
+        } else {
+            1.0
+        };
+        for child in children.iter() {
+            if let Ok(mut tf) = visual_bodies.get_mut(child) {
+                tf.scale = Vec3::splat(scale);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,18 +226,51 @@ mod tests {
     }
 
     fn spawn_tank(app: &mut App) -> Entity {
+        spawn_kind(app, EnemyKind::Tank)
+    }
+
+    fn spawn_kind(app: &mut App, kind: EnemyKind) -> Entity {
         let config: EnemiesConfig = crate::assert_ron_config_parses!(EnemiesConfig);
-        let tank = config
-            .archetype(EnemyKind::Tank)
-            .expect("authored tank")
+        let arch = config
+            .archetype(kind)
+            .expect("authored archetype")
             .clone();
         app.world_mut()
             .spawn((
-                Enemy::from_archetype(&tank),
+                Enemy::from_archetype(&arch),
                 FacingDirection(Vec3::NEG_Z),
                 Transform::default(),
             ))
             .id()
+    }
+
+    #[test]
+    fn assembled_enemy_kinds_start_on_authored_materials() {
+        for kind in [
+            EnemyKind::Walker,
+            EnemyKind::Runner,
+            EnemyKind::Tank,
+            EnemyKind::Spitter,
+            EnemyKind::Exploder,
+        ] {
+            let mut app = app_with_assembly();
+            let entity = spawn_kind(&mut app, kind);
+            app.update();
+
+            let flash = app
+                .world()
+                .get::<HitFlash>(entity)
+                .unwrap_or_else(|| panic!("{kind:?} carries hit flash"));
+            assert!(!flash.parts.is_empty(), "{kind:?} must assemble at least one part");
+            for (part, base) in &flash.parts {
+                let material = app
+                    .world()
+                    .get::<MeshMaterial3d<StandardMaterial>>(*part)
+                    .unwrap_or_else(|| panic!("{kind:?} part material"));
+                assert_ne!(material.0, Handle::default(), "{kind:?} default material");
+                assert_eq!(material.0, *base, "{kind:?} part must start on its base material");
+            }
+        }
     }
 
     #[test]

@@ -20,6 +20,13 @@ pub struct EnemyKilledMessage {
     pub scrap: u32,
 }
 
+/// Presentation hook for an enemy explosion.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct DetonationMessage {
+    pub position: Vec3,
+    pub radius: f32,
+}
+
 #[derive(Message, Debug, Clone, Copy)]
 pub struct WeaponFiredMessage {
     pub shooter: Entity,

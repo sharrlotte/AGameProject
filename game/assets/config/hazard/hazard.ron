@@ -1,0 +1,4 @@
+(
+    max_active: 12,
+    tick_interval: 0.5,
+)

@@ -17,7 +17,7 @@ Zombies are **not** HP sponges with different numbers. Every archetype exists to
 | **6. Screamer** | Gaunt, elongated jaw, pale | Avoids direct melee; when spotting the player, emits a visible shockwave shriek that alerts & spawns nearby hordes. | **Priority Target:** Must be killed before it finishes its wind-up scream, or the room turns into a swarm. Suppressors help prevent early aggro. |
 | **7. Stalker** | Low-profile, shadowy/translucent | Semi-invisible at range; circles toward player's back/flanks; decloaks with a screech just before pouncing. | **Awareness & Tech Check:** Causes ambush panic in dark buildings. Counter with Scout Drones, Pulse Scans, flashlight beam, or Proximity Mines at your back. |
 
-Walker, Runner, and Tank are implemented. Spitter, Exploder, Screamer, and Stalker are planned.
+Walker, Runner, Tank, Spitter, and Exploder are implemented. Screamer and Stalker are planned.
 
 ---
 
@@ -28,6 +28,8 @@ Walker, Runner, and Tank are implemented. Spitter, Exploder, Screamer, and Stalk
 | **Walker** | 75 HP, 4.2 m/s, mass 1.0, radius 0.45, half-height 0.45 | `Melee` 15 dmg, 0.9 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.70, `max_active` 60, scrap 2 |
 | **Runner** | 35 HP, 7.8 m/s, mass 0.65, radius 0.35, half-height 0.40 | `Melee` 10 dmg, 0.7 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.30, `max_active` 40, scrap 3 |
 | **Tank** | 420 HP, 3.1 m/s, mass 6.0, radius 0.75, half-height 0.70 | `Armor` 0.30 front / 1.0 back, 120° arc, `Explosive` bypass; `Melee` 32 dmg, 1.6 s cooldown, 0.45 s wind-up, 0.35 reach, 7.5 knockback | Unlocked at 120 s, weight 0.18, `max_active` 6, scrap 8 |
+| **Spitter** | 90 HP, 3.6 m/s, mass 0.9, radius 0.42, half-height 0.50 | `Ranged` 8 dmg per pool tick, 2.6 s cooldown, 0.55 s wind-up, 14 m reach, 16 m/s cap, 35° arc; pool 2.5 m radius, 6 s lifetime | Unlocked at 90 s, weight 0.14, `max_active` 10, scrap 5 |
+| **Exploder** | 60 HP, 4.6 m/s, mass 1.1, radius 0.45, half-height 0.45 | `Detonate` 3.0 m trigger, 0.7 s fuse, 45 dmg, 4.5 m radius, 9 knockback | Unlocked at 150 s, weight 0.10, `max_active` 8, scrap 4 |
 
 All values are authored in `game/assets/config/enemies/enemies.ron`; the table documents the shipped roster, not a second source of truth.
 
@@ -51,12 +53,15 @@ All values are authored in `game/assets/config/enemies/enemies.ron`; the table d
 - **Stagger:** damage whose accumulated knockback velocity exceeds `stagger_threshold` enters `Stagger` for `stagger_secs`, cancels steering and wind-ups, then returns to `Engage` when a target exists, otherwise to `Alert`.
 - **Damage forces engagement:** damage delivered by a survivor always engages the enemy against that source, regardless of distance.
 - **Sensory Triggers (planned):** vision cone + **Noise Radius** (gunshots without suppressors, explosions, car alarms, extraction flares).
-- **Tuning:** `aggro_radius` 18, `deaggro_radius` 26, `deaggro_secs` 2.5, `alert_secs` 4.0, `stagger_threshold` 4.5, `stagger_secs` 0.35 in `enemies.ron`.
+- **Tuning:** `aggro_radius` 18, `deaggro_radius` 26, `deaggro_secs` 2.5, `alert_secs` 4.0, `stagger_threshold` 4.5, `stagger_secs` 0.35, `acid_gravity` 9.81 in `enemies.ron`; hazard caps in `hazard.ron`.
 
 ### 3.1.1 Damage, Armor, and Death Contract
 - **Damage message:** every damage delivery carries `kind` (`Ballistic`, `Explosive`, `Acid`, `Shock`) and `hit_dir` in addition to amount, knockback, and source. Weapons default to `Ballistic` and projectiles forward their authored kind and travel direction.
 - **Armor:** an `Armor` component on an enemy holds `front_mult`, `back_mult`, `arc_deg`, and a `bypass` kind list. A hit travelling along `hit_dir` is frontal when `facing.dot(-hit_dir) >= cos(arc_deg / 2)`; frontal hits use `front_mult`, everything else uses `back_mult`, and any listed `bypass` kind applies full damage. A zero or non-finite `hit_dir` is treated as frontal so malformed data never grants the back bonus.
-- **Death pipeline:** lethal damage marks the enemy `Dying`, emits `EnemyKilledMessage` once with the archetype's `scrap_value`, and keeps the entity alive for the rest of the frame. Death effects run in `DeathResolutionSet`; the cleanup pass then despawns `Dying` entities. `Dying` enemies are excluded from targeting, steering, melee, and projectile collisions.
+- **Death pipeline:** lethal damage marks the enemy `Dying`, emits `EnemyKilledMessage` once with the archetype's `scrap_value`, and keeps the entity alive for the rest of the frame. Death effects run in `DeathResolutionSet`; the cleanup pass then despawns `Dying` entities. `Dying` enemies are excluded from targeting, steering, melee, ranged attacks, detonation targets, and projectile collisions.
+- **Ranged contract:** an archetype with a `Ranged` behavior holds a preferred distance (retreat inside `reach * 0.8`, hold through `reach * 1.15`, advance beyond), roots for the authored wind-up, and fires exactly one acid projectile when the wind-up completes with the target still inside `reach`. The cooldown starts on every completed wind-up, including a cancelled shot. The projectile ignores combatants, arcs under `acid_gravity`, and creates one hazard pool where it first touches world geometry, reaches the ground, or exhausts its lifetime. Pool radius and lifetime are authored on the `Ranged` behavior.
+- **Detonation contract:** an archetype with a `Detonate` behavior arms an irreversible fuse when it is `Engage` and the survivor enters `trigger_radius`. An armed exploder roots in place. The blast resolves once per entity, either when the fuse elapses or when the entity is already `Dying`, and applies `Explosive` damage with `damage * (1 - distance / radius)` falloff plus outward horizontal knockback to the survivor and every non-`Dying` enemy. A proximity detonation still emits one `EnemyKilledMessage`; a death detonation relies on the kill already reported by the damage pipeline.
+- **Ground hazards:** pools are run-scoped `HazardZone` entities under the `HazardPlugin`. `game/assets/config/hazard/hazard.ron` caps simultaneous zones (`max_active`) and owns the tick cadence (`tick_interval`). The first tick fires one interval after spawn, all later ticks follow that cadence, only the survivor takes `Acid` damage, and spawning past the cap retires the oldest zone first. Zones never damage enemies.
 - **Scrap:** `EnemyKilledMessage.scrap` is the single source for pickup value; `ExtractionConfig` no longer holds per-kind scrap amounts.
 
 ### 3.1.2 Spawn Policy
@@ -92,7 +97,7 @@ The longer you stay in the 15–25 minute expedition, the more hostile the quara
 
 *Noise Escalation:* Making excessive loud noise (alarms, un-suppressed heavy gunfire) temporarily spikes local heat faster than the base timer.
 
-*Data-Driven Tiers:* the shipped arena derives its spawn pool from `spawn.unlock_secs` per archetype (Walker and Runner from 0 s, Tank from 120 s) and shapes density with `spawn.weight`, per-archetype `max_active`, and the escalating global cap. The time windows above remain the design target for the full expedition mode.
+*Data-Driven Tiers:* the shipped arena derives its spawn pool from `spawn.unlock_secs` per archetype (Walker and Runner from 0 s, Spitter from 90 s, Tank from 120 s, Exploder from 150 s) and shapes density with `spawn.weight`, per-archetype `max_active`, and the escalating global cap. The time windows above remain the design target for the full expedition mode.
 
 ---
 

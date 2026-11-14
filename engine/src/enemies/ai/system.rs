@@ -6,9 +6,14 @@ use crate::world::Survivor;
 
 use crate::config::EnemiesConfig;
 use crate::enemies::brain::{BrainState, EnemyBrain};
+use crate::enemies::detonate::Fuse;
 use crate::enemies::melee::Melee;
+use crate::enemies::ranged::Ranged;
 
 use super::state::{Enemy, FacingDirection};
+
+const RANGED_RETREAT: f32 = 0.8;
+const RANGED_ADVANCE: f32 = 1.15;
 
 pub fn freeze_enemies_on_game_over(mut enemies: Query<&mut Velocity, With<Enemy>>) {
     for mut vel in &mut enemies {
@@ -21,13 +26,19 @@ pub fn freeze_enemies_on_game_over(mut enemies: Query<&mut Velocity, With<Enemy>
 pub fn sync_enemies_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<EnemiesConfig>,
-    mut enemies: Query<(&mut Enemy, Option<&mut Melee>, Option<&mut Armor>)>,
+    mut enemies: Query<(
+        &mut Enemy,
+        Option<&mut Melee>,
+        Option<&mut Armor>,
+        Option<&mut Ranged>,
+        Option<&mut Fuse>,
+    )>,
 ) {
     if reloaded.read().next().is_none() || !cfg.is_changed() {
         return;
     }
 
-    for (mut enemy, melee, armor) in &mut enemies {
+    for (mut enemy, melee, armor, ranged, fuse) in &mut enemies {
         let Some(arch) = cfg.archetype(enemy.kind) else {
             continue;
         };
@@ -65,6 +76,32 @@ pub fn sync_enemies_hot_reload(
             ),
             (None, None) => {}
         }
+
+        match (ranged, arch.ranged()) {
+            (Some(mut ranged), Some(spec)) => ranged.sync(spec),
+            (None, Some(_)) => warn!(
+                "enemy '{}' gained a Ranged behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (Some(_), None) => warn!(
+                "enemy '{}' lost its Ranged behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (None, None) => {}
+        }
+
+        match (fuse, arch.detonate()) {
+            (Some(mut fuse), Some(spec)) => fuse.sync(spec),
+            (None, Some(_)) => warn!(
+                "enemy '{}' gained a Detonate behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (Some(_), None) => warn!(
+                "enemy '{}' lost its Detonate behavior; it applies on the next deploy",
+                enemy.kind.label()
+            ),
+            (None, None) => {}
+        }
     }
 }
 
@@ -83,6 +120,8 @@ pub fn steer_enemies(
             &mut FacingDirection,
             &EnemyBrain,
             Option<&Melee>,
+            Option<&Ranged>,
+            Option<&Fuse>,
             Has<Dying>,
         ),
         Without<Survivor>,
@@ -93,11 +132,13 @@ pub fn steer_enemies(
     let survivor_pos = survivor.as_ref().map(|s| s.translation);
 
     let mut snapshot: Vec<(Entity, Vec3, f32)> = Vec::with_capacity(enemies.iter().count());
-    for (entity, enemy, _, transform, _, _, _, _) in &mut enemies {
+    for (entity, enemy, _, transform, _, _, _, _, _, _) in &mut enemies {
         snapshot.push((entity, transform.translation, enemy.radius));
     }
 
-    for (entity, mut enemy, mut vel, transform, mut facing, brain, melee, dying) in &mut enemies {
+    for (entity, mut enemy, mut vel, transform, mut facing, brain, melee, ranged, fuse, dying) in
+        &mut enemies
+    {
         enemy.knockback_vel *= decay;
         if enemy.knockback_vel.length_squared() < 1e-4 {
             enemy.knockback_vel = Vec3::ZERO;
@@ -110,7 +151,9 @@ pub fn steer_enemies(
         let pos = transform.translation;
         let mut linear = enemy.knockback_vel;
         let rooted = matches!(brain.state, BrainState::Idle | BrainState::Stagger)
-            || melee.is_some_and(Melee::is_winding);
+            || melee.is_some_and(Melee::is_winding)
+            || ranged.is_some_and(Ranged::is_winding)
+            || fuse.is_some_and(Fuse::is_armed);
 
         if !rooted {
             let goal = match brain.state {
@@ -118,15 +161,39 @@ pub fn steer_enemies(
                 BrainState::Alert => brain.last_known,
                 _ => None,
             };
-            if let Some(dir) = goal.and_then(|goal| flat_dir(goal - pos)) {
-                linear += dir * enemy.move_speed;
+            if let Some(goal_pos) = goal
+                && let Some(dir) = flat_dir(goal_pos - pos)
+            {
                 facing.0 = dir;
+                let travel = if brain.state == BrainState::Engage {
+                    preferred_range_travel(dir, ranged, flat_distance(pos, goal_pos))
+                } else {
+                    dir
+                };
+                linear += travel * enemy.move_speed;
             }
             linear += separation(entity, pos, enemy.radius, &snapshot, &cfg);
         }
 
         vel.linear = linear;
     }
+}
+
+fn preferred_range_travel(dir: Vec3, ranged: Option<&Ranged>, distance: f32) -> Vec3 {
+    let Some(ranged) = ranged else {
+        return dir;
+    };
+    if distance < ranged.reach * RANGED_RETREAT {
+        -dir
+    } else if distance <= ranged.reach * RANGED_ADVANCE {
+        Vec3::ZERO
+    } else {
+        dir
+    }
+}
+
+fn flat_distance(a: Vec3, b: Vec3) -> f32 {
+    Vec2::new(a.x - b.x, a.z - b.z).length()
 }
 
 fn flat_dir(delta: Vec3) -> Option<Vec3> {

@@ -86,8 +86,8 @@ Seven enemy archetypes are specified here. Player and weapon assets are covered 
 | **Tank** | Primitive assembly planned | 1 | First GLB target |
 | **Walker** | Primitive capsule | 2 | Replaces the primitive |
 | **Runner** | Primitive capsule | 2 | Replaces the primitive |
-| **Spitter** | Not implemented | 3 | Model may be prepared before its behavior lands |
-| **Exploder** | Not implemented | 3 | Model may be prepared before its behavior lands |
+| **Spitter** | Primitive assembly | 3 | Model may be prepared before its GLB lands |
+| **Exploder** | Primitive assembly | 3 | Model may be prepared before its GLB lands |
 | **Screamer** | Not implemented | 3 | Requires a jaw bone |
 | **Stalker** | Not implemented | 3 | Requires a dedicated cloak material slot |
 
@@ -389,6 +389,8 @@ FRONT                         BACK
 
 **Gameplay tells:** Sacs pulse and brighten before `spit`; the rear-back pose telegraphs the arc.
 
+**Runtime primitive assembly:** cached `SpitterMeshes` under the shared `VisualBody` feet-space root build a `Capsule3d` body (0.34 radius, 0.62 length), three `Sphere` sacs clustered at the throat and upper chest, a jaw box, two arm boxes, and two leg boxes. The sacs use `spitter_sac`; every other part uses `spitter_skin`. The assembly stands roughly 1.7 m tall and reads at the top-down camera distance.
+
 **Triangle budget:** 1,600.
 
 ### 4.15 Exploder
@@ -424,6 +426,8 @@ FRONT                         BACK
 **Clips:** `idle`, `walk`, `stagger`, `explode`, `death`.
 
 **Gameplay tells:** Pustules pulse faster as the player approaches and flare before `explode`.
+
+**Runtime primitive assembly:** cached `ExploderMeshes` under the shared `VisualBody` feet-space root build a `Sphere` belly (0.50 radius), six `Sphere` pustules around the belly and front, a `Sphere` head, and four limb boxes. Pustules use `exploder_pustule`; the belly, head, and limbs use `exploder_skin`. An armed fuse drives a faster scale pulse on the root so the telegraph reads before the blast.
 
 **Triangle budget:** 1,800.
 

@@ -9,14 +9,19 @@ pub mod ai;
 pub mod brain;
 pub mod damage;
 pub mod death;
+pub mod detonate;
 pub mod melee;
+pub mod ranged;
 pub mod spawn;
 
 pub use ai::{Enemy, FacingDirection, steer_enemies, sync_enemies_hot_reload};
 pub use brain::{BrainState, EnemyBrain};
+pub use detonate::{Detonated, Fuse};
 pub use melee::Melee;
+pub use ranged::{AcidProjectile, Ranged};
 pub use crate::config::{
-    ArmorSpec, Behavior, EnemiesConfig, EnemyArchetypeData, MeleeSpec, SpawnPolicy,
+    ArmorSpec, Behavior, DetonateSpec, EnemiesConfig, EnemyArchetypeData, MeleeSpec, RangedSpec,
+    SpawnPolicy,
 };
 pub use damage::apply_enemy_damage;
 pub use death::cleanup_dead;
@@ -47,7 +52,10 @@ impl Plugin for EnemiesPlugin {
                     spawn::spawn_enemies,
                     brain::update_brains,
                     melee::enemy_melee,
+                    ranged::enemy_ranged,
+                    detonate::update_fuses,
                     ai::steer_enemies,
+                    ranged::fall_acid_projectiles,
                 )
                     .chain()
                     .in_set(SimUpdateSet)
@@ -57,7 +65,11 @@ impl Plugin for EnemiesPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    ranged::resolve_acid_projectiles,
                     damage::apply_enemy_damage.in_set(DamageResolutionSet),
+                    detonate::resolve_detonations
+                        .in_set(DeathResolutionSet)
+                        .before(death::cleanup_dead),
                     death::cleanup_dead.in_set(DeathResolutionSet),
                 )
                     .chain()

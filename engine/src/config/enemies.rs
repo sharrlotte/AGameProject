@@ -29,6 +29,14 @@ impl EnemyArchetypeData {
     pub fn armor(&self) -> Option<ArmorSpec> {
         self.behaviors.iter().find_map(Behavior::armor)
     }
+
+    pub fn ranged(&self) -> Option<RangedSpec> {
+        self.behaviors.iter().find_map(Behavior::ranged)
+    }
+
+    pub fn detonate(&self) -> Option<DetonateSpec> {
+        self.behaviors.iter().find_map(Behavior::detonate)
+    }
 }
 
 /// Tier gating and selection weight for one archetype.
@@ -56,6 +64,23 @@ pub enum Behavior {
         #[serde(default)]
         bypass: Vec<DamageKind>,
     },
+    Ranged {
+        damage: f32,
+        cooldown: f32,
+        windup: f32,
+        reach: f32,
+        projectile_speed: f32,
+        arc_deg: f32,
+        pool_radius: f32,
+        pool_lifetime: f32,
+    },
+    Detonate {
+        trigger_radius: f32,
+        fuse: f32,
+        damage: f32,
+        radius: f32,
+        knockback: f32,
+    },
 }
 
 impl Behavior {
@@ -74,7 +99,7 @@ impl Behavior {
                 reach: *reach,
                 knockback: *knockback,
             }),
-            Self::Armor { .. } => None,
+            Self::Armor { .. } | Self::Ranged { .. } | Self::Detonate { .. } => None,
         }
     }
 
@@ -91,7 +116,51 @@ impl Behavior {
                 arc_deg: *arc_deg,
                 bypass: bypass.clone(),
             }),
-            Self::Melee { .. } => None,
+            Self::Melee { .. } | Self::Ranged { .. } | Self::Detonate { .. } => None,
+        }
+    }
+
+    pub fn ranged(&self) -> Option<RangedSpec> {
+        match self {
+            Self::Ranged {
+                damage,
+                cooldown,
+                windup,
+                reach,
+                projectile_speed,
+                arc_deg,
+                pool_radius,
+                pool_lifetime,
+            } => Some(RangedSpec {
+                damage: *damage,
+                cooldown: *cooldown,
+                windup: *windup,
+                reach: *reach,
+                projectile_speed: *projectile_speed,
+                arc_deg: *arc_deg,
+                pool_radius: *pool_radius,
+                pool_lifetime: *pool_lifetime,
+            }),
+            Self::Melee { .. } | Self::Armor { .. } | Self::Detonate { .. } => None,
+        }
+    }
+
+    pub fn detonate(&self) -> Option<DetonateSpec> {
+        match self {
+            Self::Detonate {
+                trigger_radius,
+                fuse,
+                damage,
+                radius,
+                knockback,
+            } => Some(DetonateSpec {
+                trigger_radius: *trigger_radius,
+                fuse: *fuse,
+                damage: *damage,
+                radius: *radius,
+                knockback: *knockback,
+            }),
+            Self::Melee { .. } | Self::Armor { .. } | Self::Ranged { .. } => None,
         }
     }
 }
@@ -111,6 +180,27 @@ pub struct ArmorSpec {
     pub back_mult: f32,
     pub arc_deg: f32,
     pub bypass: Vec<DamageKind>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RangedSpec {
+    pub damage: f32,
+    pub cooldown: f32,
+    pub windup: f32,
+    pub reach: f32,
+    pub projectile_speed: f32,
+    pub arc_deg: f32,
+    pub pool_radius: f32,
+    pub pool_lifetime: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DetonateSpec {
+    pub trigger_radius: f32,
+    pub fuse: f32,
+    pub damage: f32,
+    pub radius: f32,
+    pub knockback: f32,
 }
 
 #[derive(Asset, Resource, TypePath, Debug, Clone, Deserialize)]
@@ -133,6 +223,7 @@ pub struct EnemiesConfig {
     pub stagger_secs: f32,
     pub separation_radius: f32,
     pub separation_strength: f32,
+    pub acid_gravity: f32,
     pub archetypes: Vec<EnemyArchetypeData>,
 }
 
@@ -204,6 +295,9 @@ impl EnemiesConfig {
         if self.deaggro_radius < self.aggro_radius {
             return Err("enemy deaggro_radius must be at least aggro_radius".to_string());
         }
+        if !self.acid_gravity.is_finite() || self.acid_gravity <= 0.0 {
+            return Err("enemy acid_gravity must be finite and positive".to_string());
+        }
 
         Ok(())
     }
@@ -251,6 +345,65 @@ fn validate_behavior(label: &str, behavior: &Behavior) -> Result<(), String> {
                 ));
             }
         }
+        Behavior::Ranged {
+            damage,
+            cooldown,
+            windup,
+            reach,
+            projectile_speed,
+            arc_deg,
+            pool_radius,
+            pool_lifetime,
+        } => {
+            for (name, value) in [
+                ("damage", *damage),
+                ("cooldown", *cooldown),
+                ("windup", *windup),
+                ("reach", *reach),
+                ("projectile_speed", *projectile_speed),
+            ] {
+                if !value.is_finite() || value < 0.0 {
+                    return Err(format!(
+                        "archetype '{label}' ranged {name} must be finite and non-negative"
+                    ));
+                }
+            }
+            if !arc_deg.is_finite() || *arc_deg <= 0.0 || *arc_deg >= 90.0 {
+                return Err(format!(
+                    "archetype '{label}' ranged arc_deg must be in (0, 90)"
+                ));
+            }
+            for (name, value) in [("pool_radius", *pool_radius), ("pool_lifetime", *pool_lifetime)]
+            {
+                if !value.is_finite() || value <= 0.0 {
+                    return Err(format!(
+                        "archetype '{label}' ranged {name} must be finite and positive"
+                    ));
+                }
+            }
+        }
+        Behavior::Detonate {
+            trigger_radius,
+            radius,
+            fuse,
+            damage,
+            knockback,
+        } => {
+            for (name, value) in [("trigger_radius", *trigger_radius), ("radius", *radius)] {
+                if !value.is_finite() || value <= 0.0 {
+                    return Err(format!(
+                        "archetype '{label}' detonate {name} must be finite and positive"
+                    ));
+                }
+            }
+            for (name, value) in [("fuse", *fuse), ("damage", *damage), ("knockback", *knockback)] {
+                if !value.is_finite() || value < 0.0 {
+                    return Err(format!(
+                        "archetype '{label}' detonate {name} must be finite and non-negative"
+                    ));
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -276,6 +429,7 @@ impl Default for EnemiesConfig {
             stagger_secs: 0.35,
             separation_radius: 1.2,
             separation_strength: 2.0,
+            acid_gravity: 9.81,
             archetypes: Vec::new(),
         }
     }
@@ -301,8 +455,10 @@ mod tests {
     fn enemies_ron_parses_and_validates() {
         let enemies = authored();
         enemies.validate().expect("authored roster is valid");
-        assert_eq!(enemies.archetypes.len(), 3);
+        assert_eq!(enemies.archetypes.len(), 5);
         assert!(enemies.archetype(EnemyKind::Tank).is_some());
+        assert!(enemies.archetype(EnemyKind::Spitter).is_some());
+        assert!(enemies.archetype(EnemyKind::Exploder).is_some());
     }
 
     #[test]
@@ -340,5 +496,39 @@ mod tests {
         }
         let error = enemies.validate().expect_err("arc must be positive");
         assert!(error.contains("arc_deg"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn invalid_ranged_pool_is_rejected() {
+        let mut enemies = authored();
+        let spitter = enemies
+            .archetypes
+            .iter_mut()
+            .find(|arch| arch.kind == EnemyKind::Spitter)
+            .expect("spitter archetype");
+        for behavior in &mut spitter.behaviors {
+            if let Behavior::Ranged { pool_radius, .. } = behavior {
+                *pool_radius = 0.0;
+            }
+        }
+        let error = enemies.validate().expect_err("pool radius must be positive");
+        assert!(error.contains("pool_radius"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn invalid_detonate_radius_is_rejected() {
+        let mut enemies = authored();
+        let exploder = enemies
+            .archetypes
+            .iter_mut()
+            .find(|arch| arch.kind == EnemyKind::Exploder)
+            .expect("exploder archetype");
+        for behavior in &mut exploder.behaviors {
+            if let Behavior::Detonate { radius, .. } = behavior {
+                *radius = 0.0;
+            }
+        }
+        let error = enemies.validate().expect_err("blast radius must be positive");
+        assert!(error.contains("radius"), "unexpected error: {error}");
     }
 }

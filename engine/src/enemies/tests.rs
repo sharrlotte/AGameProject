@@ -13,7 +13,9 @@ use super::ai::system::{steer_enemies, sync_enemies_hot_reload};
 use super::brain::system::update_brains;
 use super::brain::{BrainState, EnemyBrain};
 use super::damage::apply_enemy_damage;
+use super::detonate::Fuse;
 use super::melee::{Melee, enemy_melee};
+use super::ranged::Ranged;
 use super::spawn::{eligible_archetypes, pick_archetype};
 
 fn config() -> EnemiesConfig {
@@ -435,6 +437,7 @@ fn hot_reload_updates_live_armor_and_melee_values() {
             match behavior {
                 Behavior::Armor { front_mult, .. } => *front_mult = 0.1,
                 Behavior::Melee { damage, .. } => *damage = 99.0,
+                _ => {}
             }
         }
     }
@@ -445,6 +448,69 @@ fn hot_reload_updates_live_armor_and_melee_values() {
     assert!((armor.front_mult - 0.1).abs() < 1e-6);
     let melee = app.world().get::<Melee>(entity).expect("melee retained");
     assert!((melee.damage - 99.0).abs() < 1e-6);
+}
+
+#[test]
+fn hot_reload_updates_live_ranged_and_detonation_values() {
+    let config = config();
+    let spitter = archetype(&config, EnemyKind::Spitter);
+    let exploder = archetype(&config, EnemyKind::Exploder);
+    let spitter_spec = spitter.ranged().expect("spitter ranged");
+    let detonate_spec = exploder.detonate().expect("exploder detonate");
+
+    let mut app = minimal_app();
+    app.insert_resource(config.clone())
+        .add_message::<ConfigHotReloadedMessage>()
+        .add_systems(Update, sync_enemies_hot_reload);
+
+    let spitter_entity = spawn_enemy(&mut app, &spitter, Vec3::ZERO);
+    app.world_mut()
+        .entity_mut(spitter_entity)
+        .insert(Ranged::from_spec(spitter_spec));
+    let exploder_entity = spawn_enemy(&mut app, &exploder, Vec3::ZERO);
+    app.world_mut()
+        .entity_mut(exploder_entity)
+        .insert(Fuse::from_spec(detonate_spec));
+    app.update();
+
+    {
+        let mut cfg = app.world_mut().resource_mut::<EnemiesConfig>();
+        for arch in &mut cfg.archetypes {
+            match arch.kind {
+                EnemyKind::Spitter => {
+                    for behavior in &mut arch.behaviors {
+                        if let Behavior::Ranged {
+                            damage, pool_radius, ..
+                        } = behavior
+                        {
+                            *damage = 21.0;
+                            *pool_radius = 3.5;
+                        }
+                    }
+                }
+                EnemyKind::Exploder => {
+                    for behavior in &mut arch.behaviors {
+                        if let Behavior::Detonate { fuse, radius, .. } = behavior {
+                            *fuse = 1.4;
+                            *radius = 6.0;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    app.world_mut().write_message(ConfigHotReloadedMessage);
+    app.update();
+
+    let ranged = app.world().get::<Ranged>(spitter_entity).expect("ranged retained");
+    assert!((ranged.damage - 21.0).abs() < 1e-6);
+    assert!((ranged.pool_radius - 3.5).abs() < 1e-6);
+
+    let fuse = app.world().get::<Fuse>(exploder_entity).expect("fuse retained");
+    assert!((fuse.fuse - 1.4).abs() < 1e-6);
+    assert!((fuse.radius - 6.0).abs() < 1e-6);
+    assert!(!fuse.armed, "value reload must not arm a fuse");
 }
 
 #[test]

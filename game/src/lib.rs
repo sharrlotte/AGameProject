@@ -8,6 +8,7 @@ use engine::combat::CombatPlugin;
 use engine::common::CoreDataPlugin;
 use engine::enemies::EnemiesPlugin;
 use engine::extraction::{ExtractionPlugin, RunFlowPlugin};
+use engine::hazard::HazardPlugin;
 use engine::presentation::AllPresentationPlugins;
 use engine::world::{ArenaPlugin, PlayerPlugin};
 
@@ -57,6 +58,7 @@ pub fn build_app() -> App {
         PlayerPlugin,
         CombatPlugin,
         EnemiesPlugin,
+        HazardPlugin,
         ExtractionPlugin,
         RunFlowPlugin,
         BasePlugin,

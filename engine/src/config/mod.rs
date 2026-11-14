@@ -11,6 +11,7 @@ pub mod arena;
 pub mod camera;
 pub mod enemies;
 pub mod extraction;
+pub mod hazard;
 pub mod player;
 pub mod upgrades;
 pub mod visuals;
@@ -19,9 +20,11 @@ pub mod weapons;
 pub use arena::{ArenaConfig, ObstacleDef};
 pub use camera::CameraConfig;
 pub use enemies::{
-    ArmorSpec, Behavior, EnemiesConfig, EnemyArchetypeData, MeleeSpec, SpawnPolicy,
+    ArmorSpec, Behavior, DetonateSpec, EnemiesConfig, EnemyArchetypeData, MeleeSpec, RangedSpec,
+    SpawnPolicy,
 };
 pub use extraction::ExtractionConfig;
+pub use hazard::HazardConfig;
 pub use player::PlayerConfig;
 pub use upgrades::UpgradesConfig;
 pub use visuals::{PlayerModelConfig, VisualsConfig};

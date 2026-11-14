@@ -5,6 +5,7 @@ pub mod world;
 pub mod combat;
 pub mod enemies;
 pub mod extraction;
+pub mod hazard;
 pub mod automation;
 pub mod base;
 pub mod persistence;
