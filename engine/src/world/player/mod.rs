@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
 use crate::config::AppRonConfigExt;
-use crate::common::{GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
+use crate::common::{DamageResolutionSet, GameState, GameScene, SimPostPhysicsSet, SimUpdateSet};
 
 use crate::config::PlayerConfig;
 
@@ -33,7 +33,7 @@ impl Plugin for PlayerPlugin {
                 PostUpdate,
                 system::apply_player_damage
                     .in_set(SimPostPhysicsSet)
-                    .in_set(crate::common::DamageResolutionSet)
+                    .in_set(DamageResolutionSet)
                     .after(PhysicsSet::Writeback)
                     .before(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Playing)),

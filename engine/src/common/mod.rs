@@ -2,6 +2,9 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::Group;
 use serde::Deserialize;
 
+use crate::config::ConfigPlugin;
+use crate::message::MessagePlugin;
+
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
@@ -195,8 +198,8 @@ impl bevy::prelude::Plugin for CoreDataPlugin {
 
         app.init_state::<GameScene>()
             .init_state::<GameState>()
-            .add_plugins(crate::message::MessagePlugin)
-            .add_plugins(crate::config::ConfigPlugin);
+            .add_plugins(MessagePlugin)
+            .add_plugins(ConfigPlugin);
     }
 }
 

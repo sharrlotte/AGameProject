@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::PhysicsSet;
 use crate::config::AppRonConfigExt;
-use crate::common::{GameState, SimPostPhysicsSet, SimUpdateSet};
+use crate::common::{DamageResolutionSet, GameState, SimPostPhysicsSet, SimUpdateSet};
 use crate::config::WeaponRoster;
 
 pub mod projectile;
@@ -39,8 +39,8 @@ impl Plugin for CombatPlugin {
                     projectile::handle_projectile_collisions
                         .after(PhysicsSet::Writeback)
                         .before(TransformSystems::Propagate)
-                        .before(crate::common::DamageResolutionSet),
-                    reload::cancel_reload_on_death.after(crate::common::DamageResolutionSet),
+                        .before(DamageResolutionSet),
+                    reload::cancel_reload_on_death.after(DamageResolutionSet),
                 )
                     .in_set(SimPostPhysicsSet)
                     .run_if(in_state(GameState::Playing)),

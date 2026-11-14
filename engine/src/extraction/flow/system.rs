@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::common::{GameState, RunEntity};
+use crate::common::{GameScene, GameState, RunEntity};
 use crate::message::messages::{
     DeployRequestedMessage, EnemyKilledMessage, ExtractionCompletedMessage, OpenUpgradesRequestedMessage,
     PlayerDiedMessage, ScrapCollectedMessage,
@@ -81,10 +81,10 @@ pub fn handle_navigation_requests(
     mut deploy_reader: MessageReader<DeployRequestedMessage>,
     mut upgrades_reader: MessageReader<OpenUpgradesRequestedMessage>,
     mut next_state: ResMut<NextState<GameState>>,
-    mut next_scene: ResMut<NextState<crate::common::GameScene>>,
+    mut next_scene: ResMut<NextState<GameScene>>,
 ) {
     if deploy_reader.read().next().is_some() {
-        next_scene.set(crate::common::GameScene::Arena);
+        next_scene.set(GameScene::Arena);
         next_state.set(GameState::Playing);
     } else if upgrades_reader.read().next().is_some() {
         next_state.set(GameState::Upgrades);

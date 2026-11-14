@@ -4,6 +4,7 @@ use crate::common::{
     Armor, EnemyKind, GROUP_ENEMY, GROUP_PLAYER, GROUP_PROJECTILE, GROUP_WORLD, RunEntity, GameScene,
 };
 use crate::message::resources::RunStats;
+use crate::world::arena::EnemySpawnerMarker;
 use crate::world::{ArenaConfig, Health, Survivor};
 
 use crate::enemies::ai::state::{Enemy, FacingDirection};
@@ -192,7 +193,7 @@ pub fn spawn_enemies(
     mut spawner: ResMut<EnemySpawner>,
     existing_enemies: Query<&Enemy>,
     survivors: Query<&Transform, With<Survivor>>,
-    spawner_markers: Query<(&Transform, &crate::world::arena::EnemySpawnerMarker)>,
+    spawner_markers: Query<(&Transform, &EnemySpawnerMarker)>,
 ) {
     spawner.timer -= time.delta_secs();
     if spawner.timer > 0.0 {

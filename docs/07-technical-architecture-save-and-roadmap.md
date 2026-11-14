@@ -105,6 +105,7 @@ Workspace now has two crates: `engine` (all simulation + presentation + config +
 2. **Intent-Driven Actions:** Input systems only write `ActionIntent`; gameplay systems consume `ActionIntent`.
 3. **Explicit Ownership & Events:** Projectiles, deployables, and kills carry `Owner(Entity)` and emit typed Bevy events (`DamageEvent`, `NoiseEmittedEvent`, `LootExtractedEvent`).
 4. **Authored Map & Delta State:** Store `map_id: String` + delta state (looted containers, dead bosses, built deployables) rather than serializing static world transforms.
+5. **Module Import Convention:** Always declare top-level `use` imports for components, resources, messages, and system sets; do not use inline fully qualified crate paths (e.g., `&crate::world::arena::EnemySpawnerMarker`).
 
 ---
 

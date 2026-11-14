@@ -4,7 +4,7 @@ use crate::message::messages::DamageMessage;
 use crate::world::{PlayerConfig, Survivor};
 
 use crate::enemies::ai::state::Enemy;
-use crate::enemies::brain::BrainState;
+use crate::enemies::brain::{BrainState, EnemyBrain};
 
 use super::state::Melee;
 
@@ -19,7 +19,7 @@ pub fn enemy_melee(
             Entity,
             &Enemy,
             &Transform,
-            &crate::enemies::brain::EnemyBrain,
+            &EnemyBrain,
             &mut Melee,
             Has<Dying>,
         ),

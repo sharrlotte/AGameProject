@@ -5,6 +5,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use crate::common::{Dying, EnemyKind};
 use crate::message::messages::{DamageMessage, DetonationMessage, EnemyKilledMessage};
+use crate::config::{EnemiesConfig, EnemyArchetypeData};
 use crate::world::{Health, Survivor};
 
 use crate::enemies::ai::state::Enemy;
@@ -43,8 +44,8 @@ fn blast_app() -> App {
     app
 }
 
-fn archetype(kind: EnemyKind) -> crate::config::EnemyArchetypeData {
-    let config: crate::config::EnemiesConfig = crate::assert_ron_config_parses!(crate::config::EnemiesConfig);
+fn archetype(kind: EnemyKind) -> EnemyArchetypeData {
+    let config: EnemiesConfig = crate::assert_ron_config_parses!(EnemiesConfig);
     config.archetype(kind).expect("authored archetype").clone()
 }
 

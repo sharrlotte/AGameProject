@@ -9,7 +9,7 @@ use crate::hazard::{HazardSpec, HazardSpawnMessage};
 use crate::world::{PlayerConfig, Survivor};
 
 use crate::enemies::ai::state::Enemy;
-use crate::enemies::brain::BrainState;
+use crate::enemies::brain::{BrainState, EnemyBrain};
 
 use super::state::{ACID_MAX_FLIGHT_SECS, ACID_PROJECTILE_RADIUS, AcidProjectile, Ranged};
 
@@ -27,7 +27,7 @@ pub fn enemy_ranged(
             Entity,
             &Enemy,
             &Transform,
-            &crate::enemies::brain::EnemyBrain,
+            &EnemyBrain,
             &mut Ranged,
             Has<Dying>,
         ),
