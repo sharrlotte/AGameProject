@@ -1,6 +1,12 @@
 {
   "version": 2,
   "skills": {
+    "graphify": {
+      "source": "Graphify-Labs/graphify",
+      "sourceType": "github",
+      "skillPath": "graphify/SKILL.md",
+      "computedHash": "6b35818401ba79dec1a19fe9225090b6c37f6edc8d58549408919cb272f985de"
+    },
     "openspec-sync-specs": {
       "source": "PBH-BTN/PeerBanHelper",
       "sourceType": "github",

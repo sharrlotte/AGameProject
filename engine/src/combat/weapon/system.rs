@@ -109,7 +109,7 @@ pub fn handle_weapon_swap(
 pub fn handle_weapon_fire(
     mut commands: Commands,
     scene: Option<Res<State<GameScene>>>,
-    _player_cfg: Res<PlayerConfig>,
+    player_cfg: Res<PlayerConfig>,
     upgrades: Res<UpgradeModifiers>,
     mut fired_writer: MessageWriter<WeaponFiredMessage>,
     mut started_writer: MessageWriter<ReloadStartedMessage>,
@@ -171,7 +171,11 @@ pub fn handle_weapon_fire(
         } else {
             Vec3::NEG_Z
         };
-        let muzzle_pos = transform.translation + forward * weapon.muzzle_offset();
+        let muzzle_pos = Vec3::new(
+            transform.translation.x,
+            transform.translation.y + player_cfg.aim_height,
+            transform.translation.z,
+        ) + forward * weapon.muzzle_offset();
 
         let base_dir = if let Some(target) = intent.aim_world {
             let to_target = target - muzzle_pos;
