@@ -52,6 +52,7 @@ fn anchor_transform(roster: &WeaponRoster) -> Transform {
 }
 
 /// Mounts the active weapon and remounts on swap or roster reload.
+#[allow(clippy::type_complexity)]
 pub fn sync_weapon_mounts(
     mut commands: Commands,
     roster: Res<WeaponRoster>,

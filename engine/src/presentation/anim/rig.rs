@@ -125,7 +125,7 @@ pub fn parent_of(entity: Entity, parents: &Query<&ChildOf>) -> Option<Entity> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn incomplete_arm_chains_are_rejected() {
@@ -209,10 +209,3 @@ mod tests {
         assert!(compose_world(orphan, root, &transforms, &parents).is_none());
     }
 }
-
-
-
-
-
-
-

@@ -210,7 +210,7 @@ pub fn freeze_survivor_on_game_over(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+use std::time::Duration;
 
     use crate::common::DamageKind;
 
@@ -382,4 +382,3 @@ mod tests {
         assert!(velocity.x > 0.0, "knockback missing");
     }
 }
-

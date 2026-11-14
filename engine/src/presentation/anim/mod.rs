@@ -144,7 +144,7 @@ impl Plugin for PlayerAnimPlugin {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[derive(Resource, Default)]
     struct Order(Vec<&'static str>);
@@ -197,10 +197,3 @@ mod tests {
         order.0.push("propagate");
     }
 }
-
-
-
-
-
-
-

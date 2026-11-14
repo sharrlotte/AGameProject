@@ -209,7 +209,7 @@ pub fn pulse_fuses(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
     use crate::config::EnemiesConfig;
 
     fn app_with_assembly() -> App {

@@ -232,7 +232,7 @@ impl RonConfig for WeaponRoster {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn weapons_ron_parses_cleanly() {
@@ -247,7 +247,7 @@ mod tests {
             roster
                 .weapons
                 .iter()
-                .all(|weapon| weapon.damage_kind == crate::common::DamageKind::Ballistic)
+                .all(|weapon| weapon.damage_kind == DamageKind::Ballistic)
         );
     }
 

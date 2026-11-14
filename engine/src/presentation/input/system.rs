@@ -146,7 +146,7 @@ fn move_to_world(input: Vec2, forward: Vec3) -> Vec3 {
 
 #[cfg(test)]
 mod tests {
-    use bevy::input::touch::TouchPhase;
+use bevy::input::touch::TouchPhase;
 
     use super::*;
 
@@ -254,10 +254,3 @@ mod tests {
         );
     }
 }
-
-
-
-
-
-
-

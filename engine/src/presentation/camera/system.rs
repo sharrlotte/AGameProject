@@ -47,6 +47,7 @@ pub fn sync_camera_on_hot_reload(
 }
 
 /// Smoothly follows the local player with aim-lead and exponential zoom damping.
+#[allow(clippy::type_complexity)]
 pub fn follow_local_player(
     time: Res<Time>,
     cfg: Res<CameraConfig>,
@@ -86,7 +87,7 @@ pub fn follow_local_player(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn zoom_adjust_respects_direction_and_clamps_bounds() {
@@ -126,4 +127,3 @@ mod tests {
         assert!((zoom.target - (cfg.zoom_default - 2.0 * cfg.zoom_step)).abs() < 1e-5);
     }
 }
-

@@ -87,7 +87,7 @@ impl UpgradeModifiersExt for UpgradeModifiers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn upgrades_ron_parses_cleanly() {
@@ -95,4 +95,3 @@ mod tests {
         assert!(upgrades.damage_max_level > 0);
     }
 }
-

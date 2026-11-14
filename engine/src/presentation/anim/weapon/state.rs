@@ -173,7 +173,7 @@ pub fn sway_offset(weapon: &WeaponDefinition, state: &WeaponPoseState) -> Transf
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     fn weapon() -> WeaponDefinition {
         WeaponDefinition {

@@ -370,7 +370,7 @@ fn apply_death(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
     use crate::presentation::anim::graph::ClipNodes;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
@@ -439,4 +439,3 @@ mod tests {
         assert!(!alive(&health, false));
     }
 }
-

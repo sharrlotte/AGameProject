@@ -12,6 +12,7 @@ use super::map::{
 pub struct MapNodeProcessed;
 
 /// Scans spawned glTF scene nodes and classifies them based on name prefixes.
+#[allow(clippy::type_complexity)]
 pub fn inspect_map_scene_nodes(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -39,16 +40,14 @@ pub fn inspect_map_scene_nodes(
                 Visibility::Hidden,
             ));
 
-            if let Some(handle) = mesh_handle {
-                if let Some(mesh) = meshes.get(handle.id()) {
-                    if let Some(collider) = Collider::from_bevy_mesh(
+            if let Some(handle) = mesh_handle
+                && let Some(mesh) = meshes.get(handle.id())
+                    && let Some(collider) = Collider::from_bevy_mesh(
                         mesh,
                         &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
                     ) {
                         entity_cmds.insert(collider);
                     }
-                }
-            }
         } else if name_str == "Spawn_Player" {
             commands.entity(entity).insert(PlayerSpawnMarker);
         } else if let Some(sub) = name_str.strip_prefix("Spawn_Enemy") {
@@ -74,20 +73,20 @@ pub fn inspect_map_scene_nodes(
 }
 
 /// Generates colliders for any ColliderMesh entities whose mesh finished loading asynchronously.
+#[allow(clippy::type_complexity)]
 pub fn generate_pending_mesh_colliders(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     pending: Query<(Entity, &Mesh3d), (With<ColliderMesh>, Without<Collider>)>,
 ) {
     for (entity, handle) in &pending {
-        if let Some(mesh) = meshes.get(handle.id()) {
-            if let Some(collider) = Collider::from_bevy_mesh(
+        if let Some(mesh) = meshes.get(handle.id())
+            && let Some(collider) = Collider::from_bevy_mesh(
                 mesh,
                 &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
             ) {
                 commands.entity(entity).insert(collider);
             }
-        }
     }
 }
 

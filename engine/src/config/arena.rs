@@ -38,7 +38,7 @@ impl RonConfig for ArenaConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn arena_ron_parses_cleanly() {

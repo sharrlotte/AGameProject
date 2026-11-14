@@ -35,7 +35,7 @@ impl RonConfig for ExtractionConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn extraction_ron_parses_cleanly() {
@@ -43,4 +43,3 @@ mod tests {
         assert!(extraction.hold_duration_secs > 0.0);
     }
 }
-

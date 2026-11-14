@@ -150,7 +150,7 @@ pub fn clip_role<'a>(catalog: &'a AnimCatalog, role: &str) -> Option<&'a ClipDef
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
     use crate::presentation::anim::catalog::MaskGroupDef;
 
     fn catalog() -> AnimCatalog {
@@ -272,10 +272,3 @@ mod tests {
         assert!(result.nodes.death.is_none());
     }
 }
-
-
-
-
-
-
-

@@ -40,7 +40,7 @@ impl RonConfig for CameraConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn camera_ron_parses_cleanly() {
@@ -55,9 +55,3 @@ mod tests {
         assert!(cfg.zoom_pixel_divisor > 0.0);
     }
 }
-
-
-
-
-
-

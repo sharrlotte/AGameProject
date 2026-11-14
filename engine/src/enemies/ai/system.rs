@@ -23,6 +23,7 @@ pub fn freeze_enemies_on_game_over(mut enemies: Query<&mut Velocity, With<Enemy>
 }
 
 /// Applies authored stat and behavior values to live enemies; composition changes wait for redeploy.
+#[allow(clippy::type_complexity)]
 pub fn sync_enemies_hot_reload(
     mut reloaded: MessageReader<ConfigHotReloadedMessage>,
     cfg: Res<EnemiesConfig>,

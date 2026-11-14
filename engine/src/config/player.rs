@@ -43,7 +43,7 @@ impl RonConfig for PlayerConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn player_ron_parses_cleanly() {

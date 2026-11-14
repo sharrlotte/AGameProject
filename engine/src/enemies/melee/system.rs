@@ -9,6 +9,7 @@ use crate::enemies::brain::{BrainState, EnemyBrain};
 use super::state::Melee;
 
 /// Resolves wind-up melee: roots the attacker, then damages a target still inside reach.
+#[allow(clippy::type_complexity)]
 pub fn enemy_melee(
     time: Res<Time>,
     player_cfg: Res<PlayerConfig>,

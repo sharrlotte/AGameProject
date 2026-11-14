@@ -32,7 +32,7 @@ impl RonConfig for VisualsConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn visuals_ron_parses_cleanly() {
@@ -41,8 +41,3 @@ mod tests {
         assert!(visuals.player.scale > 0.0);
     }
 }
-
-
-
-
-

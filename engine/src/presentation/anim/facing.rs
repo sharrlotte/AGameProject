@@ -120,7 +120,7 @@ pub fn horizontal_yaw(dir: Vec3) -> Option<f32> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     fn dir_at_deg(deg: f32) -> Vec3 {
         Quat::from_rotation_y(deg.to_radians()) * Vec3::NEG_Z
@@ -213,10 +213,3 @@ mod tests {
         assert!((wrap_angle(0.25) - 0.25).abs() < 1e-6);
     }
 }
-
-
-
-
-
-
-

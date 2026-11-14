@@ -50,6 +50,7 @@ pub struct IkDebugEntry {
 ///
 /// The right hand takes the primary grip, the left hand the support grip. A
 /// weapon without a support grip leaves the left arm on its animated pose.
+#[allow(clippy::type_complexity)]
 pub fn solve_player_arms(
     catalog: Res<AnimCatalog>,
     rigs: Query<&PlayerRig>,
@@ -151,8 +152,8 @@ pub fn solve_player_arms(
         let writes = {
             let read = transforms.p0();
             let mut writes = Vec::with_capacity(2);
-            if rig.arms.right.is_complete() {
-                if let Some(chain) = solve_chain(
+            if rig.arms.right.is_complete()
+                && let Some(chain) = solve_chain(
                     &rig.arms.right,
                     targets.primary,
                     targets.primary_pole,
@@ -163,11 +164,9 @@ pub fn solve_player_arms(
                 ) {
                     writes.push(chain);
                 }
-            }
             if let (Some(chain), Some((target, pole))) =
                 (rig.arms.left.is_complete().then_some(&rig.arms.left), targets.support)
-            {
-                if let Some(chain) = solve_chain(
+                && let Some(chain) = solve_chain(
                     chain,
                     target,
                     pole,
@@ -178,7 +177,6 @@ pub fn solve_player_arms(
                 ) {
                     writes.push(chain);
                 }
-            }
             writes
         };
 

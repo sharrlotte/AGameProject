@@ -16,6 +16,7 @@ use super::state::{ACID_MAX_FLIGHT_SECS, ACID_PROJECTILE_RADIUS, AcidProjectile,
 const GROUND_Y: f32 = 0.0;
 
 /// Resolves rooted wind-ups, reach checks, cooldown gating, and acid launches.
+#[allow(clippy::type_complexity)]
 pub fn enemy_ranged(
     time: Res<Time>,
     player_cfg: Res<PlayerConfig>,

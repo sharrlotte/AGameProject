@@ -145,11 +145,10 @@ pub fn handle_projectile_collisions(
 
     for candidate in candidates {
         if current_proj != Some(candidate.projectile) {
-            if let Some(prev) = current_proj {
-                if should_despawn {
+            if let Some(prev) = current_proj
+                && should_despawn {
                     commands.entity(prev).despawn();
                 }
-            }
             current_proj = Some(candidate.projectile);
             should_despawn = false;
         }
@@ -209,11 +208,10 @@ pub fn handle_projectile_collisions(
         }
     }
 
-    if let Some(prev) = current_proj {
-        if should_despawn {
+    if let Some(prev) = current_proj
+        && should_despawn {
             commands.entity(prev).despawn();
         }
-    }
 }
 
 /// Despawns projectiles whose maximum flight lifetime has elapsed.

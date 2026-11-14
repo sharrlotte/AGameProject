@@ -1,0 +1,8 @@
+# Clippy baseline for the workspace.
+# Warnings are treated as errors in CI (see .github/workflows).
+
+# Keep argument counts reasonable; refactor when exceeded.
+too-many-arguments-threshold = 7
+
+# Type complexity; extract type aliases when exceeded.
+type-complexity-threshold = 250

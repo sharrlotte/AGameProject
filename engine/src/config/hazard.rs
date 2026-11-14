@@ -40,7 +40,7 @@ impl RonConfig for HazardConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn hazard_ron_parses_and_validates() {

@@ -214,7 +214,7 @@ pub fn advance_phase(phase: f32, dt: f32, playback: f32, duration: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
     fn cardinals() -> Vec<f32> {
@@ -357,4 +357,3 @@ mod tests {
         assert_eq!(advance_phase(0.3, 1.0, 1.0, 0.0), 0.3);
     }
 }
-

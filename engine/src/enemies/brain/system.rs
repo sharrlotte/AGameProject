@@ -8,6 +8,7 @@ use crate::enemies::ai::state::Enemy;
 use super::state::{BrainState, EnemyBrain};
 
 /// Advances aggro, alert, and stagger state from survivor proximity.
+#[allow(clippy::type_complexity)]
 pub fn update_brains(
     time: Res<Time>,
     cfg: Res<EnemiesConfig>,

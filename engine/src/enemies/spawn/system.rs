@@ -184,6 +184,7 @@ pub fn pick_archetype<'a>(
 }
 
 /// Rolls one eligible archetype and spawns it along the arena edge.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,

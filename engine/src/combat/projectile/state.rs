@@ -36,7 +36,7 @@ impl HitLog {
     }
 
     pub fn contains(&self, entity: Entity) -> bool {
-        self.entities[..self.count].iter().any(|&e| e == Some(entity))
+        self.entities[..self.count].contains(&Some(entity))
     }
 
     /// Records an entity into the hit log if not already present.
@@ -68,7 +68,7 @@ pub struct Projectile {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     #[test]
     fn hit_log_insertion_and_contains() {

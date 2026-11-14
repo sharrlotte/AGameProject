@@ -205,7 +205,7 @@ impl bevy::prelude::Plugin for CoreDataPlugin {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+use super::*;
 
     fn armor() -> Armor {
         Armor {
@@ -263,4 +263,3 @@ mod tests {
         assert!((mult - 0.3).abs() < 1e-6);
     }
 }
-
