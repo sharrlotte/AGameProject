@@ -39,7 +39,7 @@ pub fn tick_and_start_reload(
             *remaining -= dt;
             if *remaining <= 0.0 {
                 if let Some(active) = inventory.active_mut() {
-                    active.ammo = active.weapon.stats.mag_size;
+                    active.ammo = active.weapon.mag_size;
                 }
                 inventory.reload_timer = None;
                 inventory.reload_total = 0.0;
@@ -52,9 +52,9 @@ pub fn tick_and_start_reload(
         if want_reload
             && inventory.reload_timer.is_none()
             && let Some(active) = inventory.active()
-            && active.ammo < active.weapon.stats.mag_size
+            && active.ammo < active.weapon.mag_size
         {
-            let base_reload_secs = active.weapon.stats.reload_secs;
+            let base_reload_secs = active.weapon.reload_secs;
             start_reload(
                 &mut inventory,
                 base_reload_secs,

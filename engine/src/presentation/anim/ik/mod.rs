@@ -88,7 +88,7 @@ pub fn solve_player_arms(
         };
         let weapon = &runtime.weapon;
         let progress = inventory.and_then(|inv| inv.reload_progress());
-        let hand_return = weapon.presentation.reload.hand_return;
+        let hand_return = weapon.reload.hand_return;
 
         let (targets, grip) = {
             let read = transforms.p0();
@@ -100,7 +100,7 @@ pub fn solve_player_arms(
             let weapon_frame = anchor_world.mul_transform(state.frame);
 
             let sockets = socket_frames(mount, &weapon_frame, &read, &parents, rig.root);
-            let resolved = resolve_grip(weapon.presentation.grip.as_ref(), &sockets);
+            let resolved = resolve_grip(weapon.grip.as_ref(), &sockets);
 
             let magazine = mount.sockets.magazine.and_then(|entity| {
                 compose_world(entity, rig.root, &read, &parents).map(|frame| frame.translation)

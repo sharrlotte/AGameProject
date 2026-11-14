@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use crate::config::RonConfig;
 use serde::Deserialize;
 
-use super::model::WeaponAnchorConfig;
-use super::presentation::WeaponPresentation;
-use super::stats::WeaponStats;
+use super::grip::WeaponGripConfig;
+use super::model::{ModelSpace, WeaponAnchorConfig};
+use super::presentation::{WeaponPose, WeaponRecoil, WeaponReload, WeaponSway, WeaponSwap};
+use super::sockets::{SocketOverride, WeaponSockets};
 
 /// Unified weapon definition: cross-cutting tuning, gameplay stats, and
-/// presentation data.
+/// presentation data flattened into a single struct.
 #[derive(Asset, Resource, TypePath, Debug, Clone, Default, Deserialize)]
 pub struct WeaponDefinition {
     pub id: String,
@@ -16,8 +17,40 @@ pub struct WeaponDefinition {
     pub sprint_spread_multiplier: f32,
     pub swap_cooldown_cap: f32,
     pub stance_hold_secs: f32,
-    pub stats: WeaponStats,
-    pub presentation: WeaponPresentation,
+
+    // Stats (flattened)
+    pub full_auto: bool,
+    pub fire_interval: f32,
+    pub pellets: u8,
+    pub damage: f32,
+    pub spread_deg: f32,
+    pub projectile_speed: f32,
+    pub projectile_radius: f32,
+    pub projectile_lifetime: f32,
+    pub knockback: f32,
+    pub mag_size: u32,
+    pub reload_secs: f32,
+
+    // Presentation (flattened)
+    pub relaxed: WeaponPose,
+    pub aim: WeaponPose,
+    pub recoil: WeaponRecoil,
+    pub reload: WeaponReload,
+    pub sway: WeaponSway,
+    pub swap: WeaponSwap,
+    pub model: String,
+    #[serde(default)]
+    pub model_space: ModelSpace,
+    #[serde(default)]
+    pub model_rotation_deg: [f32; 3],
+    #[serde(default)]
+    pub model_scale: f32,
+    #[serde(default)]
+    pub sockets: WeaponSockets,
+    #[serde(default)]
+    pub socket_overrides: Vec<SocketOverride>,
+    #[serde(default)]
+    pub grip: Option<WeaponGripConfig>,
 }
 
 impl WeaponDefinition {
@@ -25,15 +58,14 @@ impl WeaponDefinition {
     pub fn model_transform(&self) -> Transform {
         let model_rotation = Quat::from_euler(
             EulerRot::XYZ,
-            self.presentation.model_rotation_deg[0].to_radians(),
-            self.presentation.model_rotation_deg[1].to_radians(),
-            self.presentation.model_rotation_deg[2].to_radians(),
+            self.model_rotation_deg[0].to_radians(),
+            self.model_rotation_deg[1].to_radians(),
+            self.model_rotation_deg[2].to_radians(),
         )
         .normalize();
-        let source_rotation = self.presentation.model_space.rotation();
-        Transform::from_rotation((model_rotation * source_rotation).normalize()).with_scale(
-            Vec3::splat(self.presentation.model_scale),
-        )
+        let source_rotation = self.model_space.rotation();
+        Transform::from_rotation((model_rotation * source_rotation).normalize())
+            .with_scale(Vec3::splat(self.model_scale))
     }
 }
 
@@ -58,34 +90,33 @@ impl WeaponRoster {
             if weapon.id.is_empty() {
                 return Err("weapon id must not be empty".to_string());
             }
-            if weapon.presentation.model.is_empty() {
+            if weapon.model.is_empty() {
                 return Err(format!("weapon '{}' must name a model", weapon.id));
             }
-            let presentation = &weapon.presentation;
-            if !presentation.model_rotation_deg.iter().all(|c| c.is_finite()) {
+            if !weapon.model_rotation_deg.iter().all(|c| c.is_finite()) {
                 return Err(format!(
                     "weapon '{}' model rotation must be finite",
                     weapon.id
                 ));
             }
-            if !presentation.model_scale.is_finite() || presentation.model_scale <= 0.0 {
+            if !weapon.model_scale.is_finite() || weapon.model_scale <= 0.0 {
                 return Err(format!(
                     "weapon '{}' model scale must be greater than zero",
                     weapon.id
                 ));
             }
-            let sockets = &presentation.sockets;
+            let sockets = &weapon.sockets;
             if sockets.named().iter().any(|name| name.is_empty()) {
                 return Err(format!("weapon '{}' has an empty socket name", weapon.id));
             }
-            for pose in [&presentation.relaxed, &presentation.aim] {
+            for pose in [&weapon.relaxed, &weapon.aim] {
                 if !pose.offset.iter().all(|c| c.is_finite())
                     || !pose.rotation_deg.iter().all(|c| c.is_finite())
                 {
                     return Err(format!("weapon '{}' has a non-finite pose", weapon.id));
                 }
             }
-            let recoil = &presentation.recoil;
+            let recoil = &weapon.recoil;
             if !recoil.pitch_deg.is_finite() || recoil.pitch_deg < 0.0 {
                 return Err(format!(
                     "weapon '{}' recoil pitch must be non-negative",
@@ -116,7 +147,7 @@ impl WeaponRoster {
                     weapon.id
                 ));
             }
-            let reload = &presentation.reload;
+            let reload = &weapon.reload;
             if !reload.tilt_deg.is_finite()
                 || !reload.drop.is_finite()
                 || !reload.mag_drop.is_finite()
@@ -133,7 +164,7 @@ impl WeaponRoster {
                     weapon.id
                 ));
             }
-            let sway = &presentation.sway;
+            let sway = &weapon.sway;
             if !sway.amplitude.is_finite()
                 || !sway.roll_deg.is_finite()
                 || !sway.frequency.is_finite()
@@ -145,7 +176,7 @@ impl WeaponRoster {
                     weapon.id
                 ));
             }
-            let swap = &presentation.swap;
+            let swap = &weapon.swap;
             if !swap.lower_secs.is_finite()
                 || !swap.raise_secs.is_finite()
                 || swap.lower_secs < 0.0

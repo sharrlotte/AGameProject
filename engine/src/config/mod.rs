@@ -25,9 +25,7 @@ pub use upgrades::UpgradesConfig;
 pub use visuals::{PlayerModelConfig, VisualsConfig};
 pub use weapons::{
     FingerCurl, GripHand, ModelSpace, SocketOverride, WeaponAnchorConfig, WeaponDefinition,
-    WeaponGripConfig, WeaponPresentation, WeaponPresentationPose, WeaponPresentationRecoil,
-    WeaponPresentationReload, WeaponPresentationSwap, WeaponPresentationSway, WeaponRoster,
-    WeaponSockets, WeaponStats,
+    WeaponGripConfig, WeaponPose, WeaponRecoil, WeaponReload, WeaponRoster, WeaponSockets, WeaponSway, WeaponSwap,
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;

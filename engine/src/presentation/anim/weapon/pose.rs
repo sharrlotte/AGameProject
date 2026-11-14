@@ -65,8 +65,8 @@ pub fn update_weapon_swap(
         };
         runtime.weapon = weapon.clone();
         state.swap_elapsed = 0.0;
-        state.swap_duration = weapon.presentation.swap.lower_secs
-            + weapon.presentation.swap.raise_secs;
+        state.swap_duration = weapon.swap.lower_secs
+            + weapon.swap.raise_secs;
     }
 }
 
@@ -102,12 +102,12 @@ pub fn pose_player_weapon(
                 anim.aim.blend_secs,
             );
             decay_kick(&mut state, dt, weapon);
-            state.sway = (state.sway + dt * weapon.presentation.sway.frequency * std::f32::consts::TAU)
+            state.sway = (state.sway + dt * weapon.sway.frequency * std::f32::consts::TAU)
                 .rem_euclid(std::f32::consts::TAU);
             state.swap_elapsed = (state.swap_elapsed + dt).min(state.swap_duration);
 
             let reload_progress = inventory.and_then(|inv| inv.reload_progress());
-            let reload = reload_offset(reload_progress, &weapon.presentation.reload);
+            let reload = reload_offset(reload_progress, &weapon.reload);
             let swap = swap_curve(state.swap_elapsed, state.swap_duration);
             let composed = compose_weapon(weapon, &state, reload, swap);
             state.frame = composed;

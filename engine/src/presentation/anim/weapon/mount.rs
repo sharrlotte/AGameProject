@@ -156,7 +156,7 @@ pub fn sync_weapon_mounts(
         }
 
         // Start a new load, keeping the handle alive in a pending component.
-        let handle = asset_server.load(&weapon.presentation.model);
+        let handle = asset_server.load(&weapon.model);
         commands.entity(anchor_entity).insert(PendingWeaponLoad {
             handle,
             profile_id: weapon.id.clone(),
@@ -188,7 +188,7 @@ pub fn resolve_weapon_sockets(
             continue;
         }
 
-        let wanted = weapon.presentation.sockets.named();
+        let wanted = weapon.sockets.named();
         let mut found: [Option<Entity>; 4] = [None; 4];
         let mut stack: Vec<Entity> = root_children.iter().collect();
         while let Some(entity) = stack.pop() {
@@ -231,7 +231,6 @@ pub fn resolve_weapon_sockets(
                 continue;
             };
             let Some(over) = weapon
-                .presentation
                 .socket_overrides
                 .iter()
                 .find(|over| over.socket == *socket_name)

@@ -40,7 +40,7 @@ pub fn sync_weapons_hot_reload(
         for (idx, weapon) in roster.weapons.iter().enumerate() {
             if let Some(slot) = inv.slots.get_mut(idx) {
                 slot.weapon = weapon.clone();
-                slot.ammo = slot.ammo.min(weapon.stats.mag_size);
+                slot.ammo = slot.ammo.min(weapon.mag_size);
             } else {
                 inv.slots.push(WeaponSlotState::new(weapon.clone()));
             }
@@ -139,10 +139,9 @@ pub fn handle_weapon_fire(
             continue;
         };
         let weapon = &active.weapon;
-        let stats = &weapon.stats;
         let active_ammo = active.ammo;
 
-        let triggered = if stats.full_auto {
+        let triggered = if weapon.full_auto {
             intent.fire_held
         } else {
             fire_just_pressed
@@ -154,7 +153,7 @@ pub fn handle_weapon_fire(
         if active_ammo == 0 {
             start_reload(
                 &mut inventory,
-                stats.reload_secs,
+                weapon.reload_secs,
                 reload_speed,
                 entity,
                 &mut started_writer,
@@ -165,7 +164,7 @@ pub fn handle_weapon_fire(
         if let Some(active_mut) = inventory.active_mut() {
             active_mut.ammo -= 1;
         }
-        inventory.cooldown_timer = stats.fire_interval;
+        inventory.cooldown_timer = weapon.fire_interval;
 
         let forward = if aim_dir.0.length_squared() > 1e-4 {
             aim_dir.0.normalize()
@@ -183,10 +182,10 @@ pub fn handle_weapon_fire(
         } else {
             1.0
         };
-        let half_spread_rad = (stats.spread_deg * spread_mult).to_radians() * 0.5;
-        let scaled_damage = stats.damage * upgrades.damage_multiplier;
+        let half_spread_rad = (weapon.spread_deg * spread_mult).to_radians() * 0.5;
+        let scaled_damage = weapon.damage * upgrades.damage_multiplier;
 
-        for _ in 0..stats.pellets {
+        for _ in 0..weapon.pellets {
             let angle = if half_spread_rad > 0.0 {
                 rand::random_range(-half_spread_rad..=half_spread_rad)
             } else {

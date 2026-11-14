@@ -404,7 +404,7 @@ fn update_hud(
                         inv.active_slot + 1,
                         active.weapon.name,
                         active.ammo,
-                        active.weapon.stats.mag_size
+                        active.weapon.mag_size
                     )
                 };
             }

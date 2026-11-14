@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
-use crate::config::{WeaponDefinition, WeaponPresentationPose, WeaponPresentationReload};
+use crate::config::{WeaponDefinition, WeaponPose, WeaponReload};
 use crate::presentation::anim::blend::approach;
 
 /// Presentation-scoped equipped weapon runtime holding the active weapon definition.
@@ -76,7 +76,7 @@ pub fn euler_deg(rotation_deg: [f32; 3]) -> Quat {
 /// Blends the relaxed and aiming weapon offsets.
 pub fn weapon_pose(weapon: &WeaponDefinition, aim: f32) -> Transform {
     let t = aim.clamp(0.0, 1.0);
-    TransformPose::blend(&weapon.presentation.relaxed, &weapon.presentation.aim, t).into_transform()
+    TransformPose::blend(&weapon.relaxed, &weapon.aim, t).into_transform()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -86,7 +86,7 @@ struct TransformPose {
 }
 
 impl TransformPose {
-    fn blend(relaxed: &WeaponPresentationPose, aim: &WeaponPresentationPose, t: f32) -> Self {
+    fn blend(relaxed: &WeaponPose, aim: &WeaponPose, t: f32) -> Self {
         let translation = Vec3::from_array(relaxed.offset).lerp(Vec3::from_array(aim.offset), t);
         let rotation = euler_deg(relaxed.rotation_deg)
             .slerp(euler_deg(aim.rotation_deg), t)
@@ -103,7 +103,7 @@ impl TransformPose {
 }
 
 /// Reload tilt and drops peak at the middle of the reload and vanish at both ends.
-pub fn reload_offset(progress: Option<f32>, cfg: &WeaponPresentationReload) -> ReloadOffset {
+pub fn reload_offset(progress: Option<f32>, cfg: &WeaponReload) -> ReloadOffset {
     let Some(progress) = progress.map(|value| value.clamp(0.0, 1.0)) else {
         return ReloadOffset::default();
     };
@@ -126,7 +126,7 @@ pub fn swap_curve(elapsed: f32, duration: f32) -> f32 {
 
 /// Adds one shot impulse, clamped to the weapon's recoil limits.
 pub fn add_kick(state: &mut WeaponPoseState, weapon: &WeaponDefinition) {
-    let recoil = &weapon.presentation.recoil;
+    let recoil = &weapon.recoil;
     let pitch = recoil.pitch_deg.to_radians();
     let max_pitch = recoil.max_deg.to_radians();
     state.kick_pitch = (state.kick_pitch + pitch).min(max_pitch);
@@ -135,7 +135,7 @@ pub fn add_kick(state: &mut WeaponPoseState, weapon: &WeaponDefinition) {
 
 /// Critically approaches zero using the weapon's recovery time.
 pub fn decay_kick(state: &mut WeaponPoseState, dt: f32, weapon: &WeaponDefinition) {
-    let recover = weapon.presentation.recoil.recover_secs;
+    let recover = weapon.recoil.recover_secs;
     state.kick_pitch = approach(state.kick_pitch, 0.0, dt, recover);
     state.kick_back = approach(state.kick_back, 0.0, dt, recover);
 }
@@ -151,7 +151,7 @@ pub fn compose_weapon(
     let sway = sway_offset(weapon, state);
     pose.translation += sway.translation;
     pose.rotation = (sway.rotation * pose.rotation).normalize();
-    pose.translation.y -= reload.drop + weapon.presentation.swap.drop * swap;
+    pose.translation.y -= reload.drop + weapon.swap.drop * swap;
     pose.translation.z += state.kick_back;
     pose.rotation = (Quat::from_rotation_x(state.kick_pitch - reload.tilt) * pose.rotation).normalize();
     pose
@@ -159,7 +159,7 @@ pub fn compose_weapon(
 
 /// Low-frequency bob around the composed pose, damped while aiming.
 pub fn sway_offset(weapon: &WeaponDefinition, state: &WeaponPoseState) -> Transform {
-    let cfg = &weapon.presentation.sway;
+    let cfg = &weapon.sway;
     let weight = 1.0 - 0.6 * state.aim.clamp(0.0, 1.0);
     let phase = state.sway;
     let translation = Vec3::new(
@@ -183,47 +183,55 @@ mod tests {
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
-            stats: crate::config::WeaponStats::default(),
-            presentation: crate::config::WeaponPresentation {
-                relaxed: crate::config::WeaponPresentationPose {
-                    offset: [0.16, -0.19, -0.51],
-                    rotation_deg: [-32.0, 90.0, 0.0],
-                },
-                aim: crate::config::WeaponPresentationPose {
-                    offset: [0.14, -0.03, -0.5],
-                    rotation_deg: [0.0, 0.0, 0.0],
-                },
-                recoil: crate::config::WeaponPresentationRecoil {
-                    pitch_deg: 4.0,
-                    back: 0.04,
-                    recover_secs: 0.12,
-                    max_deg: 12.0,
-                    max_back: 0.12,
-                },
-                reload: crate::config::WeaponPresentationReload {
-                    tilt_deg: 22.0,
-                    drop: 0.08,
-                    mag_drop: 0.12,
-                    hand_return: 0.7,
-                },
-                sway: crate::config::WeaponPresentationSway {
-                    amplitude: 0.012,
-                    roll_deg: 1.5,
-                    frequency: 1.4,
-                },
-                swap: crate::config::WeaponPresentationSwap {
-                    lower_secs: 0.12,
-                    raise_secs: 0.18,
-                    drop: 0.2,
-                },
-                model: "models/weapons/m16.glb".to_string(),
-                model_space: crate::config::ModelSpace::ForwardNegYUpZ,
-                model_rotation_deg: [0.0; 3],
-                model_scale: 1.4,
-                sockets: crate::config::WeaponSockets::default(),
-                socket_overrides: Vec::new(),
-                grip: None,
+            full_auto: true,
+            fire_interval: 0.1,
+            pellets: 1,
+            damage: 24.0,
+            spread_deg: 3.0,
+            projectile_speed: 42.0,
+            projectile_radius: 0.1,
+            projectile_lifetime: 1.2,
+            knockback: 3.5,
+            mag_size: 30,
+            reload_secs: 1.8,
+            relaxed: crate::config::WeaponPose {
+                offset: [0.16, -0.19, -0.51],
+                rotation_deg: [-32.0, 90.0, 0.0],
             },
+            aim: crate::config::WeaponPose {
+                offset: [0.14, -0.03, -0.5],
+                rotation_deg: [0.0, 0.0, 0.0],
+            },
+            recoil: crate::config::WeaponRecoil {
+                pitch_deg: 4.0,
+                back: 0.04,
+                recover_secs: 0.12,
+                max_deg: 12.0,
+                max_back: 0.12,
+            },
+            reload: crate::config::WeaponReload {
+                tilt_deg: 22.0,
+                drop: 0.08,
+                mag_drop: 0.12,
+                hand_return: 0.7,
+            },
+            sway: crate::config::WeaponSway {
+                amplitude: 0.012,
+                roll_deg: 1.5,
+                frequency: 1.4,
+            },
+            swap: crate::config::WeaponSwap {
+                lower_secs: 0.12,
+                raise_secs: 0.18,
+                drop: 0.2,
+            },
+            model: "models/weapons/m16.glb".to_string(),
+            model_space: crate::config::ModelSpace::ForwardNegYUpZ,
+            model_rotation_deg: [0.0; 3],
+            model_scale: 1.4,
+            sockets: crate::config::WeaponSockets::default(),
+            socket_overrides: Vec::new(),
+            grip: None,
         }
     }
 
@@ -234,8 +242,8 @@ mod tests {
         let aim = weapon_pose(&weapon, 1.0);
         let halfway = weapon_pose(&weapon, 0.5);
 
-        assert!((relaxed.translation - Vec3::from_array(weapon.presentation.relaxed.offset)).length() < 1e-4);
-        assert!((aim.translation - Vec3::from_array(weapon.presentation.aim.offset)).length() < 1e-4);
+        assert!((relaxed.translation - Vec3::from_array(weapon.relaxed.offset)).length() < 1e-4);
+        assert!((aim.translation - Vec3::from_array(weapon.aim.offset)).length() < 1e-4);
         let expected = relaxed.translation + (aim.translation - relaxed.translation) * 0.5;
         assert!((halfway.translation - expected).length() < 1e-4);
     }
@@ -243,7 +251,7 @@ mod tests {
     #[test]
     fn reload_offset_peaks_midway_and_clears_at_ends() {
         let weapon = weapon();
-        let cfg = weapon.presentation.reload;
+        let cfg = weapon.reload;
         assert_eq!(reload_offset(None, &cfg), ReloadOffset::default());
         assert!(reload_offset(Some(0.0), &cfg).tilt.abs() < 1e-4);
         assert!(reload_offset(Some(1.0), &cfg).tilt.abs() < 1e-4);
@@ -269,8 +277,8 @@ mod tests {
         for _ in 0..20 {
             add_kick(&mut state, &weapon);
         }
-        assert!((state.kick_pitch - weapon.presentation.recoil.max_deg.to_radians()).abs() < 1e-4);
-        assert!((state.kick_back - weapon.presentation.recoil.max_back).abs() < 1e-4);
+        assert!((state.kick_pitch - weapon.recoil.max_deg.to_radians()).abs() < 1e-4);
+        assert!((state.kick_back - weapon.recoil.max_back).abs() < 1e-4);
 
         for _ in 0..120 {
             decay_kick(&mut state, 1.0 / 60.0, &weapon);
@@ -284,9 +292,9 @@ mod tests {
         let weapon = weapon();
         let mut state = WeaponPoseState::default();
         let base = compose_weapon(&weapon, &state, ReloadOffset::default(), 0.0);
-        let reload = reload_offset(Some(0.5), &weapon.presentation.reload);
+        let reload = reload_offset(Some(0.5), &weapon.reload);
         let dropped = compose_weapon(&weapon, &state, reload, 1.0);
-        let expected = reload.drop + weapon.presentation.swap.drop;
+        let expected = reload.drop + weapon.swap.drop;
         assert!((base.translation.y - dropped.translation.y - expected).abs() < 1e-3);
 
         state.kick_back = 0.05;
@@ -303,11 +311,11 @@ mod tests {
 
         state.sway = std::f32::consts::FRAC_PI_2;
         let relaxed = sway_offset(&weapon, &state);
-        assert!((relaxed.translation.x - weapon.presentation.sway.amplitude).abs() < 1e-5);
+        assert!((relaxed.translation.x - weapon.sway.amplitude).abs() < 1e-5);
 
         state.aim = 1.0;
         let aiming = sway_offset(&weapon, &state);
         assert!(aiming.translation.x.abs() < relaxed.translation.x.abs());
-        assert!(aiming.translation.length() <= weapon.presentation.sway.amplitude);
+        assert!(aiming.translation.length() <= weapon.sway.amplitude);
     }
 }

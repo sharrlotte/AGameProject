@@ -77,8 +77,8 @@ fn rifle_fires_shotgun_swaps_and_reload_cancels_on_swap() {
     let player = player_entity(&mut app);
 
     let roster = app.world().resource::<WeaponRoster>().clone();
-    let rifle_mag = roster.weapons[0].stats.mag_size;
-    let shotgun_pellets = roster.weapons[1].stats.pellets;
+    let rifle_mag = roster.weapons[0].mag_size;
+    let shotgun_pellets = roster.weapons[1].pellets;
 
     app.world_mut()
         .get_mut::<ActionIntent>(player)
@@ -167,11 +167,11 @@ fn empty_trigger_starts_auto_reload_and_refills_mag() {
         .get_mut::<ActionIntent>(player)
         .unwrap()
         .fire_held = false;
-    step_sim(&mut app, rifle.stats.reload_secs + 0.1);
+    step_sim(&mut app, rifle.reload_secs + 0.1);
 
     let inv = app.world().get::<WeaponInventory>(player).unwrap();
     assert!(inv.reload_timer.is_none());
-    assert_eq!(inv.active().unwrap().ammo, rifle.stats.mag_size);
+    assert_eq!(inv.active().unwrap().ammo, rifle.mag_size);
 }
 
 #[test]
@@ -233,7 +233,7 @@ fn stance_enters_from_aim_fire_and_reload_and_exits_after_hold() {
     );
     assert!(app.world().get::<CombatStance>(player).unwrap().aiming);
 
-    let reload_secs = app.world().resource::<WeaponRoster>().weapons[0].stats.reload_secs;
+    let reload_secs = app.world().resource::<WeaponRoster>().weapons[0].reload_secs;
     step_sim(&mut app, reload_secs + 0.1);
     assert!(
         app.world()
@@ -471,7 +471,7 @@ fn reload_lifecycle_emits_started_and_finished() {
         .unwrap()
         .fire_held = false;
 
-    let reload_secs = app.world().resource::<WeaponRoster>().weapons[0].stats.reload_secs;
+    let reload_secs = app.world().resource::<WeaponRoster>().weapons[0].reload_secs;
     let frames = (reload_secs / (1.0 / 60.0)).ceil() as usize + 5;
     let mut finished_count = 0;
     let mut was_reloading = true;

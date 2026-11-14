@@ -10,7 +10,7 @@ pub struct WeaponSlotState {
 
 impl WeaponSlotState {
     pub fn new(weapon: WeaponDefinition) -> Self {
-        let ammo = weapon.stats.mag_size;
+        let ammo = weapon.mag_size;
         Self { weapon, ammo }
     }
 }
