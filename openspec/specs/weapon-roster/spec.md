@@ -23,16 +23,13 @@ with distinct stats.
 - **THEN** each has distinct fire rate, damage, and magazine size
 
 ### Requirement: Unified weapon definition carries presentation with stats
-The unified `WeaponDefinition` SHALL provide presentation data — model path, sockets, poses, recoil, reload,
-swap, and grip — for each weapon alongside its stats.
+The unified `WeaponDefinition` SHALL provide presentation data — model path, `hands` (primary and support attachments and poses), `sockets` (`magazine` and `muzzle`), poses, recoil, reload, and swap — for each weapon alongside its stats. Simulation projectile spawning SHALL read `sockets.muzzle` instead of a detached `muzzle_offset`.
 
 #### Scenario: Profiles match roster
-
 - **WHEN** the unified weapon definition is loaded
-- **THEN** each weapon has presentation data with its stats
+- **THEN** each weapon has `hands` and `sockets` configuration alongside its stats
 
 #### Scenario: Missing weapon degrades safely
-
 - **WHEN** a weapon id has no presentation data
 - **THEN** the mount system logs a warning and skips mounting without crashing
 

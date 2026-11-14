@@ -25,27 +25,19 @@ Each weapon SHALL be exported as its own glTF binary under `game/assets/models/w
 - **THEN** it contains no rifle mesh and no rifle materials
 
 ### Requirement: Weapon socket contract
-Every weapon glTF SHALL contain exactly one node named `Grip`, `Foregrip`, `Magazine`, and `Muzzle`. Sockets SHALL be authored in weapon space, unique by name, and positioned on the corresponding physical feature. `Grip` SHALL define the firing hand, `Foregrip` the support hand, `Magazine` the reload hand target and detachable magazine, and `Muzzle` the shot origin.
+Weapon glTF files SHALL contain mesh geometry and materials but MUST NOT be required to contain socket nodes. Sockets (`magazine`, `muzzle`) and hand attachment positions (`primary`, `support`) SHALL be defined authoritatively in `game/assets/config/weapon/weapon.ron`. `hands.primary.offset` SHALL define the firing hand attachment, `hands.support.offset` the support hand attachment, `sockets.magazine.offset` the reload hand target, and `sockets.muzzle.offset` the shot origin.
 
-#### Scenario: Sockets resolve by name
-
+#### Scenario: Sockets resolve by configuration
 - **WHEN** the presentation layer mounts a weapon
-- **THEN** exactly one node exists for each of `Grip`, `Foregrip`, `Magazine`, and `Muzzle`
+- **THEN** hand IK targets and sockets are instantiated from `weapon.ron` regardless of what nodes exist in the weapon glTF
 
 #### Scenario: Muzzle marks the shot origin
-
-- **WHEN** presentation spawns a muzzle flash or shot origin
-- **THEN** it uses the weapon's `Muzzle` transform
+- **WHEN** presentation spawns a muzzle flash or combat spawns a projectile
+- **THEN** it uses `sockets.muzzle.offset` transformed into world space
 
 #### Scenario: Magazine marks the reload target
-
 - **WHEN** the reload pose moves the support hand
-- **THEN** the `Magazine` socket provides the target and the magazine geometry moves with it
-
-#### Scenario: Socket authoring is validated before export
-
-- **WHEN** a weapon asset is prepared for export
-- **THEN** socket names, uniqueness, and positions are checked and previewed with the character pose
+- **THEN** `sockets.magazine.offset` provides the IK target for the reloading hand
 
 
 ### Requirement: Armed rig retains the existing skeleton

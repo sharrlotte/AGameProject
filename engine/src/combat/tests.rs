@@ -495,3 +495,30 @@ fn reload_lifecycle_emits_started_and_finished() {
     assert_eq!(finished_count, 1);
 }
 
+#[test]
+fn firing_respects_shooter_translation_elevation() {
+    let mut app = test_app();
+    app.update();
+    let player = player_entity(&mut app);
+
+    let elevated_y = 15.0;
+    app.world_mut()
+        .get_mut::<Transform>(player)
+        .expect("player transform")
+        .translation = Vec3::new(10.0, elevated_y, -5.0);
+
+    app.world_mut()
+        .get_mut::<ActionIntent>(player)
+        .expect("action intent")
+        .fire_just_pressed = true;
+    app.update();
+
+    let fired = messages::<WeaponFiredMessage>(&app);
+    let fire_msg = fired
+        .iter()
+        .find(|m| m.shooter == player)
+        .expect("WeaponFiredMessage emitted");
+    let aim_h = app.world().resource::<PlayerConfig>().aim_height;
+    assert!((fire_msg.origin.y - (elevated_y + aim_h)).abs() < 1e-4);
+}
+

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use crate::common::{GROUP_WORLD, Obstacle};
+use crate::config::PlayerConfig;
 use crate::world::Survivor;
 use super::map::{
     ActiveInteriors, ColliderMesh, EnemySpawnerMarker, InteriorVolume, PlayerSpawnMarker,
@@ -42,25 +43,37 @@ pub fn inspect_map_scene_nodes(
 
             if let Some(handle) = mesh_handle
                 && let Some(mesh) = meshes.get(handle.id())
-                    && let Some(collider) = Collider::from_bevy_mesh(
-                        mesh,
-                        &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
-                    ) {
-                        entity_cmds.insert(collider);
-                    }
+                && let Some(collider) = Collider::from_bevy_mesh(
+                    mesh,
+                    &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
+                ) {
+                entity_cmds.insert(collider);
+            }
         } else if name_str == "Spawn_Player" {
             commands.entity(entity).insert(PlayerSpawnMarker);
         } else if let Some(sub) = name_str.strip_prefix("Spawn_Enemy") {
             let kind_filter = sub.strip_prefix('_').map(|s| s.to_string());
             commands.entity(entity).insert(EnemySpawnerMarker { kind_filter });
         } else if let Some(id) = name_str.strip_prefix("Trigger_Interior_") {
-            commands.entity(entity).insert((
+            let mut entity_cmds = commands.entity(entity);
+            entity_cmds.insert((
                 InteriorVolume {
                     id: id.to_string(),
                 },
                 Sensor,
+                ActiveEvents::COLLISION_EVENTS,
                 CollisionGroups::new(GROUP_WORLD, Group::ALL),
+                Visibility::Hidden,
             ));
+
+            if let Some(handle) = mesh_handle
+                && let Some(mesh) = meshes.get(handle.id())
+                && let Some(collider) = Collider::from_bevy_mesh(
+                    mesh,
+                    &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
+                ) {
+                entity_cmds.insert(collider);
+            }
         } else if let Some(id) = name_str
             .strip_prefix("Roof_")
             .or_else(|| name_str.strip_prefix("UpperWall_"))
@@ -72,12 +85,18 @@ pub fn inspect_map_scene_nodes(
     }
 }
 
-/// Generates colliders for any ColliderMesh entities whose mesh finished loading asynchronously.
+/// Generates colliders for any ColliderMesh or InteriorVolume entities whose mesh finished loading asynchronously.
 #[allow(clippy::type_complexity)]
 pub fn generate_pending_mesh_colliders(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    pending: Query<(Entity, &Mesh3d), (With<ColliderMesh>, Without<Collider>)>,
+    pending: Query<
+        (Entity, &Mesh3d),
+        (
+            Or<(With<ColliderMesh>, With<InteriorVolume>)>,
+            Without<Collider>,
+        ),
+    >,
 ) {
     for (entity, handle) in &pending {
         if let Some(mesh) = meshes.get(handle.id())
@@ -85,8 +104,8 @@ pub fn generate_pending_mesh_colliders(
                 mesh,
                 &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
             ) {
-                commands.entity(entity).insert(collider);
-            }
+            commands.entity(entity).insert(collider);
+        }
     }
 }
 
@@ -145,12 +164,17 @@ pub fn apply_roof_cutaways(
 
 /// Repositions the survivor to the authored `Spawn_Player` marker location when loaded.
 pub fn reposition_player_to_spawn_marker(
+    player_cfg: Res<PlayerConfig>,
     spawns: Query<&Transform, Added<PlayerSpawnMarker>>,
     mut player: Query<&mut Transform, (With<Survivor>, Without<PlayerSpawnMarker>)>,
 ) {
     for spawn_tf in &spawns {
         for mut p_tf in &mut player {
-            p_tf.translation = spawn_tf.translation;
+            p_tf.translation = Vec3::new(
+                spawn_tf.translation.x,
+                player_cfg.aim_height,
+                spawn_tf.translation.z,
+            );
             p_tf.rotation = spawn_tf.rotation;
         }
     }

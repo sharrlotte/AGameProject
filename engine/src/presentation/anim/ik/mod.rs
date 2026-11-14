@@ -91,21 +91,17 @@ pub fn solve_player_arms(
         let progress = inventory.and_then(|inv| inv.reload_progress());
         let hand_return = weapon.reload.hand_return;
 
+        let read = transforms.p0();
+        let Some(anchor_world) = compose_world(anchor.root, rig.root, &read, &parents) else {
+            continue;
+        };
+        let weapon_frame = anchor_world.mul_transform(state.frame);
+
         let (targets, grip) = {
-            let read = transforms.p0();
+            let sockets = socket_frames(weapon);
+            let resolved = resolve_grip(Some(&weapon.hands), &sockets);
 
-            // The weapon's own space inside the character space.
-            let Some(anchor_world) = compose_world(anchor.root, rig.root, &read, &parents) else {
-                continue;
-            };
-            let weapon_frame = anchor_world.mul_transform(state.frame);
-
-            let sockets = socket_frames(mount, &weapon_frame, &read, &parents, rig.root);
-            let resolved = resolve_grip(weapon.grip.as_ref(), &sockets);
-
-            let magazine = mount.sockets.magazine.and_then(|entity| {
-                compose_world(entity, rig.root, &read, &parents).map(|frame| frame.translation)
-            });
+            let magazine = Some(weapon_frame.transform_point(weapon.sockets.magazine.translation()));
 
             let Some(targets) = build_targets(
                 &resolved,
@@ -122,21 +118,16 @@ pub fn solve_player_arms(
         };
 
         #[cfg(feature = "dev-ik-gizmo")]
-        let sockets_character = {
-            let read = transforms.p0();
-            [
-                compose_world(mount.sockets.grip, rig.root, &read, &parents),
-                compose_world(mount.sockets.foregrip, rig.root, &read, &parents),
-                mount
-                    .sockets
-                    .magazine
-                    .and_then(|entity| compose_world(entity, rig.root, &read, &parents)),
-                mount
-                    .sockets
-                    .muzzle
-                    .and_then(|entity| compose_world(entity, rig.root, &read, &parents)),
-            ]
-        };
+        let sockets_character = [
+            Some(weapon_frame.mul_transform(weapon.hands.primary.transform())),
+            weapon
+                .hands
+                .support
+                .as_ref()
+                .map(|s| weapon_frame.mul_transform(s.transform())),
+            Some(weapon_frame.mul_transform(weapon.sockets.magazine.transform())),
+            Some(weapon_frame.mul_transform(weapon.sockets.muzzle.transform())),
+        ];
 
         #[cfg(feature = "dev-ik-gizmo")]
         debug.entries.push(IkDebugEntry {

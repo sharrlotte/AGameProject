@@ -3,11 +3,11 @@ use crate::config::RonConfig;
 use crate::common::DamageKind;
 use serde::Deserialize;
 
-use super::grip::WeaponGripConfig;
+use super::grip::WeaponHandsConfig;
 use super::model::{ModelSpace, WeaponAnchorConfig};
 use super::pierce::{MAX_HITS, MIN_PIERCE_COST, PierceConfig};
 use super::presentation::{WeaponPose, WeaponRecoil, WeaponReload, WeaponSway, WeaponSwap};
-use super::sockets::{SocketOverride, WeaponSockets};
+use super::sockets::WeaponMechanicalSockets;
 
 /// Unified weapon definition: cross-cutting tuning, gameplay stats, and
 /// presentation data flattened into a single struct.
@@ -15,7 +15,6 @@ use super::sockets::{SocketOverride, WeaponSockets};
 pub struct WeaponDefinition {
     pub id: String,
     pub name: String,
-    pub muzzle_offset: f32,
     pub sprint_spread_multiplier: f32,
     pub swap_cooldown_cap: f32,
     pub stance_hold_secs: f32,
@@ -52,11 +51,9 @@ pub struct WeaponDefinition {
     #[serde(default)]
     pub model_scale: f32,
     #[serde(default)]
-    pub sockets: WeaponSockets,
+    pub hands: WeaponHandsConfig,
     #[serde(default)]
-    pub socket_overrides: Vec<SocketOverride>,
-    #[serde(default)]
-    pub grip: Option<WeaponGripConfig>,
+    pub sockets: WeaponMechanicalSockets,
 }
 
 impl WeaponDefinition {
@@ -72,6 +69,21 @@ impl WeaponDefinition {
         let source_rotation = self.model_space.rotation();
         Transform::from_rotation((model_rotation * source_rotation).normalize())
             .with_scale(Vec3::splat(self.model_scale))
+    }
+
+    /// Backwards-compatible accessor for hands config.
+    pub fn grip(&self) -> &WeaponHandsConfig {
+        &self.hands
+    }
+
+    /// Authoritative forward muzzle offset distance derived from `sockets.muzzle`.
+    pub fn muzzle_offset(&self) -> f32 {
+        let z = -self.sockets.muzzle.offset[2];
+        if z > 0.05 {
+            z
+        } else {
+            0.6
+        }
     }
 }
 
@@ -111,9 +123,14 @@ impl WeaponRoster {
                     weapon.id
                 ));
             }
-            let sockets = &weapon.sockets;
-            if sockets.named().iter().any(|name| name.is_empty()) {
-                return Err(format!("weapon '{}' has an empty socket name", weapon.id));
+            weapon.hands.validate(&weapon.id)?;
+            if !weapon.sockets.magazine.offset.iter().all(|c| c.is_finite())
+                || !weapon.sockets.muzzle.offset.iter().all(|c| c.is_finite())
+            {
+                return Err(format!(
+                    "weapon '{}' has non-finite socket offsets",
+                    weapon.id
+                ));
             }
             for pose in [&weapon.relaxed, &weapon.aim] {
                 if !pose.offset.iter().all(|c| c.is_finite())
@@ -289,5 +306,20 @@ use super::*;
         roster.weapons[0].pierce.power = 4.01;
         let err = roster.validate().expect_err("excess power must fail");
         assert!(err.contains("exceeds max allowable"));
+    }
+
+    #[test]
+    fn weapons_ron_parses_hands_and_sockets_cleanly() {
+        let roster: WeaponRoster = crate::assert_ron_config_parses!(WeaponRoster);
+        let m16 = roster.weapon("m16").expect("m16 exists");
+        assert_eq!(m16.hands.primary.offset, [0.0, -0.250, -0.005]);
+        assert!(m16.hands.support.is_some());
+        assert_eq!(m16.sockets.magazine.offset, [0.0, -0.160, -0.040]);
+        assert_eq!(m16.sockets.muzzle.offset, [0.0, 0.0, -0.60]);
+        assert_eq!(m16.muzzle_offset(), 0.60);
+
+        let m1911 = roster.weapon("m1911").expect("m1911 exists");
+        assert_eq!(m1911.hands.primary.offset, [0.0, -0.073, -0.020]);
+        assert!(m1911.hands.support.is_none());
     }
 }

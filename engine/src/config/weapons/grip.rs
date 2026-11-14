@@ -35,9 +35,17 @@ impl FingerCurl {
     }
 }
 
+fn zero_vec() -> [f32; 3] {
+    [0.0; 3]
+}
+
 /// How one hand holds the weapon, expressed in weapon space.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize)]
 pub struct GripHand {
+    #[serde(default = "zero_vec")]
+    pub offset: [f32; 3],
+    #[serde(default)]
+    pub rotation_deg: Option<[f32; 3]>,
     #[serde(default, deserialize_with = "some")]
     pub position: Option<[f32; 3]>,
     #[serde(default, deserialize_with = "some")]
@@ -54,7 +62,24 @@ pub struct GripHand {
     pub align_deg: Option<[f32; 3]>,
 }
 
+pub type HandConfig = GripHand;
+
 impl GripHand {
+    pub fn offset(&self) -> Vec3 {
+        Vec3::from_array(self.offset)
+    }
+
+    pub fn rotation(&self) -> Quat {
+        match self.rotation_deg {
+            Some(deg) => euler_deg(deg),
+            None => Quat::IDENTITY,
+        }
+    }
+
+    pub fn transform(&self) -> Transform {
+        Transform::from_translation(self.offset()).with_rotation(self.rotation())
+    }
+
     pub fn position(&self) -> Option<Vec3> {
         self.position.map(Vec3::from_array)
     }
@@ -137,6 +162,8 @@ pub struct WeaponGripConfig {
     #[serde(default = "min_support_separation")]
     pub min_support_separation: f32,
 }
+
+pub type WeaponHandsConfig = WeaponGripConfig;
 
 impl WeaponGripConfig {
     pub fn validate(&self, weapon: &str) -> Result<(), String> {

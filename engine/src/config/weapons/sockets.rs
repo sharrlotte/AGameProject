@@ -1,70 +1,67 @@
 use bevy::prelude::*;
 use serde::Deserialize;
 
-fn grip() -> String {
-    "Grip".to_string()
-}
-
-fn foregrip() -> String {
-    "Foregrip".to_string()
-}
-
-fn magazine() -> String {
-    "Magazine".to_string()
-}
-
-fn muzzle() -> String {
-    "Muzzle".to_string()
-}
-
-fn zero() -> [f32; 3] {
+fn zero_vec() -> [f32; 3] {
     [0.0; 3]
 }
 
-/// Socket node names authored in the weapon glTF.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct WeaponSockets {
-    #[serde(default = "grip")]
-    pub grip: String,
-    #[serde(default = "foregrip")]
-    pub foregrip: String,
-    #[serde(default = "magazine")]
-    pub magazine: String,
-    #[serde(default = "muzzle")]
-    pub muzzle: String,
+/// A spatial reference point on a weapon in weapon space.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub struct SocketPoint {
+    #[serde(default = "zero_vec")]
+    pub offset: [f32; 3],
+    #[serde(default)]
+    pub rotation_deg: Option<[f32; 3]>,
 }
 
-impl WeaponSockets {
-    pub fn named(&self) -> [&str; 4] {
-        [
-            self.grip.as_str(),
-            self.foregrip.as_str(),
-            self.magazine.as_str(),
-            self.muzzle.as_str(),
-        ]
+impl Default for SocketPoint {
+    fn default() -> Self {
+        Self {
+            offset: [0.0; 3],
+            rotation_deg: None,
+        }
     }
 }
 
-/// Replaces one socket node transform for assets that cannot be re-exported.
-#[derive(Debug, Clone, Deserialize)]
-pub struct SocketOverride {
-    pub socket: String,
-    #[serde(default = "zero")]
-    pub offset: [f32; 3],
-    #[serde(default = "zero")]
-    pub rotation_deg: [f32; 3],
-}
+impl SocketPoint {
+    pub fn new(offset: [f32; 3]) -> Self {
+        Self {
+            offset,
+            rotation_deg: None,
+        }
+    }
 
-impl SocketOverride {
-    pub fn transform(&self) -> Transform {
-        Transform::from_translation(Vec3::from_array(self.offset)).with_rotation(
-            Quat::from_euler(
+    pub fn translation(&self) -> Vec3 {
+        Vec3::from_array(self.offset)
+    }
+
+    pub fn rotation(&self) -> Quat {
+        match self.rotation_deg {
+            Some(deg) => Quat::from_euler(
                 EulerRot::XYZ,
-                self.rotation_deg[0].to_radians(),
-                self.rotation_deg[1].to_radians(),
-                self.rotation_deg[2].to_radians(),
+                deg[0].to_radians(),
+                deg[1].to_radians(),
+                deg[2].to_radians(),
             )
             .normalize(),
-        )
+            None => Quat::IDENTITY,
+        }
+    }
+
+    pub fn transform(&self) -> Transform {
+        Transform::from_translation(self.translation()).with_rotation(self.rotation())
     }
 }
+
+/// Mechanical weapon reference points (such as reload reach target and muzzle origin).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize)]
+pub struct WeaponMechanicalSockets {
+    #[serde(default)]
+    pub magazine: SocketPoint,
+    #[serde(default)]
+    pub muzzle: SocketPoint,
+}
+
+pub type WeaponSockets = WeaponMechanicalSockets;
+pub type SocketOverride = SocketPoint;
+

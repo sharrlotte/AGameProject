@@ -142,7 +142,7 @@ pub fn handle_weapon_fire(
         let active_ammo = active.ammo;
 
         let triggered = if weapon.full_auto {
-            intent.fire_held
+            intent.fire_held || fire_just_pressed
         } else {
             fire_just_pressed
         };
@@ -173,9 +173,9 @@ pub fn handle_weapon_fire(
         };
         let muzzle_pos = Vec3::new(
             transform.translation.x,
-            player_cfg.aim_height,
+            transform.translation.y + player_cfg.aim_height,
             transform.translation.z,
-        ) + forward * weapon.muzzle_offset;
+        ) + forward * weapon.muzzle_offset();
 
         let spread_mult = if stamina.is_sprinting {
             weapon.sprint_spread_multiplier

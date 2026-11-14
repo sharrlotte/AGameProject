@@ -3,77 +3,86 @@ import bpy
 # Reset scene to empty
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
+# Coordinate conversion note:
+# Blender is Z-up: (X_blend, Y_blend, Z_blend)
+# Standard glTF exporter maps:
+# glTF X = Blender X
+# glTF Y = Blender Z  (vertical elevation)
+# glTF Z = -Blender Y (depth: -Z is North, +Z is South)
+
 # 1. Ground plane (Visual)
-bpy.ops.mesh.primitive_plane_add(size=120.0, location=(0, 0, 0))
+bpy.ops.mesh.primitive_plane_add(size=120.0, location=(0.0, 0.0, 0.0))
 ground = bpy.context.active_object
 ground.name = "Visual_Ground"
 
-# 2. Road surface (Visual)
-bpy.ops.mesh.primitive_plane_add(size=20.0, location=(0, 0.02, 0))
+# 2. Road surface (Visual, slightly above ground to prevent Z-fighting)
+bpy.ops.mesh.primitive_plane_add(size=20.0, location=(0.0, 0.0, 0.02))
 road = bpy.context.active_object
 road.name = "Visual_Road_Main"
 road.scale = (1.0, 5.0, 1.0)
 
-# 3. Gas station building visual exterior walls
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 2.5, 0.0))
+# 3. Gas station building visual exterior walls (Center: X=10, glTF Y=2.5, glTF Z=0)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 0.0, 2.5))
 bldg = bpy.context.active_object
 bldg.name = "Visual_GasStation_Building"
-bldg.scale = (14.0, 5.0, 10.0)
+bldg.scale = (14.0, 10.0, 5.0)
 
-# 4. Gas station Roof (tagged for interior cutaway occlusion)
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 5.2, 0.0))
+# 4. Gas station Roof (tagged for interior cutaway occlusion: glTF Y=5.2)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 0.0, 5.2))
 roof = bpy.context.active_object
 roof.name = "Roof_GasStation"
-roof.scale = (15.0, 0.4, 11.0)
+roof.scale = (15.0, 11.0, 0.4)
 
-# 5. Gas station Interior Trigger volume
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 2.5, 0.0))
+# 5. Gas station Interior Trigger volume (glTF Y=2.5)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 0.0, 2.5))
 trigger = bpy.context.active_object
 trigger.name = "Trigger_Interior_GasStation"
-trigger.scale = (13.5, 4.8, 9.5)
+trigger.scale = (13.5, 9.5, 4.8)
 
 # 6. Low-poly Colliders
-# Wall West
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-30.0, 2.0, 0.0))
+# Wall West (glTF X=-30, glTF Y=2.0, glTF Z=0; length 60m along glTF Z)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-30.0, 0.0, 2.0))
 col_w = bpy.context.active_object
 col_w.name = "Collider_Wall_West"
-col_w.scale = (1.0, 4.0, 60.0)
+col_w.scale = (1.0, 60.0, 4.0)
 
-# Wall East
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(30.0, 2.0, 0.0))
+# Wall East (glTF X=30, glTF Y=2.0, glTF Z=0; length 60m along glTF Z)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(30.0, 0.0, 2.0))
 col_e = bpy.context.active_object
 col_e.name = "Collider_Wall_East"
-col_e.scale = (1.0, 4.0, 60.0)
+col_e.scale = (1.0, 60.0, 4.0)
 
-# Concrete Barrier 01
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-5.0, 0.6, -10.0))
+# Concrete Barrier 01 (glTF X=-5, glTF Y=0.6, glTF Z=-10 -> Y_blend=10, Z_blend=0.6)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-5.0, 10.0, 0.6))
 bar1 = bpy.context.active_object
 bar1.name = "Collider_Barrier_01"
-bar1.scale = (4.0, 1.2, 1.0)
+bar1.scale = (4.0, 1.0, 1.2)
 
-# Concrete Barrier 02
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(5.0, 0.6, 12.0))
+# Concrete Barrier 02 (glTF X=5, glTF Y=0.6, glTF Z=12 -> Y_blend=-12, Z_blend=0.6)
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(5.0, -12.0, 0.6))
 bar2 = bpy.context.active_object
 bar2.name = "Collider_Barrier_02"
-bar2.scale = (4.0, 1.2, 1.0)
+bar2.scale = (4.0, 1.0, 1.2)
 
-# 7. Gameplay Empties / Markers
-# Player Spawn
-bpy.ops.object.empty_add(type='PLAIN_AXES', location=(-20.0, 0.0, -20.0))
+# 7. Gameplay Empties / Markers (Elevation Z_blend=0.0 -> glTF Y=0.0)
+# Player Spawn (South-West: glTF X=-20, glTF Z=20 -> Y_blend=-20)
+bpy.ops.object.empty_add(type='PLAIN_AXES', location=(-20.0, -20.0, 0.0))
 spawn_p = bpy.context.active_object
 spawn_p.name = "Spawn_Player"
 
 # Enemy Spawners
-bpy.ops.object.empty_add(type='PLAIN_AXES', location=(20.0, 0.0, 20.0))
+# Spawn_Enemy_Walker (North-East: glTF X=20, glTF Z=-20 -> Y_blend=20)
+bpy.ops.object.empty_add(type='PLAIN_AXES', location=(20.0, 20.0, 0.0))
 sp_e1 = bpy.context.active_object
 sp_e1.name = "Spawn_Enemy_Walker"
 
-bpy.ops.object.empty_add(type='PLAIN_AXES', location=(-20.0, 0.0, 20.0))
+# Spawn_Enemy_Runner (North-West: glTF X=-20, glTF Z=-20 -> Y_blend=20)
+bpy.ops.object.empty_add(type='PLAIN_AXES', location=(-20.0, 20.0, 0.0))
 sp_e2 = bpy.context.active_object
 sp_e2.name = "Spawn_Enemy_Runner"
 
-# Extraction Zone
-bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0.0, 0.0, 35.0))
+# Extraction Zone (North highway end: glTF X=0, glTF Z=-35 -> Y_blend=35)
+bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0.0, 35.0, 0.0))
 ext_z = bpy.context.active_object
 ext_z.name = "Extract_Zone"
 

@@ -3,10 +3,11 @@ use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::rapier::geometry::CollisionEventFlags;
 
 use crate::common::{GROUP_WORLD, Obstacle};
+use crate::config::PlayerConfig;
 use crate::world::Survivor;
 use super::loader::{
-    apply_roof_cutaways, detect_survivor_interiors, inspect_map_scene_nodes,
-    reposition_player_to_spawn_marker, MapNodeProcessed,
+    apply_roof_cutaways, detect_survivor_interiors, generate_pending_mesh_colliders,
+    inspect_map_scene_nodes, reposition_player_to_spawn_marker, MapNodeProcessed,
 };
 use super::map::{
     ActiveInteriors, ColliderMesh, EnemySpawnerMarker, InteriorVolume, PlayerSpawnMarker,
@@ -88,6 +89,11 @@ fn test_inspect_map_scene_nodes_classification() {
         .expect("interior volume");
     assert_eq!(interior.id, "gas_station");
     assert!(world.get::<Sensor>(interior_trigger).is_some());
+    assert!(world.get::<ActiveEvents>(interior_trigger).is_some());
+    assert_eq!(
+        world.get::<Visibility>(interior_trigger),
+        Some(&Visibility::Hidden)
+    );
 
     let roof = world
         .get::<RoofOcclusion>(roof_node)
@@ -212,8 +218,32 @@ fn test_apply_roof_cutaways() {
 }
 
 #[test]
+fn test_generate_pending_interior_mesh_colliders() {
+    let mut app = App::new();
+    let mut meshes = Assets::<Mesh>::default();
+    let mesh_handle = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+    app.insert_resource(meshes);
+    app.add_systems(Update, generate_pending_mesh_colliders);
+
+    let interior = app
+        .world_mut()
+        .spawn((
+            InteriorVolume {
+                id: "store".to_string(),
+            },
+            Mesh3d(mesh_handle),
+        ))
+        .id();
+
+    app.update();
+
+    assert!(app.world().get::<Collider>(interior).is_some());
+}
+
+#[test]
 fn test_reposition_player_to_spawn_marker() {
     let mut app = App::new();
+    app.init_resource::<PlayerConfig>();
     app.add_systems(Update, reposition_player_to_spawn_marker);
 
     let player = app
@@ -232,5 +262,6 @@ fn test_reposition_player_to_spawn_marker() {
         .world()
         .get::<Transform>(player)
         .expect("player transform");
-    assert_eq!(player_tf.translation, Vec3::new(12.5, 0.0, -8.0));
+    let aim_h = PlayerConfig::default().aim_height;
+    assert_eq!(player_tf.translation, Vec3::new(12.5, aim_h, -8.0));
 }

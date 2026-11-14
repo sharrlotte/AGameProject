@@ -179,7 +179,6 @@ use super::*;
         WeaponDefinition {
             id: "m16".to_string(),
             name: "M16".to_string(),
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -231,9 +230,8 @@ use super::*;
             model_space: crate::config::ModelSpace::ForwardNegYUpZ,
             model_rotation_deg: [0.0; 3],
             model_scale: 1.4,
-            sockets: crate::config::WeaponSockets::default(),
-            socket_overrides: Vec::new(),
-            grip: None,
+            hands: Default::default(),
+            sockets: Default::default(),
         }
     }
 

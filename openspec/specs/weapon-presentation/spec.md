@@ -31,49 +31,32 @@ VFX at `message.origin` with a lifetime of approximately 0.08 seconds, then desp
 - **THEN** its position equals `WeaponFiredMessage.origin`
 
 ### Requirement: Bullet origin approximates visual muzzle
-The sim SHALL compute `muzzle_pos` using `muzzle_offset` and `aim_height` tuned so the projectile
-origin is close to the visual muzzle position at the raised anchor height.
+The simulation and presentation layers SHALL both use `sockets.muzzle` from `WeaponDefinition` as the authoritative 3D origin for projectile spawning and visual muzzle flash VFX, ensuring zero spatial divergence between fired shots and visual effects.
 
 #### Scenario: No large gap between bullet and muzzle
-
 - **WHEN** the player fires
-- **THEN** the projectile origin is within a small tolerance of the visual muzzle socket position
+- **THEN** the projectile origin is placed exactly at `sockets.muzzle.offset` transformed into world space
 
 ### Requirement: Data-driven weapon model space and grip
-The unified `WeaponDefinition`'s presentation section SHALL declare the model space each weapon was authored
-in, and SHALL map the model into weapon space with `model_space`, optional `model_rotation_deg`, and
-`model_scale`. The presentation section MAY override socket transforms in model space and MAY declare a grip
-with per-hand position, finger direction, palm direction, elbow hint, finger curl, wrist trim, and
-weapon-space alignment. Omitted grip fields SHALL be derived from the weapon's sockets, so a new weapon needs
-only catalog data and no engine change.
+The unified `WeaponDefinition`'s presentation section SHALL declare the model space each weapon was authored in, and SHALL map the model into weapon space with `model_space`, optional `model_rotation_deg`, and `model_scale`. Hand attachment positions and orientations SHALL be declared in a unified `hands` structure (primary and optional support), and mechanical reference points (`magazine` and `muzzle`) SHALL be declared in a unified `sockets` structure with `offset` and optional `rotation_deg`. Sockets and hand attachments SHALL be evaluated directly in weapon space without searching or traversing child nodes of the loaded 3D glTF model.
 
 #### Scenario: Converted model maps into weapon space
-
 - **WHEN** a weapon declares `model_space: ForwardNegYUpZ`
 - **THEN** the model is rotated so `-Y` model forward becomes `-Z` weapon forward and `+Z` model up becomes `+Y` weapon up
 
-#### Scenario: Socket override replaces the baked socket
+#### Scenario: Sockets resolve from configuration without model nodes
+- **WHEN** a weapon is mounted
+- **THEN** hand IK targets and weapon sockets resolve directly from `hands` and `sockets` configuration in `weapon.ron` without scanning glTF node names or emitting missing-socket warnings
 
-- **WHEN** a profile lists a socket override
-- **THEN** the resolved socket node uses the authored model-space transform instead of the one baked into the GLB
-
-#### Scenario: New weapon works without a grip entry
-
-- **WHEN** a weapon omits `grip`
-- **THEN** the resolver derives a primary grip from the `Grip` socket and a support grip from `Foregrip`, or no support grip when the foregrip is missing or too close
-
-#### Scenario: Support grip can be disabled
-
-- **WHEN** a profile sets `support: None`
-- **THEN** the weapon is treated as one-handed and the left arm is not solved to it
+#### Scenario: One-handed weapons omit support hand
+- **WHEN** a weapon profile defines `hands.support: None`
+- **THEN** the primary hand solves to `hands.primary.offset` and the left arm does not engage weapon support IK
 
 #### Scenario: Per-hand grip is independent
-
 - **WHEN** a profile authors different primary and support finger, palm, elbow, wrist, or align values
 - **THEN** each hand resolves and solves with its own values
 
 #### Scenario: Invalid grip data is rejected
-
 - **WHEN** a grip contains a non-finite value, a zero-length direction, or a finger curl beyond 120 degrees
 - **THEN** catalog validation fails and the runtime keeps the previous valid configuration
 

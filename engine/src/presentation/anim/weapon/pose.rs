@@ -17,7 +17,6 @@ const MAX_POSES: usize = 8;
 #[derive(Clone, Copy)]
 struct PoseWrite {
     scene: Entity,
-    magazine: Option<(Entity, Transform)>,
     weapon: Transform,
 }
 
@@ -25,7 +24,6 @@ impl Default for PoseWrite {
     fn default() -> Self {
         Self {
             scene: Entity::PLACEHOLDER,
-            magazine: None,
             weapon: Transform::IDENTITY,
         }
     }
@@ -112,17 +110,9 @@ pub fn pose_player_weapon(
             let composed = compose_weapon(weapon, &state, reload, swap);
             state.frame = composed;
 
-            let magazine = mount.sockets.magazine.map(|entity| {
-                let mut rest = mount.magazine_rest;
-                rest.translation.y -= reload.mag_drop;
-                rest.translation.z += reload.mag_drop * 0.2;
-                (entity, rest)
-            });
-
             if count < MAX_POSES {
                 writes[count] = PoseWrite {
                     scene: mount.scene,
-                    magazine,
                     weapon: composed.mul_transform(weapon.model_transform()),
                 };
                 count += 1;
@@ -134,11 +124,6 @@ pub fn pose_player_weapon(
     for write in &writes[..count] {
         if let Ok(mut transform) = transforms.get_mut(write.scene) {
             *transform = write.weapon;
-        }
-        if let Some((entity, magazine)) = write.magazine
-            && let Ok(mut transform) = transforms.get_mut(entity)
-        {
-            *transform = magazine;
         }
     }
 }

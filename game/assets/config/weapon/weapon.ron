@@ -7,7 +7,6 @@
         (
             id: "m16",
             name: "M16",
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -61,31 +60,9 @@
             model_space: ForwardNegYUpZ,
             model_scale: 1.4,
             model_rotation_deg: (0.0, 180.0, 0.0),
-            sockets: (
-                grip: "Grip",
-                foregrip: "Foregrip",
-                magazine: "Magazine",
-                muzzle: "Muzzle",
-            ),
-            socket_overrides: [
-                (
-                    socket: "Grip",
-                    offset: (0.0, -0.250, -0.005),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Foregrip",
-                    offset: (0.0, -0.060, -0.030),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Magazine",
-                    offset: (0.0, -0.160, -0.040),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-            ],
-            grip: Some((
+            hands: (
                 primary: (
+                    offset: (0.0, -0.250, -0.005),
                     finger: (0.55, 0.10, -1.0),
                     palm: (0.25, 1.0, 0.0),
                     elbow: (-0.35, -1.0, 0.25),
@@ -97,6 +74,7 @@
                     )),
                 ),
                 support: Some((
+                    offset: (0.0, -0.060, -0.030),
                     finger: (0.0, -0.15, -1.0),
                     palm: (-1.0, 0.15, 0.0),
                     elbow: (0.35, -1.0, 0.25),
@@ -107,12 +85,20 @@
                         thumb2_deg: 22.0,
                     )),
                 )),
-            )),
+                min_support_separation: 0.08,
+            ),
+            sockets: (
+                magazine: (
+                    offset: (0.0, -0.160, -0.040),
+                ),
+                muzzle: (
+                    offset: (0.0, 0.0, -0.60),
+                ),
+            ),
         ),
         (
             id: "m1911",
             name: "M1911",
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -166,26 +152,9 @@
             model_space: ForwardNegYUpZ,
             model_scale: 0.87,
             model_rotation_deg: (0.0, 0.0, 0.0),
-            sockets: (
-                grip: "Grip",
-                foregrip: "Foregrip",
-                magazine: "Magazine",
-                muzzle: "Muzzle",
-            ),
-            socket_overrides: [
-                (
-                    socket: "Grip",
-                    offset: (0.0, -0.073, -0.020),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Magazine",
-                    offset: (0.0, -0.073, -0.020),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-            ],
-            grip: Some((
+            hands: (
                 primary: (
+                    offset: (0.0, -0.073, -0.020),
                     finger: (0.0, -0.15, -1.0),
                     palm: (-1.0, 0.15, 0.0),
                     elbow: (0.35, -1.0, 0.25),
@@ -197,12 +166,20 @@
                     )),
                 ),
                 support: None,
-            )),
+                min_support_separation: 0.08,
+            ),
+            sockets: (
+                magazine: (
+                    offset: (0.0, -0.073, -0.020),
+                ),
+                muzzle: (
+                    offset: (0.0, 0.0, -0.40),
+                ),
+            ),
         ),
         (
             id: "mp5",
             name: "MP5",
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -256,31 +233,9 @@
             model_space: ForwardNegYUpZ,
             model_scale: 1.65,
             model_rotation_deg: (0.0, 0.0, 0.0),
-            sockets: (
-                grip: "Grip",
-                foregrip: "Foregrip",
-                magazine: "Magazine",
-                muzzle: "Muzzle",
-            ),
-            socket_overrides: [
-                (
-                    socket: "Grip",
-                    offset: (0.0, 0.020, -0.015),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Foregrip",
-                    offset: (0.0, -0.190, 0.005),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Magazine",
-                    offset: (0.0, -0.061, -0.053),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-            ],
-            grip: Some((
+            hands: (
                 primary: (
+                    offset: (0.0, 0.020, -0.015),
                     finger: (0.55, 0.10, -1.0),
                     palm: (0.25, 1.0, 0.0),
                     elbow: (-0.35, -1.0, 0.25),
@@ -292,6 +247,7 @@
                     )),
                 ),
                 support: Some((
+                    offset: (0.0, -0.190, 0.005),
                     finger: (0.0, -0.15, -1.0),
                     palm: (-1.0, 0.15, 0.0),
                     elbow: (0.35, -1.0, 0.25),
@@ -302,12 +258,20 @@
                         thumb2_deg: 22.0,
                     )),
                 )),
-            )),
+                min_support_separation: 0.08,
+            ),
+            sockets: (
+                magazine: (
+                    offset: (0.0, -0.061, -0.053),
+                ),
+                muzzle: (
+                    offset: (0.0, 0.0, -0.55),
+                ),
+            ),
         ),
         (
             id: "mp7",
             name: "MP7",
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -361,31 +325,9 @@
             model_space: Weapon,
             model_scale: 1.0,
             model_rotation_deg: (0.0, 0.0, 0.0),
-            sockets: (
-                grip: "Grip",
-                foregrip: "Foregrip",
-                magazine: "Magazine",
-                muzzle: "Muzzle",
-            ),
-            socket_overrides: [
-                (
-                    socket: "Grip",
-                    offset: (0.0, 0.020, -0.015),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Foregrip",
-                    offset: (0.0, -0.190, 0.005),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Magazine",
-                    offset: (0.0, -0.061, -0.053),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-            ],
-            grip: Some((
+            hands: (
                 primary: (
+                    offset: (0.0, 0.020, -0.015),
                     finger: (0.55, 0.10, -1.0),
                     palm: (0.25, 1.0, 0.0),
                     elbow: (-0.35, -1.0, 0.25),
@@ -397,6 +339,7 @@
                     )),
                 ),
                 support: Some((
+                    offset: (0.0, -0.190, 0.005),
                     finger: (0.0, -0.15, -1.0),
                     palm: (-1.0, 0.15, 0.0),
                     elbow: (0.35, -1.0, 0.25),
@@ -407,12 +350,20 @@
                         thumb2_deg: 22.0,
                     )),
                 )),
-            )),
+                min_support_separation: 0.08,
+            ),
+            sockets: (
+                magazine: (
+                    offset: (0.0, -0.061, -0.053),
+                ),
+                muzzle: (
+                    offset: (0.0, 0.0, -0.50),
+                ),
+            ),
         ),
         (
             id: "scar",
             name: "SCAR",
-            muzzle_offset: 0.6,
             sprint_spread_multiplier: 1.65,
             swap_cooldown_cap: 0.12,
             stance_hold_secs: 0.15,
@@ -466,31 +417,9 @@
             model_space: ForwardNegYUpZ,
             model_scale: 1.2,
             model_rotation_deg: (0.0, 0.0, 0.0),
-            sockets: (
-                grip: "Grip",
-                foregrip: "Foregrip",
-                magazine: "Magazine",
-                muzzle: "Muzzle",
-            ),
-            socket_overrides: [
-                (
-                    socket: "Grip",
-                    offset: (0.0, 0.170, -0.050),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Foregrip",
-                    offset: (0.0, -0.210, 0.005),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-                (
-                    socket: "Magazine",
-                    offset: (0.0, 0.055, -0.043),
-                    rotation_deg: (0.0, 0.0, 0.0),
-                ),
-            ],
-            grip: Some((
+            hands: (
                 primary: (
+                    offset: (0.0, 0.170, -0.050),
                     finger: (0.55, 0.10, -1.0),
                     palm: (0.25, 1.0, 0.0),
                     elbow: (-0.35, -1.0, 0.25),
@@ -502,6 +431,7 @@
                     )),
                 ),
                 support: Some((
+                    offset: (0.0, -0.210, 0.005),
                     finger: (0.0, -0.15, -1.0),
                     palm: (-1.0, 0.15, 0.0),
                     elbow: (0.35, -1.0, 0.25),
@@ -512,7 +442,16 @@
                         thumb2_deg: 22.0,
                     )),
                 )),
-            )),
+                min_support_separation: 0.08,
+            ),
+            sockets: (
+                magazine: (
+                    offset: (0.0, 0.055, -0.043),
+                ),
+                muzzle: (
+                    offset: (0.0, 0.0, -0.65),
+                ),
+            ),
         ),
     ],
 )
