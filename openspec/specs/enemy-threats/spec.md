@@ -13,15 +13,16 @@ enemy configuration.
 
 The simulation SHALL define every enemy archetype in `game/assets/config/enemies/enemies.ron` as a
 uniquely keyed entry in `EnemiesConfig::archetypes`. Each entry MUST carry the archetype identity, combat
-stats, `scrap_value`, a spawn policy, and an ordered behavior list. `EnemiesConfig` MUST validate the
-roster before it is used and MUST reject duplicate kinds, a missing Walker, non-positive or non-finite
-stats, invalid behavior values, and a roster with no positive spawn weight.
+stats, `scrap_value`, a positive `pierce_cost`, a spawn policy, and an ordered behavior list.
+`EnemiesConfig` MUST validate the roster before it is used and MUST reject duplicate kinds, a missing
+Walker, non-positive or non-finite stats, a non-positive or non-finite `pierce_cost`, invalid behavior
+values, and a roster with no positive spawn weight.
 
 #### Scenario: Authored roster loads
 
 - **WHEN** `enemies.ron` is parsed
 - **THEN** the roster contains unique entries for Walker, Runner, Tank, Spitter, and Exploder with
-  positive stats and at least one positive spawn weight
+  positive stats, positive piercing costs, and at least one positive spawn weight
 
 #### Scenario: Duplicate archetype is rejected
 
@@ -32,6 +33,11 @@ stats, invalid behavior values, and a roster with no positive spawn weight.
 
 - **WHEN** validation runs on a roster with no Walker entry
 - **THEN** validation fails because Walker is the guaranteed spawn fallback
+
+#### Scenario: Invalid piercing cost is rejected
+
+- **WHEN** an archetype authors a zero, negative, or non-finite `pierce_cost`
+- **THEN** validation fails with an error naming the archetype and field
 
 #### Scenario: Invalid behavior parameters are rejected
 
@@ -256,15 +262,20 @@ material afterward.
 
 ### Requirement: Enemy hot reload
 
-Editing `enemies.ron` while the game is running SHALL update live enemy stats and behavior values and
-SHALL apply spawn policy and scrap changes to subsequent spawns and kills. A structural change that adds
-or removes a behavior on an existing archetype MUST NOT panic; it SHALL log a warning and take effect on
-the next deploy.
+Editing `enemies.ron` while the game is running SHALL update live enemy stats, behavior values, and
+`pierce_cost`, and SHALL apply spawn policy and scrap changes to subsequent spawns and kills. A structural
+change that adds or removes a behavior on an existing archetype MUST NOT panic; it SHALL log a warning and
+take effect on the next deploy.
 
 #### Scenario: Tank armor hot reloads
 
 - **WHEN** `front_mult` changes in `enemies.ron` during a run
 - **THEN** live Tanks use the new multiplier for subsequent hits
+
+#### Scenario: Piercing cost hot reloads
+
+- **WHEN** `pierce_cost` changes in `enemies.ron` during a run
+- **THEN** live enemies of that archetype use the new cost for subsequent projectile hits
 
 #### Scenario: Spawn policy hot reloads
 
@@ -409,3 +420,25 @@ authored `scrap_value` MUST be awarded through the death pipeline.
 
 - **WHEN** an Exploder dies from any cause
 - **THEN** its kill message reports the archetype's authored `scrap_value` exactly once
+
+### Requirement: Archetype piercing cost
+
+Every archetype SHALL author a positive `pierce_cost` that defines both the shot budget it consumes and
+the multiplier applied to a weapon's piercing penalty. Heavy archetypes MUST cost more than light ones; the
+Tank MUST carry the highest cost in the authored roster.
+
+#### Scenario: Cost consumes shot budget
+
+- **WHEN** a projectile crosses an archetype
+- **THEN** its remaining piercing power is reduced by that archetype's authored `pierce_cost`
+
+#### Scenario: Cost multiplies damage drain
+
+- **WHEN** a projectile crosses an archetype with a non-zero weapon penalty
+- **THEN** its current damage is reduced by `pierce_cost * penalty`
+
+#### Scenario: Tank costs the most
+
+- **WHEN** the authored piercing costs are compared
+- **THEN** the Tank's cost is greater than every other archetype's cost, and a Runner costs less than a
+  Walker

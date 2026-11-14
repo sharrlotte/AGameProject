@@ -45,6 +45,7 @@ pub fn sync_enemies_hot_reload(
         enemy.move_speed = arch.move_speed;
         enemy.mass = arch.mass;
         enemy.scrap_value = arch.scrap_value;
+        enemy.pierce_cost = arch.pierce_cost;
 
         match (melee, arch.melee()) {
             (Some(mut melee), Some(spec)) => melee.sync(spec),

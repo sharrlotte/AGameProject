@@ -3,6 +3,10 @@ use crate::common::{DamageKind, EnemyKind};
 use crate::config::RonConfig;
 use serde::Deserialize;
 
+fn default_pierce_cost() -> f32 {
+    1.0
+}
+
 /// Runtime stats and composition for one enemy archetype.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EnemyArchetypeData {
@@ -13,6 +17,8 @@ pub struct EnemyArchetypeData {
     pub half_height: f32,
     pub mass: f32,
     pub scrap_value: u32,
+    #[serde(default = "default_pierce_cost")]
+    pub pierce_cost: f32,
     pub spawn: SpawnPolicy,
     pub behaviors: Vec<Behavior>,
 }
@@ -255,6 +261,7 @@ impl EnemiesConfig {
                 ("radius", arch.radius),
                 ("half_height", arch.half_height),
                 ("mass", arch.mass),
+                ("pierce_cost", arch.pierce_cost),
             ] {
                 if !value.is_finite() || value <= 0.0 {
                     return Err(format!("archetype '{label}' {name} must be positive"));
@@ -444,91 +451,4 @@ impl RonConfig for EnemiesConfig {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn authored() -> EnemiesConfig {
-        crate::assert_ron_config_parses!(EnemiesConfig)
-    }
-
-    #[test]
-    fn enemies_ron_parses_and_validates() {
-        let enemies = authored();
-        enemies.validate().expect("authored roster is valid");
-        assert_eq!(enemies.archetypes.len(), 5);
-        assert!(enemies.archetype(EnemyKind::Tank).is_some());
-        assert!(enemies.archetype(EnemyKind::Spitter).is_some());
-        assert!(enemies.archetype(EnemyKind::Exploder).is_some());
-    }
-
-    #[test]
-    fn duplicate_archetype_is_rejected() {
-        let mut enemies = authored();
-        let walker = enemies
-            .archetype(EnemyKind::Walker)
-            .expect("walker archetype")
-            .clone();
-        enemies.archetypes.push(walker);
-        let error = enemies.validate().expect_err("duplicate must be rejected");
-        assert!(error.contains("Walker"), "unexpected error: {error}");
-    }
-
-    #[test]
-    fn missing_walker_is_rejected() {
-        let mut enemies = authored();
-        enemies.archetypes.retain(|arch| arch.kind != EnemyKind::Walker);
-        let error = enemies.validate().expect_err("walker is required");
-        assert!(error.contains("Walker"), "unexpected error: {error}");
-    }
-
-    #[test]
-    fn invalid_armor_arc_is_rejected() {
-        let mut enemies = authored();
-        let tank = enemies
-            .archetypes
-            .iter_mut()
-            .find(|arch| arch.kind == EnemyKind::Tank)
-            .expect("tank archetype");
-        for behavior in &mut tank.behaviors {
-            if let Behavior::Armor { arc_deg, .. } = behavior {
-                *arc_deg = 0.0;
-            }
-        }
-        let error = enemies.validate().expect_err("arc must be positive");
-        assert!(error.contains("arc_deg"), "unexpected error: {error}");
-    }
-
-    #[test]
-    fn invalid_ranged_pool_is_rejected() {
-        let mut enemies = authored();
-        let spitter = enemies
-            .archetypes
-            .iter_mut()
-            .find(|arch| arch.kind == EnemyKind::Spitter)
-            .expect("spitter archetype");
-        for behavior in &mut spitter.behaviors {
-            if let Behavior::Ranged { pool_radius, .. } = behavior {
-                *pool_radius = 0.0;
-            }
-        }
-        let error = enemies.validate().expect_err("pool radius must be positive");
-        assert!(error.contains("pool_radius"), "unexpected error: {error}");
-    }
-
-    #[test]
-    fn invalid_detonate_radius_is_rejected() {
-        let mut enemies = authored();
-        let exploder = enemies
-            .archetypes
-            .iter_mut()
-            .find(|arch| arch.kind == EnemyKind::Exploder)
-            .expect("exploder archetype");
-        for behavior in &mut exploder.behaviors {
-            if let Behavior::Detonate { radius, .. } = behavior {
-                *radius = 0.0;
-            }
-        }
-        let error = enemies.validate().expect_err("blast radius must be positive");
-        assert!(error.contains("radius"), "unexpected error: {error}");
-    }
-}
+mod tests;

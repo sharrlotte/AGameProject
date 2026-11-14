@@ -53,3 +53,33 @@ The player SHALL switch weapons by direct slot selection keys (`Digit1` through 
 - **WHEN** a weapon swap occurs during an active reload
 - **THEN** the reload timer clears and `ReloadCancelledMessage` is emitted with reason `Swapped`
 
+### Requirement: Piercing profile is authored per weapon class
+
+Every weapon in the roster SHALL author a `pierce` profile. Within the roster, piercing `power` and
+`penalty` MUST increase from sidearm through SMG to rifle, and the largest values MUST be reserved for a
+future marksman-class weapon. Updating the profile during a run SHALL apply to subsequently fired shots and
+MUST NOT change projectiles already in flight.
+
+#### Scenario: Omitted profile keeps legacy behaviour
+
+- **WHEN** an existing weapon entry has no `pierce` block
+- **THEN** it loads with zero power and penalty and behaves exactly as before
+
+#### Scenario: Rifle pierces more than a sidearm
+
+- **WHEN** the authored roster is compared across classes
+- **THEN** the rifle-class `power` and `penalty` are greater than the SMG values, which are greater than
+  the sidearm values
+
+#### Scenario: Marksman headroom is reserved
+
+- **WHEN** the roster is validated
+- **THEN** the highest piercing values are allowed only for a marksman-class entry, not for the existing
+  sidearm, SMG, or rifle entries
+
+#### Scenario: Hot reload affects new shots only
+
+- **WHEN** a weapon's `pierce` values change in `weapon.ron` during a run
+- **THEN** the next spawned projectile uses the new values and projectiles already in flight keep the
+  values they were spawned with
+

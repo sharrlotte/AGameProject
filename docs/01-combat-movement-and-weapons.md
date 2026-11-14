@@ -70,6 +70,19 @@ Different weapon classes use the model that feels best:
   - Directional blood/ichor decals or particles on impact.
   - Distinct impact audio for flesh vs. armor vs. concrete/metal.
 
+### 2.4 Weapon Piercing & Multi-Body Traversal
+- **Profile:** Authored per weapon in `PierceConfig { power: f32, penalty: f32 }`, defaulting to `0.0` (single-target). `power` bounds body traversal budget; `penalty` dictates pre-armor damage loss per unit of enemy piercing cost.
+- **Safety Envelope:** Authored values are constrained by `power <= MAX_HITS * MIN_PIERCE_COST` (`MAX_HITS = 16`, `MIN_PIERCE_COST = 0.25`).
+- **Drain Formula:** Resolved per body in nearest-first order along projectile travel:
+  1. Emit `DamageMessage` with current pre-armor damage and scaled knockback.
+  2. `remaining_power -= enemy.pierce_cost`.
+  3. `current_damage = (current_damage - enemy.pierce_cost * penalty).max(0.0)`.
+- **Termination:** Shot despawns on `remaining_power <= 0.0`, `current_damage <= 0.0`, contact with an obstacle, full hit log, non-finite/zero direction on first hit, or lifetime expiration.
+- **Knockback Scaling:** Emitted knockback scales by the retained pre-armor damage ratio: `knockback * (current_damage / initial_damage)`.
+- **Resolution Order:** Same-frame collisions collect candidates and sort deterministically by projectile, distance along direction `(target_pos - proj_pos).dot(dir)`, and entity ID. Dying enemies are excluded. Nearer obstacles stop the shot before farther enemies take damage.
+- **Hit-Once Guarantee:** Projectiles maintain a zero-allocation `HitLog` of size `MAX_HITS`. Repeated collisions with the same enemy are ignored. If the log reaches capacity, the shot stops immediately.
+- **Damage Pipeline Integrity:** Piercing only adjusts `DamageMessage.amount` and `DamageMessage.knockback`. Downstream `Armor` calculation, stagger thresholds, aggro, and death/kill accounting remain intact.
+
 ---
 
 ## 3. Data-Driven Weapon & Attachment System

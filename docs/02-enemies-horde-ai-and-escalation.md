@@ -25,13 +25,14 @@ Walker, Runner, Tank, Spitter, and Exploder are implemented. Screamer and Stalke
 
 | Archetype | Stats | Behaviors | Spawn Policy |
 | :--- | :--- | :--- | :--- |
-| **Walker** | 75 HP, 4.2 m/s, mass 1.0, radius 0.45, half-height 0.45 | `Melee` 15 dmg, 0.9 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.70, `max_active` 60, scrap 2 |
-| **Runner** | 35 HP, 7.8 m/s, mass 0.65, radius 0.35, half-height 0.40 | `Melee` 10 dmg, 0.7 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.30, `max_active` 40, scrap 3 |
-| **Tank** | 420 HP, 3.1 m/s, mass 6.0, radius 0.75, half-height 0.70 | `Armor` 0.30 front / 1.0 back, 120° arc, `Explosive` bypass; `Melee` 32 dmg, 1.6 s cooldown, 0.45 s wind-up, 0.35 reach, 7.5 knockback | Unlocked at 120 s, weight 0.18, `max_active` 6, scrap 8 |
-| **Spitter** | 90 HP, 3.6 m/s, mass 0.9, radius 0.42, half-height 0.50 | `Ranged` 8 dmg per pool tick, 2.6 s cooldown, 0.55 s wind-up, 14 m reach, 16 m/s cap, 35° arc; pool 2.5 m radius, 6 s lifetime | Unlocked at 90 s, weight 0.14, `max_active` 10, scrap 5 |
-| **Exploder** | 60 HP, 4.6 m/s, mass 1.1, radius 0.45, half-height 0.45 | `Detonate` 3.0 m trigger, 0.7 s fuse, 45 dmg, 4.5 m radius, 9 knockback | Unlocked at 150 s, weight 0.10, `max_active` 8, scrap 4 |
+| **Walker** | 75 HP, 4.2 m/s, mass 1.0, radius 0.45, half-height 0.45, pierce cost 1.0 | `Melee` 15 dmg, 0.9 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.70, `max_active` 60, scrap 2 |
+| **Runner** | 35 HP, 7.8 m/s, mass 0.65, radius 0.35, half-height 0.40, pierce cost 0.6 | `Melee` 10 dmg, 0.7 s cooldown, no wind-up, 0.25 reach | Unlocked at 0 s, weight 0.30, `max_active` 40, scrap 3 |
+| **Tank** | 420 HP, 3.1 m/s, mass 6.0, radius 0.75, half-height 0.70, pierce cost 4.0 | `Armor` 0.30 front / 1.0 back, 120° arc, `Explosive` bypass; `Melee` 32 dmg, 1.6 s cooldown, 0.45 s wind-up, 0.35 reach, 7.5 knockback | Unlocked at 120 s, weight 0.18, `max_active` 6, scrap 8 |
+| **Spitter** | 90 HP, 3.6 m/s, mass 0.9, radius 0.42, half-height 0.50, pierce cost 1.0 | `Ranged` 8 dmg per pool tick, 2.6 s cooldown, 0.55 s wind-up, 14 m reach, 16 m/s cap, 35° arc; pool 2.5 m radius, 6 s lifetime | Unlocked at 90 s, weight 0.14, `max_active` 10, scrap 5 |
+| **Exploder** | 60 HP, 4.6 m/s, mass 1.1, radius 0.45, half-height 0.45, pierce cost 1.0 | `Detonate` 3.0 m trigger, 0.7 s fuse, 45 dmg, 4.5 m radius, 9 knockback | Unlocked at 150 s, weight 0.10, `max_active` 8, scrap 4 |
 
 All values are authored in `game/assets/config/enemies/enemies.ron`; the table documents the shipped roster, not a second source of truth.
+With a pierce cost of 4.0, the Tank intentionally acts as a physical wall against piercing munitions, halting rifle shots (power 1.6–2.0) and protecting weaker enemies behind it. Walkers (cost 1.0) and Runners (cost 0.6) allow bullets to cross multiple bodies before budget exhaustion.
 
 ---
 

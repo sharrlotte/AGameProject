@@ -193,6 +193,7 @@ mod tests {
             projectile_lifetime: 1.2,
             knockback: 3.5,
             damage_kind: crate::common::DamageKind::Ballistic,
+            pierce: Default::default(),
             mag_size: 30,
             reload_secs: 1.8,
             relaxed: crate::config::WeaponPose {

@@ -14,6 +14,7 @@ pub struct Enemy {
     pub half_height: f32,
     pub mass: f32,
     pub scrap_value: u32,
+    pub pierce_cost: f32,
     pub knockback_vel: Vec3,
 }
 
@@ -26,6 +27,7 @@ impl Enemy {
             half_height: arch.half_height,
             mass: arch.mass,
             scrap_value: arch.scrap_value,
+            pierce_cost: arch.pierce_cost,
             knockback_vel: Vec3::ZERO,
         }
     }
