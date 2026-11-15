@@ -13,9 +13,10 @@ The map loader parses the glTF scene hierarchy on load and binds entities to sim
 | :--- | :--- | :--- |
 | `Spawn_Player` | Initial survivor insertion point and yaw | `Transform`, defines spawn position in `Scene::Arena` |
 | `Spawn_Enemy` / `Spawn_Enemy_{Kind}` | Spawner markers for horde escalation | `EnemySpawner`; serves as focal point for radial scatter candidates ($r \in [1.5\,\text{m}, 3.5\,\text{m}]$) with clearance checking |
-| `Collider_*` | Static physical collision geometry | Low-poly mesh converted to static `Collider` (`bevy_rapier3d`), `GROUP_WORLD` collision group; visual mesh hidden or invisible |
+| `Collider_*` | Static physical collision geometry | Low-poly mesh converted to static `Collider` (`bevy_rapier3d`), `GROUP_WORLD` collision group; visual mesh hidden |
+| `Occluder_*` | Renderable static obstacle (building shells, walls) | Static `Collider`, `GROUP_WORLD` collision group, `Obstacle` marker; mesh stays visible and fades when blocking the camera-to-survivor ray |
 | `Visual_*` or default meshes | Pure visual environment geometry | Rendered with PBR materials, no physics colliders |
-| `Trigger_Interior_{id}` | Building interior trigger volume | Sensor collider; entering triggers occlusion fade on associated roof meshes |
+| `Trigger_Interior_{id}` | Building interior trigger volume | Solid convex sensor `Collider` (convex hull of the authored mesh) with `ActiveEvents::COLLISION_EVENTS`; entering triggers occlusion hide on associated roof meshes |
 | `Roof_{id}` | Building roof and upper walls | Visual mesh linked to `Trigger_Interior_{id}`; rendered opaque normally, hidden/faded when survivor is inside |
 | `Loot_{tier}` | Scavengeable container location | Interactable loot container (`Tier1`, `Tier2`, `Tier3`) |
 | `Extract_Zone` | Expedition extraction pad | Sensor volume driving `ExtractionZone` countdown and holdout defense |
@@ -28,6 +29,7 @@ The map loader parses the glTF scene hierarchy on load and binds entities to sim
    - Visual meshes NEVER generate automatic trimesh colliders.
    - All collisions are explicitly modeled as low-poly hull meshes in Blender prefixed with `Collider_` (e.g. `Collider_Wall_Brick`, `Collider_Car_Wreck`).
    - The scene loader extracts all `Collider_*` meshes, inserts Rapier static colliders (`Collider::convex_hull` or `Collider::trimesh`), attaches `Obstacle` markers, and strips render components so collision geometry is not drawn.
+   - Surfaces that must also be seen (building shells, visible walls) use the `Occluder_` prefix, which receives the same static collider and `Obstacle` marker but keeps the mesh renderable for camera line-of-sight fading.
 
 2. **Height & Cover Classification:**
    - **Low Cover (0.8m – 1.2m):** Waist-high concrete barriers, sandbags, car hoods. Blocks horizontal enemy movement; allows bullets to pass overhead.
@@ -40,17 +42,18 @@ The map loader parses the glTF scene hierarchy on load and binds entities to sim
 Because the simulation uses full 3D from an angled top-down camera (55°–65° pitch):
 
 1. **Trigger Volume Detection:**
-   - Each building interior is bounded by a convex sensor volume named `Trigger_Interior_{id}`.
+   - Each building interior is bounded by a convex sensor volume named `Trigger_Interior_{id}`. At runtime the sensor `Collider` is built as a solid convex hull of the authored mesh, never as a surface trimesh: a trimesh sensor only reports contacts while a shape is crossing its surface, so a survivor fully enclosed by the trigger would never be detected.
    - When the survivor entity overlaps this sensor, an `InteriorEnteredMessage { interior_id }` is emitted.
    - When the survivor exits, `InteriorExitedMessage { interior_id }` is emitted.
 
 2. **Roof & Wall Occlusion:**
+   - Building shells are authored as hollow `Occluder_*` wall segments with an entry gap, so the interior stays readable once the roof is hidden.
    - Meshes prefixed with `Roof_{id}` or `UpperWall_{id}` match the interior ID.
    - Inside the building: associated roof and upper-wall meshes are set to `Visibility::Hidden` (or material alpha faded), rendering the room fully readable from the top-down angle.
    - Outside the building: roofs render fully opaque with directional shadows cast on surrounding roads.
 
 3. **Camera Line-of-Sight Wall Occlusion Fading:**
-   - The presentation system raycasts from the active `Camera3d` toward the survivor center against static world obstacles (`GROUP_WORLD`).
+   - The presentation system raycasts from the active `Camera3d` toward the survivor center against static world obstacles (`GROUP_WORLD` marked `Obstacle`, including `Occluder_*` shells).
    - Any intervening obstacle receives an `OccludedWall` marker and swaps its `MeshMaterial3d<StandardMaterial>` to a semi-transparent blend material ($\alpha = 0.30$, `AlphaMode::Blend`).
    - When the camera line-of-sight to the survivor clears, the obstacle's original material is restored and `OccludedWall` is removed.
 

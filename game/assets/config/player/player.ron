@@ -1,5 +1,6 @@
 (
     aim_height: 0.9,
+    muzzle_height: 0.45,
     radius: 0.45,
     half_height: 0.45,
     walk_speed: 7.5,

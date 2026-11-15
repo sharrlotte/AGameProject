@@ -12,22 +12,70 @@ use super::map::{
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct MapNodeProcessed;
 
+/// Resolves a mesh handle from an entity or its descendants, because glTF mesh primitives spawn on child entities.
+fn resolve_mesh_handle(
+    entity: Entity,
+    meshes: &Query<&Mesh3d>,
+    children: &Query<&Children>,
+) -> Option<Handle<Mesh>> {
+    if let Ok(mesh) = meshes.get(entity) {
+        return Some(mesh.0.clone());
+    }
+
+    let mut stack = vec![entity];
+    while let Some(current) = stack.pop() {
+        let Ok(child_list) = children.get(current) else {
+            continue;
+        };
+        for child in child_list.iter() {
+            if let Ok(mesh) = meshes.get(child) {
+                return Some(mesh.0.clone());
+            }
+            stack.push(child);
+        }
+    }
+    None
+}
+
+/// Shape used when converting a map node's mesh into a collider.
+#[derive(Clone, Copy)]
+enum ColliderShape {
+    Surface,
+    Solid,
+}
+
+impl ColliderShape {
+    fn computed(self) -> ComputedColliderShape {
+        match self {
+            Self::Surface => ComputedColliderShape::TriMesh(TriMeshFlags::default()),
+            Self::Solid => ComputedColliderShape::ConvexHull,
+        }
+    }
+}
+
+/// Builds a collider from the node's resolved mesh when the asset is loaded.
+fn mesh_collider(
+    entity: Entity,
+    shape: ColliderShape,
+    meshes: &Assets<Mesh>,
+    mesh_query: &Query<&Mesh3d>,
+    children: &Query<&Children>,
+) -> Option<Collider> {
+    let handle = resolve_mesh_handle(entity, mesh_query, children)?;
+    let mesh = meshes.get(&handle)?;
+    Collider::from_bevy_mesh(mesh, &shape.computed())
+}
+
 /// Scans spawned glTF scene nodes and classifies them based on name prefixes.
 #[allow(clippy::type_complexity)]
 pub fn inspect_map_scene_nodes(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    nodes: Query<
-        (
-            Entity,
-            &Name,
-            Option<&Mesh3d>,
-            Option<&Transform>,
-        ),
-        Without<MapNodeProcessed>,
-    >,
+    mesh_query: Query<&Mesh3d>,
+    children: Query<&Children>,
+    nodes: Query<(Entity, &Name), Without<MapNodeProcessed>>,
 ) {
-    for (entity, name, mesh_handle, _transform) in &nodes {
+    for (entity, name) in &nodes {
         commands.entity(entity).insert(MapNodeProcessed);
         let name_str = name.as_str();
 
@@ -41,12 +89,23 @@ pub fn inspect_map_scene_nodes(
                 Visibility::Hidden,
             ));
 
-            if let Some(handle) = mesh_handle
-                && let Some(mesh) = meshes.get(handle.id())
-                && let Some(collider) = Collider::from_bevy_mesh(
-                    mesh,
-                    &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
-                ) {
+            if let Some(collider) =
+                mesh_collider(entity, ColliderShape::Surface, &meshes, &mesh_query, &children)
+            {
+                entity_cmds.insert(collider);
+            }
+        } else if name_str.starts_with("Occluder_") {
+            let mut entity_cmds = commands.entity(entity);
+            entity_cmds.insert((
+                ColliderMesh,
+                Obstacle,
+                RigidBody::Fixed,
+                CollisionGroups::new(GROUP_WORLD, Group::ALL),
+            ));
+
+            if let Some(collider) =
+                mesh_collider(entity, ColliderShape::Surface, &meshes, &mesh_query, &children)
+            {
                 entity_cmds.insert(collider);
             }
         } else if name_str == "Spawn_Player" {
@@ -66,12 +125,9 @@ pub fn inspect_map_scene_nodes(
                 Visibility::Hidden,
             ));
 
-            if let Some(handle) = mesh_handle
-                && let Some(mesh) = meshes.get(handle.id())
-                && let Some(collider) = Collider::from_bevy_mesh(
-                    mesh,
-                    &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
-                ) {
+            if let Some(collider) =
+                mesh_collider(entity, ColliderShape::Solid, &meshes, &mesh_query, &children)
+            {
                 entity_cmds.insert(collider);
             }
         } else if let Some(id) = name_str
@@ -85,25 +141,28 @@ pub fn inspect_map_scene_nodes(
     }
 }
 
-/// Generates colliders for any ColliderMesh or InteriorVolume entities whose mesh finished loading asynchronously.
+/// Generates colliders for any ColliderMesh or InteriorVolume entity whose mesh finished loading asynchronously.
 #[allow(clippy::type_complexity)]
 pub fn generate_pending_mesh_colliders(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
+    mesh_query: Query<&Mesh3d>,
+    children: Query<&Children>,
     pending: Query<
-        (Entity, &Mesh3d),
+        (Entity, Option<&InteriorVolume>),
         (
             Or<(With<ColliderMesh>, With<InteriorVolume>)>,
             Without<Collider>,
         ),
     >,
 ) {
-    for (entity, handle) in &pending {
-        if let Some(mesh) = meshes.get(handle.id())
-            && let Some(collider) = Collider::from_bevy_mesh(
-                mesh,
-                &ComputedColliderShape::TriMesh(TriMeshFlags::default()),
-            ) {
+    for (entity, interior) in &pending {
+        let shape = if interior.is_some() {
+            ColliderShape::Solid
+        } else {
+            ColliderShape::Surface
+        };
+        if let Some(collider) = mesh_collider(entity, shape, &meshes, &mesh_query, &children) {
             commands.entity(entity).insert(collider);
         }
     }

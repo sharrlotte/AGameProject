@@ -518,8 +518,8 @@ fn firing_respects_shooter_translation_elevation() {
         .iter()
         .find(|m| m.shooter == player)
         .expect("WeaponFiredMessage emitted");
-    let aim_height = app.world().resource::<PlayerConfig>().aim_height;
-    assert!((fire_msg.origin.y - (elevated_y + aim_height)).abs() < 1e-4);
+    let muzzle_height = app.world().resource::<PlayerConfig>().muzzle_height;
+    assert!((fire_msg.origin.y - (elevated_y + muzzle_height)).abs() < 1e-4);
 }
 
 #[test]

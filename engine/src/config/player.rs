@@ -5,6 +5,8 @@ use serde::Deserialize;
 #[derive(Asset, Resource, TypePath, Debug, Clone, Deserialize)]
 pub struct PlayerConfig {
     pub aim_height: f32,
+    /// Vertical weapon muzzle offset above the survivor origin (capsule center).
+    pub muzzle_height: f32,
     pub radius: f32,
     pub half_height: f32,
     pub walk_speed: f32,
@@ -22,6 +24,7 @@ impl Default for PlayerConfig {
     fn default() -> Self {
         Self {
             aim_height: 0.9,
+            muzzle_height: 0.45,
             radius: 0.45,
             half_height: 0.45,
             walk_speed: 7.5,

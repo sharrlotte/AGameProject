@@ -21,7 +21,8 @@ Combat responsiveness is the #1 priority. Movement and aiming are strictly decou
 
 Weapons use converted GLB models (m16, m1911, mp5, mp7, scar) with approximate sockets. The weapon
 anchor sits at chest height (`anchor.offset.y = 1.4`). A muzzle flash VFX spawns at the projectile
-origin on fire. Bullets spawn at `muzzle_offset = 0.6` (tuned to the visual muzzle).
+origin on fire. The simulation muzzle origin is the survivor origin plus `PlayerConfig::muzzle_height`
+(0.45 m in `game/assets/config/player/player.ron`) advanced by the weapon `muzzle_offset` (0.6 m).
 
 The single source of truth is the unified `WeaponDefinition` in `engine::config`, authored in
 `game/assets/config/weapon/weapon.ron`. One roster of `m16`, `m1911`, `mp5`, `mp7`, and `scar` carries

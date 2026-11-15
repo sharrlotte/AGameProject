@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier3d::parry::shape::TypedShape;
 use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::rapier::geometry::CollisionEventFlags;
 
@@ -52,6 +53,13 @@ fn test_inspect_map_scene_nodes_classification() {
         .world_mut()
         .spawn((Name::new("Ground_Tile"), Transform::default()))
         .id();
+    let occluder_node = app
+        .world_mut()
+        .spawn((
+            Name::new("Occluder_GasStation_Wall_North"),
+            Transform::default(),
+        ))
+        .id();
 
     app.update();
 
@@ -104,6 +112,16 @@ fn test_inspect_map_scene_nodes_classification() {
         .get::<RoofOcclusion>(wall_node)
         .expect("wall occlusion");
     assert_eq!(wall.interior_id, "gas_station");
+
+    // Occluder stays renderable while blocking line of sight.
+    assert!(world.get::<ColliderMesh>(occluder_node).is_some());
+    assert!(world.get::<Obstacle>(occluder_node).is_some());
+    assert!(world.get::<RigidBody>(occluder_node).is_some());
+    assert!(world.get::<Visibility>(occluder_node).is_none());
+    let occluder_groups = world
+        .get::<CollisionGroups>(occluder_node)
+        .expect("occluder collision groups");
+    assert_eq!(occluder_groups.memberships, GROUP_WORLD);
 
     // Scenery untouched
     assert!(world.get::<ColliderMesh>(scenery_node).is_none());
@@ -238,6 +256,117 @@ fn test_generate_pending_interior_mesh_colliders() {
     app.update();
 
     assert!(app.world().get::<Collider>(interior).is_some());
+}
+
+#[test]
+fn test_generate_pending_collider_from_child_mesh() {
+    let mut app = App::new();
+    let mut meshes = Assets::<Mesh>::default();
+    let mesh_handle = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+    app.insert_resource(meshes);
+    app.add_systems(Update, generate_pending_mesh_colliders);
+
+    let interior = app
+        .world_mut()
+        .spawn(InteriorVolume {
+            id: "store".to_string(),
+        })
+        .id();
+    app.world_mut().spawn((
+        Name::new("Cube"),
+        Mesh3d(mesh_handle),
+        ChildOf(interior),
+    ));
+
+    app.update();
+
+    assert!(app.world().get::<Collider>(interior).is_some());
+}
+
+#[test]
+fn test_inspect_map_scene_nodes_resolves_child_primitives() {
+    let mut app = App::new();
+    let mut meshes = Assets::<Mesh>::default();
+    let mesh_handle = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+    app.insert_resource(meshes);
+    app.add_systems(Update, inspect_map_scene_nodes);
+
+    let trigger = app
+        .world_mut()
+        .spawn((Name::new("Trigger_Interior_gas_station"), Transform::default()))
+        .id();
+    app.world_mut().spawn((
+        Name::new("Cube.001"),
+        Mesh3d(mesh_handle.clone()),
+        ChildOf(trigger),
+    ));
+    let occluder = app
+        .world_mut()
+        .spawn((Name::new("Occluder_Wall"), Transform::default()))
+        .id();
+    app.world_mut().spawn((
+        Name::new("Cube.002"),
+        Mesh3d(mesh_handle.clone()),
+        ChildOf(occluder),
+    ));
+
+    app.update();
+
+    assert!(app.world().get::<Collider>(trigger).is_some());
+    assert_eq!(
+        app.world().get::<Visibility>(trigger),
+        Some(&Visibility::Hidden)
+    );
+    assert!(app.world().get::<Collider>(occluder).is_some());
+    assert!(app.world().get::<Obstacle>(occluder).is_some());
+    assert!(app.world().get::<Visibility>(occluder).is_none());
+}
+
+#[test]
+fn test_interior_trigger_uses_solid_collider() {
+    let mut app = App::new();
+    let mut meshes = Assets::<Mesh>::default();
+    let mesh_handle = meshes.add(Cuboid::new(2.0, 2.0, 2.0).mesh());
+    app.insert_resource(meshes);
+    app.add_systems(Update, inspect_map_scene_nodes);
+
+    let trigger = app
+        .world_mut()
+        .spawn((Name::new("Trigger_Interior_store"), Transform::default()))
+        .id();
+    app.world_mut().spawn((
+        Name::new("Cube"),
+        Mesh3d(mesh_handle.clone()),
+        ChildOf(trigger),
+    ));
+    let occluder = app
+        .world_mut()
+        .spawn((Name::new("Occluder_Wall"), Transform::default()))
+        .id();
+    app.world_mut().spawn((
+        Name::new("Cube.001"),
+        Mesh3d(mesh_handle),
+        ChildOf(occluder),
+    ));
+
+    app.update();
+
+    let trigger_collider = app
+        .world()
+        .get::<Collider>(trigger)
+        .expect("trigger collider");
+    assert!(matches!(
+        trigger_collider.raw.as_typed_shape(),
+        TypedShape::ConvexPolyhedron(_)
+    ));
+    let occluder_collider = app
+        .world()
+        .get::<Collider>(occluder)
+        .expect("occluder collider");
+    assert!(matches!(
+        occluder_collider.raw.as_typed_shape(),
+        TypedShape::TriMesh(_)
+    ));
 }
 
 #[test]

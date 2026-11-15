@@ -4,9 +4,7 @@
 
 Weapon roster: available weapons, their simulation specs and presentation profiles, model/socket
 contract, and switching between slots.
-
 ## Requirements
-
 ### Requirement: Weapon roster defines multiple playable weapons
 The simulation SHALL define the playable weapon roster through a single unified `WeaponDefinition` owned
 by the config foundation, containing at least five weapons — `m16`, `m1911`, `mp5`, `mp7`, and `scar` — each
@@ -100,4 +98,17 @@ The input and combat simulation SHALL cast a physics ray from the camera through
 - **THEN** the projectile spawns at the survivor muzzle position with 3D linear velocity directed toward `aim_world`
 - **AND** the projectile entity does not have vertical translation locked (`LockedAxes::TRANSLATION_LOCKED_Y`), traveling directly toward the targeted 3D position
 
+### Requirement: Projectile spawn origin computes relative to shooter translation
+
+When a weapon fires, projectile muzzle position SHALL be calculated relative to the shooter's actual dynamic translation, adding the configured `PlayerConfig::muzzle_height` to the shooter's `translation.y` and then adding the forward aim vector multiplied by the weapon definition's `muzzle_offset`.
+
+#### Scenario: Bullet spawns at shooter dynamic elevation
+
+- **WHEN** a weapon is fired from a shooter entity at position $(X, Y, Z)$
+- **THEN** the initial projectile translation has $Y = \text{translation}.y + \text{muzzle\_height}$ and is offset forward along the aim direction by `muzzle_offset`
+
+#### Scenario: Muzzle height follows configuration
+
+- **WHEN** `muzzle_height` differs from `aim_height`
+- **THEN** the projectile origin uses `muzzle_height` only, so the survivor origin is never elevated twice
 

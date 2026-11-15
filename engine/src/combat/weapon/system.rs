@@ -173,7 +173,7 @@ pub fn handle_weapon_fire(
         };
         let muzzle_pos = Vec3::new(
             transform.translation.x,
-            transform.translation.y + player_cfg.aim_height,
+            transform.translation.y + player_cfg.muzzle_height,
             transform.translation.z,
         ) + forward * weapon.muzzle_offset();
 

@@ -21,11 +21,32 @@ road = bpy.context.active_object
 road.name = "Visual_Road_Main"
 road.scale = (1.0, 5.0, 1.0)
 
-# 3. Gas station building visual exterior walls (Center: X=10, glTF Y=2.5, glTF Z=0)
-bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 0.0, 2.5))
-bldg = bpy.context.active_object
-bldg.name = "Visual_GasStation_Building"
-bldg.scale = (14.0, 10.0, 5.0)
+# 3. Gas station hollow walls (Occluder_ prefix: visible + static collider + camera line-of-sight fade)
+# Footprint X 3..17, glTF Z -5..5, height 5
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(3.2, 0.0, 2.5))
+wall_w = bpy.context.active_object
+wall_w.name = "Occluder_GasStation_Wall_West"
+wall_w.scale = (0.4, 10.0, 5.0)
+
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(16.8, 0.0, 2.5))
+wall_e = bpy.context.active_object
+wall_e.name = "Occluder_GasStation_Wall_East"
+wall_e.scale = (0.4, 10.0, 5.0)
+
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 4.8, 2.5))
+wall_n = bpy.context.active_object
+wall_n.name = "Occluder_GasStation_Wall_North"
+wall_n.scale = (14.0, 0.4, 5.0)
+
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(5.5, -4.8, 2.5))
+wall_sa = bpy.context.active_object
+wall_sa.name = "Occluder_GasStation_Wall_South_A"
+wall_sa.scale = (5.0, 0.4, 5.0)
+
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(14.5, -4.8, 2.5))
+wall_sb = bpy.context.active_object
+wall_sb.name = "Occluder_GasStation_Wall_South_B"
+wall_sb.scale = (5.0, 0.4, 5.0)
 
 # 4. Gas station Roof (tagged for interior cutaway occlusion: glTF Y=5.2)
 bpy.ops.mesh.primitive_cube_add(size=1.0, location=(10.0, 0.0, 5.2))

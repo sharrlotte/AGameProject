@@ -3,9 +3,7 @@
 ## Purpose
 
 Defines how the simulation loads, inspects, and binds authored glTF arena maps, including collision extraction, gameplay spatial anchors, and building interior cutaways.
-
 ## Requirements
-
 ### Requirement: Authored glTF scene map loading
 
 The simulation SHALL load hand-crafted district maps from glTF/GLB assets when entering `Scene::Arena`. The active map path SHALL be configurable or defaulted to `maps/district_01.glb`.
@@ -33,13 +31,13 @@ The simulation SHALL inspect the instantiated glTF scene hierarchy and convert e
 ### Requirement: Map spatial markers for gameplay entities
 
 The simulation SHALL query named nodes in the map hierarchy to configure gameplay entities:
-- `Spawn_Player`: sets the starting survivor position and orientation.
+- `Spawn_Player`: sets the starting survivor horizontal position and orientation while preserving the survivor's configured aim/base height (`cfg.aim_height`).
 - `Spawn_Enemy` / `Spawn_Enemy_{Kind}`: creates spawner anchor entities for horde escalation.
 - `Extract_Zone`: positions the extraction zone sensor and visual pad.
 
 #### Scenario: Survivor spawns at authored marker
 - **WHEN** the arena scene finishes loading with a `Spawn_Player` marker
-- **THEN** the survivor entity is positioned at that marker's translation
+- **THEN** the survivor entity is positioned at that marker's X and Z coordinates with Y set to the configured player elevation (`cfg.aim_height`)
 
 #### Scenario: Enemy spawners anchor escalation
 - **WHEN** enemy spawn systems execute
@@ -47,7 +45,17 @@ The simulation SHALL query named nodes in the map hierarchy to configure gamepla
 
 ### Requirement: Building interior roof cutaway occlusion
 
-The simulation SHALL detect when the survivor enters an interior trigger volume prefixed with `Trigger_Interior_{id}`. While the survivor is inside, any mesh prefixed with `Roof_{id}` or `UpperWall_{id}` MUST have its visibility hidden. When the survivor exits, the roof meshes MUST return to their default visibility.
+The simulation SHALL detect when the survivor enters an interior trigger volume prefixed with `Trigger_Interior_{id}`. Trigger entities SHALL receive a Rapier sensor `Collider` and `ActiveEvents::COLLISION_EVENTS` with visual mesh hidden. While the survivor is inside, any mesh prefixed with `Roof_{id}` or `UpperWall_{id}` MUST have its visibility hidden. When the survivor exits, the roof meshes MUST return to their default visibility. Building shells SHALL be authored as hollow `Occluder_*` wall segments so hiding the roof reveals the interior.
+
+Interior trigger colliders SHALL be solid convex volumes (e.g. `ConvexHull` computed from the authored mesh), NOT surface trimeshes. A surface trimesh sensor only reports contacts when a shape crosses the surface, so a survivor fully enclosed by the trigger volume would never be detected and the roof would incorrectly reappear while standing inside the building.
+
+#### Scenario: Trigger entity receives collider and collision events
+- **WHEN** a map scene node named `Trigger_Interior_{id}` is processed
+- **THEN** it receives `Sensor`, a valid Rapier convex solid `Collider`, `ActiveEvents::COLLISION_EVENTS`, and `Visibility::Hidden`
+
+#### Scenario: Survivor fully inside trigger volume is detected
+- **WHEN** the survivor is fully enclosed by the trigger volume without crossing any face this frame
+- **THEN** the sensor reports overlap and the linked interior is treated as active
 
 #### Scenario: Survivor enters building and roof hides
 - **WHEN** the survivor enters the sensor volume of `Trigger_Interior_GasStation`
@@ -76,3 +84,28 @@ The presentation system SHALL perform raycasting from the active `Camera3d` towa
 #### Scenario: Wall no longer occluding survivor is restored
 - **WHEN** an occluded obstacle entity is no longer intersected by the camera ray
 - **THEN** its original material handle is restored and `OccludedWall` is removed
+
+### Requirement: Renderable occluder geometry
+
+Map nodes prefixed with `Occluder_` SHALL be treated as visible static obstacles: they keep their renderable mesh while receiving `Obstacle`, `RigidBody::Fixed`, `GROUP_WORLD` collision groups, and a Rapier `Collider`. Collision-only `Collider_*` nodes SHALL stay hidden and `Visual_*` nodes SHALL stay collider-free.
+
+#### Scenario: Occluder wall is visible and solid
+- **WHEN** a map scene node named `Occluder_{Name}` is processed
+- **THEN** it receives `Obstacle`, a static Rapier `Collider`, and keeps its mesh visible
+
+#### Scenario: Occluder mesh loads asynchronously
+- **WHEN** an `Occluder_*` node's mesh is not yet available during inspection
+- **THEN** its collider is generated as soon as the mesh asset finishes loading
+
+### Requirement: Camera raycast line-of-sight occlusion fading
+
+The presentation camera system SHALL cast a ray from the active camera toward the survivor's focus point. Any `Obstacle` entity intercepting the line of sight before the survivor MUST have its material swapped to the transparent occlusion material while occluding the survivor.
+
+#### Scenario: Exterior wall occludes camera view of survivor
+- **WHEN** an obstacle entity intercepts the camera ray to the survivor
+- **THEN** the occluding entity is marked `OccludedWall` and rendered with the transparent occlusion material
+
+#### Scenario: Survivor moves out from behind exterior wall
+- **WHEN** the camera ray to the survivor is unobstructed
+- **THEN** previously occluded obstacles are restored to their original material
+
