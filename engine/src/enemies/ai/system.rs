@@ -152,7 +152,7 @@ pub fn steer_enemies(
 
         let pos = transform.translation;
         let mut linear = enemy.knockback_vel;
-        let rooted = matches!(brain.state, BrainState::Idle | BrainState::Stagger)
+        let rooted = matches!(brain.state, BrainState::Stagger)
             || melee.is_some_and(Melee::is_winding)
             || ranged.is_some_and(Ranged::is_winding)
             || fuse.is_some_and(Fuse::is_armed);
@@ -222,11 +222,17 @@ fn separation(
         let min_dist = radius + *other_radius;
         let delta = Vec3::new(pos.x - other_pos.x, 0.0, pos.z - other_pos.z);
         let dist = delta.length();
-        if dist <= 1e-4 || dist >= cfg.separation_radius.max(min_dist) {
+        let max_range = cfg.separation_radius.max(min_dist);
+        if dist >= max_range {
             continue;
         }
-        let weight = 1.0 - (dist / cfg.separation_radius.max(min_dist));
-        push += (delta / dist) * weight;
+        let (dir, weight) = if dist <= 1e-4 {
+            let angle = (entity.to_bits() ^ other.to_bits()) as f32;
+            (Vec3::new(angle.cos(), 0.0, angle.sin()), 1.0)
+        } else {
+            (delta / dist, 1.0 - (dist / max_range))
+        };
+        push += dir * weight;
     }
     push.clamp_length_max(1.0) * cfg.separation_strength
 }

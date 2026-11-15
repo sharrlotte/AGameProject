@@ -49,6 +49,7 @@ With a pierce cost of 4.0, the Tank intentionally acts as a physical wall agains
 ```
 - **States:** `Idle`, `Alert`, `Engage`, `Stagger`, stored on `EnemyBrain` with the current target, last known target position, alert timer, stagger timer, and unseen duration.
 - **Aggro:** an `Idle` enemy enters `Engage` and records the survivor as target when the survivor is within `aggro_radius`.
+- **Idle Separation:** an `Idle` enemy has zero target chase velocity, but computes and applies flocking separation against adjacent enemies and preserves physics contact impulses, preventing stationary packs from stacking together.
 - **Deaggro:** an `Engage` enemy keeps updating its target while the survivor is within `deaggro_radius`; after the survivor has been outside that radius for `deaggro_secs` it enters `Alert` and remembers the last known position.
 - **Alert:** steering follows the remembered position. Re-entering `aggro_radius` returns to `Engage`; when `alert_secs` elapses the brain clears its target and returns to `Idle`.
 - **Stagger:** damage whose accumulated knockback velocity exceeds `stagger_threshold` enters `Stagger` for `stagger_secs`, cancels steering and wind-ups, then returns to `Engage` when a target exists, otherwise to `Alert`.
@@ -70,7 +71,13 @@ With a pierce cost of 4.0, the Tank intentionally acts as a physical wall agains
 - **Tiering:** an archetype only joins the spawn roll once `RunStats.elapsed_secs` reaches its `spawn.unlock_secs`.
 - **Weighted roll:** eligible archetypes are selected proportionally to `spawn.weight`; a roster with no positive weight is rejected at load time.
 - **Caps:** each archetype stops spawning at `spawn.max_active`, and the global active-enemy cap from escalation stops all spawning for that tick.
-- **Placement:** enemies spawn on the arena edge at least `min_spawn_dist_from_survivor` away from every survivor, with the capsule center at `radius + half_height` so every archetype sits on the ground.
+- **Placement & Scatter:**
+  - When map spawner markers exist (`Spawn_Enemy` / `Spawn_Enemy_{Kind}`), candidate spawn positions are radially scattered $r \in [1.5\,\text{m}, 3.5\,\text{m}]$ around the marker at random yaw, clamped to arena bounds.
+  - Spatial clearance validation requires candidate distance to every living enemy to be at least $r_{\text{candidate}} + r_{\text{existing}} + 0.2\,\text{m}$.
+  - If 8 scatter attempts fail due to clearance crowding, spawning falls back to arena edge placement.
+  - Enemies spawn on the arena edge at least `min_spawn_dist_from_survivor` away from every survivor when no markers exist or markers are fully crowded.
+  - Newly spawned enemies are oriented with `FacingDirection` pointing inward toward map center $(0, 0, 0)$.
+  - The capsule center sits at `radius + half_height` so every archetype sits on the ground.
 - **Hot reload:** stat and behavior values, spawn policy, and scrap values update from `enemies.ron` while running. Adding or removing a behavior on a live archetype logs a warning and applies on the next deploy.
 
 

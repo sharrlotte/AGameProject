@@ -100,9 +100,11 @@ MUST make ordinary bullet hits insufficient to stagger it.
 ### Requirement: Steering and separation
 
 Enemies SHALL steer toward their target while in `Engage`, toward the last known position while in
-`Alert`, and MUST NOT steer while in `Idle`, `Stagger`, an active melee or ranged wind-up, or while an
+`Alert`, and MUST NOT steer toward targets while in `Idle`, `Stagger`, an active melee or ranged wind-up, or while an
 armed fuse roots the attacker. Steering MUST include a separation term that pushes overlapping enemies
-apart without requiring a spatial grid.
+apart without requiring a spatial grid. While in `Idle`, target chase velocity MUST remain zero, but pairwise
+separation forces and dynamic physics contact impulses MUST be applied so that adjacent or overlapping enemies
+disperse without overwriting linear velocity to zero every frame.
 
 #### Scenario: Engage chases the target
 
@@ -118,6 +120,11 @@ apart without requiring a spatial grid.
 
 - **WHEN** two enemies overlap and are both steering
 - **THEN** their separation terms push them in opposing lateral directions
+
+#### Scenario: Idle enemies separate without chasing
+
+- **WHEN** two or more enemies are in `BrainState::Idle` and overlap within their separation radius
+- **THEN** pairwise separation forces and physics impulses move them apart while their target chase velocity remains zero
 
 ### Requirement: Directional damage and armor
 
@@ -200,6 +207,22 @@ no enemy is spawned for that tick.
 
 - **WHEN** the total active enemy count reaches the global maximum
 - **THEN** no new enemy is spawned
+
+### Requirement: Spawner marker scatter and occupancy validation
+
+When spawning enemies from map spawner markers (`EnemySpawnerMarker`), the simulation SHALL apply a pseudo-random radial scatter offset ($r \in [1.5\,\text{m}, 3.5\,\text{m}]$) around the marker anchor position. A candidate spawn position MUST be validated against living enemies to ensure its center is at least $2 \times \text{radius} + 0.2\,\text{m}$ away from any existing enemy collider. If all scatter candidates fail due to crowding, the spawner MUST fall back to perimeter edge spawning.
+
+#### Scenario: Enemy spawns with radial scatter around marker
+- **WHEN** an enemy is spawned using a map spawner marker
+- **THEN** its initial translation is offset radially from the marker by $1.5\,\text{m}$ to $3.5\,\text{m}$ rather than at the exact marker coordinates
+
+#### Scenario: Crowded spawner falls back to edge placement
+- **WHEN** all candidate positions around a spawner marker are occupied by living enemies within their collision radii
+- **THEN** the simulation falls back to perimeter edge spawning away from the survivor
+
+#### Scenario: Spawned enemy faces outward
+- **WHEN** an enemy is spawned at an offset position
+- **THEN** its initial `FacingDirection` points toward the map play area center
 
 ### Requirement: Tank archetype
 

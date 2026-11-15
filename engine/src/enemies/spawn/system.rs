@@ -57,6 +57,12 @@ pub fn spawn_enemy_entity(
     arch: &EnemyArchetypeData,
     spawn_pos: Vec3,
 ) -> Entity {
+    let facing_dir = if Vec2::new(spawn_pos.x, spawn_pos.z).length_squared() > 1e-4 {
+        Vec3::new(-spawn_pos.x, 0.0, -spawn_pos.z).normalize()
+    } else {
+        Vec3::NEG_Z
+    };
+
     let entity = commands
         .spawn((
             (
@@ -64,7 +70,7 @@ pub fn spawn_enemy_entity(
                 RunEntity,
                 Enemy::from_archetype(arch),
                 EnemyBrain::default(),
-                FacingDirection(Vec3::NEG_Z),
+                FacingDirection(facing_dir),
                 Health::new(arch.max_hp),
                 DespawnOnExit(GameScene::Arena),
             ),
@@ -130,11 +136,51 @@ pub fn escalated_spawn_params(elapsed_secs: f32, cfg: &EnemiesConfig) -> (f32, u
     (interval.max(0.1), max_active.round().max(1.0) as usize)
 }
 
-fn count_kind(enemies: &Query<&Enemy>, kind: EnemyKind) -> usize {
-    enemies.iter().filter(|enemy| enemy.kind == kind).count()
+/// Samples a candidate spawn position with radial scatter around a marker position,
+/// ensuring it does not collide with living enemies or lie too close to survivors.
+pub fn pick_marker_spawn_pos(
+    marker_pos: Vec3,
+    chosen: &EnemyArchetypeData,
+    arena_cfg: &ArenaConfig,
+    enemies_cfg: &EnemiesConfig,
+    living_enemies: &[(Vec3, f32)],
+    survivors: &[Vec3],
+) -> Option<Vec3> {
+    let edge_limit = (arena_cfg.half_size - enemies_cfg.edge_spawn_inset).max(2.0);
+
+    for _ in 0..12 {
+        let angle = rand::random_range(0.0..std::f32::consts::TAU);
+        let radius = rand::random_range(1.5..=3.5);
+        let candidate = Vec3::new(
+            (marker_pos.x + angle.cos() * radius).clamp(-edge_limit, edge_limit),
+            chosen.collider_center_y(),
+            (marker_pos.z + angle.sin() * radius).clamp(-edge_limit, edge_limit),
+        );
+
+        let far_from_survivors = survivors.iter().all(|s| {
+            Vec2::new(candidate.x - s.x, candidate.z - s.z).length()
+                >= enemies_cfg.min_spawn_dist_from_survivor
+        });
+        if !far_from_survivors {
+            continue;
+        }
+
+        let not_crowded = living_enemies.iter().all(|(pos, other_radius)| {
+            let min_dist = chosen.radius + other_radius + 0.2;
+            Vec2::new(candidate.x - pos.x, candidate.z - pos.z).length_squared() >= min_dist * min_dist
+        });
+        if not_crowded {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
-fn collect_counts(enemies: &Query<&Enemy>, cfg: &EnemiesConfig) -> Vec<(EnemyKind, usize)> {
+fn count_kind(enemies: &Query<(&Transform, &Enemy)>, kind: EnemyKind) -> usize {
+    enemies.iter().filter(|(_, enemy)| enemy.kind == kind).count()
+}
+
+fn collect_counts(enemies: &Query<(&Transform, &Enemy)>, cfg: &EnemiesConfig) -> Vec<(EnemyKind, usize)> {
     cfg.archetypes
         .iter()
         .map(|arch| (arch.kind, count_kind(enemies, arch.kind)))
@@ -183,7 +229,7 @@ pub fn pick_archetype<'a>(
     eligible.last().copied()
 }
 
-/// Rolls one eligible archetype and spawns it along the arena edge.
+/// Rolls one eligible archetype and spawns it along the arena edge or scattered around a marker.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_enemies(
     mut commands: Commands,
@@ -192,7 +238,7 @@ pub fn spawn_enemies(
     enemies_cfg: Res<EnemiesConfig>,
     stats: Res<RunStats>,
     mut spawner: ResMut<EnemySpawner>,
-    existing_enemies: Query<&Enemy>,
+    existing_enemies: Query<(&Transform, &Enemy)>,
     survivors: Query<&Transform, With<Survivor>>,
     spawner_markers: Query<(&Transform, &EnemySpawnerMarker)>,
 ) {
@@ -222,25 +268,47 @@ pub fn spawn_enemies(
         return;
     }
 
-    let marker_candidates: Vec<Vec3> = spawner_markers
+    let living_enemies: Vec<(Vec3, f32)> = existing_enemies
+        .iter()
+        .map(|(t, e)| (t.translation, e.radius))
+        .collect();
+
+    let matching_markers: Vec<Vec3> = spawner_markers
         .iter()
         .filter(|(_, marker)| {
             marker.kind_filter.as_ref().is_none_or(|filter| {
                 filter.eq_ignore_ascii_case(chosen.kind.label())
             })
         })
-        .map(|(t, _)| Vec3::new(t.translation.x, chosen.collider_center_y(), t.translation.z))
-        .filter(|pos| {
-            survivor_positions.iter().all(|s| {
-                Vec2::new(pos.x - s.x, pos.z - s.z).length()
-                    >= enemies_cfg.min_spawn_dist_from_survivor
-            })
-        })
+        .map(|(t, _)| t.translation)
         .collect();
 
-    let spawn_pos = if !marker_candidates.is_empty() {
-        let idx = rand::random_range(0..marker_candidates.len());
-        marker_candidates[idx]
+    let spawn_pos = if !matching_markers.is_empty() {
+        let mut picked = None;
+        let mut indices: Vec<usize> = (0..matching_markers.len()).collect();
+        while !indices.is_empty() {
+            let pick_idx = rand::random_range(0..indices.len());
+            let marker_idx = indices.swap_remove(pick_idx);
+            if let Some(pos) = pick_marker_spawn_pos(
+                matching_markers[marker_idx],
+                chosen,
+                &arena_cfg,
+                &enemies_cfg,
+                &living_enemies,
+                &survivor_positions,
+            ) {
+                picked = Some(pos);
+                break;
+            }
+        }
+        picked.unwrap_or_else(|| {
+            pick_edge_spawn_pos(
+                &survivor_positions,
+                &arena_cfg,
+                &enemies_cfg,
+                chosen.collider_center_y(),
+            )
+        })
     } else {
         pick_edge_spawn_pos(
             &survivor_positions,
@@ -249,5 +317,6 @@ pub fn spawn_enemies(
             chosen.collider_center_y(),
         )
     };
+
     spawn_enemy_entity(&mut commands, chosen, spawn_pos);
 }

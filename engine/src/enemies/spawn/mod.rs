@@ -3,6 +3,6 @@ pub mod system;
 
 pub use state::EnemySpawner;
 pub use system::{
-    eligible_archetypes, escalated_spawn_params, pick_archetype, reset_spawner, spawn_enemies,
-    spawn_enemy_entity,
+    eligible_archetypes, escalated_spawn_params, pick_archetype, pick_marker_spawn_pos, reset_spawner,
+    spawn_enemies, spawn_enemy_entity,
 };

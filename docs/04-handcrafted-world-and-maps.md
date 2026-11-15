@@ -12,7 +12,7 @@ The map loader parses the glTF scene hierarchy on load and binds entities to sim
 | Object / Empty Prefix | Function | Runtime Component / Behavior |
 | :--- | :--- | :--- |
 | `Spawn_Player` | Initial survivor insertion point and yaw | `Transform`, defines spawn position in `Scene::Arena` |
-| `Spawn_Enemy` / `Spawn_Enemy_{Kind}` | Spawner markers for horde escalation | `EnemySpawner`, bounds spawn candidates by distance |
+| `Spawn_Enemy` / `Spawn_Enemy_{Kind}` | Spawner markers for horde escalation | `EnemySpawner`; serves as focal point for radial scatter candidates ($r \in [1.5\,\text{m}, 3.5\,\text{m}]$) with clearance checking |
 | `Collider_*` | Static physical collision geometry | Low-poly mesh converted to static `Collider` (`bevy_rapier3d`), `GROUP_WORLD` collision group; visual mesh hidden or invisible |
 | `Visual_*` or default meshes | Pure visual environment geometry | Rendered with PBR materials, no physics colliders |
 | `Trigger_Interior_{id}` | Building interior trigger volume | Sensor collider; entering triggers occlusion fade on associated roof meshes |

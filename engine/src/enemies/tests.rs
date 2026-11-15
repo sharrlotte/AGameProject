@@ -6,7 +6,7 @@ use bevy_rapier3d::prelude::Velocity;
 use crate::common::{Armor, DamageKind, Dying, EnemyKind};
 use crate::config::{Behavior, ConfigHotReloadedMessage, EnemiesConfig, EnemyArchetypeData};
 use crate::message::messages::{DamageMessage, EnemyKilledMessage};
-use crate::world::{Health, PlayerConfig, Survivor};
+use crate::world::{ArenaConfig, Health, PlayerConfig, Survivor};
 
 use super::ai::state::{Enemy, FacingDirection};
 use super::ai::system::{steer_enemies, sync_enemies_hot_reload};
@@ -16,7 +16,7 @@ use super::damage::apply_enemy_damage;
 use super::detonate::Fuse;
 use super::melee::{Melee, enemy_melee};
 use super::ranged::Ranged;
-use super::spawn::{eligible_archetypes, pick_archetype};
+use super::spawn::{eligible_archetypes, pick_archetype, pick_marker_spawn_pos};
 
 fn config() -> EnemiesConfig {
     let config: EnemiesConfig = crate::assert_ron_config_parses!(EnemiesConfig);
@@ -552,4 +552,102 @@ fn hot_reload_spawn_policy_applies_to_next_roll() {
             .iter()
             .all(|arch| arch.kind != EnemyKind::Tank)
     );
+}
+
+#[test]
+fn idle_enemies_separate_without_chasing() {
+    let config = config();
+    let walker = archetype(&config, EnemyKind::Walker);
+
+    let mut app = minimal_app();
+    app.insert_resource(config).add_systems(Update, steer_enemies);
+
+    let left = app
+        .world_mut()
+        .spawn((
+            Enemy::from_archetype(&walker),
+            EnemyBrain {
+                state: BrainState::Idle,
+                ..default()
+            },
+            FacingDirection(Vec3::NEG_Z),
+            Transform::from_xyz(0.0, 0.9, 0.0),
+            Velocity::zero(),
+        ))
+        .id();
+    let right = app
+        .world_mut()
+        .spawn((
+            Enemy::from_archetype(&walker),
+            EnemyBrain {
+                state: BrainState::Idle,
+                ..default()
+            },
+            FacingDirection(Vec3::NEG_Z),
+            Transform::from_xyz(0.2, 0.9, 0.0),
+            Velocity::zero(),
+        ))
+        .id();
+
+    app.update();
+
+    let left_vel = app.world().get::<Velocity>(left).unwrap().linear;
+    let right_vel = app.world().get::<Velocity>(right).unwrap().linear;
+
+    assert!(left_vel.x < 0.0, "idle left enemy must be pushed apart: {left_vel:?}");
+    assert!(right_vel.x > 0.0, "idle right enemy must be pushed apart: {right_vel:?}");
+    assert_eq!(left_vel.z, 0.0, "idle enemy must not chase: {left_vel:?}");
+    assert_eq!(right_vel.z, 0.0, "idle enemy must not chase: {right_vel:?}");
+}
+
+#[test]
+fn marker_spawn_radial_scatter_and_occupancy_rejection() {
+    let enemies_cfg = config();
+    let walker = archetype(&enemies_cfg, EnemyKind::Walker);
+    let arena_cfg = ArenaConfig {
+        half_size: 25.0,
+        ..default()
+    };
+
+    let marker = Vec3::new(20.0, 0.0, -20.0);
+    let survivors = vec![Vec3::new(-20.0, 0.0, 20.0)];
+
+    // Unoccupied: should successfully pick a position within radial scatter range [1.5, 3.5]
+    let pos = pick_marker_spawn_pos(
+        marker,
+        &walker,
+        &arena_cfg,
+        &enemies_cfg,
+        &[],
+        &survivors,
+    )
+    .expect("unoccupied marker spawn position");
+
+    let dist_to_marker = Vec2::new(pos.x - marker.x, pos.z - marker.z).length();
+    assert!(
+        (1.49..=3.51).contains(&dist_to_marker),
+        "spawn position should be radially scattered: {dist_to_marker}"
+    );
+
+    // Highly crowded: surround marker so closely that all attempts fail
+    let mut crowded_enemies = Vec::new();
+    for angle_deg in (0..360).step_by(30) {
+        let rad = (angle_deg as f32).to_radians();
+        for r in [1.5, 2.5, 3.5] {
+            crowded_enemies.push((
+                Vec3::new(marker.x + rad.cos() * r, walker.collider_center_y(), marker.z + rad.sin() * r),
+                walker.radius,
+            ));
+        }
+    }
+
+    let crowded_res = pick_marker_spawn_pos(
+        marker,
+        &walker,
+        &arena_cfg,
+        &enemies_cfg,
+        &crowded_enemies,
+        &survivors,
+    );
+    assert!(crowded_res.is_none(), "crowded marker must reject candidates and return None");
 }

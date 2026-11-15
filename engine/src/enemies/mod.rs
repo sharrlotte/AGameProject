@@ -25,7 +25,9 @@ pub use crate::config::{
 };
 pub use damage::apply_enemy_damage;
 pub use death::cleanup_dead;
-pub use spawn::{EnemySpawner, escalated_spawn_params, spawn_enemies, spawn_enemy_entity};
+pub use spawn::{
+    EnemySpawner, escalated_spawn_params, pick_marker_spawn_pos, spawn_enemies, spawn_enemy_entity,
+};
 
 pub struct EnemiesPlugin;
 
