@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.17.3", features = ["serialize"] }
-bevy-inspector-egui = { version = "0.35" }
-bevy_rapier2d = { version = "0.32.0" }
-bevy_hanabi = "0.17"
+bevy = { version = "0.20.1", features = ["serialize"] }
+bevy-inspector-egui = { version = "0.38.0" }
+bevy_brp_extras = { version = "0.23.0", optional = true }
+bevy_rapier2d = { version = "0.37.0" }
+bevy_hanabi = "0.20.0"
 directories = "6.0.0"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-rand = "0.9"
-uuid = { version = "1", features = ["v7"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+rand = "0.10.3"
+uuid = { version = "1.29.2", features = ["v7"] }
+
+[features]
+dev = ["bevy/bevy_remote", "dep:bevy_brp_extras"]

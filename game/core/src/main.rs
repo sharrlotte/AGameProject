@@ -26,6 +26,11 @@ use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
 
+#[cfg(feature = "dev")]
+use bevy::remote::RemotePlugin;
+#[cfg(feature = "dev")]
+use bevy_brp_extras::BrpExtrasPlugin;
+
 #[cfg(debug_assertions)]
 use bevy::input::common_conditions::input_toggle_active;
 
@@ -89,6 +94,11 @@ fn main() {
         app.add_plugins(EguiPlugin::default()).add_plugins(
             WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
         );
+    }
+
+    #[cfg(feature = "dev")]
+    {
+        app.add_plugins((RemotePlugin::default(), BrpExtrasPlugin));
     }
 
     app.run();
