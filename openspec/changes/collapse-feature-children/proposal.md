@@ -35,9 +35,9 @@ actually needs.
 
 ## Impact
 
-- Code: `content/block/components.rs` (BlockData spawn/insert),
-  `content/block/feature/*/` (collapse patterns), `content/block/systems.rs`,
-  `content/block/feature/systems.rs`, `scene/editor.rs` (spawn_placed_block),
+- Code: `content/block/component.rs` (BlockData spawn/insert),
+  `content/block/feature/*/` (collapse patterns), `content/block/system.rs`,
+  `content/block/feature/system.rs`, `scene/editor.rs` (spawn_placed_block),
   `save/io.rs` (no structural change required for schema), `docs/architecture.md`,
   `docs/simulation.md`.
 - No dependency changes, no schema changes; runtime behaviour unchanged.

@@ -79,10 +79,10 @@ kept as the migration record):
 
 - Approved `docs/config.md` implemented: `RonAssetLoader<A>` in `config/loader.rs`
   (renamed from `ron.rs` to avoid clashing with the `ron` crate); `SceneState::Loading`
-  boot gate with panic on missing/corrupt `game.ron`/`blocks.ron`; `settings.ron` falls
+  boot gate with panic on missing/corrupt `game.ron`/`block.ron`; `setting.ron` falls
   back to defaults + warn; dev-only hot reload via the `dev` cargo feature
   (`bevy/file_watcher`); settings persist on change via save-on-change bridge with
-  `set_if_neq` (no save/reload echo); all block defs moved to `blocks.ron`; gameplay
+  `set_if_neq` (no save/reload echo); all block defs moved to `block.ron`; gameplay
   constants moved to `game.ron`.
 - `register_default_blocks` deleted; `register_default_items` kept (items deferred).
 - `game/assets/` (empty, wrong root) deleted; `game/core/assets/config/...` is the

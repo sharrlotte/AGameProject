@@ -1,5 +1,5 @@
-mod components;
+mod component;
 mod system;
 
-pub use components::*;
+pub use component::*;
 pub use system::*;

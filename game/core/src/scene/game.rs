@@ -5,7 +5,7 @@ use crate::{
     content::{
         block::{Block, BlockOwner, BlockRegistry, Health},
         selectable::EntitySelectEvent,
-        ship::components::{BoundingBox, Ship},
+        ship::component::{BoundingBox, Ship},
         team::Team,
     },
     resource::{CameraTarget, ControlledShip, SceneEntity, SceneState},

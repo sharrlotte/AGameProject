@@ -1,14 +1,14 @@
 ## 1. Symbol infrastructure
 
 - [ ] 1.1 Add `lasso` dependency; create `Symbols` resource + `Symbol` newtype
-- [ ] 1.2 Intern every `blocks.ron` key at config load; build keyed-map schema
-- [ ] 1.3 Update `config/blocks.rs` mirror types for keyed `.ron` and symbol
+- [ ] 1.2 Intern every `block.ron` key at config load; build keyed-map schema
+- [ ] 1.3 Update `config/block.rs` mirror types for keyed `.ron` and symbol
   lookup
 
 ## 2. Registry rework
 
 - [ ] 2.1 Replace `BlockType`/`BlockGroup` enums with interned symbols in
-  `content/block/components.rs` (BlockRegistry keyed by Symbol)
+  `content/block/component.rs` (BlockRegistry keyed by Symbol)
 - [ ] 2.2 Update editor palette, selection counts, drops, item registry to
   symbol keys
 - [ ] 2.3 Update spawn/lookup call sites (ship spawn, mission, drops) to

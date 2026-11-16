@@ -78,7 +78,7 @@ Factual defects found in the current code, used as a work queue. Not a changelog
 
 27. No `.ron` data files anywhere — block/item defs were Rust literals; `check_ship`
     hardcoded two teams — **blocks fixed (Slice 3)**: all block defs and gameplay constants
-    moved to `assets/config/base/blocks.ron` and `game.ron`, loaded through the approved
+    moved to `assets/config/base/block.ron` and `game.ron`, loaded through the approved
     boot-gated config system with dev-only hot reload; `check_ship` still uses
     `MAX_FACTIONS = 2` (design-level choice, not data-driven in v1). Items are still
     hardcoded (`register_default_items`) — deferred per `docs/config.md`.

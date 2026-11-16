@@ -19,7 +19,7 @@ use crate::content::block::{
     ShipCalculatedStat,
 };
 use crate::content::death::Death;
-use crate::content::ship::indicators::IndicatorsPlugin;
+use crate::content::ship::indicator::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};

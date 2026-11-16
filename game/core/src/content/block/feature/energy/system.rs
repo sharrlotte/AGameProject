@@ -5,7 +5,7 @@ use super::*;
 use crate::simulation::SimulationSet;
 use crate::content::{
     block::{
-        components::{BlockOwner, PowerProducer},
+        component::{BlockOwner, PowerProducer},
         feature::efficiency::{BlockEfficiency, EfficiencyEffect, EfficiencyUpdateSet},
         stat::make_stat_system,
     },

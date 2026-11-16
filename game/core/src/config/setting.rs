@@ -42,7 +42,7 @@ pub fn save_setting_on_change(setting: Res<GameSetting>) {
     }
 
     let root = asset_root();
-    let path = root.join("config/settings.ron");
+    let path = root.join("config/setting.ron");
 
     if let Some(parent) = path.parent()
         && let Err(e) = std::fs::create_dir_all(parent)

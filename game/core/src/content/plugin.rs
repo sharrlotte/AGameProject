@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::content::{
-    block::systems::BlockPlugin, bullet::BulletPlugin, damage::DamagePlugin, death::DeathPlugin,
+    block::system::BlockPlugin, bullet::BulletPlugin, damage::DamagePlugin, death::DeathPlugin,
     item::ItemPlugin, lifetime::LifetimePlugin, selectable::SelectablePlugin, ship::ShipPlugin,
 };
 

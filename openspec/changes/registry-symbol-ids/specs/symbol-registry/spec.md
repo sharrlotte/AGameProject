@@ -6,23 +6,23 @@ Blocks, items, and palette groups SHALL be addressable by interned symbol ids
 resolved at config load time; the compiled-in equivalent enum SHALL NOT exist.
 
 #### Scenario: Fresh blocks load end-to-end
-- **WHEN** the boot sequence reads `blocks.ron` with keyed defs (`hull`,
+- **WHEN** the boot sequence reads `block.ron` with keyed defs (`hull`,
   `core`, …)
 - **THEN** the `BlockRegistry` exposes `get("hull")` and returns the def,
   without any enum converting from string
 
 #### Scenario: Adding a block does not touch Rust
-- **WHEN** a designer adds an entry to `blocks.ron` and launches with no Rust
+- **WHEN** a designer adds an entry to `block.ron` and launches with no Rust
   recompile
 - **THEN** the editor palette lists the new block and it can be placed
 
 ### Requirement: `.ron` block schema is keyed by id
 
-`blocks.ron` SHALL be a mapping of id to definition, enforcing uniqueness by
+`block.ron` SHALL be a mapping of id to definition, enforcing uniqueness by
 construction and removing any redundant `block_type` field.
 
 #### Scenario: Duplicate ids rejected at boot
-- **WHEN** `blocks.ron` declares the same id twice
+- **WHEN** `block.ron` declares the same id twice
 - **THEN** boot fails with a duplicate-id message naming the id
 
 ### Requirement: Embedded enums stay plain data

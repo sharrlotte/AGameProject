@@ -9,7 +9,7 @@ use crate::config::GameConfigValue;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::feature::{components::Feature, turret::TurretComponent},
+        block::feature::{component::Feature, turret::TurretComponent},
         item::ItemType,
         ship::{Ship, ShipFragment},
         team::Team,

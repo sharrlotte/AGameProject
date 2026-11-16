@@ -11,7 +11,7 @@ use crate::{
     content::{
         block::{
             feature::Feature,
-            components::{
+            component::{
                 Block, BlockDef, BlockRegistry, BlockType, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
                 FACE_UP,
             },

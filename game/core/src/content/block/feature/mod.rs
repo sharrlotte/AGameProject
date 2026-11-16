@@ -1,12 +1,12 @@
 pub mod ammo;
-pub mod components;
+pub mod component;
 pub mod efficiency;
 pub mod energy;
 pub mod sprite;
 pub mod storage;
-pub mod systems;
+pub mod system;
 pub mod thruster;
 pub mod turret;
 
-pub use systems::*;
-pub use components::*;
+pub use system::*;
+pub use component::*;

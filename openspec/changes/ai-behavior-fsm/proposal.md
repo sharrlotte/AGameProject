@@ -16,7 +16,7 @@ behavior queryable by `With<Behavior::Kite>` for tooling/debug.
 - `AIShipController` is deleted or slimmed to a pure timer resource on the
   ship; behavior is inferred from the component, not a `controller.current()`
   enum query.
-- `ship/systems.rs` is split: one system per behavior transition, registered in
+- `ship/system.rs` is split: one system per behavior transition, registered in
   the fixed update with explicit sets. The mega-match is gone; kiting/chasing
   logic moves into `ai/kite.rs`, `ai/chase.rs`, etc. (module split).
 - Ship-U-HUD debug label reads the component directly instead of a `Debug`
@@ -35,8 +35,8 @@ behavior queryable by `With<Behavior::Kite>` for tooling/debug.
 
 ## Impact
 
-- Code: `content/ship/components.rs` (AIShipBehavior, AIShipController),
-  `content/ship/systems.rs` (split into `content/ship/ai/*.rs`),
-  `content/ship/indicators.rs`, `scene/game.rs` (selection count display
+- Code: `content/ship/component.rs` (AIShipBehavior, AIShipController),
+  `content/ship/system.rs` (split into `content/ship/ai/*.rs`),
+  `content/ship/indicator.rs`, `scene/game.rs` (selection count display
   unchanged), `docs/ai.md`.
 - No dependencies, no schema/format changes.

@@ -1,5 +1,5 @@
 use crate::content::block::{
-    components::{Block, BlockOwner, ComponentOwner},
+    component::{Block, BlockOwner, ComponentOwner},
     feature::{
         ammo::AmmoPlugin, efficiency::EfficiencyPlugin, energy::EnergyPlugin,
         thruster::ThrusterPlugin, turret::TurretPlugin,

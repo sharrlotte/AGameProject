@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 use super::{Turret, TurretState};
 use crate::{
     content::{
-        block::{BlockData, components::TargetingStrategy, radar::Radar},
+        block::{BlockData, component::TargetingStrategy, radar::Radar},
         ship::{Blocks, Ship},
         team::Team,
     },

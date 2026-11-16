@@ -1,7 +1,7 @@
 ## Why
 
 `BlockType`, `ItemType`, and `BlockGroup` are enums whose variants double as
-registry keys: a new block type in `blocks.ron` forces a Rust recompile, and
+registry keys: a new block type in `block.ron` forces a Rust recompile, and
 save files serialize variant names verbatim (`"Meldown"`, `"LazerTurret"`).
 Keying the registry by interned symbols fully decouples data from compile-time
 code and makes the `.ron` authoring story real end-to-end.
@@ -12,8 +12,8 @@ code and makes the `.ron` authoring story real end-to-end.
   interned `Symbol` ids (lasso interner) for blocks, items, and palette
   groups; embedded enums (ShootingProjectile, TargetingStrategy, ShootPattern)
   stay serde enums as plain data.
-- `blocks.ron` becomes keyed: `{ swarm: (…), hull: (…), … }` with uniqueness
-  enforced by construction; `blocks.rs` mirror types produce `BlockRegistry`
+- `block.ron` becomes keyed: `{ swarm: (…), hull: (…), … }` with uniqueness
+  enforced by construction; `block.rs` mirror types produce `BlockRegistry`
   keyed by symbol; the same map is reused by drops/spawn paths.
 - `BlockRegistry` exposes `get(id: &str)` / symbol-based lookup helpers;
   `.ron` no longer carries a `block_type` field (its key is the id).
@@ -34,8 +34,8 @@ code and makes the `.ron` authoring story real end-to-end.
 
 ## Impact
 
-- Code: `content/block/components.rs` (BlockType/BlockGroup/registry),
-  `content/item/*`, `config/blocks.rs`, `config/mod.rs`, editor selection
+- Code: `content/block/component.rs` (BlockType/BlockGroup/registry),
+  `content/item/*`, `config/block.rs`, `config/mod.rs`, editor selection
   types, drops, `save/io.rs` (error messages), `mission/state.rs`, `docs/
   config.md`, `docs/assets.md`, `docs/defects.md`.
 - Dependencies: add `lasso`.

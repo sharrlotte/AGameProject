@@ -1,7 +1,7 @@
 pub mod stat;
-pub mod components;
-pub mod systems;
-pub use components::*;
-pub use systems::*;
+pub mod component;
+pub mod system;
+pub use component::*;
+pub use system::*;
 
-mod indicators;
+mod indicator;

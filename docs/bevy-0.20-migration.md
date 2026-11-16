@@ -49,8 +49,8 @@
 - `game/core/src/main.rs` (rapier init)
 - `game/core/src/scene/{game,pause,home,setting,editor}.rs` (UI buttons, FontSize, border_radius)
 - `game/core/src/scene/background.rs`, `game/core/src/utils/random.rs` (rand)
-- `game/core/src/content/{bullet,ship,damage}/systems.rs` (rapier shapes, Velocity, FontSize, rand)
-- `game/core/src/content/block/radar/systems.rs`, `content/block/feature/efficiency/systems.rs` (intersect_shape)
+- `game/core/src/content/{bullet,ship,damage}/system.rs` (rapier shapes, Velocity, FontSize, rand)
+- `game/core/src/content/block/radar/system.rs`, `content/block/feature/efficiency/system.rs` (intersect_shape)
 
 ## Verification
 

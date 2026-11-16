@@ -29,9 +29,9 @@ never cached.
 
 ## Impact
 
-- Code: `content/ship/components.rs` (ShipGrid lifecycle helpers),
-  `content/ship/systems.rs` (`check_rebuild_ship_collider`),
-  `content/block/components.rs` (`blocks_stats`, `blocks_to_voxel_points`),
+- Code: `content/ship/component.rs` (ShipGrid lifecycle helpers),
+  `content/ship/system.rs` (`check_rebuild_ship_collider`),
+  `content/block/component.rs` (`blocks_stats`, `blocks_to_voxel_points`),
   `save/io.rs` and editor spawn paths (grid construction on ship load),
   `docs/simulation.md`, `docs/ai.md`.
 - Measured expectation: 5–10× fewer cell inserts per destroyed block in a

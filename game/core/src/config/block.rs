@@ -8,14 +8,14 @@ use serde::Deserialize;
 use crate::content::{
     block::{
         BlockGroup, BlockRegistry, BlockShape,
-        components::{
+        component::{
             BlockDef, BlockType, BurstShootPattern, DropComponent, LaserBeamPattern,
             PullingBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern,
             TargetingStrategy,
         },
         feature::{
             ammo::{Ammo, AmmoBuilder},
-            components::Feature,
+            component::Feature,
             efficiency::EfficiencyProvider,
             energy::EnergyConsumer,
             sprite::Texture,

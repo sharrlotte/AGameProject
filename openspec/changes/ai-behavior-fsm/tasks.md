@@ -1,6 +1,6 @@
 ## 1. Components and module
 
-- [ ] 1.1 Create `content/ship/ai/` module; add `ai::mod`, `ai::components` with
+- [ ] 1.1 Create `content/ship/ai/` module; add `ai::mod`, `ai::component` with
   one marker component per behavior variant
 - [ ] 1.2 Move/adapt `timer` into a `BehaviorTimer` component on the ship
 - [ ] 1.3 Update HUD/debug label to read behavior marker components

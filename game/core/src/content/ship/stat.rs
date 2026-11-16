@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::content::{
     block::{
-        components::BlockOwner,
+        component::BlockOwner,
         feature::{
             energy::PowerUsageComputed,
             storage::{Storage, StorageState},

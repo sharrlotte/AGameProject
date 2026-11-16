@@ -1,8 +1,8 @@
 pub mod radar;
 pub mod stat;
 pub mod feature;
-pub mod components;
-pub mod systems;
+pub mod component;
+pub mod system;
 
-pub use components::*;
+pub use component::*;
 

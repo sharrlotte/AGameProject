@@ -1,11 +1,11 @@
-mod blocks;
+mod block;
 mod game;
 pub(crate) mod loader;
-mod settings;
+mod setting;
 
-pub use blocks::BlocksConfig;
+pub use block::BlocksConfig;
 pub use game::{GameConfig, GameConfigValue};
-pub use settings::GameSetting;
+pub use setting::GameSetting;
 
 use bevy::asset::LoadState;
 use bevy::prelude::*;
@@ -50,24 +50,22 @@ impl Plugin for ConfigPlugin {
                 Update,
                 (
                     game::game_config_bridge,
-                    blocks::blocks_bridge,
-                    settings::game_setting_bridge,
-                    settings::save_setting_on_change,
+                    block::blocks_bridge,
+                    setting::game_setting_bridge,
+                    setting::save_setting_on_change,
                 )
                     .run_if(in_state(ConfigState::Ready))
                     .in_set(SimulationSet::Apply),
             );
 
-        #[cfg(feature = "dev")]
-        app.add_plugins(bevy::file_watcher::FileWatcherPlugin);
     }
 }
 
 fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(ConfigHandles {
         game: assets.load("config/base/game.ron"),
-        blocks: assets.load("config/base/blocks.ron"),
-        settings: assets.load("config/settings.ron"),
+        blocks: assets.load("config/base/block.ron"),
+        settings: assets.load("config/setting.ron"),
     });
 }
 
@@ -96,7 +94,7 @@ fn check_config_ready(
         assets.get_load_state(&handles.blocks),
         Some(LoadState::Failed(_))
     ) {
-        panic!("config/base/blocks.ron failed to load");
+        panic!("config/base/block.ron failed to load");
     }
 
     let Some(game) = game_assets.get(&handles.game) else {
@@ -117,7 +115,7 @@ fn check_config_ready(
         assets.get_load_state(&handles.settings),
         Some(LoadState::Failed(_))
     ) {
-        warn!("config/settings.ron failed to load; using defaults");
+        warn!("config/setting.ron failed to load; using defaults");
     }
 
     commands.insert_resource(GameConfigValue(game.clone()));

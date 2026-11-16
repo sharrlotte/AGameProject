@@ -1,7 +1,7 @@
 ## Context
 
 The current registry is an enum (`BlockType`) compiled into the binary.
-`blocks.ron` therefore cannot introduce new block ids without recompiling Rust,
+`block.ron` therefore cannot introduce new block ids without recompiling Rust,
 and every save/selection/palette match statement knows the full enum. This
 violates Slice goals of data-ness (adding a block = editing one `.ron` entry)
 and produces spelling/duplication debt (`Meldown`, `LazerTurret`) that we only
@@ -13,7 +13,7 @@ linear and the review manageable.
 **Goals:**
 - String-keyed ids for `BlockType` and `ItemType`, interned at load time via
   `lasso::Rodeo` (or equivalent) in a `Symbols` resource.
-- `blocks.ron` keyed by id; no `block_type` field in the schema; uniqueness
+- `block.ron` keyed by id; no `block_type` field in the schema; uniqueness
   enforced by the serializer/loader.
 - `ItemRegistry` remains for items (ids are symbols), under the same pattern.
 - Editor palette, drops table, selection map, spawn lookups move to symbol
@@ -37,7 +37,7 @@ linear and the review manageable.
 - **`Symbol` newtype at the boundary, `&str`/`Symbol` inside hot paths.**
   Keep functions accepting `&str` where practical to avoid leaking interning
   details; intern at config load.
-- **blocks.ron keyed map (data-driven key == id), one-of-a-kind.** Rejected
+- **block.ron keyed map (data-driven key == id), one-of-a-kind.** Rejected
   alternatives: (a) keep the list and add a redundant `id` field — violates
   single source of truth; (b) heavy typed interned-id sections per def —
   unnecessary verbosity.
@@ -63,7 +63,7 @@ linear and the review manageable.
 
 ## Migration Plan
 
-1. Merge `.ron` keyed-map blocks + mirror in `config/blocks.rs`; delete old
+1. Merge `.ron` keyed-map blocks + mirror in `config/block.rs`; delete old
    `BlockType`/`BlockGroup` enums and all match sites; wire `Symbols`.
 2. Update editor, drops, item registry, mission spawn, save/load error text.
 3. `cargo check -p core`; confirm example fresh save and schema roundtrip.

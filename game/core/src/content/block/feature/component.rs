@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::config::GameConfigValue;
 use crate::content::{
     block::{
-        components::BlockDef,
+        component::BlockDef,
         feature::{
             efficiency::EfficiencyProvider, energy::EnergyConsumer, sprite::Texture,
             storage::Storage, thruster::Thruster, turret::TurretComponent,

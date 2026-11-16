@@ -15,7 +15,7 @@ use crate::config::GameConfigValue;
 use crate::simulation::SimulationSet;
 use crate::content::{
     block::{
-        components::{
+        component::{
             Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState,
         },
         feature::turret::TurretState,

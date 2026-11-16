@@ -29,7 +29,7 @@
 
 Registry: `BlockRegistry` (resource, `HashMap<BlockType, BlockDef>`), populated
 in `PreStartup` by `register_default_blocks`. Duplicate registrations warn and are
-ignored. **All block definitions are hardcoded in `block/systems.rs`** — no data file.
+ignored. **All block definitions are hardcoded in `block/system.rs`** — no data file.
 
 ### Block registry contents (as of review)
 
@@ -103,7 +103,7 @@ Ship entity origin = world origin; `Ship.core_position` is the core offset in *w
 
 ### Movement
 
-- Player control: `ExternalForce` in `ship/systems.rs::player_control_ship`.
+- Player control: `ExternalForce` in `ship/system.rs::player_control_ship`.
   - `W/↑` forward thrust, `S/↓` reverse, `A/D` turn (torque ≈ `rotate_speed`),
     `Q/E` strafe. Shift = camera speed ×3 (camera only).
   - W/S apply force along `forward * thrust_power`.

@@ -1,3 +1,3 @@
-pub mod components;
+pub mod component;
 
-pub use components::*;
+pub use component::*;
