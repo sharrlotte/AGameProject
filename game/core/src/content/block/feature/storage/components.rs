@@ -75,13 +75,6 @@ impl StorageState {
     }
 
     pub fn is_full(&self, storage: &Storage) -> bool {
-        if self.current > storage.capacity {
-            panic!(
-                "Storage current count {} is greater than capacity {}",
-                self.current, storage.capacity
-            );
-        }
-
-        self.current == storage.capacity
+        self.current >= storage.capacity
     }
 }

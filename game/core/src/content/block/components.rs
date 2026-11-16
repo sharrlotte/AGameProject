@@ -5,6 +5,7 @@ use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config::GameConfigValue;
 use crate::{
     constant::GRID_SIZE,
     content::{
@@ -26,14 +27,14 @@ pub struct HeatEmitterComponent {
     pub amount: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum TargetingStrategy {
     Closest,
     MostHP,
     EnemyBullet,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum ShootingProjectile {
     Bullet {
         speed: f32,
@@ -59,7 +60,7 @@ pub enum ShootingProjectile {
     },
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct SingleShootPattern {
     pub fire_rate: f32,
     pub projectile: ShootingProjectile,
@@ -91,12 +92,12 @@ pub enum BurstShootPatternShootingState {
     },
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub struct BurstShootPatternState {
     pub shooting: BurstShootPatternShootingState,
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct LaserBeamPattern {
     pub cooldown: f32,
     pub duration: f32,
@@ -110,12 +111,12 @@ pub enum LaserBeamPatternShootingState {
     Cooldown { last_fired_at: f32 },
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct PullingBeamPattern {
     pub width: f32,
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct PullingBeamPatternState {
     pub beam: Option<Entity>,
 }
@@ -246,6 +247,7 @@ impl BlockData {
         def: &BlockDef,
         ship: Entity,
         team: Team,
+        config: &GameConfigValue,
     ) -> Entity {
         let half_size = def.get_pixel_size() / 2.0;
         let transform = def.to_transform(self.position);
@@ -282,7 +284,7 @@ impl BlockData {
         commands.entity(ship).add_child(child);
 
         for feature in &def.features {
-            feature.spawn(commands, child, def, &team);
+            feature.spawn(commands, child, def, &team, config);
         }
 
         return child;
@@ -325,14 +327,14 @@ pub enum BlockType {
     BlockSteel,
 }
 
-#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq)]
+#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq, Serialize, Deserialize, Debug)]
 pub enum BlockGroup {
     Core,
     Base,
     Turret,
 }
 
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct BlockVoxel {
     pub position: IVec2,
     pub connectable_faces: u8,
@@ -347,7 +349,7 @@ impl Default for BlockVoxel {
     }
 }
 
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct BlockShape {
     pub size: IVec2,
     pub voxels: Vec<BlockVoxel>,
@@ -380,13 +382,13 @@ impl Default for BlockShape {
     }
 }
 
-#[derive(Clone, PartialEq, Reflect, Debug)]
+#[derive(Clone, PartialEq, Reflect, Debug, Serialize, Deserialize)]
 pub struct ItemDrop {
     pub item_type: ItemType,
     pub amount: u32,
 }
 
-#[derive(Component, Clone, PartialEq, Reflect)]
+#[derive(Component, Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub enum DropComponent {
     Item(ItemDrop),
 }
@@ -476,7 +478,10 @@ impl BlockRegistry {
         let mut points = Vec::new();
 
         for block in blocks {
-            let def = self.get(&block.block_type).unwrap();
+            let Some(def) = self.get(&block.block_type) else {
+                warn!("Block type {:?} not found in registry", block.block_type);
+                continue;
+            };
             let size = def.shape.size;
 
             // base grid position
@@ -559,7 +564,7 @@ impl BlockRegistry {
 
                 let size = def.shape.size;
 
-                for y in [-1, size.y + 1] {
+                for y in [-1, size.y] {
                     for x in 0..size.x {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {
@@ -570,7 +575,7 @@ impl BlockRegistry {
                     }
                 }
 
-                for x in [-1, size.x + 1] {
+                for x in [-1, size.x] {
                     for y in 0..size.y {
                         let cell = IVec2::new(x, y) + block.position;
                         let Some(neighbor) = cell_map.get(&cell) else {

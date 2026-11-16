@@ -1,7 +1,8 @@
 use crate::content::block::stat::StatEffect;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq, Reflect)]
+#[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct EnergyConsumer {
     rate: f32,
 }

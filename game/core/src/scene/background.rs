@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::SceneState;
+use crate::resource::SceneEntity;
 
 pub struct BackgroundPlugin;
 
@@ -28,7 +29,7 @@ fn spawn_parallax_layer(
     seed: u64,
 ) {
     use rand::rngs::SmallRng;
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
 
     let mut rng = SmallRng::seed_from_u64(seed);
 
@@ -50,6 +51,7 @@ fn spawn_parallax_layer(
                 ..default()
             },
             Transform::default(),
+            SceneEntity(SceneState::Game),
         ));
     }
 }

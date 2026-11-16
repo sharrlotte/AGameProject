@@ -1,6 +1,6 @@
 use bevy::{
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
-    picking::hover::HoverMap,
+    picking::hover::{HoverMap, PickingInteraction},
     prelude::*,
     window::PrimaryWindow,
 };
@@ -247,24 +247,25 @@ pub fn setup_editor_ui(
                     // --- Back Button ---
                     left_panel
                         .spawn((
-                            Button,
+
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 margin: UiRect::bottom(Val::Px(10.0)),
+                                border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
+
                             BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-                            BorderRadius::all(Val::Px(6.0)),
                             BackButton,
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("Back to Home"),
                                 TextFont {
-                                    font_size: 14.0,
+                                    font_size: FontSize::Px(14.0),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
@@ -285,7 +286,7 @@ pub fn setup_editor_ui(
                             // Blocks Tab Button
                             header
                                 .spawn((
-                                    Button,
+
                                     Node {
                                         width: Val::Percent(48.0),
                                         height: Val::Percent(100.0),
@@ -300,7 +301,7 @@ pub fn setup_editor_ui(
                                     btn.spawn((
                                         Text::new("Blocks"),
                                         TextFont {
-                                            font_size: 16.0,
+                                            font_size: FontSize::Px(16.0),
                                             ..default()
                                         },
                                         TextColor(Color::WHITE),
@@ -310,7 +311,7 @@ pub fn setup_editor_ui(
                             // Ships Tab Button
                             header
                                 .spawn((
-                                    Button,
+
                                     Node {
                                         width: Val::Percent(48.0),
                                         height: Val::Percent(100.0),
@@ -325,7 +326,7 @@ pub fn setup_editor_ui(
                                     btn.spawn((
                                         Text::new("Ships"),
                                         TextFont {
-                                            font_size: 16.0,
+                                            font_size: FontSize::Px(16.0),
                                             ..default()
                                         },
                                         TextColor(Color::WHITE),
@@ -352,7 +353,7 @@ pub fn setup_editor_ui(
                             for (block_type, def) in registry.iter() {
                                 list_content
                                     .spawn((
-                                        Button,
+
                                         Node {
                                             width: Val::Percent(100.0),
                                             height: Val::Px(60.0),
@@ -360,9 +361,9 @@ pub fn setup_editor_ui(
                                             align_items: AlignItems::Center,
                                             border: UiRect::all(Val::Px(1.0)),
                                             padding: UiRect::all(Val::Px(8.0)),
+                                            border_radius: BorderRadius::all(Val::Px(8.0)),
                                             ..default()
                                         },
-                                        BorderRadius::all(Val::Px(8.0)),
                                         BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
                                         *block_type,
                                     ))
@@ -427,7 +428,7 @@ pub fn setup_editor_ui(
                                         btn.spawn((
                                             Text::new(&def.name),
                                             TextFont {
-                                                font_size: 14.0,
+                                                font_size: FontSize::Px(14.0),
                                                 ..default()
                                             },
                                             TextColor(Color::WHITE),
@@ -473,7 +474,7 @@ pub fn setup_editor_ui(
                     right_panel.spawn((
                         Text::new("Properties"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -486,7 +487,7 @@ pub fn setup_editor_ui(
                     right_panel.spawn((
                         Text::new("Select a block..."),
                         TextFont {
-                            font_size: 14.0,
+                            font_size: FontSize::Px(14.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.8, 0.8, 0.8)),
@@ -497,7 +498,7 @@ pub fn setup_editor_ui(
                     right_panel.spawn((
                         Text::new("\n\nLeft Click: Place\nRight Click: Delete"),
                         TextFont {
-                            font_size: 12.0,
+                            font_size: FontSize::Px(12.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.6, 0.6, 0.6)),
@@ -516,24 +517,25 @@ pub fn setup_editor_ui(
                     // Deploy Button
                     right_panel
                         .spawn((
-                            Button,
+
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(10.0)),
+                                border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
+
                             BackgroundColor(Color::srgb(0.2, 0.6, 1.0)),
-                            BorderRadius::all(Val::Px(6.0)),
                             DeployButton,
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("Deploy"),
                                 TextFont {
-                                    font_size: 16.0,
+                                    font_size: FontSize::Px(16.0),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
@@ -543,24 +545,25 @@ pub fn setup_editor_ui(
                     // Play Button
                     right_panel
                         .spawn((
-                            Button,
+
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 margin: UiRect::top(Val::Px(10.0)),
+                                border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
+
                             BackgroundColor(Color::srgb(0.2, 0.8, 0.4)),
-                            BorderRadius::all(Val::Px(6.0)),
                             PlayButton,
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("Start Game"),
                                 TextFont {
-                                    font_size: 16.0,
+                                    font_size: FontSize::Px(16.0),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
@@ -572,14 +575,14 @@ pub fn setup_editor_ui(
 
 pub fn handle_block_selection(
     mut interaction: Query<
-        (&Interaction, &BlockType, &mut BackgroundColor, &mut Node),
-        (Changed<Interaction>, With<Button>),
+        (&PickingInteraction, &BlockType, &mut BackgroundColor, &mut Node),
+        Changed<PickingInteraction>,
     >,
     mut editor: ResMut<EditorState>,
 ) {
     for (interaction, block_type, mut bg_color, mut _node) in &mut interaction {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 // Toggle selection
                 if editor.selected_block == Some(*block_type) {
                     editor.selected_block = None;
@@ -587,10 +590,10 @@ pub fn handle_block_selection(
                     editor.selected_block = Some(*block_type);
                 }
             }
-            Interaction::Hovered => {
+            PickingInteraction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
             }
-            Interaction::None => {
+            PickingInteraction::None => {
                 // Highlight if selected
                 if editor.selected_block == Some(*block_type) {
                     *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
@@ -603,13 +606,13 @@ pub fn handle_block_selection(
 }
 
 pub fn handle_deploy_button_click(
-    mut buttons: Query<(&Interaction, &mut BackgroundColor), With<DeployButton>>,
+    mut buttons: Query<(&PickingInteraction, &mut BackgroundColor), With<DeployButton>>,
     mut app_var: ResMut<GameVars>,
     editor: Res<EditorState>,
     blocks: Query<&Block>,
 ) {
     for (interaction, mut bg_color) in &mut buttons {
-        if *interaction == Interaction::Pressed {
+        if *interaction == PickingInteraction::Pressed {
             // Deploy Logic
             let saved_blocks = blocks
                 .iter()
@@ -632,8 +635,8 @@ pub fn handle_deploy_button_click(
         }
 
         match interaction {
-            Interaction::Pressed => *bg_color = BackgroundColor(Color::srgb(0.1, 0.4, 0.8)),
-            Interaction::Hovered => *bg_color = BackgroundColor(Color::srgb(0.3, 0.7, 1.0)),
+            PickingInteraction::Pressed => *bg_color = BackgroundColor(Color::srgb(0.1, 0.4, 0.8)),
+            PickingInteraction::Hovered => *bg_color = BackgroundColor(Color::srgb(0.3, 0.7, 1.0)),
             _def => {}
         }
     }
@@ -662,12 +665,12 @@ pub fn handle_deploy_button(
 pub fn handle_nav_buttons(
     mut interactions: Query<
         (
-            &Interaction,
+            &PickingInteraction,
             &mut BackgroundColor,
             Option<&BackButton>,
             Option<&PlayButton>,
         ),
-        (Changed<Interaction>, With<Button>),
+        Changed<PickingInteraction>,
     >,
     mut next_state: ResMut<NextState<SceneState>>,
 ) {
@@ -677,20 +680,20 @@ pub fn handle_nav_buttons(
         }
 
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 if back.is_some() {
                     next_state.set(SceneState::Home);
                 } else if play.is_some() {
                     next_state.set(SceneState::Game);
                 }
             }
-            Interaction::Hovered => {
+            PickingInteraction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
                 if play.is_some() {
                     *bg_color = BackgroundColor(Color::srgb(0.3, 0.9, 0.5));
                 }
             }
-            Interaction::None => {
+            PickingInteraction::None => {
                 if back.is_some() {
                     *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
                 } else if play.is_some() {
@@ -819,7 +822,10 @@ pub fn check_placement_validity(
     _rotation: u8, // Unused for now
     blocks: &Query<&Block>,
 ) -> bool {
-    let def = registry.get(&block_type).unwrap();
+    let Some(def) = registry.get(&block_type) else {
+        warn!("No block definition for {:?}", block_type);
+        return false;
+    };
 
     // 1. Check for overlap
     for voxel in &def.shape.voxels {
@@ -889,7 +895,13 @@ pub fn update_placement_preview(
     if let (Some(selected_type), Some(mouse_grid_position)) =
         (editor.selected_block, editor.hovered_grid_position)
     {
-        let def = registry.get(&selected_type).unwrap();
+        let Some(def) = registry.get(&selected_type) else {
+            warn!("No block definition for {:?}", selected_type);
+            for entity in &preview {
+                commands.entity(entity).despawn();
+            }
+            return;
+        };
 
         // Calculate anchor position to center the block on mouse
         let size = def.shape.size;
@@ -974,7 +986,10 @@ pub fn handle_placement(
         if let (Some(selected_type), Some(mouse_grid_position)) =
             (editor.selected_block, editor.hovered_grid_position)
         {
-            let def = registry.get(&selected_type).unwrap();
+            let Some(def) = registry.get(&selected_type) else {
+                warn!("No block definition for {:?}", selected_type);
+                return;
+            };
             let size = def.shape.size;
             let anchor_offset = size / 2;
             let grid_position = mouse_grid_position - anchor_offset;
@@ -1046,8 +1061,8 @@ pub fn update_block_properties_panel(
 
 pub fn handle_tab_switching(
     mut interaction: Query<
-        (&Interaction, &TabButton, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (&PickingInteraction, &TabButton, &mut BackgroundColor),
+        Changed<PickingInteraction>,
     >,
     mut editor: ResMut<EditorState>,
     mut block_list: Single<&mut Node, (With<BlockListPanel>, Without<ShipListPanel>)>,
@@ -1055,13 +1070,13 @@ pub fn handle_tab_switching(
 ) {
     for (interaction, tab_btn, mut bg_color) in &mut interaction {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 editor.active_tab = tab_btn.0;
             }
-            Interaction::Hovered => {
+            PickingInteraction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
             }
-            Interaction::None => {
+            PickingInteraction::None => {
                 if editor.active_tab == tab_btn.0 {
                     *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
                 } else {
@@ -1137,7 +1152,7 @@ pub fn refresh_ship_list(
                     .with_children(|row| {
                         // Load Button
                         row.spawn((
-                            Button,
+
                             Node {
                                 flex_grow: 1.0,
                                 height: Val::Percent(100.0),
@@ -1146,9 +1161,9 @@ pub fn refresh_ship_list(
                                 border: UiRect::all(Val::Px(1.0)),
                                 padding: UiRect::all(Val::Px(8.0)),
                                 margin: UiRect::right(Val::Px(4.0)),
+                                border_radius: BorderRadius::all(Val::Px(4.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(4.0)),
                             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                             LoadShipButton {
                                 filename: ship.filename.clone(),
@@ -1162,7 +1177,7 @@ pub fn refresh_ship_list(
                                     ship.name.clone()
                                 }),
                                 TextFont {
-                                    font_size: 14.0,
+                                    font_size: FontSize::Px(14.0),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
@@ -1207,11 +1222,11 @@ pub fn handle_ship_loading(
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
     placed_blocks: Query<Entity, With<Block>>,
-    mut interaction: Query<(&Interaction, &LoadShipButton), (Changed<Interaction>, With<Button>)>,
+    mut interaction: Query<(&PickingInteraction, &LoadShipButton), Changed<PickingInteraction>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
     for (interaction, load_btn) in &mut interaction {
-        if *interaction == Interaction::Pressed {
+        if *interaction == PickingInteraction::Pressed {
             despawn_ship(&mut commands, &placed_blocks);
             spawn_ship(
                 &mut commands,

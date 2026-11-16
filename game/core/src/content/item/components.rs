@@ -1,7 +1,8 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Reflect, Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Reflect, Hash, Eq, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum ItemType {
     Steel,
 }

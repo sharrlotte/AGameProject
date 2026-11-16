@@ -17,7 +17,9 @@ pub fn radar_scan(
     mut radars: Query<(Entity, &mut Radar, &Team, &GlobalTransform)>,
     ships: Query<&Team, With<Ship>>,
 ) {
-    let collision: RapierContext<'_> = rapier.single().expect("How to get rapier context?");
+    let Ok(collision) = rapier.single() else {
+        return;
+    };
 
     for (_radar_entity, mut radar, team, radar_tf) in radars.iter_mut() {
         radar.timer.tick(time.delta());
@@ -37,7 +39,7 @@ pub fn radar_scan(
 
         let should_continue = true;
 
-        collision.intersect_shape(origin, Rot::default(), shape, filter, |entity| {
+        collision.intersect_shape(origin, Rot::default(), shape, filter, |entity, _collider| {
             if let Ok(ship_team) = ships.get(entity) {
                 if ship_team.id != team.id {
                     radar.targets.push(entity);

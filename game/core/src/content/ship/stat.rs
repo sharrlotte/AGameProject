@@ -13,7 +13,7 @@ use crate::content::{
 };
 use bevy::prelude::*;
 
-#[derive(Component, Clone, Debug, Reflect, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
 pub struct ComputedShipStats {
     pub power_usage: f32,
     pub thrust_power: f32,
@@ -22,6 +22,20 @@ pub struct ComputedShipStats {
     pub is_full: bool,
     pub items: HashMap<ItemType, u32>,
     pub storages: Vec<Entity>,
+}
+
+impl Default for ComputedShipStats {
+    fn default() -> Self {
+        Self {
+            power_usage: 0.0,
+            thrust_power: 0.0,
+            rotate_speed: 0.0,
+            efficiency: 1.0,
+            is_full: true,
+            items: HashMap::new(),
+            storages: Vec::new(),
+        }
+    }
 }
 
 pub fn update_stats(

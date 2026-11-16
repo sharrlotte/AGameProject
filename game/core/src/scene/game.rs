@@ -1,29 +1,27 @@
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use crate::{
-    constant::{GRID_SIZE, MAX_SHIPS, SMALL_GRID_SIZE},
+    constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
         block::{Block, BlockOwner, BlockRegistry, Health},
         selectable::EntitySelectEvent,
-        ship::{
-            components::{BoundingBox, Ship},
-            stat::ComputedShipStats,
-        },
-        team::{DEFAULT_TEAM_ID, Team},
+        ship::components::{BoundingBox, Ship},
+        team::Team,
     },
     resource::{GameVars, SceneEntity, SceneState},
-    save::io::load_saved_schematics,
     scene::background::BackgroundPlugin,
-    utils::random::random_vec2_step,
 };
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    picking::hover::PickingInteraction,
     prelude::*,
     time::common_conditions::on_timer,
 };
-use rand::seq::IndexedRandom;
 
+#[cfg(debug_assertions)]
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+
+#[cfg(debug_assertions)]
 #[derive(Component)]
 pub struct FpsText;
 
@@ -33,8 +31,6 @@ pub struct ShipButton(pub Entity);
 #[derive(Component)]
 pub struct ShipList;
 
-#[derive(Component)]
-pub struct BlockButton(pub Entity);
 
 #[derive(Component)]
 pub struct SelectablePanel;
@@ -48,17 +44,13 @@ impl Plugin for GameScenePlugin {
             .add_systems(
                 Update,
                 (
+                    #[cfg(debug_assertions)]
                     update_fps,
                     update_ship_list.run_if(on_timer(Duration::from_millis(200))),
                     handle_ship_button_click,
                     update_select_panel,
                 )
                     .run_if(in_state(SceneState::Game)),
-            )
-            .add_systems(
-                FixedUpdate,
-                check_ship
-                    .run_if(on_timer(Duration::from_millis(100)).and(in_state(SceneState::Game))),
             )
             .add_plugins(BackgroundPlugin);
     }
@@ -79,6 +71,7 @@ fn setup(mut commands: Commands) {
             SceneEntity(SceneState::Game),
         ))
         .with_children(|game_ui| {
+            #[cfg(debug_assertions)]
             game_ui
                 .spawn((Node {
                     min_height: Val::Px(40.0),
@@ -90,7 +83,7 @@ fn setup(mut commands: Commands) {
                     top_bar.spawn((
                         Text::new("FPS: N/A"),
                         TextFont {
-                            font_size: 10.0,
+                            font_size: FontSize::Px(10.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -160,7 +153,6 @@ fn setup(mut commands: Commands) {
 
 fn update_select_panel(
     selectable_panel: Single<Entity, With<SelectablePanel>>,
-    ships: Query<&ComputedShipStats>,
     mut commands: Commands,
     mut selectable_reader: MessageReader<EntitySelectEvent>,
 ) {
@@ -182,6 +174,7 @@ fn update_select_panel(
     }
 }
 
+#[cfg(debug_assertions)]
 fn update_fps(
     mut text: Single<&mut Text, With<FpsText>>,
     diagnostics: Res<DiagnosticsStore>,
@@ -199,11 +192,11 @@ fn update_fps(
 }
 
 fn handle_ship_button_click(
-    mut interaction: Query<(&Interaction, &ShipButton), (Changed<Interaction>, With<Button>)>,
+    mut interaction: Query<(&PickingInteraction, &ShipButton), Changed<PickingInteraction>>,
     mut state: ResMut<GameVars>,
 ) {
     for (interaction, ship_button) in interaction.iter_mut() {
-        if *interaction == Interaction::Pressed {
+        if *interaction == PickingInteraction::Pressed {
             if let Some(following) = state.following
                 && following == ship_button.0
             {
@@ -265,11 +258,11 @@ fn update_ship_list(
                         align_items: AlignItems::Center,
                         margin: UiRect::all(Val::Px(4.0)),
                         border: UiRect::all(Val::Px(1.0)),
+                        border_radius: BorderRadius::all(Val::Percent(5.0)),
                         ..Default::default()
                     },
-                    BorderRadius::all(Val::Percent(5.0)),
                     BorderColor::all(color),
-                    Button,
+
                     ShipButton(*entity),
                 ))
                 .with_children(|wrapper| {
@@ -297,7 +290,7 @@ fn update_ship_list(
                                 }
                             }
 
-                            for (block_entity, block, health, _) in block_list
+                            for (_, block, health, _) in block_list
                                 .iter()
                                 .filter(|(_, _, _, owner)| owner.id == *entity)
                             {
@@ -317,7 +310,6 @@ fn update_ship_list(
                                 };
 
                                 block_container.spawn((
-                                    BlockButton(block_entity),
                                     BackgroundColor(color),
                                     Node {
                                         position_type: PositionType::Absolute,
@@ -343,58 +335,4 @@ fn update_ship_list(
                 });
         });
     }
-}
-
-pub fn check_ship(
-    mut commands: Commands,
-    ships: Query<(&Ship, &Team)>,
-    registry: Res<BlockRegistry>,
-) {
-    if ships.iter().len() >= MAX_SHIPS {
-        return;
-    }
-
-    let mut rng = rand::rng();
-    let schematics = load_saved_schematics();
-
-    let mut maps: HashMap<u8, u8> = HashMap::new();
-
-    for i in 0..2 {
-        maps.insert(i, 0);
-    }
-
-    for (_, team) in ships {
-        if let Some(value) = maps.get(&team.id) {
-            maps.insert(team.id, value + 1);
-        } else {
-            maps.insert(team.id, 1);
-        }
-    }
-
-    let mut least_team_id = DEFAULT_TEAM_ID;
-    let mut least_count: u8 = MAX_SHIPS as u8;
-
-    for (team_id, count) in maps.iter() {
-        if *count < least_count {
-            least_team_id = *team_id;
-            least_count = *count;
-        }
-    }
-
-    let Some(schematic) = schematics.choose(&mut rng) else {
-        return;
-    };
-
-    let position = random_vec2_step(
-        Vec2::new(-10000.0, -10000.0),
-        Vec2::new(10000.0, 10000.0),
-        1000.0,
-    );
-
-    schematic.to_ship_data().spawn(
-        &mut commands,
-        &registry,
-        Team::new(least_team_id),
-        Transform::from_translation(position.extend(0.0)),
-    );
 }

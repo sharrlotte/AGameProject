@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, SystemSet, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct EfficiencyUpdateSet;
@@ -55,7 +56,7 @@ impl Default for BlockEfficiency {
 }
 
 /// Component that provides efficiency buff to nearby blocks.
-#[derive(Component, Clone, Copy, Debug, Reflect, Default, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, Reflect, Default, PartialEq, Serialize, Deserialize)]
 pub struct EfficiencyProvider {
     radius: f32,
     value: f32,

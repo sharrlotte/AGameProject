@@ -1,17 +1,17 @@
 use bevy::math::FloatPow;
 use bevy::prelude::*;
-use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
 use super::*;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
+use crate::config::GameConfigValue;
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::turret::{Turret, TurretState};
 use crate::content::block::radar::Radar;
 use crate::content::block::{
-    BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
+    BlockOwner, BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
     LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
     PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
@@ -19,9 +19,9 @@ use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;
 use crate::content::entity::EntityType;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::{Blocks, BoundingBox, Ship};
+use crate::content::ship::{Blocks, Ship};
 use crate::content::team::Team;
-use crate::resource::SceneState;
+use crate::resource::{SceneEntity, SceneState};
 
 pub struct BulletPlugin;
 
@@ -36,6 +36,7 @@ impl Plugin for BulletPlugin {
                 handle_burst_shot,
                 handle_missile_radar_target,
                 handle_laser_beam,
+                handle_pulling_beam,
                 destroy_out_of_range_bullet,
                 handle_collisions,
             )
@@ -44,8 +45,7 @@ impl Plugin for BulletPlugin {
         .add_systems(
             FixedPostUpdate,
             (handle_laser).run_if(in_state(SceneState::Game)),
-        )
-        .add_systems(OnEnter(SceneState::Home), cleanup_bullets);
+        );
     }
 }
 
@@ -78,6 +78,7 @@ pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
     targets: Query<(&GlobalTransform, &Blocks)>,
     time: Res<Time>,
+    config: Res<GameConfigValue>,
 ) {
     for (mut missile, mut transform, global) in missiles.iter_mut() {
         let forward: Vec2 = global.up().truncate();
@@ -109,7 +110,7 @@ pub fn handle_missiles(
                 let target_dir = to_target.normalize_or_zero();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
-                let max_turn = 2.0 * time.delta_secs();
+                let max_turn = config.0.missile_max_turn * time.delta_secs();
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
                 transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
@@ -138,6 +139,7 @@ pub fn handle_single_shot(
         &Team,
         Option<&mut AmmoState>,
     )>,
+    config: Res<GameConfigValue>,
 ) {
     for (
         transform,
@@ -171,6 +173,7 @@ pub fn handle_single_shot(
                     *range,
                     &shoot_pattern.projectile,
                     turret_state.target,
+                    &config,
                 );
             }
             shoot_pattern_state.last_fired_at = time.elapsed_secs();
@@ -190,6 +193,7 @@ pub fn handle_burst_shot(
         &Team,
         Option<&mut AmmoState>,
     )>,
+    config: Res<GameConfigValue>,
 ) {
     for (
         transform,
@@ -230,6 +234,10 @@ pub fn handle_burst_shot(
                 if let Some(ref mut ammo) = ammo_state
                     && !ammo.take()
                 {
+                    shoot_pattern_state.shooting =
+                        BurstShootPatternShootingState::Cooldown {
+                            last_fired_at: time.elapsed_secs(),
+                        };
                     continue;
                 }
 
@@ -241,6 +249,7 @@ pub fn handle_burst_shot(
                     *range,
                     &shoot_pattern.projectile,
                     turret_state.target,
+                    &config,
                 );
 
                 if let Some(shoot_sound) = &shoot_pattern.shoot_sound {
@@ -283,7 +292,9 @@ pub fn handle_laser_beam(
     )>,
     mut events: MessageWriter<DamageEvent>,
 ) {
-    let collision = rapier.single().expect("How to get rapier context?");
+    let Ok(collision) = rapier.single() else {
+        return;
+    };
 
     for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
         query.iter_mut()
@@ -322,14 +333,14 @@ pub fn handle_laser_beam(
                 for barrel in barrels {
                     let origin = transform.translation().truncate() + barrel + Vec2::new(0.0, 0.0);
 
-                    let shape = &Cuboid::new(Vector2::new(shoot_pattern.width, *range));
+                    let shape = &Cuboid::new(Vec2::new(shoot_pattern.width, *range));
 
                     collision.intersect_shape(
                         origin,
                         transform.rotation().to_euler(EulerRot::XYZ).2,
                         shape,
                         filter,
-                        |entity| {
+                        |entity, _collider| {
                             if let Ok((health, _)) = healths.get(entity) {
                                 events.write(DamageEvent {
                                     attacker: entity,
@@ -388,32 +399,95 @@ pub fn handle_laser_beam(
 pub fn handle_pulling_beam(
     rapier: ReadRapierContext,
     mut commands: Commands,
+    time: Res<Time>,
+    block_owners: Query<&BlockOwner>,
+    mut ships: Query<(&GlobalTransform, &mut Velocity), With<Ship>>,
     mut query: Query<(
         Entity,
         &GlobalTransform,
         &Turret,
-        &mut TurretState,
+        &TurretState,
         &PullingBeamPattern,
         &mut PullingBeamPatternState,
         &Team,
-        Option<&Radar>,
     )>,
-    mut ships: Query<(&Ship, &mut ExternalForce)>,
 ) {
-    let collision = rapier.single().expect("How to get rapier context?");
+    const PULL_SPEED: f32 = 500.0;
 
-    for (
-        entity,
-        transform,
-        turret,
-        turret_state,
-        shoot_pattern,
-        mut shoot_pattern_state,
-        team,
-        radar,
-    ) in query.iter_mut()
+    let Ok(collision) = rapier.single() else {
+        return;
+    };
+
+    for (entity, transform, turret, turret_state, shoot_pattern, mut state, team) in
+        query.iter_mut()
     {
         let Turret { barrels, range, .. } = turret;
+
+        if !turret_state.active {
+            if let Some(beam) = state.beam {
+                commands.entity(beam).insert(Visibility::Hidden);
+            }
+            continue;
+        }
+
+        let filter = QueryFilter::from(CollisionGroups::new(
+            team.bullet_group(),
+            team.bullet_filter(),
+        ));
+
+        for barrel in barrels {
+            let origin = transform.translation().truncate() + *barrel;
+            let shape = &Cuboid::new(Vec2::new(shoot_pattern.width, *range));
+
+            collision.intersect_shape(
+                origin,
+                transform.rotation().to_euler(EulerRot::XYZ).2,
+                shape,
+                filter,
+                |block_entity, _| {
+                    let Ok(owner) = block_owners.get(block_entity) else {
+                        return true;
+                    };
+
+                    if owner.id == entity {
+                        return true;
+                    }
+
+                    if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.id) {
+                        let direction =
+                            (origin - ship_transform.translation().truncate()).normalize_or_zero();
+                        velocity.linear += direction * PULL_SPEED * time.delta_secs();
+                    }
+
+                    true
+                },
+            );
+        }
+
+        let beam_sprite = Sprite {
+            color: team.color(2.0),
+            custom_size: Some(Vec2::new(shoot_pattern.width, *range)),
+            ..default()
+        };
+
+        if let Some(beam) = state.beam {
+            commands
+                .entity(beam)
+                .insert((Visibility::Visible, beam_sprite));
+        } else {
+            let beam = commands
+                .spawn((
+                    beam_sprite,
+                    Transform::from_translation(
+                        Vec2::new(0.0, *range / 2.0).extend(LAYER_BULLET),
+                    ),
+                    Visibility::Hidden,
+                ))
+                .id();
+
+            state.beam = Some(beam);
+            commands.entity(entity).add_child(beam);
+        }
     }
 }
 
@@ -425,6 +499,7 @@ pub fn spawn_bullet(
     range: f32,
     projectile: &ShootingProjectile,
     target: Option<Entity>,
+    config: &GameConfigValue,
 ) -> Entity {
     let rotation = turret_transform.rotation();
     let offset = rotation * barrel_position.extend(LAYER_BULLET);
@@ -443,6 +518,7 @@ pub fn spawn_bullet(
             let bullet = commands
                 .spawn((
                     EntityType::Bullet,
+                    SceneEntity(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
@@ -470,16 +546,13 @@ pub fn spawn_bullet(
                 ))
                 .id();
 
-            if (*piercing) > 0 {
-                commands.entity(bullet).insert(Sensor);
-            }
-
             return bullet;
         }
         ShootingProjectile::Laser { damage, width, .. } => {
             let bullet = commands
                 .spawn((
                     EntityType::Laser,
+                    SceneEntity(SceneState::Game),
                     Laser::Init {
                         width: *width,
                         length: range,
@@ -506,13 +579,14 @@ pub fn spawn_bullet(
             let missile = commands
                 .spawn((
                     EntityType::Missile,
+                    SceneEntity(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
                         age: 0.0,
                         speed: *speed,
-                        accel_time: 0.35,
+                        accel_time: config.0.missile_accel_time,
                         target,
                     },
                     Sprite {
@@ -565,6 +639,7 @@ pub fn handle_laser(
     mut lasers: Query<(Entity, &Laser, &Damage, &Team, Option<&mut Sprite>)>,
     rapier: ReadRapierContext,
     time: Res<Time>,
+    config: Res<GameConfigValue>,
 ) {
     for (entity, laser, damage, team, sprite) in lasers.iter_mut() {
         match laser {
@@ -578,7 +653,9 @@ pub fn handle_laser(
 
                 let mut laser_length = *length;
 
-                let collision = rapier.single().expect("How to get rapier context?");
+                let Ok(collision) = rapier.single() else {
+        return;
+    };
                 let filter = QueryFilter::from(CollisionGroups::new(
                     team.bullet_group(),
                     team.bullet_filter(),
@@ -615,12 +692,12 @@ pub fn handle_laser(
                 });
             }
             Laser::Fired { fired_at } => {
-                const FADE_TIME: f32 = 0.25;
+                let fade_time = config.0.bullet_fade_time;
 
-                if time.elapsed_secs() - *fired_at > FADE_TIME {
+                if time.elapsed_secs() - *fired_at > fade_time {
                     commands.entity(entity).insert(Death);
                 } else {
-                    let intensive = 10.0 * (FADE_TIME - (time.elapsed_secs() - *fired_at)).max(0.5);
+                    let intensive = 10.0 * (fade_time - (time.elapsed_secs() - *fired_at)).max(0.0);
 
                     if let Some(mut sprite) = sprite {
                         sprite.color = team.color(intensive);
@@ -646,18 +723,15 @@ pub fn handle_missile_radar_target(
                     continue 'outer;
                 }
             }
-            missile.target = Some(*radar.targets.first().expect("How does this event happend"));
+
+            if let Some(target) = radar.targets.first() {
+                missile.target = Some(*target);
+            }
         } else {
             if let Some(target) = radar.targets.first() {
                 missile.target = Some(*target);
             }
         }
-    }
-}
-
-pub fn cleanup_bullets(mut commands: Commands, bullets: Query<Entity, With<EntityType>>) {
-    for entity in &bullets {
-        commands.entity(entity).insert(Death);
     }
 }
 

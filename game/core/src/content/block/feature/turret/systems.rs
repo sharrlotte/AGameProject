@@ -8,7 +8,7 @@ use crate::{
         ship::{Blocks, Ship},
         team::Team,
     },
-    resource::{GameVars, SceneState, TurretControl},
+    resource::SceneState,
 };
 
 pub struct TurretPlugin;
@@ -23,40 +23,10 @@ impl Plugin for TurretPlugin {
 }
 
 pub fn update_turret_target(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    window: Single<&Window>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    game_state: Res<GameVars>,
     ships: Query<(&GlobalTransform, &Ship, &Blocks)>,
     mut turrets: Query<(&GlobalTransform, &Turret, &mut TurretState, &Team, &Radar)>,
 ) {
-    for (transform, turret, mut state, team, radar) in turrets.iter_mut() {
-        if team.is_player() {
-            let (camera, camera_transform) = *camera_query;
-
-            if let Some(cursor_position) = window.cursor_position()
-                && let Ok(world_position) =
-                    camera.viewport_to_world_2d(camera_transform, cursor_position)
-                && world_position.distance_squared(transform.translation().truncate())
-                    <= turret.range.squared()
-            {
-                match game_state.turret_control {
-                    TurretControl::Manual => {
-                        state.shoot_at = Some(world_position);
-                        state.active = mouse_input.pressed(MouseButton::Left);
-                        continue;
-                    }
-                    TurretControl::Hold => {
-                        if mouse_input.pressed(MouseButton::Left) {
-                            state.shoot_at = Some(world_position);
-                            state.active = true;
-                            continue;
-                        }
-                    }
-                    TurretControl::Auto => {}
-                }
-            }
-        }
+    for (transform, turret, mut state, _, radar) in turrets.iter_mut() {
 
         let mut best_target: Option<(Entity, BlockData)> = None;
         let mut closest_dist_sq = turret.range.squared();
@@ -145,9 +115,7 @@ pub fn turret_tracking(
 
         let mut target_position: Option<Vec2> = None;
 
-        if let Some(shoot_at) = state.shoot_at {
-            target_position = Some(shoot_at);
-        } else if let Some(target) = state.target {
+        if let Some(target) = state.target {
             if let Ok((ship, position)) = transforms.get(target) {
                 target_position = Some(
                     position

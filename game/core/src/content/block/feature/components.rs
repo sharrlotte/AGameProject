@@ -1,15 +1,16 @@
+use bevy::prelude::*;
+
+use crate::config::GameConfigValue;
 use crate::content::{
     block::{
         components::BlockDef,
         feature::{
-            efficiency::EfficiencyProvider, energy::EnergyConsumer,
-            sprite::Texture, storage::Storage,
-            thruster::Thruster, turret::TurretComponent,
+            efficiency::EfficiencyProvider, energy::EnergyConsumer, sprite::Texture,
+            storage::Storage, thruster::Thruster, turret::TurretComponent,
         },
     },
     team::Team,
 };
-use bevy::prelude::*;
 
 #[derive(Component, Clone, PartialEq, Reflect)]
 pub enum Feature {
@@ -22,7 +23,14 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub fn spawn(&self, commands: &mut Commands, base: Entity, def: &BlockDef, team: &Team) {
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        base: Entity,
+        def: &BlockDef,
+        team: &Team,
+        config: &GameConfigValue,
+    ) {
         let component = commands
             .spawn((
                 Transform::default(),
@@ -37,7 +45,7 @@ impl Feature {
         match self {
             Self::Texture(sprite) => sprite.insert(commands, component, def),
             Self::Turret(turret) => turret.insert(commands, component, def),
-            Self::Thruster(thruster) => thruster.insert(commands, component),
+            Self::Thruster(thruster) => thruster.insert(commands, component, config),
             Self::EnergyConsumer(consumer) => consumer.insert(commands, component),
             Self::Storage(storage) => storage.insert(commands, component),
             Self::EfficiencyProvider(provider) => {

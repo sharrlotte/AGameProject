@@ -1,3 +1,4 @@
+use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::{
@@ -19,7 +20,7 @@ impl Plugin for PauseScenePlugin {
             .add_systems(
                 Update,
                 handle_pause_input
-                    .run_if(in_state(SceneState::Game).or(in_state(SceneState::ShipEditor))),
+                    .run_if(in_state(SceneState::Game).or_else(in_state(SceneState::ShipEditor))),
             );
     }
 }
@@ -74,7 +75,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent.spawn((
                 Text::new("Paused"),
                 TextFont {
-                    font_size: 40.0,
+                    font_size: FontSize::Px(40.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -87,7 +88,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Resume Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -95,9 +96,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Resume,
                 ))
@@ -105,7 +106,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Resume"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -115,7 +116,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Settings Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -123,9 +124,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Settings,
                 ))
@@ -133,7 +134,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Settings"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -143,7 +144,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Save Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -151,9 +152,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Save,
                 ))
@@ -161,7 +162,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Save"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -169,7 +170,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 });
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -177,9 +178,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Load,
                 ))
@@ -187,7 +188,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Load"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -197,7 +198,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Home Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -205,9 +206,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Home,
                 ))
@@ -215,7 +216,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Back to Home"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -225,7 +226,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Exit Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -233,9 +234,9 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         border: UiRect::all(Val::Px(5.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
+                        border_radius: BorderRadius::all(Val::Px(10.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.0)),
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     PauseButton::Exit,
                 ))
@@ -243,7 +244,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                     parent.spawn((
                         Text::new("Exit"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -254,8 +255,8 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
 
 fn handle_pause_buttons(
     mut interaction_query: Query<
-        (&Interaction, &PauseButton, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (&PickingInteraction, &PauseButton, &mut BackgroundColor),
+        Changed<PickingInteraction>,
     >,
     mut app_state: ResMut<NextState<SceneState>>,
     mut game_state: ResMut<NextState<PauseState>>,
@@ -269,7 +270,7 @@ fn handle_pause_buttons(
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
                 match button_type {
                     PauseButton::Resume => {
@@ -308,10 +309,10 @@ fn handle_pause_buttons(
                     }
                 }
             }
-            Interaction::Hovered => {
+            PickingInteraction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
             }
-            Interaction::None => {
+            PickingInteraction::None => {
                 *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
             }
         }

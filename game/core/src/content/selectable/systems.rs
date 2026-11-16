@@ -108,15 +108,19 @@ fn update_selectable(
                 let translation = transform.translation().truncate();
 
                 if let Some(bounding_box) = bounding_box {
-                    let edge = bounding_box.size + translation;
+                    let half = bounding_box.size / 2.0;
+                    let min = translation - half;
+                    let max = translation + half;
 
-                    if top_left.x <= edge.x
-                        && top_left.y <= edge.y
-                        && bottom_right.x >= edge.x
-                        && bottom_right.y >= edge.y
+                    if top_left.x <= max.x
+                        && top_left.y <= max.y
+                        && bottom_right.x >= min.x
+                        && bottom_right.y >= min.y
                     {
                         selected.entry(*entity_type).or_default().push(entity);
                     }
+
+                    continue;
                 }
 
                 if top_left.x <= translation.x

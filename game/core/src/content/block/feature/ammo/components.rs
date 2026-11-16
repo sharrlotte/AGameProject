@@ -33,18 +33,18 @@ pub struct AmmoBuilder {
 }
 
 impl AmmoBuilder {
-    pub fn build(init: AmmoBuilder) -> Option<Ammo> {
+    pub fn build(init: AmmoBuilder) -> Ammo {
         let AmmoBuilder {
             capacity,
             crafting,
             icon,
         } = init;
 
-        Some(Ammo {
+        Ammo {
             capacity,
             crafting,
             icon,
-        })
+        }
     }
 }
 
@@ -55,31 +55,45 @@ pub struct AmmoState {
 
 impl AmmoState {
     pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {
-        let mut max_refill = ammo.capacity;
-        let mut can_refill = false;
+        let room = ammo.capacity.saturating_sub(self.current);
 
-        for (item_type, count) in &ammo.crafting {
-            if let Some(amount) = storage.get(item_type) {
-                if amount / count <= max_refill {
-                    max_refill = amount / count;
-                    can_refill = true;
-                }
-            }
+        if room == 0 {
+            return true;
         }
 
-        if max_refill == 0 || !can_refill {
+        let mut max_refill = room;
+
+        for (item_type, count) in &ammo.crafting {
+            if *count == 0 {
+                return false;
+            }
+
+            let Some(&available) = storage.get(item_type) else {
+                return false;
+            };
+
+            max_refill = max_refill.min(available / count);
+        }
+
+        if max_refill == 0 {
             return false;
         }
 
         for (item_type, count) in &ammo.crafting {
-            if !storage.take(item_type, max_refill * count) {
-                panic!("Storage should have enough items to refill ammo");
+            let Some(taken) = max_refill.checked_mul(*count) else {
+                error!("Ammo refill overflow: {} x {}", max_refill, count);
+                return false;
+            };
+
+            if !storage.take(item_type, taken) {
+                error!("Ammo refill failed to consume {} of {:?}", taken, item_type);
+                return false;
             }
         }
 
         self.current += max_refill;
 
-        self.current == ammo.capacity
+        self.current >= ammo.capacity
     }
 
     pub fn take(&mut self) -> bool {

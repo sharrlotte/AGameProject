@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use super::*;
 use crate::content::{
     block::{
-        components::{BlockOwner, PowerProducer}, feature::efficiency::{EfficiencyEffect, EfficiencyUpdateSet},
+        components::{BlockOwner, PowerProducer},
+        feature::efficiency::{BlockEfficiency, EfficiencyEffect, EfficiencyUpdateSet},
+        stat::make_stat_system,
     },
     ship::stat::ComputedShipStats,
 };
@@ -25,31 +27,7 @@ impl Plugin for EnergyPlugin {
     }
 }
 
-pub fn update_power_usage_stats(
-    mut query: Query<(
-        &PowerUsageBase,
-        &mut PowerUsageComputed,
-        Option<&PowerUsageEffects>,
-        Option<&EfficiencyEffect>,
-    )>,
-) {
-    for (base, mut computed, effects, efficiency_effect) in &mut query {
-        let eff = efficiency_effect.map(|e| e.value()).unwrap_or(1.0);
-
-        let mut val = if eff > 0.0001 {
-            base.value() / eff
-        } else {
-            base.value()
-        };
-
-        if let Some(effects) = effects {
-            for effect in &effects.0 {
-                val = effect.rule.apply(val, base.value(), effect.value);
-            }
-        }
-        computed.set(val);
-    }
-}
+make_stat_system!(update_power_usage_stats, PowerUsageBase, PowerUsageComputed, PowerUsageEffects, |base, eff| if eff > 0.0001 { base / eff } else { base });
 
 pub fn update_efficiency_base_on_power_usage(
     mut ships: Query<(Entity, &mut ComputedShipStats)>,
@@ -62,6 +40,7 @@ pub fn update_efficiency_base_on_power_usage(
     // Reset ship stats
     for (_, mut stats) in &mut ships {
         stats.power_usage = 0.0;
+        stats.efficiency = 1.0;
     }
 
     let mut power_map = HashMap::<Entity, (f32, f32)>::new();

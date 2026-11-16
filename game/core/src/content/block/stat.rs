@@ -3,6 +3,38 @@ use bevy::prelude::*;
 #[derive(Clone, Copy, Debug, Reflect, PartialEq, SystemSet, Hash, Eq)]
 pub struct StatsUpdateSet;
 
+macro_rules! make_stat_system {
+    ($name:ident, $base:ty, $computed:ty, $effects:ty, $op:expr) => {
+        pub fn $name(
+            mut query: Query<(
+                &$base,
+                &mut $computed,
+                Option<&$effects>,
+                Option<&EfficiencyEffect>,
+                Option<&BlockEfficiency>,
+            )>,
+        ) {
+            for (base, mut computed, effects, efficiency_effect, block_efficiency) in &mut query {
+                let eff = block_efficiency
+                    .map(|e| e.value())
+                    .or_else(|| efficiency_effect.map(|e| e.value()))
+                    .unwrap_or(1.0);
+
+                let mut val = ($op)(base.value(), eff);
+
+                if let Some(effects) = effects {
+                    for effect in &effects.0 {
+                        val = effect.rule.apply(val, base.value(), effect.value);
+                    }
+                }
+                computed.set(val);
+            }
+        }
+    };
+}
+
+pub(crate) use make_stat_system;
+
 #[derive(Clone, Copy, Debug, Reflect, PartialEq)]
 pub enum StackRule {
     Additive,

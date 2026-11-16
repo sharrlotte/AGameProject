@@ -2,12 +2,15 @@ use bevy::input::mouse::MouseWheel;
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use uuid::Uuid;
 
-use crate::constant::{DROP_COLLECT_RADIUS, LAYER_SHIP_UI, LINEAR_DAMPING, MAX_ZOOM, MIN_ZOOM};
+use crate::config::GameConfigValue;
+use crate::constant::DROP_PICKUP_RADIUS;
+#[cfg(debug_assertions)]
+use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
@@ -27,12 +30,13 @@ pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<ComputedShipStats>()
-            .add_systems(
-                FixedUpdate,
-                update_ship_ui.run_if(in_state(SceneState::Game)),
-            )
-            .add_systems(
+        app.register_type::<ComputedShipStats>();
+        #[cfg(debug_assertions)]
+        app.add_systems(
+            FixedUpdate,
+            update_ship_ui.run_if(in_state(SceneState::Game)),
+        );
+        app.add_systems(
                 PostUpdate,
                 update_ship_behavior.run_if(in_state(SceneState::Game)),
             )
@@ -125,6 +129,7 @@ pub fn check_rebuild_ship_collider(
     }
 }
 
+#[cfg(debug_assertions)]
 pub fn update_ship_ui(
     mut commands: Commands,
     mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
@@ -172,7 +177,7 @@ pub fn update_ship_ui(
                         current, behavior, stats
                     )),
                     TextFont {
-                        font_size: 30.0,
+                        font_size: FontSize::Px(30.0),
                         ..default()
                     },
                     Transform::from_rotation(global_transform.rotation().inverse())
@@ -194,13 +199,14 @@ pub fn player_control_ship(
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut state: ResMut<GameVars>,
+    config: Res<GameConfigValue>,
 ) {
     for event in mouse_wheel_events.read() {
         if let Ok((_, mut projection)) = camera.single_mut() {
             if let Projection::Orthographic(ortho) = &mut *projection {
                 let zoom_speed = 0.1;
                 ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(MIN_ZOOM, MAX_ZOOM);
+                ortho.scale = ortho.scale.clamp(config.0.min_zoom, config.0.max_zoom);
             }
         }
     }
@@ -333,6 +339,7 @@ pub fn control_ship(
     global_transforms: Query<&Transform, Without<Camera2d>>,
     state: ResMut<GameVars>,
     mut commands: Commands,
+    config: Res<GameConfigValue>,
 ) {
     let mut teams: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>> =
         HashMap::new();
@@ -378,17 +385,20 @@ pub fn control_ship(
             continue;
         }
 
-        let ally = teams
-            .get(&team.id)
-            .expect("How this is possible")
+        let Some(ally_ships) = teams.get(&team.id) else {
+            continue;
+        };
+
+        let ally = ally_ships
             .iter()
             .filter(|other| other.0 != entity)
             .collect::<Vec<_>>();
 
         let mut in_range = enemies
             .get(&team.id)
-            .expect("How this is possible")
-            .iter()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
             .filter(|other| {
                 other
                     .1
@@ -399,20 +409,61 @@ pub fn control_ship(
             });
 
         match controller.current() {
+            AIShipBehavior::Kiting => {
+                // Hold weapon range and orbit the nearest enemy while turrets engage.
+                let desired = ship.max_range * config.0.ai_min_range_factor;
+
+                let mut nearest: Option<(Entity, Vec2, f32)> = None;
+
+                for other in enemies.get(&team.id).cloned().unwrap_or_default() {
+                    let position = other.1.translation().truncate();
+                    let distance = transform.translation.truncate().distance(position);
+
+                    if distance > ship.max_range {
+                        continue;
+                    }
+
+                    match nearest {
+                        Some((_, _, best)) if best <= distance => {}
+                        _ => nearest = Some((other.0, position, distance)),
+                    }
+                }
+
+                match nearest {
+                    Some((_, enemy_position, distance)) => {
+                        if distance < desired {
+                            let away = (transform.translation.truncate() - enemy_position)
+                                .normalize_or_zero();
+                            commands.entity(entity).insert(ShipBehavior::Approach {
+                                position: enemy_position + away * ship.max_range,
+                                radius: desired,
+                            });
+                        } else {
+                            commands.entity(entity).insert(ShipBehavior::GoAround {
+                                position: enemy_position,
+                                radius: desired,
+                            });
+                        }
+                    }
+                    None => {
+                        controller.next(AIShipBehavior::Idle);
+                    }
+                }
+            }
             AIShipBehavior::Regroup => {
                 if let Some(a) = ally.last() {
                     let is_in_range = transform
                         .translation
                         .truncate()
                         .distance(a.1.translation().truncate())
-                        <= (a.3.size.length() + bbox.size.length()) * 2.0;
+                        <= (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier;
 
                     if is_in_range {
                         controller.next(AIShipBehavior::Wander);
                     } else {
                         commands.entity(entity).insert(ShipBehavior::Approach {
                             position: a.1.transform_point((a.3.size / 2.0).extend(0.0)).truncate(),
-                            radius: (a.3.size.length() + bbox.size.length()) * 2.0,
+                            radius: (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier,
                         });
                     }
                 } else {
@@ -425,13 +476,15 @@ pub fn control_ship(
                 } else {
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: Vec2::ZERO,
-                        radius: bbox.size.length() * 2.0,
+                        radius: bbox.size.length() * config.0.ai_group_range_multiplier,
                     });
                 }
             }
             AIShipBehavior::Chase { target } => {
                 if target == entity {
-                    panic!("Chase self");
+                    warn!("AI ship {:?} had itself as chase target, idling", entity);
+                    controller.next(AIShipBehavior::Idle);
+                    continue;
                 }
 
                 let global_position = global_transforms
@@ -442,12 +495,12 @@ pub fn control_ship(
                     if transform.translation.distance(position.extend(0.0)) >= ship.min_range {
                         commands.entity(entity).insert(ShipBehavior::Approach {
                             position: position,
-                            radius: ship.min_range * 0.9,
+                            radius: ship.min_range * config.0.ai_min_range_factor,
                         });
                     } else {
                         commands.entity(entity).insert(ShipBehavior::GoAround {
                             position: position,
-                            radius: ship.min_range * 0.9,
+                            radius: ship.min_range * config.0.ai_min_range_factor,
                         });
                     }
                 } else {
@@ -455,21 +508,23 @@ pub fn control_ship(
                 }
             }
             AIShipBehavior::Wander => {
-                if rng.random_bool(0.5) {
+                if rng.random_bool(config.0.ai_wander_attack_chance as f64) && in_range.next().is_some() {
+                    controller.next(AIShipBehavior::Kiting);
+                } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
                     controller.next(AIShipBehavior::Attack {
                         target_position: Vec2::ZERO,
                     });
-                } else if rng.random_bool(0.5) {
+                } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
                     if let Some(a) = ally.last() {
                         controller.next(AIShipBehavior::Guard {
                             target: a.0,
-                            radius: (a.3.size.length() + bbox.size.length()) * 2.0,
+                            radius: (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier,
                         });
                     }
                 } else {
                     controller.next(AIShipBehavior::Patrol {
                         around_position: Vec2::ZERO,
-                        radius: bbox.size.length() * 10.0,
+                        radius: bbox.size.length() * config.0.ai_wander_patrol_radius_multiplier,
                     });
                 }
             }
@@ -489,7 +544,7 @@ pub fn control_ship(
                         (transform.translation.truncate() - position).normalize_or_zero();
 
                     let op_direction = direction * -1.0;
-                    let op_position = transform.translation.truncate() + op_direction * 1000.0;
+                    let op_position = transform.translation.truncate() + op_direction * config.0.ai_flee_distance;
 
                     commands.entity(entity).insert(ShipBehavior::Approach {
                         position: op_position,
@@ -543,7 +598,6 @@ pub fn control_ship(
                     controller.previous();
                 }
             }
-            AIShipBehavior::Kiting => todo!(),
         }
     }
 }
@@ -560,7 +614,9 @@ pub fn update_ship_behavior(
         &ComputedShipStats,
     )>,
     state: Res<GameVars>,
+    #[cfg_attr(not(debug_assertions), allow(unused_variables))]
     mut gizmos: Gizmos,
+    config: Res<GameConfigValue>,
 ) {
     for (entity, _, size, behavior, transform, mut force, mut velocity, stats) in ships.iter_mut() {
         if let Some(controlling) = state.controlling
@@ -584,13 +640,15 @@ pub fn update_ship_behavior(
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
                 let distance = current_postion.distance(*position);
 
-                gizmos.line_2d(
-                    current_postion,
-                    position.clone(),
-                    Color::srgba(0.0, 1.0, 1.0, 0.5),
-                );
+                if cfg!(debug_assertions) {
+                    gizmos.line_2d(
+                        current_postion,
+                        *position,
+                        Color::srgba(0.0, 1.0, 1.0, 0.5),
+                    );
 
-                gizmos.circle_2d(position.clone(), 30.0, Color::srgb(0.0, 1.0, 1.0));
+                    gizmos.circle_2d(*position, 30.0, Color::srgb(0.0, 1.0, 1.0));
+                }
 
                 let force_multiplier = if distance > *radius {
                     1.0
@@ -598,7 +656,7 @@ pub fn update_ship_behavior(
                     (distance / radius).squared()
                 };
 
-                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angvel.abs())
+                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angular.abs())
                     .clamp(0.0, 1.0)
                     .squared();
 
@@ -608,15 +666,16 @@ pub fn update_ship_behavior(
                     -turn_speed
                 } * torque_multiplier;
 
-                if angle_diff.abs() < 0.01 && velocity.angvel.abs() < 0.01 {
+                if angle_diff.abs() < 0.01 && velocity.angular.abs() < 0.01 {
                     torque = 0.0;
-                    velocity.angvel = 0.0;
+                    velocity.angular = 0.0;
                 }
 
                 force.torque = torque;
 
-                let speed = velocity.linvel.length();
-                let stop_distance = speed * speed / (2.0 * LINEAR_DAMPING);
+                let speed = velocity.linear.length();
+                let stop_distance =
+                    speed * speed / (2.0 * config.0.linear_damping);
 
                 if distance <= stop_distance {
                     force.force = Vec2::ZERO;
@@ -637,14 +696,16 @@ pub fn update_ship_behavior(
                     next_position = position_on_ring + direction.perp() * radius / 2.0;
                 }
 
-                gizmos.line_2d(
-                    current_postion,
-                    next_position,
-                    Color::srgba(0.0, 1.0, 0.0, 0.5),
-                );
+                if cfg!(debug_assertions) {
+                    gizmos.line_2d(
+                        current_postion,
+                        next_position,
+                        Color::srgba(0.0, 1.0, 0.0, 0.5),
+                    );
 
-                gizmos.circle_2d(*position, *radius, Color::srgb(1.0, 1.0, 0.0));
-                gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
+                    gizmos.circle_2d(*position, *radius, Color::srgb(1.0, 1.0, 0.0));
+                    gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
+                }
 
                 let direction = (next_position - current_postion).normalize_or_zero();
 
@@ -658,7 +719,7 @@ pub fn update_ship_behavior(
                     distance / radius
                 };
 
-                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angvel.abs())
+                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angular.abs())
                     .clamp(0.0, 1.0)
                     .squared();
 
@@ -668,9 +729,9 @@ pub fn update_ship_behavior(
                     -turn_speed
                 } * torque_multiplier;
 
-                if angle_diff.abs() < 0.01 && velocity.angvel.abs() < 0.01 {
+                if angle_diff.abs() < 0.01 && velocity.angular.abs() < 0.01 {
                     torque = 0.0;
-                    velocity.angvel = 0.0;
+                    velocity.angular = 0.0;
                 }
 
                 force.torque = torque;
@@ -698,6 +759,7 @@ pub fn collect_drop(
     mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
     mut storages: Query<(&Storage, &mut StorageState, &GlobalTransform, &Team)>,
     time: Res<Time>,
+    config: Res<GameConfigValue>,
 ) {
     let mut collected: HashSet<Entity> = HashSet::new();
 
@@ -714,13 +776,13 @@ pub fn collect_drop(
             let dir = ship_transform.translation() - drop_transform.translation;
             let distance = dir.length();
 
-            if distance <= DROP_COLLECT_RADIUS {
+            if distance <= config.0.drop_collect_radius {
                 drop_transform.translation +=
-                    DROP_COLLECT_RADIUS * dir.normalize_or_zero() * time.delta_secs() * 3.0;
+                    config.0.drop_collect_radius * dir.normalize_or_zero() * time.delta_secs() * 3.0;
 
                 collected.insert(drop_entity);
 
-                if distance <= DROP_COLLECT_RADIUS.sqrt() {
+                if distance <= DROP_PICKUP_RADIUS {
                     match drop_component {
                         DropComponent::Item(item) => {
                             if storage_state.add(storage, item.item_type, item.amount) {

@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 
+use crate::config::GameConfigValue;
 use crate::{content::block::Health, content::lifetime::Lifetime};
+use crate::resource::{SceneEntity, SceneState};
 use super::*;
 
 pub struct DamagePlugin;
@@ -18,6 +20,7 @@ pub fn handle_damage_events(
     mut commands: Commands,
     mut events: MessageReader<DamageEvent>,
     mut healths: Query<(&mut Health, &GlobalTransform)>,
+    config: Res<GameConfigValue>,
 ) {
     for event in events.read() {
         if let Ok((mut health, transform)) = healths.get_mut(event.target) {
@@ -25,10 +28,11 @@ pub fn handle_damage_events(
 
             commands.spawn((
                 Transform::from_translation(transform.translation().truncate().extend(1000000.0)),
-                Lifetime::seconds(1.5),
+                Lifetime::seconds(config.0.damage_number_lifetime),
+                SceneEntity(SceneState::Game),
                 Text2d::new(event.damage.to_string()),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
                 TextColor(Color::srgb(1.0, 0.0, 0.0)),

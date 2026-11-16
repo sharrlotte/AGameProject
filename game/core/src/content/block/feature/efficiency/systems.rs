@@ -2,7 +2,11 @@ use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
 
 use super::*;
-use crate::content::{block::BlockOwner, ship::stat::ComputedShipStats};
+use crate::content::{
+    block::BlockOwner,
+    ship::stat::ComputedShipStats,
+    team::Team,
+};
 
 pub struct EfficiencyPlugin;
 
@@ -10,7 +14,7 @@ impl Plugin for EfficiencyPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedFirst,
-            (apply_efficiency_buffs, update_block_efficiency_base)
+            (update_block_efficiency_base, apply_efficiency_buffs)
                 .chain()
                 .in_set(EfficiencyUpdateSet),
         );
@@ -33,20 +37,24 @@ pub fn update_block_efficiency_base(
 
 /// Applies spatial efficiency buffs.
 pub fn apply_efficiency_buffs(
-    mut blocks: Query<(Entity, &GlobalTransform, &mut BlockEfficiency)>,
-    providers: Query<(&GlobalTransform, &EfficiencyProvider)>,
+    mut blocks: Query<(Entity, &GlobalTransform, &mut BlockEfficiency, &Team)>,
+    providers: Query<(&GlobalTransform, &EfficiencyProvider, &Team)>,
     rapier_context: ReadRapierContext,
 ) {
-    let rapier = rapier_context.single().expect("Rapier context not found");
-    let filter = QueryFilter::default().exclude_sensors();
+    let Ok(rapier) = rapier_context.single() else {
+        return;
+    };
+    let filter = QueryFilter::default();
 
-    for (transform, provider) in &providers {
+    for (transform, provider, provider_team) in &providers {
         let shape = Ball::new(provider.radius());
         let origin = transform.translation().truncate();
 
-        rapier.intersect_shape(origin, 0.0, &shape, filter, |entity| {
-            if let Ok((_, _, mut efficiency)) = blocks.get_mut(entity) {
-                efficiency.apply(provider.value());
+        rapier.intersect_shape(origin, 0.0, &shape, filter, |entity, _collider| {
+            if let Ok((_, _, mut efficiency, team)) = blocks.get_mut(entity) {
+                if team.id == provider_team.id {
+                    efficiency.apply(provider.value());
+                }
 
                 true
             } else {

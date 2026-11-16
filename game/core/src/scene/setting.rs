@@ -1,5 +1,6 @@
-use bevy::{audio::Volume, post_process::bloom::Bloom, prelude::*};
+use bevy::{audio::Volume, picking::hover::PickingInteraction, post_process::bloom::Bloom, prelude::*};
 
+use crate::config::GameSetting;
 use crate::resource::SettingState;
 
 #[derive(Component)]
@@ -42,21 +43,6 @@ impl Plugin for SettingScenePlugin {
     }
 }
 
-#[derive(Resource)]
-pub struct GameSetting {
-    pub volume: f32,
-    pub bloom: bool,
-}
-
-impl Default for GameSetting {
-    fn default() -> Self {
-        Self {
-            volume: 0.5,
-            bloom: true,
-        }
-    }
-}
-
 pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
     commands
         .spawn((
@@ -79,7 +65,7 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             parent.spawn((
                 Text::new("Settings"),
                 TextFont {
-                    font_size: 40.0,
+                    font_size: FontSize::Px(40.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -96,23 +82,24 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                     row.spawn((
                         Text::new("Volume"),
                         TextFont {
-                            font_size: 24.0,
+                            font_size: FontSize::Px(24.0),
                             ..default()
                         },
                     ));
 
                     // Decrease
                     row.spawn((
-                        Button,
+
                         Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
+
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        BorderRadius::all(Val::Px(5.0)),
                         VolumeChange(-0.1),
                     ))
                     .with_children(|btn| {
@@ -123,7 +110,7 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                     row.spawn((
                         Text::new(format!("{:.0}%", setting.volume * 100.0)),
                         TextFont {
-                            font_size: 24.0,
+                            font_size: FontSize::Px(24.0),
                             ..default()
                         },
                         VolumeText,
@@ -131,16 +118,17 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
 
                     // Increase
                     row.spawn((
-                        Button,
+
                         Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
+
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        BorderRadius::all(Val::Px(5.0)),
                         VolumeChange(0.1),
                     ))
                     .with_children(|btn| {
@@ -159,22 +147,23 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                     row.spawn((
                         Text::new("Bloom"),
                         TextFont {
-                            font_size: 24.0,
+                            font_size: FontSize::Px(24.0),
                             ..default()
                         },
                     ));
 
                     row.spawn((
-                        Button,
+
                         Node {
                             width: Val::Px(100.0),
                             height: Val::Px(40.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
+
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        BorderRadius::all(Val::Px(5.0)),
                         BloomButton,
                     ))
                     .with_children(|btn| {
@@ -188,17 +177,18 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             // Close Button
             parent
                 .spawn((
-                    Button,
+
                     Node {
                         width: Val::Px(150.0),
                         height: Val::Px(50.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         margin: UiRect::top(Val::Px(20.0)),
+                        border_radius: BorderRadius::all(Val::Px(5.0)),
                         ..default()
                     },
+
                     BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
-                    BorderRadius::all(Val::Px(5.0)),
                     CloseButton,
                 ))
                 .with_children(|btn| {
@@ -215,54 +205,54 @@ pub fn cleanup_setting_ui(mut commands: Commands, query: Query<Entity, With<Sett
 
 pub fn handle_close_button(
     mut interaction: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<CloseButton>),
+        (&PickingInteraction, &mut BackgroundColor),
+        (Changed<PickingInteraction>, With<CloseButton>),
     >,
     mut next_state: ResMut<NextState<SettingState>>,
 ) {
     for (interaction, mut bg) in &mut interaction {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 next_state.set(SettingState::Closed);
             }
-            Interaction::Hovered => *bg = BackgroundColor(Color::srgb(0.6, 0.3, 0.3)),
-            Interaction::None => *bg = BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
+            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.6, 0.3, 0.3)),
+            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
         }
     }
 }
 
 pub fn handle_volume_change(
     mut interaction: Query<
-        (&Interaction, &VolumeChange, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (&PickingInteraction, &VolumeChange, &mut BackgroundColor),
+        Changed<PickingInteraction>,
     >,
     mut setting: ResMut<GameSetting>,
 ) {
     for (interaction, change, mut bg) in &mut interaction {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 setting.volume = (setting.volume + change.0).clamp(0.0, 1.0);
             }
-            Interaction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-            Interaction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
         }
     }
 }
 
 pub fn handle_bloom_toggle(
     mut interaction: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<BloomButton>),
+        (&PickingInteraction, &mut BackgroundColor),
+        (Changed<PickingInteraction>, With<BloomButton>),
     >,
     mut setting: ResMut<GameSetting>,
 ) {
     for (interaction, mut bg) in &mut interaction {
         match *interaction {
-            Interaction::Pressed => {
+            PickingInteraction::Pressed => {
                 setting.bloom = !setting.bloom;
             }
-            Interaction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-            Interaction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
         }
     }
 }

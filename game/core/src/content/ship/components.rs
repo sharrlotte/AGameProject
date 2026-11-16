@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::constant::{ANGULAR_DAMPING, LAYER_SHIP_UI, LINEAR_DAMPING};
+#[cfg(debug_assertions)]
+use crate::constant::LAYER_SHIP_UI;
+use crate::config::GameConfigValue;
 use crate::content::block::{BlockData, BlockRegistry, ShipCalculatedStat};
 use crate::content::entity::EntityType;
 use crate::content::selectable::Selectable;
@@ -49,12 +51,12 @@ pub struct AIShipController {
 }
 
 impl AIShipController {
-    pub fn new(initial_behavior: AIShipBehavior) -> Self {
+    pub fn new(initial_behavior: AIShipBehavior, think_rate_hz: f32) -> Self {
         Self {
             last_behavior: initial_behavior,
             behavior: initial_behavior,
             initial_behavior,
-            timer: Timer::from_seconds(1.0 / 15.0, TimerMode::Repeating),
+            timer: Timer::from_seconds(1.0 / think_rate_hz, TimerMode::Repeating),
         }
     }
 
@@ -139,10 +141,11 @@ impl ShipData {
 
     pub fn spawn(
         &self,
-        mut commands: &mut Commands,
+        commands: &mut Commands,
         registry: &BlockRegistry,
         team: Team,
         transform: Transform,
+        config: &GameConfigValue,
     ) -> Option<Entity> {
         let ShipCalculatedStat { ship, .. } = registry.blocks_stats(&self.blocks);
 
@@ -182,34 +185,38 @@ impl ShipData {
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::all(),
-                AIShipController::new(AIShipBehavior::Idle),
+                AIShipController::new(AIShipBehavior::Idle, config.0.ai_think_rate_hz),
                 Damping {
-                    linear_damping: LINEAR_DAMPING,
-                    angular_damping: ANGULAR_DAMPING,
+                    linear_damping: config.0.linear_damping,
+                    angular_damping: config.0.angular_damping,
                 },
             ))
             .id();
 
         for block_data in &data.blocks {
             if let Some(def) = registry.get(&block_data.block_type) {
-                block_data.spawn(&mut commands, def, ship, team);
+                block_data.spawn(commands, def, ship, team, config);
             }
         }
 
-        let ui_root = commands
-            .spawn((
-                ShipUIRoot { ship },
-                Visibility::Visible,
-                Transform::from_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
-            ))
-            .id();
+        #[cfg(debug_assertions)]
+        {
+            let ui_root = commands
+                .spawn((
+                    ShipUIRoot { ship },
+                    Visibility::Visible,
+                    Transform::from_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
+                ))
+                .id();
 
-        commands.entity(ship).add_child(ui_root);
+            commands.entity(ship).add_child(ui_root);
+        }
 
         return Some(ship);
     }
 }
 
+#[cfg(debug_assertions)]
 #[derive(Component, Debug)]
 pub struct ShipUIRoot {
     pub ship: Entity,

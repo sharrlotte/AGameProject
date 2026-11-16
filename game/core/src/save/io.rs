@@ -11,6 +11,7 @@ use std::{
 };
 use uuid::Uuid;
 
+use crate::config::GameConfigValue;
 use crate::content::{
     block::{
         components::{
@@ -77,14 +78,16 @@ pub struct LoadWorldEvent {
 }
 
 pub fn save_dir() -> PathBuf {
-    let project_dirs = ProjectDirs::from(
+    ProjectDirs::from(
         "com",           // qualifier
         "somerandomdev", // organization
         "agameproject",  // application
     )
-    .expect("Failed to get project directory");
-
-    project_dirs.data_dir().to_path_buf()
+    .map(|dirs| dirs.data_dir().to_path_buf())
+    .unwrap_or_else(|| {
+        error!("Failed to resolve project directory, falling back to local ./agameproject");
+        PathBuf::from("./agameproject")
+    })
 }
 
 pub fn load_saved_schematics() -> Vec<SchematicData> {
@@ -111,9 +114,8 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
     while schematics.len() < 5 {
         let timetamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            .to_string();
+            .map(|d| d.as_nanos().to_string())
+            .unwrap_or_else(|_| "0".to_string());
 
         schematics.push(SchematicData {
             id: Uuid::now_v7(),
@@ -219,36 +221,33 @@ pub fn handle_save_world_event(
     block_query: Query<(Entity, &Block, &BlockState)>,
     turret_query: Query<(Entity, &TurretState)>,
     health_query: Query<(Entity, &Health)>,
-    singel_shoot_pattern_query: Query<(Entity, &SingleShootPatternState)>,
+    single_shoot_pattern_query: Query<(Entity, &SingleShootPatternState)>,
     parents: Query<(Entity, &ChildOf)>,
     mut events: MessageReader<SaveWorldEvent>,
 ) {
     let mut ids: HashMap<Entity, Uuid> = HashMap::new();
 
-    let get_parent = |ids: &HashMap<Entity, Uuid>, entity: Entity| -> Uuid {
-        let parent_id = &parents
-            .get(entity)
-            .expect(format!("Entity has no parent: {:?}", entity).as_str())
-            .1
-            .parent();
+    let get_parent = |ids: &HashMap<Entity, Uuid>, entity: Entity| -> Option<Uuid> {
+        let parent_id = &parents.get(entity).ok()?.1.parent();
 
-        return *ids.get(parent_id).expect(
-            format!(
-                "Parent is not in child: {}, parent: {}, ids: {:?}",
-                entity, parent_id, ids
-            )
-            .as_str(),
-        );
+        ids.get(parent_id).copied().or_else(|| {
+            warn!(
+                "Parent {:?} of entity {:?} is not in the id map",
+                parent_id, entity
+            );
+            None
+        })
     };
 
-    let get_id = |ids: &mut HashMap<Entity, Uuid>, entity: Entity| -> Uuid {
+    let get_id = |ids: &mut HashMap<Entity, Uuid>, entity: Entity| -> Option<Uuid> {
         if ids.contains_key(&entity) {
-            panic!("Entity {} already has an id", entity);
+            warn!("Entity {:?} was serialized twice", entity);
+            None
+        } else {
+            let id = Uuid::now_v7();
+            ids.insert(entity, id);
+            Some(id)
         }
-
-        let id = Uuid::now_v7();
-        ids.insert(entity, id);
-        return id;
     };
 
     fn clone_query<T: Component + Debug + Clone>(
@@ -275,31 +274,42 @@ pub fn handle_save_world_event(
     for event in events.read() {
         let ships = ship_query
             .iter()
-            .map(|(entity, state, team)| ShipSave {
-                id: get_id(&mut ids, entity),
-                state: state.clone(),
-                team: team.clone(),
+            .filter_map(|(entity, state, team)| {
+                let id = get_id(&mut ids, entity)?;
+                Some(ShipSave {
+                    id,
+                    state: state.clone(),
+                    team: team.clone(),
+                })
             })
             .collect::<Vec<_>>();
 
         let blocks = block_query
             .iter()
-            .map(|(entity, block, state)| BlockSave {
-                id: get_id(&mut ids, entity),
-                parent: get_parent(&ids, entity),
-                block_type: block.block_type,
-                position: block.position,
-                rotation: block.rotation,
-                state: state.clone(),
+            .filter_map(|(entity, block, state)| {
+                let id = get_id(&mut ids, entity)?;
+                let parent = get_parent(&ids, entity)?;
+                Some(BlockSave {
+                    id,
+                    parent,
+                    block_type: block.block_type,
+                    position: block.position,
+                    rotation: block.rotation,
+                    state: state.clone(),
+                })
             })
             .collect::<Vec<_>>();
 
         let turrets = turret_query
             .iter()
-            .map(|(entity, state)| TurretSave {
-                id: get_id(&mut ids, entity),
-                parent: get_parent(&ids, entity),
-                state: state.clone(),
+            .filter_map(|(entity, state)| {
+                let id = get_id(&mut ids, entity)?;
+                let parent = get_parent(&ids, entity)?;
+                Some(TurretSave {
+                    id,
+                    parent,
+                    state: state.clone(),
+                })
             })
             .collect::<Vec<_>>();
 
@@ -312,7 +322,7 @@ pub fn handle_save_world_event(
             transforms: clone_query(&ids, &transform_query),
             healths: clone_query(&ids, &health_query),
             shoot_patterns: ShootPatternSave {
-                single: clone_query(&ids, &singel_shoot_pattern_query),
+                single: clone_query(&ids, &single_shoot_pattern_query),
             },
         };
 
@@ -352,6 +362,7 @@ pub fn handle_load_world_event(
     mut commands: Commands,
     mut events: MessageReader<LoadWorldEvent>,
     registry: Res<BlockRegistry>,
+    config: Res<GameConfigValue>,
 ) {
     for event in events.read() {
         let path = event.path.clone();
@@ -404,6 +415,7 @@ pub fn handle_load_world_event(
                 &registry,
                 ship_data.team,
                 Transform::default(),
+                &config,
             );
 
             if let Some(ship) = ship {
@@ -415,7 +427,7 @@ pub fn handle_load_world_event(
                         continue;
                     };
 
-                    let block = block_data.spawn(&mut commands, def, ship, ship_data.team);
+                    let block = block_data.spawn(&mut commands, def, ship, ship_data.team, &config);
 
                     ids.insert(block_data.id, block);
                 }

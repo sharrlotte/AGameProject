@@ -1,9 +1,8 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    constant::{THRUST_POWER_FACTOR, TURN_SPEED_FACTOR},
-    content::block::{feature::efficiency::BlockEfficiency, stat::StatEffect},
-};
+use crate::config::GameConfigValue;
+use crate::content::block::{feature::efficiency::BlockEfficiency, stat::StatEffect};
 
 // ThrustPower
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
@@ -77,7 +76,7 @@ pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 //     }
 // }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct Thruster {
     force: f32,
     torque: f32,
@@ -88,14 +87,14 @@ impl Thruster {
         Self { force, torque }
     }
 
-    pub fn insert(&self, commands: &mut Commands, base: Entity) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, config: &GameConfigValue) {
         commands.entity(base).insert((
             ThrustPowerBase {
-                value: self.force * THRUST_POWER_FACTOR,
+                value: self.force * config.0.thrust_power_factor,
             },
             ThrustPowerComputed::default(),
             RotateSpeedBase {
-                value: self.torque * TURN_SPEED_FACTOR,
+                value: self.torque * config.0.turn_speed_factor,
             },
             RotateSpeedComputed::default(),
             BlockEfficiency::default(),
