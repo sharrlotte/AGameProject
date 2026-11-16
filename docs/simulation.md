@@ -19,7 +19,7 @@
 | Field | Meaning |
 |---|---|
 | `name` | Display name |
-| `block_type: BlockType` | Key; enum of hull/thrusters/core/turrets/scrap/steel |
+| `block_type` | Key; id string (`hull`, `core`, …) looked up in `BlockRegistry` |
 | `block_group` | `Core`/`Base`/`Turret` — sort order in the editor palette |
 | `mass`, `health` | Used by ship stat computation and `Health` |
 | `shape: BlockShape` | Size + voxels |
@@ -27,9 +27,8 @@
 | `features: Vec<Feature>` | Effects spawned as child entities |
 | `drops: Vec<DropComponent>` | Drop events when block is destroyed |
 
-Registry: `BlockRegistry` (resource, `HashMap<BlockType, BlockDef>`), populated
-in `PreStartup` by `register_default_blocks`. Duplicate registrations warn and are
-ignored. **All block definitions are hardcoded in `block/system.rs`** — no data file.
+Registry: `BlockRegistry` (resource, `HashMap<Symbol, BlockDef>`), populated
+from the keyed `block.ron` map at config load. Duplicate ids rejected at boot.
 
 ### Block registry contents (as of review)
 
@@ -38,17 +37,17 @@ ignored. **All block definitions are hardcoded in `block/system.rs`** — no dat
 | Hull | Standard Hull | Base | 10 | 1000 | 5 | 1×1 | Texture `block/surge-wall-large.png` | Steel ×10 |
 | ThrusterSmall | Small Ion Thruster | Base | 10 | 5000 | 50 | 1×1 | Texture `block/thruster.png`, Thruster(200, 100) | Steel ×10 |
 | Core | Core | Core | 50 | 5000 | 150 | 3×3 | Texture `block/core-nucleus.png` + team overlay, Thruster(200, 60), Storage(1000) | Steel ×10 |
-| LazerTurret | Lazer Turret | Turret | 7 | 1600 | 150 | 1×1 | Texture `block/block-2.png` + `block/lancer.png`, Turret(…) | Steel ×10 |
+| LaserTurret | Laser Turret | Turret | 7 | 1600 | 150 | 1×1 | Texture `block/block-2.png` + `block/lancer.png`, Turret(…) | Steel ×10 |
 | BlockScrap | Scrap Block | Base | 10 | 1800 | 200 | 1×1 | Texture `block/block-iron.png` | Steel ×10 |
 | BlockSteel | Steel Block | Base | 8 | 1600 | 200 | 1×1 | Texture `block/block-steel.png` | Steel ×10 |
 | Swarmer | Swarmer Turret | Turret | 8 | 1800 | 150 | 1×1 | Texture + `swarmer.png`, Turret(…) | Steel ×10 |
 | Spectre | Spectre Turret | Turret | 16 | 3600 | 150 | 3×3 | Texture + `spectre.png`, Turret(…) | Steel ×10 |
-| Meldown | Meltdown Turret | Turret | 20 | 3600 | 150 | 3×3 | Texture + `meltdown.png`, Turret(…) | Steel ×10 |
+| Meltdown | Meltdown Turret | Turret | 20 | 3600 | 150 | 3×3 | Texture + `meltdown.png`, Turret(…) | Steel ×10 |
 | Foreshadow | Foreshadow Turret | Turret | 50 | 13600 | 150 | 3×9 | Texture + `foreshadow.png`, Turret(…) | Steel ×10 |
 | Colaris | Colaris Turret | Turret | 50 | 13600 | 150 | 1×1 | Texture + `colaris.png`, Turret(…) | Steel ×10 |
-| Paralax | Paralax Turret | Turret | 50 | 13600 | 150 | 1×1 | Texture + `colaris.png` (duplicated), PullingBeam(…) | Steel ×10 |
+| Parallax | Parallax Turret | Turret | 50 | 13600 | 150 | 1×1 | Texture + `colaris.png` (duplicated), PullingBeam(…) | Steel ×10 |
 
-`BlockType::Meldown` is the spelled-wrong enum variant name used everywhere.
+`BlockType::Meltdown` is the spelled-wrong enum variant name used everywhere.
 
 ### Block rendering
 

@@ -7,11 +7,10 @@ use serde::Deserialize;
 
 use crate::content::{
     block::{
-        BlockGroup, BlockRegistry, BlockShape,
+        BlockRegistry, BlockShape,
         component::{
-            BlockDef, BlockType, BurstShootPattern, DropComponent, LaserBeamPattern,
-            PullingBeamPattern, ShootPattern, ShootingProjectile, SingleShootPattern,
-            TargetingStrategy,
+            BlockDef, BurstShootPattern, DropComponent, LaserBeamPattern, PullingBeamPattern,
+            ShootPattern, ShootingProjectile, SingleShootPattern, TargetingStrategy,
         },
         feature::{
             ammo::{Ammo, AmmoBuilder},
@@ -24,21 +23,20 @@ use crate::content::{
             turret::TurretComponent,
         },
     },
-    item::ItemType,
 };
+use crate::symbol::{Symbol, Symbols};
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct BlocksConfig {
-    pub blocks: Vec<BlockDefConfig>,
+    pub blocks: HashMap<String, BlockDefConfig>,
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct BlockDefConfig {
     pub name: String,
-    pub block_type: BlockType,
-    pub block_group: BlockGroup,
+    pub block_group: Symbol,
     pub mass: f32,
     pub health: f32,
     pub cost: u32,
@@ -103,7 +101,7 @@ pub struct BurstShootPatternConfig {
 #[serde(deny_unknown_fields)]
 pub struct AmmoConfig {
     pub capacity: u32,
-    pub crafting: HashMap<ItemType, u32>,
+    pub crafting: HashMap<Symbol, u32>,
     pub icon: Option<String>,
 }
 
@@ -180,10 +178,10 @@ impl AmmoConfig {
 }
 
 impl BlockDefConfig {
-    pub fn into_def(self, assets: &AssetServer) -> BlockDef {
+    pub fn into_def(self, assets: &AssetServer, block_type: Symbol) -> BlockDef {
         BlockDef {
             name: self.name,
-            block_type: self.block_type,
+            block_type,
             block_group: self.block_group,
             mass: self.mass,
             health: self.health,
@@ -204,6 +202,7 @@ pub fn blocks_bridge(
     assets: Res<Assets<BlocksConfig>>,
     server: Res<AssetServer>,
     mut registry: ResMut<BlockRegistry>,
+    mut symbols: ResMut<Symbols>,
 ) {
     for event in events.read() {
         let id = match event {
@@ -214,8 +213,12 @@ pub fn blocks_bridge(
         if let Some(config) = assets.get(id) {
             let mut rebuilt = BlockRegistry::default();
 
-            for block in &config.blocks {
-                rebuilt.register(block.clone().into_def(server.as_ref()));
+            for (key, block) in &config.blocks {
+                let symbol = symbols.intern(key);
+                rebuilt.register(
+                    key,
+                    block.clone().into_def(server.as_ref(), symbol),
+                );
             }
 
             *registry = rebuilt;

@@ -6,6 +6,7 @@ mod resource;
 mod save;
 mod scene;
 mod simulation;
+mod symbol;
 mod system;
 
 use crate::constant::AUDIO_SCALE;
@@ -13,6 +14,7 @@ use crate::config::ConfigPlugin;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
 use crate::simulation::SimulationSet;
+use crate::symbol::Symbols;
 use crate::resource::{CameraTarget, ControlledShip, DeployPayload, PauseState, SceneState};
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
@@ -80,6 +82,7 @@ fn main() {
     .init_resource::<DeployPayload>()
     .init_resource::<CameraTarget>()
     .init_resource::<ControlledShip>()
+    .init_resource::<Symbols>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .configure_sets(FixedFirst, SimulationSet::Simulate)

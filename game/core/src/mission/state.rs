@@ -7,6 +7,7 @@ use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::resource::DeployPayload;
 use crate::save::io::{SchematicData, load_saved_schematics};
+use crate::symbol::Symbols;
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum BattlePhase {
@@ -72,8 +73,9 @@ pub fn spawn_mission(
     config: &GameConfigValue,
     mission: &MissionDef,
     state: &DeployPayload,
+    mut symbols: &mut Symbols,
 ) {
-    let schematics = load_saved_schematics();
+    let schematics = load_saved_schematics(&mut symbols);
 
     match &state.current_ship {
         Some(deployed) => {

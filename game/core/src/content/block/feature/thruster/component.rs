@@ -83,10 +83,6 @@ pub struct Thruster {
 }
 
 impl Thruster {
-    pub fn new(force: f32, torque: f32) -> Self {
-        Self { force, torque }
-    }
-
     pub fn insert(&self, commands: &mut Commands, base: Entity, config: &GameConfigValue) {
         commands.entity(base).insert((
             ThrustPowerBase {

@@ -44,7 +44,7 @@ pub fn update_turret_target(
                 continue;
             }
 
-            let block = blocks.blocks[0];
+            let block = blocks.blocks[0].clone();
             let target_pos_actual =
                 target_transform.translation().truncate() + block.position_pixel();
             let turret_position = transform.translation().truncate();

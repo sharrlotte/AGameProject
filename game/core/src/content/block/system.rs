@@ -51,7 +51,7 @@ pub fn handle_block_destroy(
     for (entity, health, block, owner, transform, team) in query.iter_mut() {
         if health.health <= 0.0 {
             writer.write(BlockDestroyedEvent {
-                block_type: block.block_type,
+                block_type: block.block_type.clone(),
                 block_id: block.id,
                 ship: owner.id,
             });

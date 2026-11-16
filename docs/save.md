@@ -22,13 +22,14 @@ Sub-directories: `schematics/` (ship blueprints) and `saves/` (world saves).
 ```
 
 `position` is grid-space (`IVec2`), anchored bottom-left. `rotation` is a `u8` flag byte
-(0 = unrotated everywhere in practice). `BlockType` is serialized by enum variant name
-(e.g. `"LazerTurret"`, `"Meldown"`, `"BlockSteel"`).
+(0 = unrotated everywhere in practice). `block_type` is now an interned `Symbol` id
+string (e.g. `"core"`, `"laser_turret"`, `"block_steel"`); legacy enum-name
+schematics fail to load with an incompatibility error (Slice 2 breakage).
 
 On load, `load_saved_schematics()`:
 1. Reads `schematics/`, parses `*.json` into `SchematicData`, overriding `filename`.
 2. Pads up to 5 placeholder ships when fewer exist (name `ship_N`, one Core + one
-   LazerTurret added if a schematic has ≤ 2 blocks — in memory only).
+   LaserTurret added if a schematic has ≤ 2 blocks — in memory only).
 3. `SchematicData::to_ship_data()` clones blocks and assigns **new UUIDs** to every block
    on spawn, so loaded schematics differ from saved ones.
 

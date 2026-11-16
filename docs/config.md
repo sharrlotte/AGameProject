@@ -117,10 +117,9 @@ Usage sites switch from `constant::X` to `Res<GameConfigValue>`:
 
 ```ron
 (
-    blocks: [
-        (
+    blocks: {
+        hull: (
             name: "Standard Hull",
-            block_type: Hull,
             block_group: Base,
             mass: 10.0,
             health: 1000.0,
@@ -129,15 +128,15 @@ Usage sites switch from `constant::X` to `Res<GameConfigValue>`:
             features: [
                 Texture(image: "block/surge-wall-large.png", offset: (0.0, 0.0), z: 10.0, animated: false),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item(item_type: "steel", amount: 10)],
         ),
-        // ... every block currently registered in register_default_blocks, identical values
-    ],
+        // ... one entry per block; the map key is the block id (Symbol)
+    },
 )
 ```
 
 - Serde mirror types in `config/block.rs` for `Feature` (`FeatureConfig`) and any struct holding `Handle`s (`Texture`, `TurretComponent` image, `Ammo` icon) with `image`/`sound` as asset-relative path strings (same `format!("texture/{image}")` / `format!("audio/{sound}")` convention as today).
-- Existing serde-free enums gain `Serialize`/`Deserialize`: `BlockType`, `BlockGroup`, `BlockShape`, `BlockVoxel`, `ItemDrop`, `DropComponent`, `ShootingProjectile`, `SingleShootPattern`, `BurstShootPattern`, `LaserBeamPattern`, `PullingBeamPattern`, `TargetingStrategy`, `ItemType`, `Rarity` (where used in drops).
+- Registry keys are interned `Symbol` ids (Slice 2): `BlockType` and `ItemType` enums are gone; `block.ron` is keyed by id and `BlockRegistry` exposes `get(id: &str)`. `BlockGroup` stays a small enum (Core/Base/Turret). `ItemDrop.item_type` is a `Symbol`.
 - `Vec2`/`IVec2`: bevy `serialize` feature provides serde support — verify during impl; else tuple mirrors.
 - `BlockDefConfig::into_def(assets: &AssetServer) -> BlockDef` converts and loads handles.
 - Turret shoot sound (`BurstShootPattern.shoot_sound`) stays a path string in config → resolved at conversion.

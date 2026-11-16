@@ -10,10 +10,10 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::feature::{component::Feature, turret::TurretComponent},
-        item::ItemType,
         ship::{Ship, ShipFragment},
         team::Team,
     },
+    symbol::Symbol,
 };
 
 #[derive(Clone, PartialEq, Reflect)]
@@ -175,12 +175,12 @@ pub struct Block {
     pub id: Uuid,
     pub rotation: u8,
     pub position: IVec2,
-    pub block_type: BlockType,
+    pub block_type: Symbol,
 }
 
 #[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockState {
-    pub block_type: BlockType,
+    pub block_type: Symbol,
 }
 
 #[derive(Component, Clone, PartialEq)]
@@ -218,11 +218,11 @@ pub struct PowerStorage {
     pub current: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockData {
     pub id: Uuid,
     pub position: IVec2,
-    pub block_type: BlockType,
+    pub block_type: Symbol,
     pub rotation: u8,
 }
 
@@ -231,7 +231,7 @@ impl BlockData {
         Self {
             id: Uuid::now_v7(),
             position: self.position,
-            block_type: self.block_type,
+            block_type: self.block_type.clone(),
             rotation: self.rotation,
         }
     }
@@ -254,7 +254,7 @@ impl BlockData {
         let child = commands
             .spawn((
                 transform,
-                def.block_group,
+                def.block_group.clone(),
                 team,
                 Visibility::Visible,
                 ActiveEvents::COLLISION_EVENTS,
@@ -264,12 +264,12 @@ impl BlockData {
                 Sensor,
                 Block {
                     id: self.id,
-                    block_type: self.block_type,
+                    block_type: self.block_type.clone(),
                     rotation: self.rotation,
                     position: self.position,
                 },
                 BlockState {
-                    block_type: self.block_type,
+                    block_type: self.block_type.clone(),
                 },
                 Health {
                     health: def.health,
@@ -291,7 +291,7 @@ impl BlockData {
 
 #[derive(Message, Debug, Clone)]
 pub struct BlockDestroyedEvent {
-    pub block_type: BlockType,
+    pub block_type: Symbol,
     pub block_id: Uuid,
     pub ship: Entity,
 }
@@ -301,36 +301,6 @@ pub const FACE_LEFT: u8 = 0b0010; // -X
 pub const FACE_UP: u8 = 0b0100; // +Y
 pub const FACE_DOWN: u8 = 0b1000; // -Y
 pub const FACE_ALL: u8 = 0b1111;
-
-#[derive(Component, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, Eq, Hash, Copy)]
-pub enum BlockType {
-    Hull,
-    Frame,
-    ThrusterSmall,
-    ThrusterLarge,
-    ReactorSmall,
-    WeaponLaser,
-    Cockpit,
-    Core,
-    LazerTurret,
-    Swarmer,
-    Spectre,
-    Meldown,
-    Foreshadow,
-    Colaris,
-    Paralax,
-
-    // Real
-    BlockScrap,
-    BlockSteel,
-}
-
-#[derive(Component, Clone, PartialEq, Reflect, Copy, PartialOrd, Ord, Eq, Serialize, Deserialize, Debug)]
-pub enum BlockGroup {
-    Core,
-    Base,
-    Turret,
-}
 
 #[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct BlockVoxel {
@@ -353,24 +323,6 @@ pub struct BlockShape {
     pub voxels: Vec<BlockVoxel>,
 }
 
-impl BlockShape {
-    pub fn filled(width: i32, height: i32) -> Self {
-        let mut voxels = Vec::with_capacity((width * height) as usize);
-        for y in 0..height {
-            for x in 0..width {
-                voxels.push(BlockVoxel {
-                    position: IVec2::new(x, y),
-                    connectable_faces: FACE_ALL,
-                });
-            }
-        }
-        Self {
-            size: IVec2::new(width, height),
-            voxels,
-        }
-    }
-}
-
 impl Default for BlockShape {
     fn default() -> Self {
         Self {
@@ -382,7 +334,7 @@ impl Default for BlockShape {
 
 #[derive(Clone, PartialEq, Reflect, Debug, Serialize, Deserialize)]
 pub struct ItemDrop {
-    pub item_type: ItemType,
+    pub item_type: Symbol,
     pub amount: u32,
 }
 
@@ -400,8 +352,8 @@ pub struct DropEvent {
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockDef {
     pub name: String,
-    pub block_type: BlockType,
-    pub block_group: BlockGroup,
+    pub block_type: Symbol,
+    pub block_group: Symbol,
     pub mass: f32,
     pub health: f32,
     // TODO: Better shape data type for complex voxel structures
@@ -436,7 +388,8 @@ impl BlockDef {
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
 pub struct BlockRegistry {
-    pub(crate) map: HashMap<BlockType, BlockDef>,
+    pub(crate) map: HashMap<Symbol, BlockDef>,
+    pub(crate) by_name: HashMap<String, Symbol>,
 }
 
 pub struct ShipCalculatedData {
@@ -451,20 +404,26 @@ pub struct ShipCalculatedStat {
 }
 
 impl BlockRegistry {
-    pub fn register(&mut self, def: BlockDef) {
+    pub fn register(&mut self, key: &str, def: BlockDef) {
         if self.map.contains_key(&def.block_type) {
             warn!("Block type {:#?} is already registered.", def.block_type);
             return;
         }
 
-        self.map.insert(def.block_type, def);
+        self.by_name.insert(key.to_string(), def.block_type.clone());
+        self.map.insert(def.block_type.clone(), def);
     }
 
-    pub fn get(&self, block_type: &BlockType) -> Option<&BlockDef> {
-        self.map.get(block_type)
+    pub fn get(&self, key: &str) -> Option<&BlockDef> {
+        let sym = self.by_name.get(key)?;
+        self.map.get(sym)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &BlockDef)> {
+    pub fn get_symbol(&self, sym: Symbol) -> Option<&BlockDef> {
+        self.map.get(&sym)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Symbol, &BlockDef)> {
         let mut value = self.map.iter().collect::<Vec<_>>();
 
         value.sort_by(|a, b| a.1.block_group.cmp(&b.1.block_group));
@@ -476,7 +435,7 @@ impl BlockRegistry {
         let mut points = Vec::new();
 
         for block in blocks {
-            let Some(def) = self.get(&block.block_type) else {
+            let Some(def) = self.get_symbol(block.block_type.clone()) else {
                 warn!("Block type {:?} not found in registry", block.block_type);
                 continue;
             };
@@ -513,7 +472,7 @@ impl BlockRegistry {
         let mut fragments: Vec<ShipFragment> = Vec::new();
 
         for block in blocks {
-            let Some(def) = self.get(&block.block_type) else {
+            let Some(def) = self.get_symbol(block.block_type.clone()) else {
                 warn!("Block type {:?} not found in registry", block.block_type);
                 continue;
             };
@@ -555,7 +514,7 @@ impl BlockRegistry {
                 current_blocks.push(block.clone());
                 visited.insert(block.id);
 
-                let Some(def) = self.get(&block.block_type) else {
+                let Some(def) = self.get_symbol(block.block_type.clone()) else {
                     warn!("Block type {:?} not found in registry", block.block_type);
                     continue;
                 };
@@ -592,7 +551,7 @@ impl BlockRegistry {
 
                 mass += def.mass;
 
-                if def.block_group == BlockGroup::Core {
+                if def.block_group.as_str() == "core" {
                     let size = def.shape.size.as_vec2();
                     let offset = size * GRID_SIZE * 0.5;
                     core_position = Some(block.position.as_vec2() * GRID_SIZE + offset);
@@ -628,7 +587,6 @@ impl BlockRegistry {
                 if current_blocks.len() > 0 {
                     fragments.push(ShipFragment {
                         blocks: current_blocks,
-                        mass,
                     });
                 }
             }

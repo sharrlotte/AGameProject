@@ -12,10 +12,12 @@ use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
+use crate::config::ConfigState;
 use crate::resource::{DeployPayload, SceneEntity, SceneState};
 
 use crate::mission::state::spawn_mission;
 use crate::simulation::SimulationSet;
+use crate::symbol::Symbols;
 
 #[derive(Resource)]
 struct MissionAsset(Handle<MissionDef>);
@@ -43,6 +45,7 @@ impl Plugin for MissionPlugin {
                 Update,
                 poll_mission_loaded
                     .run_if(in_state(BattlePhase::Loading))
+                    .run_if(in_state(ConfigState::Ready))
                     .in_set(SimulationSet::Simulate),
             )
             .add_systems(
@@ -82,6 +85,7 @@ fn poll_mission_loaded(
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
     state: Res<DeployPayload>,
+    mut symbols: ResMut<Symbols>,
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
     time: Res<Time>,
@@ -101,7 +105,7 @@ fn poll_mission_loaded(
         return;
     };
 
-    spawn_mission(&mut commands, &registry, &config, &mission, &state);
+    spawn_mission(&mut commands, &registry, &config, &mission, &state, &mut symbols);
 
     result.started_at = Some(time.elapsed_secs());
     result.outcome = None;

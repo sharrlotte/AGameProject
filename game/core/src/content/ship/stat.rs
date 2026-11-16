@@ -9,8 +9,8 @@ use crate::content::{
             thruster::{RotateSpeedComputed, ThrustPowerComputed},
         },
     },
-    item::ItemType,
 };
+use crate::symbol::Symbol;
 use bevy::prelude::*;
 
 #[derive(Component, Clone, Debug, Reflect)]
@@ -20,7 +20,7 @@ pub struct ComputedShipStats {
     pub rotate_speed: f32,
     pub efficiency: f32,
     pub is_full: bool,
-    pub items: HashMap<ItemType, u32>,
+    pub items: HashMap<Symbol, u32>,
     pub storages: Vec<Entity>,
 }
 
@@ -79,7 +79,7 @@ pub fn update_stats(
                 for (item, count) in state.iter() {
                     stats
                         .items
-                        .entry(*item)
+                        .entry(item.clone())
                         .and_modify(|c| *c += count)
                         .or_insert(*count);
                 }

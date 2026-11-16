@@ -13,6 +13,7 @@ use bevy::prelude::*;
 use crate::content::block::BlockRegistry;
 use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
+use crate::symbol::Symbols;
 
 #[derive(States, Clone, Copy, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
@@ -78,6 +79,7 @@ fn check_config_ready(
     assets: Res<AssetServer>,
     mut config_state: ResMut<NextState<ConfigState>>,
     mut scene_state: ResMut<NextState<SceneState>>,
+    mut symbols: ResMut<Symbols>,
 ) {
     let Some(handles) = handles else {
         return;
@@ -107,8 +109,9 @@ fn check_config_ready(
 
     let mut registry = BlockRegistry::default();
 
-    for block in &blocks.blocks {
-        registry.register(block.clone().into_def(assets.as_ref()));
+    for (key, block) in &blocks.blocks {
+        let symbol = symbols.intern(key);
+        registry.register(key, block.clone().into_def(assets.as_ref(), symbol));
     }
 
     if matches!(

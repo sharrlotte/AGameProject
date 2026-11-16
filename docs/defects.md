@@ -61,8 +61,9 @@ Factual defects found in the current code, used as a work queue. Not a changelog
     push; bbox test uses `size/2` extent around the translated center.
 21. Editor zoom `[0.1, 5.0]` vs game `[0.2, 30.0]` — **unchanged**: editor zoom is
     intentionally tighter for building (documented). `block-steel.PNG` case mismatch —
-    **open**; `colaris.png` duplication — **open**; `Meldown`/`"steal"` typos,
-    `singel_shoot_pattern_query` typo — **open**.
+    **open**; `colaris.png` duplication — **open**; `Meldown`/`"steal"` typos —
+    **fixed (Slice 2)**: ids renamed to `meltdown`/`steel`; `singel_shoot_pattern_query`
+    typo — **open**.
 22. Drops collected at `sqrt(DROP_COLLECT_RADIUS)` — **fixed (Slice 2b)**: `DROP_PICKUP_RADIUS`.
 23. `max_range = 1000`, `min_range = 10000` magic seeds — **unchanged** (documented tuning
     debt; config spec will absorb).
@@ -100,3 +101,12 @@ Factual defects found in the current code, used as a work queue. Not a changelog
     between `energy` and `thruster` (macro candidate), manual `impl Default for
     TurretState`, manual `PartialEq` on `Team` (could derive on id), ambient
     `GameVars` knob (deleted) with no input binding.
+
+## Slice 2 (registry-symbol-ids) — breaking change
+
+- World saves and schematics written against the pre-symbol enum-name schema (`.json`
+  files under `schematics/`) are **incompatible** and will fail to load with an
+  "incompatible"/schema error instead of producing an empty or default ship. No
+  migration is provided; a fresh start is expected for 0.1.0. `block.ron` is now a
+  keyed map (`{ hull: (...), ... }`) keyed by interned `Symbol` id; duplicate ids
+  are rejected at boot.

@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
-use crate::content::block::feature::storage::StorageState;
-use crate::content::item::ItemType;
+use crate::symbol::Symbol;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
     capacity: u32,
-    crafting: HashMap<ItemType, u32>,
+    crafting: HashMap<Symbol, u32>,
     icon: Option<Handle<Image>>,
 }
 
@@ -26,7 +25,7 @@ impl Ammo {
 
 pub struct AmmoBuilder {
     pub capacity: u32,
-    pub crafting: HashMap<ItemType, u32>,
+    pub crafting: HashMap<Symbol, u32>,
     pub icon: Option<Handle<Image>>,
 }
 
@@ -52,47 +51,6 @@ pub struct AmmoState {
 }
 
 impl AmmoState {
-    pub fn refill(&mut self, ammo: &Ammo, storage: &mut StorageState) -> bool {
-        let room = ammo.capacity.saturating_sub(self.current);
-
-        if room == 0 {
-            return true;
-        }
-
-        let mut max_refill = room;
-
-        for (item_type, count) in &ammo.crafting {
-            if *count == 0 {
-                return false;
-            }
-
-            let Some(&available) = storage.get(item_type) else {
-                return false;
-            };
-
-            max_refill = max_refill.min(available / count);
-        }
-
-        if max_refill == 0 {
-            return false;
-        }
-
-        for (item_type, count) in &ammo.crafting {
-            let Some(taken) = max_refill.checked_mul(*count) else {
-                error!("Ammo refill overflow: {} x {}", max_refill, count);
-                return false;
-            };
-
-            if !storage.take(item_type, taken) {
-                error!("Ammo refill failed to consume {} of {:?}", taken, item_type);
-                return false;
-            }
-        }
-
-        self.current += max_refill;
-
-        self.current >= ammo.capacity
-    }
 
     pub fn take(&mut self) -> bool {
         if self.current > 0 {

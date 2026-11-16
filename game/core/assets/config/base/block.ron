@@ -1,36 +1,33 @@
 (
-    blocks: [
-        (
+    blocks: {
+        "hull": (
             name: "Standard Hull",
-            block_type: Hull,
-            block_group: Base,
+block_group: "base",
             mass: 10.0,
             health: 1000.0,
             cost: 5,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/surge-wall-large.png", offset: (0.0, 0.0), z: 10.0, animated: false),
+                Texture((image: "block/surge-wall-large.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "thruster_small": (
             name: "Small Ion Thruster",
-            block_type: ThrusterSmall,
-            block_group: Base,
+block_group: "base",
             mass: 10.0,
             health: 5000.0,
             cost: 50,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/thruster.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Thruster(force: 200.0, torque: 100.0),
+                Texture((image: "block/thruster.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Thruster((force: 200.0, torque: 100.0)),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "core": (
             name: "Core",
-            block_type: Core,
-            block_group: Core,
+block_group: "core",
             mass: 50.0,
             health: 5000.0,
             cost: 150,
@@ -49,32 +46,31 @@
                 ],
             ),
             features: [
-                Texture(image: "block/core-nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Texture(image: "block/core-nucleus-team.png", offset: (0.0, 0.0), z: 150.0, animated: false),
-                Thruster(force: 200.0, torque: 60.0),
-                Storage(capacity: 1000),
+                Texture((image: "block/core-nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/core-nucleus-team.png", offset: (0.0, 0.0), z: 150.0, animated: false)),
+                Thruster((force: 200.0, torque: 60.0)),
+                Storage((capacity: 1000)),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
-            name: "Lazer Turret",
-            block_type: LazerTurret,
-            block_group: Turret,
+        "lazer_turret": (
+            name: "Laser Turret",
+block_group: "turret",
             mass: 7.0,
             health: 1600.0,
             cost: 150,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: Burst(
+                    shooting_pattern: Burst((
                         fire_rate: 3.0,
                         delay: 0.25,
                         amount: 6,
                         projectile: Laser(damage: 40.0, width: 3.0),
                         shoot_sound: None,
-                    ),
+                    )),
                     turn_speed: 4.0,
                     range: 5000.0,
                     barrels: [(0.0, 0.0)],
@@ -83,49 +79,46 @@
                     z: 150.0,
                     animated: false,
                     ammo: None,
-                ),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "block_scrap": (
             name: "Scrap Block",
-            block_type: BlockScrap,
-            block_group: Base,
+block_group: "base",
             mass: 10.0,
             health: 1800.0,
             cost: 200,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-iron.png", offset: (0.0, 0.0), z: 10.0, animated: false),
+                Texture((image: "block/block-iron.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "block_steel": (
             name: "Steel Block",
-            block_type: BlockSteel,
-            block_group: Base,
+block_group: "base",
             mass: 8.0,
             health: 1600.0,
             cost: 200,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-steel.png", offset: (0.0, 0.0), z: 10.0, animated: false),
+                Texture((image: "block/block-steel.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "swarmer": (
             name: "Swarmer Turret",
-            block_type: Swarmer,
-            block_group: Turret,
+block_group: "turret",
             mass: 8.0,
             health: 1800.0,
             cost: 150,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: Single(
+                    shooting_pattern: Single((
                         fire_rate: 2.0,
                         projectile: Missile(
                             speed: 3000.0,
@@ -137,7 +130,7 @@
                             width: 5.0,
                             length: 60.0,
                         ),
-                    ),
+                    )),
                     turn_speed: 4.0,
                     range: 3000.0,
                     barrels: [(32.0, 0.0), (-32.0, 0.0)],
@@ -145,19 +138,18 @@
                     offset: (0.0, 0.0),
                     z: 150.0,
                     animated: false,
-                    ammo: Some(Ammo(
+                    ammo: Some((
                         capacity: 1000,
-                        crafting: {Steel: 3},
+                        crafting: {"steel": 3},
                         icon: None,
-                    )),
-                ),
+                )),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "spectre": (
             name: "Spectre Turret",
-            block_type: Spectre,
-            block_group: Turret,
+block_group: "turret",
             mass: 16.0,
             health: 3600.0,
             cost: 150,
@@ -176,10 +168,10 @@
                 ],
             ),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: Burst(
+                    shooting_pattern: Burst((
                         fire_rate: 0.2,
                         delay: 0.2,
                         amount: 12,
@@ -192,7 +184,7 @@
                             length: 60.0,
                         ),
                         shoot_sound: Some("bullet/shoot-spectre.ogg"),
-                    ),
+                    )),
                     turn_speed: 4.0,
                     range: 5000.0,
                     barrels: [(32.0, 64.0), (-32.0, 64.0)],
@@ -200,19 +192,18 @@
                     offset: (0.0, 0.0),
                     z: 150.0,
                     animated: false,
-                    ammo: Some(Ammo(
+                    ammo: Some((
                         capacity: 5000,
-                        crafting: {Steel: 1},
+                        crafting: {"steel": 1},
                         icon: None,
-                    )),
-                ),
+                )),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "meldown": (
             name: "Meltdown Turret",
-            block_type: Meldown,
-            block_group: Turret,
+block_group: "turret",
             mass: 20.0,
             health: 3600.0,
             cost: 150,
@@ -231,15 +222,15 @@
                 ],
             ),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: LaserBeam(
+                    shooting_pattern: LaserBeam((
                         cooldown: 10.0,
                         duration: 5.0,
                         damage: 1.0,
                         width: 9.0,
-                    ),
+                    )),
                     turn_speed: 2.0,
                     range: 3000.0,
                     barrels: [(0.0, 0.0)],
@@ -248,14 +239,13 @@
                     z: 150.0,
                     animated: false,
                     ammo: None,
-                ),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "foreshadow": (
             name: "Foreshadow Turret",
-            block_type: Foreshadow,
-            block_group: Turret,
+block_group: "turret",
             mass: 50.0,
             health: 13600.0,
             cost: 150,
@@ -292,10 +282,10 @@
                 ],
             ),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: Single(
+                    shooting_pattern: Single((
                         fire_rate: 10.0,
                         projectile: Bullet(
                             speed: 20000.0,
@@ -305,7 +295,7 @@
                             width: 12.0,
                             length: 1000.0,
                         ),
-                    ),
+                    )),
                     turn_speed: 0.0,
                     range: 15000.0,
                     barrels: [(0.0, 0.0)],
@@ -314,23 +304,22 @@
                     z: 150.0,
                     animated: false,
                     ammo: None,
-                ),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
+        "colaris": (
             name: "Colaris Turret",
-            block_type: Colaris,
-            block_group: Turret,
+block_group: "turret",
             mass: 50.0,
             health: 13600.0,
             cost: 150,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: Burst(
+                    shooting_pattern: Burst((
                         fire_rate: 2.0,
                         delay: 0.2,
                         amount: 12,
@@ -343,7 +332,7 @@
                             length: 12.0,
                         ),
                         shoot_sound: None,
-                    ),
+                    )),
                     turn_speed: 2.0,
                     range: 6000.0,
                     barrels: [(0.0, 0.0)],
@@ -351,28 +340,27 @@
                     offset: (0.0, 0.0),
                     z: 150.0,
                     animated: false,
-                    ammo: Some(Ammo(
+                    ammo: Some((
                         capacity: 5000,
-                        crafting: {Steel: 1},
+                        crafting: {"steel": 1},
                         icon: None,
-                    )),
-                ),
+                )),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-        (
-            name: "Paralax Turret",
-            block_type: Paralax,
-            block_group: Turret,
+        "paralax": (
+            name: "Parallax Turret",
+block_group: "turret",
             mass: 50.0,
             health: 13600.0,
             cost: 150,
             shape: (size: (1, 1), voxels: [(position: (0, 0), connectable_faces: 15)]),
             features: [
-                Texture(image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false),
-                Turret(
+                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Turret((
                     strategy: Closest,
-                    shooting_pattern: PullingBeam(width: 3.0),
+                    shooting_pattern: PullingBeam((width: 3.0)),
                     turn_speed: 2.0,
                     range: 6000.0,
                     barrels: [(0.0, 0.0)],
@@ -381,9 +369,9 @@
                     z: 150.0,
                     animated: false,
                     ammo: None,
-                ),
+                )),
             ],
-            drops: [Item(item_type: Steel, amount: 10)],
+            drops: [Item((item_type: "steel", amount: 10))],
         ),
-    ],
+    },
 )

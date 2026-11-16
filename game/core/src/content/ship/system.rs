@@ -15,7 +15,7 @@ use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
 use crate::content::block::{
-    Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, BlockType, DropComponent, DropEvent,
+    Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, DropComponent, DropEvent,
     ShipCalculatedStat,
 };
 use crate::content::death::Death;
@@ -96,8 +96,8 @@ pub fn check_rebuild_ship_collider(
 
         ship_block.blocks.retain(|f| !delete_blocks.contains(&f.id));
 
-        if let Some(block) = registry.get(&event.block_type) {
-            if block.block_type == BlockType::Core {
+        if let Some(block) = registry.get_symbol(event.block_type.clone()) {
+            if block.block_type.as_str() == "core" {
                 commands.entity(entity).insert(Death);
             }
         }
@@ -799,7 +799,7 @@ pub fn collect_drop(
                 if distance <= DROP_PICKUP_RADIUS {
                     match drop_component {
                         DropComponent::Item(item) => {
-                            if storage_state.add(storage, item.item_type, item.amount) {
+                            if storage_state.add(storage, item.item_type.clone(), item.amount) {
                                 commands.entity(drop_entity).despawn();
                             }
                         }

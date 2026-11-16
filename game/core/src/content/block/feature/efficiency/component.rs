@@ -10,10 +10,6 @@ pub struct EfficiencyEffect {
 }
 
 impl EfficiencyEffect {
-    pub fn new(value: f32) -> Self {
-        Self { value }
-    }
-
     pub fn value(&self) -> f32 {
         self.value
     }
@@ -72,20 +68,4 @@ impl EfficiencyProvider {
     }
 }
 
-pub struct EfficiencyProviderBuilder {
-    radius: f32,
-    value: f32,
-}
 
-impl EfficiencyProviderBuilder {
-    pub fn new(radius: f32, value: f32) -> Self {
-        Self { radius, value }
-    }
-
-    pub fn build(self) -> EfficiencyProvider {
-        EfficiencyProvider {
-            radius: self.radius,
-            value: self.value,
-        }
-    }
-}

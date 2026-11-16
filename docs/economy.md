@@ -7,7 +7,7 @@ Registered in `PreStartup` — exactly one item exists:
 
 | ItemType | Name | Group | Rarity | `occupied` |
 |---|---|---|---|---|
-| `Steel` | `"steal"` (sic) | `Resource` | `Common` | `1` |
+| `Steel` | `"steel"` | `Resource` | `Common` | `1` |
 
 `Rarity::color()` maps rarity tiers to HDR colors (bloom-friendly, values > 1) used for
 drop sprites; storage UI and drops fall back to white when unregistered.

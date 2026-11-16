@@ -29,7 +29,6 @@ pub struct BoundingBox {
 
 #[derive(Component, Debug, Default, Clone)]
 pub struct ShipFragment {
-    pub mass: f32,
     pub blocks: Vec<BlockData>,
 }
 

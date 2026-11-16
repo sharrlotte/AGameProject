@@ -13,10 +13,11 @@ use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::simulation::SimulationSet;
+use crate::symbol::{Symbol, Symbols};
 use crate::content::{
     block::{
         component::{
-            Block, BlockData, BlockRegistry, BlockState, BlockType, Health, SingleShootPatternState,
+            Block, BlockData, BlockRegistry, BlockState, Health, SingleShootPatternState,
         },
         feature::turret::TurretState,
     },
@@ -28,7 +29,7 @@ use crate::content::{
 pub struct SchematicBlockData {
     pub id: Uuid,
     pub position: IVec2,
-    pub block_type: BlockType,
+    pub block_type: Symbol,
     pub rotation: u8,
 }
 
@@ -37,7 +38,7 @@ impl SchematicBlockData {
         BlockData {
             id: self.id,
             position: self.position,
-            block_type: self.block_type,
+            block_type: self.block_type.clone(),
             rotation: self.rotation,
         }
     }
@@ -91,7 +92,7 @@ pub fn save_dir() -> PathBuf {
     })
 }
 
-pub fn load_saved_schematics() -> Vec<SchematicData> {
+pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
     let schematics_dir = save_dir().join("schematics");
 
     let mut schematics = Vec::new();
@@ -131,13 +132,13 @@ pub fn load_saved_schematics() -> Vec<SchematicData> {
             ship.blocks.clear();
             ship.blocks.push(SchematicBlockData {
                 id: Uuid::now_v7(),
-                block_type: BlockType::Core,
+                block_type: symbols.intern("core"),
                 position: IVec2::new(0, 0),
                 rotation: 0,
             });
             ship.blocks.push(SchematicBlockData {
                 id: Uuid::now_v7(),
-                block_type: BlockType::LazerTurret,
+                block_type: symbols.intern("laser_turret"),
                 position: IVec2::new(1, 3),
                 rotation: 0,
             });
@@ -182,7 +183,7 @@ pub struct ShipSave {
 pub struct BlockSave {
     id: Uuid,
     parent: Uuid,
-    block_type: BlockType,
+    block_type: Symbol,
     position: IVec2,
     rotation: u8,
     state: BlockState,
@@ -293,7 +294,7 @@ pub fn handle_save_world_event(
                 Some(BlockSave {
                     id,
                     parent,
-                    block_type: block.block_type,
+                    block_type: block.block_type.clone(),
                     position: block.position,
                     rotation: block.rotation,
                     state: state.clone(),
@@ -401,7 +402,7 @@ pub fn handle_load_world_event(
                 .map(|b| BlockData {
                     id: b.id,
                     position: b.position,
-                    block_type: b.block_type,
+                    block_type: b.block_type.clone(),
                     rotation: b.rotation,
                 })
                 .collect::<Vec<_>>();

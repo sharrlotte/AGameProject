@@ -7,16 +7,6 @@ pub struct EnergyConsumer {
     rate: f32,
 }
 
-impl EnergyConsumer {
-    pub fn rate(&self) -> f32 {
-        self.rate
-    }
-
-    pub fn new(rate: f32) -> Self {
-        Self { rate }
-    }
-}
-
 // PowerUsage
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct PowerUsageBase {
@@ -24,10 +14,6 @@ pub struct PowerUsageBase {
 }
 
 impl PowerUsageBase {
-    pub fn new(value: f32) -> Self {
-        Self { value }
-    }
-
     pub fn value(&self) -> f32 {
         self.value
     }

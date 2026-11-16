@@ -44,7 +44,7 @@ kept as the migration record):
 - Burst fire with empty ammo transitions to `Cooldown` — no more stuck `Shooting` state.
 - `AIShipBehavior::Kiting` implemented (orbit target at ~`max_range * 0.9`, flee inward
   when too close); `Wander` can now transition into it — `todo!()` removed.
-- `Paralax` turret's `PullingBeam` implemented: pulls enemy ships toward the shooter via
+- `Parallax` turret's `PullingBeam` implemented: pulls enemy ships toward the shooter via
   direct velocity nudge (mass-independent, framerate-independent), with a beam sprite and
   `Visibility` toggle; registered in the bullet plugin.
 - `rapier.single()` sites return early instead of `.expect()`; editor placement and
