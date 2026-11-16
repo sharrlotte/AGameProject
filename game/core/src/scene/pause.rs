@@ -5,6 +5,7 @@ use crate::{
     content::{bullet::Bullet, ship::Ship},
     resource::{PauseState, SceneState, SettingState},
     save::io::{LoadWorldEvent, SaveWorldEvent, save_dir},
+    simulation::SimulationSet,
 };
 
 pub struct PauseScenePlugin;
@@ -14,13 +15,16 @@ impl Plugin for PauseScenePlugin {
         app.add_systems(OnEnter(PauseState::Paused), setup_pause)
             .add_systems(
                 Update,
-                handle_pause_buttons.run_if(in_state(PauseState::Paused)),
+                handle_pause_buttons
+                    .run_if(in_state(PauseState::Paused))
+                    .in_set(SimulationSet::Input),
             )
             .add_systems(OnExit(PauseState::Paused), cleanup_pause)
             .add_systems(
                 Update,
                 handle_pause_input
-                    .run_if(in_state(SceneState::Game).or_else(in_state(SceneState::ShipEditor))),
+                    .run_if(in_state(SceneState::Game).or_else(in_state(SceneState::ShipEditor)))
+                    .in_set(SimulationSet::Input),
             );
     }
 }

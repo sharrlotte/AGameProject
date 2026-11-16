@@ -6,13 +6,17 @@ use crate::content::block::{
     },
 };
 use crate::content::team::Team;
+use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
 pub struct ComponentPlugin;
 
 impl Plugin for ComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, insert_added_block)
+        app.add_systems(
+            FixedUpdate,
+            insert_added_block.in_set(SimulationSet::Simulate),
+        )
             .add_plugins((
                 ThrusterPlugin,
                 TurretPlugin,

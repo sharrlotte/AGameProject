@@ -8,8 +8,9 @@ use crate::{
         ship::components::{BoundingBox, Ship},
         team::Team,
     },
-    resource::{GameVars, SceneEntity, SceneState},
+    resource::{CameraTarget, ControlledShip, SceneEntity, SceneState},
     scene::background::BackgroundPlugin,
+    simulation::SimulationSet,
 };
 
 use bevy::{
@@ -39,7 +40,7 @@ pub struct GameScenePlugin;
 
 impl Plugin for GameScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameVars>()
+        app
             .add_systems(OnEnter(SceneState::Game), setup)
             .add_systems(
                 Update,
@@ -50,7 +51,8 @@ impl Plugin for GameScenePlugin {
                     handle_ship_button_click,
                     update_select_panel,
                 )
-                    .run_if(in_state(SceneState::Game)),
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Input),
             )
             .add_plugins(BackgroundPlugin);
     }
@@ -161,16 +163,14 @@ fn update_select_panel(
             .entity(selectable_panel.entity())
             .despawn_children();
 
-        for (etype, entities) in event.selected.iter() {
-            commands
-                .entity(selectable_panel.entity())
-                .with_children(|parent| {
-                    parent.spawn((
-                        Node::default(),
-                        Text::new(format!("{etype:?}: {}", entities.len())),
-                    ));
-                });
-        }
+        commands
+            .entity(selectable_panel.entity())
+            .with_children(|parent| {
+                parent.spawn((
+                    Node::default(),
+                    Text::new(format!("Selected: {}", event.selected.len())),
+                ));
+            });
     }
 }
 
@@ -193,24 +193,25 @@ fn update_fps(
 
 fn handle_ship_button_click(
     mut interaction: Query<(&PickingInteraction, &ShipButton), Changed<PickingInteraction>>,
-    mut state: ResMut<GameVars>,
+    mut camera_target: ResMut<CameraTarget>,
+    mut controlled: ResMut<ControlledShip>,
 ) {
     for (interaction, ship_button) in interaction.iter_mut() {
         if *interaction == PickingInteraction::Pressed {
-            if let Some(following) = state.following
+            if let Some(following) = camera_target.following
                 && following == ship_button.0
             {
-                if let Some(controlling) = state.controlling
+                if let Some(controlling) = controlled.controlling
                     && controlling == ship_button.0
                 {
-                    state.following = None;
-                    state.controlling = None;
+                    camera_target.following = None;
+                    controlled.controlling = None;
                 } else {
-                    state.controlling = Some(ship_button.0);
+                    controlled.controlling = Some(ship_button.0);
                 }
             } else {
-                state.following = Some(ship_button.0);
-                state.controlling = None;
+                camera_target.following = Some(ship_button.0);
+                controlled.controlling = None;
             }
         }
     }
@@ -221,7 +222,8 @@ fn update_ship_list(
     mut ship_list: Query<Entity, With<ShipList>>,
     ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
     block_list: Query<(Entity, &Block, &Health, &BlockOwner)>,
-    state: Res<GameVars>,
+    state: Res<ControlledShip>,
+    camera_target: Res<CameraTarget>,
     registry: Res<BlockRegistry>,
 ) {
     let Ok(ship_list) = ship_list.single_mut() else {
@@ -243,7 +245,7 @@ fn update_ship_list(
                 && controlling == *entity
             {
                 Color::srgba(0.0, 1.0, 0.0, 1.0)
-            } else if let Some(following) = state.following
+            } else if let Some(following) = camera_target.following
                 && following == *entity
             {
                 Color::srgba(0.0, 1.0, 1.0, 1.0)

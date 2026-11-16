@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use super::*;
+use crate::simulation::SimulationSet;
 use crate::content::block::{
     feature::efficiency::{BlockEfficiency, EfficiencyEffect},
     stat::StatsUpdateSet,
@@ -13,7 +14,9 @@ impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedPreUpdate,
-            (update_thrust_power_stats, update_rotate_speed_stats).in_set(StatsUpdateSet),
+            (update_thrust_power_stats, update_rotate_speed_stats)
+                .in_set(StatsUpdateSet)
+                .in_set(SimulationSet::Simulate),
         );
     }
 }

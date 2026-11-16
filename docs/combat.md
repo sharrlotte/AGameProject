@@ -13,17 +13,7 @@
 
 ## Targeting (`FixedUpdate::update_turret_target`)
 
-Teams gate logic: **player turrets** aim at the cursor (`Camera ↔ world-space`) when the
-cursor is in range; the `GameVars.turret_control` resource selects behavior:
-
-| Mode | Behavior |
-|---|---|
-| `Auto` (default) | no special cursor handling — fall through to auto-targeting |
-| `Manual` | `shoot_at` = cursor position; `active` = left mouse held |
-| `Hold` | same as Manual but only while LMB is held |
-
-Nothing in the current build maps a key to `TurretControl::next()`, so the value is
-always `Auto`.
+Both player and AI turrets auto-target:
 
 **AI/auto turrets** scan `Radar.targets` (refreshed every 1.0 s). For each enemy ship the
 first block's world position is used as the aim point. Selection:
@@ -34,8 +24,8 @@ Turret `active` is set when aim error < `π/64` (fixed turrets) or `π/16` (rota
 
 ## Turret tracking (`turret_tracking`, FixedUpdate)
 
-Rotates the turret transform toward `shoot_at` (player) or toward
-`ship.core_position` (AI) at `turn_speed * delta_secs` per tick.
+Rotates the turret transform toward the AI's chosen target at
+`turn_speed * delta_secs` per tick.
 
 ## Firing patterns
 
@@ -44,20 +34,21 @@ Rotates the turret transform toward `shoot_at` (player) or toward
 | `Single` | `SingleShootPatternState { last_fired_at }` | Fires `barrels.len()` projectiles per `fire_rate` interval when `active` |
 | `Burst` | `BurstShootPatternState` (`Shooting`/`Cooldown`) | Cycle through barrels, `delay` between shots, `amount` per burst, cooldown between bursts |
 | `LaserBeam` | `LaserBeamPatternState { targets, beam, shooting }` | Continuous 5 s beam; deals `damage` per fixed tick inside the swath; `cooldown` between beams; beam sprite is a child entity |
-| `PullingBeam` | `PullingBeamPatternState { beam }` | Component exists; **no systems registered** — inert |
+| `PullingBeam` | `PullingBeamPatternState { beam }` | Continuous beam for the turret's active window; pulls `Ship`-owned blocks toward the shooter via direct velocity nudge; no damage |
 
 `BurstShootPatternState` initial `last_fired_at = 0.0` — first burst fires immediately.
-If the ammo `take()` fails, `current_amount` does not decrease — see defects.md.
+If the ammo `take()` fails, `current_amount` transitions the pattern to `Cooldown` —
+no stuck `Shooting` state.
 
 ## Projectile types
 
 `ShootingProjectile` enum → spawned via `spawn_bullet` (bullet systems, `FixedUpdate`):
 
-| Projectile | EntityType | Components | Movement | Notes |
-|---|---|---|---|---|
-| `Bullet` | `Bullet` | `Lifetime`, `Damage`, cuboid Sensor collider (`width/2 × length/2`), `CollisionGroups` | direct `Transform`, `velocity` (px/s) | `piercing > 0` keeps hitting; `Sensor` always set (redundant re-insert for pierce) |
-| `Laser` | `Laser` | `Damage` | instant raycast from origin along turret forward; length clamped to `beam.length` | `Laser::Init` → `Laser::Fired { fired_at }`; visual sprite with width = ray length; fade after 0.25 s |
-| `Missile` | `Missile` | child `MissileHitbox`, `Radar::new(lock_range, 1.0)` when untargeted | accelerating ease `powf(1.2)`, `t.clamp(0.4, 1.0)`; homing with `max_turn = 2.0 rad/s` | `accel_time = 0.35` fixed |
+| Projectile | Components | Movement | Notes |
+|---|---|---|---|
+| `Bullet` | `Lifetime`, `Damage`, cuboid Sensor collider (`width/2 × length/2`), `CollisionGroups`, `SceneEntity(Game)` | direct `Transform`, `velocity` (px/s) | `piercing > 0` keeps hitting; `Sensor` always set at spawn |
+| `Laser` | `Damage`, `SceneEntity(Game)` | instant raycast from origin along turret forward | `Laser::Init` → `Laser::Fired { fired_at }`; visual sprite with width = ray length; fade ≥ 0.25 s |
+| `Missile` | child `MissileHitbox`, `Radar::new(lock_range, 1.0)` when untargeted, `SceneEntity(Game)` | accelerating ease `powf(1.2)`, `t.clamp(0.4, 1.0)`; homing with `max_turn = 2.0 rad/s` | `accel_time = 0.35` |
 | Block spoiler | — | Missile hit children carry `Damage { blast_damage }` | explodes on collision into a `ball(blast_radius)` Sensor dealing `blast_damage` | |
 
 `Bullet::range` (defaults from turret range) is the hard lifetime limit
@@ -81,10 +72,14 @@ Bullets/missiles are **sensors** — no physics response, only events. Blocks ar
 composition prevents friendly fire (`enemy_block_hitbox_filter` = all block-hitbox bits
 except own team).
 
+## Permanent cleanup
+
+- `clean_state_item` (`PreUpdate`) despawns every `SceneEntity(Game)` entity on
+  transition out of `Game`; damage numbers / sprites carry it, so exit is exhaustive.
+
 ## Known-miss
 
 - `Projectile::Laser` entities have no collider; they apply damage via `cast_ray` from
   origin per shot — corridor hit only, not swept along the beam.
 - `handle_laser_beam` applies `DamageEvent` every fixed tick for the beam duration and
   spawns the damage text on every damage instance (health number spam).
-- `cleanup_bullets` on `OnEnter(Home)` marks all `EntityType` entities `Death`.

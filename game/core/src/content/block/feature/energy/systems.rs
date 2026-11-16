@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use super::*;
+use crate::simulation::SimulationSet;
 use crate::content::{
     block::{
         components::{BlockOwner, PowerProducer},
@@ -22,7 +23,8 @@ impl Plugin for EnergyPlugin {
                 update_efficiency_base_on_power_usage,
             )
                 .chain()
-                .after(EfficiencyUpdateSet),
+                .after(EfficiencyUpdateSet)
+                .in_set(SimulationSet::Simulate),
         );
     }
 }

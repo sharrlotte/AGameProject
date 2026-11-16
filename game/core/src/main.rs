@@ -5,13 +5,15 @@ mod mission;
 mod resource;
 mod save;
 mod scene;
+mod simulation;
 mod system;
 
 use crate::constant::AUDIO_SCALE;
 use crate::config::ConfigPlugin;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
-use crate::resource::{GameVars, PauseState, SceneState};
+use crate::simulation::SimulationSet;
+use crate::resource::{CameraTarget, ControlledShip, DeployPayload, PauseState, SceneState};
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
@@ -75,9 +77,19 @@ fn main() {
             .in_fixed_schedule(),
     )
     // .add_plugins(RapierDebugRenderPlugin::default())
-    .init_resource::<GameVars>()
+    .init_resource::<DeployPayload>()
+    .init_resource::<CameraTarget>()
+    .init_resource::<ControlledShip>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
+    .configure_sets(FixedFirst, SimulationSet::Simulate)
+    .configure_sets(FixedPreUpdate, SimulationSet::Simulate)
+    .configure_sets(FixedUpdate, SimulationSet::Simulate)
+    .configure_sets(FixedPostUpdate, SimulationSet::Apply)
+    .configure_sets(FixedLast, SimulationSet::Cleanup)
+    .configure_sets(PreUpdate, SimulationSet::Cleanup)
+    .configure_sets(Update, SimulationSet::Input)
+    .configure_sets(PostUpdate, SimulationSet::Simulate)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
         #[cfg(debug_assertions)]

@@ -5,7 +5,7 @@ use bevy::{
     post_process::bloom::Bloom,
 };
 
-use crate::resource::{GameVars, SceneEntity, SceneState};
+use crate::resource::{DeployPayload, SceneEntity, SceneState};
 use crate::save::io::load_saved_schematics;
 
 pub fn setup_camera(mut commands: Commands) {
@@ -29,7 +29,7 @@ pub fn setup_camera(mut commands: Commands) {
     ));
 }
 
-pub fn load_current_ship(mut state: ResMut<GameVars>) {
+pub fn load_current_ship(mut state: ResMut<DeployPayload>) {
     let ships = load_saved_schematics();
 
     if let Some(ship) = ships.first() {

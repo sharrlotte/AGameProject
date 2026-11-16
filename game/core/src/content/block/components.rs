@@ -10,7 +10,6 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::feature::{components::Feature, turret::TurretComponent},
-        entity::EntityType,
         item::ItemType,
         ship::{Ship, ShipFragment},
         team::Team,
@@ -277,7 +276,6 @@ impl BlockData {
                     max_health: def.health,
                 },
                 BlockOwner { id: ship },
-                EntityType::Block,
             ))
             .id();
 

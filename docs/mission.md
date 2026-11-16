@@ -20,7 +20,7 @@ Home → **Quick Battle** (or **Play** — same battle in v1) → `SceneState::G
    `assets/config/mission/quick-battle.ron`) and resets `BattlePhase` to `Loading`.
 2. `poll_mission_loaded` spawns the mission when the asset read finishes (~1 frame; the
    asset is cached afterward).
-3. Player ship = `GameVars.current_ship` if the editor Deployed one, otherwise the
+3. Player ship = `DeployPayload.current_ship` if the editor Deployed one, otherwise the
    `ship_0` schematic (a fresh Core + LazerTurret hull). Enemies = `ship_1`, `ship_2` from
    their absolute spawn positions, team 1.
 4. Enemy Core blocks still die via `check_rebuild_ship_collider` → ship `Death`.

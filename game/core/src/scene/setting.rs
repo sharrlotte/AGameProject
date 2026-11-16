@@ -2,6 +2,7 @@ use bevy::{audio::Volume, picking::hover::PickingInteraction, post_process::bloo
 
 use crate::config::GameSetting;
 use crate::resource::SettingState;
+use crate::simulation::SimulationSet;
 
 #[derive(Component)]
 pub struct SettingRoot;
@@ -37,9 +38,10 @@ impl Plugin for SettingScenePlugin {
                     handle_bloom_toggle,
                     sync_settings_to_ui,
                 )
-                    .run_if(in_state(SettingState::Open)),
+                    .run_if(in_state(SettingState::Open))
+                    .in_set(SimulationSet::Input),
             )
-            .add_systems(Update, apply_settings);
+            .add_systems(Update, apply_settings.in_set(SimulationSet::Input));
     }
 }
 

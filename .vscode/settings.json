@@ -1,11 +1,8 @@
 {
-    "rust-analyzer.linkedProjects": [
-        "game/Cargo.toml"
-    ],
-    "rust-analyzer.server.extraEnv": {
-        "CARGO_TARGET_DIR": "target/analyzer"
-    },
-    "rust-analyzer.check.extraArgs": [
-        "--target-dir=target/analyzer"
-    ]
+	"rust-analyzer.cargo.features": ["dev"],
+	"rust-analyzer.linkedProjects": ["game/Cargo.toml"],
+	"rust-analyzer.server.extraEnv": {
+		"CARGO_TARGET_DIR": "target/analyzer"
+	},
+	"rust-analyzer.check.extraArgs": ["--target-dir=target/analyzer"]
 }

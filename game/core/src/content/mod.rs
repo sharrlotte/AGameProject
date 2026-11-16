@@ -1,11 +1,10 @@
-pub mod bullet;
-pub mod ship;
-pub mod team;
 pub mod block;
-pub mod plugin;
-pub mod item;
+pub mod bullet;
 pub mod damage;
 pub mod death;
-pub mod entity;
+pub mod item;
 pub mod lifetime;
+pub mod plugin;
 pub mod selectable;
+pub mod ship;
+pub mod team;

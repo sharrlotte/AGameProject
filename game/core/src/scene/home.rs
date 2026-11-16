@@ -2,6 +2,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::resource::{SceneEntity, SceneState, SettingState};
+use crate::simulation::SimulationSet;
 
 pub struct HomeScenePlugin;
 
@@ -10,7 +11,9 @@ impl Plugin for HomeScenePlugin {
         app.add_systems(OnEnter(SceneState::Home), setup_home)
             .add_systems(
                 Update,
-                handle_home_buttons.run_if(in_state(SceneState::Home)),
+                handle_home_buttons
+                    .run_if(in_state(SceneState::Home))
+                    .in_set(SimulationSet::Input),
             );
     }
 }

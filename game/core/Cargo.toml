@@ -17,4 +17,4 @@ rand = "0.10.3"
 uuid = { version = "1.29.2", features = ["v7"] }
 
 [features]
-dev = ["bevy/bevy_remote", "dep:bevy_brp_extras", "dep:bevy-inspector-egui"]
+dev = ["bevy/bevy_remote", "bevy/file_watcher", "dep:bevy_brp_extras", "dep:bevy-inspector-egui"]

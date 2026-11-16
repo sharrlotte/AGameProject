@@ -32,8 +32,8 @@ Follow { target: Entity, radius: f32 } | Kamikaze { target: Entity } | Regroup |
 `Idle`/`Chase` use `ship.min_range` (= `10000.0` seed lowered only by turret features)
 and `ship.max_range` (= `1000.0` seed raised by turret feature ranges).
 
-Skipped conditions: ships being followed (`GameVars.following`) or controlled
-(`GameVars.controlling`) are skipped by AI.
+Skipped conditions: ships being followed (`CameraTarget.following`) or controlled
+(`ControlledShip.controlling`) are skipped by AI.
 
 Only teams 0 (player) and 1 are ever spawned (`for i in 0..2` in `check_ship`).
 Schematics for AI ships come from `load_saved_schematics()` at random and are spawned
@@ -58,7 +58,7 @@ Player-controlled ships skip `update_ship_behavior`.
 ## Camera assist
 
 `PlayerControlShip` handles scroll-wheel zoom (`MIN_ZOOM = 0.2`, `MAX_ZOOM = 30.0`) and
-WASD/arrow camera pan (with Shift boost ×3). When `GameVars.following` is set, the camera
+WASD/arrow camera pan (with Shift boost ×3). When `CameraTarget.following` is set, the camera
 smoothly lerps toward the followed ship's core position
 (`current.lerp(target, 1 - exp(-10 * dt))`).
 
@@ -67,7 +67,7 @@ smoothly lerps toward the followed ship's core position
 `SelectablePlugin`: `Ctrl`+`Left-drag` selects player ships within the drag box;
 `SelectableState::Selecting` tracks start pos; `Selection` takes entity under the box via
 `BoundingBox` test + translation test (may double-count — see defects.md), and emits
-`EntitySelectEvent { HashMap<EntityType, Vec<Entity>> }`.
+`EntitySelectEvent { Vec<Entity> }`.
 
 Consumers: Game HUD `update_select_panel` (dumps `"<TYPE>: <n>"` entries into the
 selection panel).

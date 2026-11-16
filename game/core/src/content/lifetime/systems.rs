@@ -1,12 +1,16 @@
 use bevy::prelude::*;
 use crate::content::death::Death;
+use crate::simulation::SimulationSet;
 use super::Lifetime;
 
 pub struct LifetimePlugin;
 
 impl Plugin for LifetimePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, update_lifetime);
+        app.add_systems(
+            FixedUpdate,
+            update_lifetime.in_set(SimulationSet::Apply),
+        );
     }
 }
 

@@ -53,7 +53,7 @@ ignored. **All block definitions are hardcoded in `block/systems.rs`** — no da
 ### Block rendering
 
 Blocks spawn as a child-less entity with `Block`, `BlockState`, `Health`, `BlockOwner`,
-`EntityType::Block`, `Team`, and drop `Collider` (cuboid, `Sensor`, mass 0) in a
+`Team`, and drop `Collider` (cuboid, `Sensor`, mass 0) in a
 per-team hitbox layer (`Group::from_bits_truncate(1 << (16 + team_id))`).
 Each feature spawns a child entity owned via `ComponentOwner`.
 Feature entities inherit `Visibility` and carry `Team`. Text labels and flash overlays

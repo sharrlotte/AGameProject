@@ -64,7 +64,7 @@ kept as the migration record):
 - `check_ship` deleted (top-up spawning is gone — see Slice 4); `SchematicCache`
   resource + `MAX_FACTIONS` removed; `utils::random_vec2_step` deleted with its last user.
 - `TurretControl` removed; player turrets auto-target like AI turrets.
-- Deploy wired: `GameVars.current_ship` is consumed by mission spawn as the player's ship.
+- Deploy wired: `DeployPayload.current_ship` is consumed by mission spawn as the player's ship.
 - `cleanup_bullets` deleted; bullets/lasers/missiles/damage text/drops now carry
   `SceneEntity(Game)` — `clean_state_item` is the single scene-exit cleanup path.
 - Drops collect at `DROP_PICKUP_RADIUS = 32 px` (was `sqrt(DROP_COLLECT_RADIUS)`).

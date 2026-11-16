@@ -99,4 +99,4 @@ Factual defects found in the current code, used as a work queue. Not a changelog
     repeated 12× identical block registration boilerplate, duplicated stat-update logic
     between `energy` and `thruster` (macro candidate), manual `impl Default for
     TurretState`, manual `PartialEq` on `Team` (could derive on id), ambient
-    `GameVars.turret_control` knob with no input binding.
+    `GameVars` knob (deleted) with no input binding.

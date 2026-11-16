@@ -12,7 +12,7 @@
 | `E` | strafe right |
 | `Shift` (L) | camera pan speed ×3 |
 | Mouse wheel | zoom (`MIN_ZOOM 0.2` .. `MAX_ZOOM 30.0`) |
-| `Ctrl` + `Left` drag | box-select player entities (ships listed in `EntityType`) — release fires selection |
+| `Ctrl` + `Left` drag | box-select player entities — release fires selection |
 | `Escape` | toggle Pause (playing/paused) |
 | Ship list buttons (HUD) | 1st click follow, 2nd click control, 3rd clear |
 

@@ -18,8 +18,9 @@ use crate::{
         },
         ship::ShipGrid,
     },
-    resource::{GameVars, SceneEntity, SceneState},
+    resource::{DeployPayload, SceneEntity, SceneState},
     save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},
+    simulation::SimulationSet,
 };
 
 #[derive(Component)]
@@ -100,9 +101,10 @@ impl Plugin for ShipEditorPlugin {
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                 )
                     .chain()
-                    .run_if(in_state(SceneState::ShipEditor)),
+                    .run_if(in_state(SceneState::ShipEditor))
+                    .in_set(SimulationSet::Input),
             )
-            .add_systems(Update, send_scroll_events)
+            .add_systems(Update, send_scroll_events.in_set(SimulationSet::Input))
             .add_observer(on_scroll_handler);
     }
 }
@@ -607,7 +609,7 @@ pub fn handle_block_selection(
 
 pub fn handle_deploy_button_click(
     mut buttons: Query<(&PickingInteraction, &mut BackgroundColor), With<DeployButton>>,
-    mut app_var: ResMut<GameVars>,
+    mut app_var: ResMut<DeployPayload>,
     editor: Res<EditorState>,
     blocks: Query<&Block>,
 ) {
@@ -644,7 +646,7 @@ pub fn handle_deploy_button_click(
 
 pub fn handle_deploy_button(
     mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
-    app_var: ResMut<GameVars>,
+    app_var: ResMut<DeployPayload>,
     editor: Res<EditorState>,
 ) {
     let is_deployed = if let Some(current) = &app_var.current_ship {

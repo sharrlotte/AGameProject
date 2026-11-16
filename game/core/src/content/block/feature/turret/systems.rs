@@ -9,6 +9,7 @@ use crate::{
         team::Team,
     },
     resource::SceneState,
+    simulation::SimulationSet,
 };
 
 pub struct TurretPlugin;
@@ -17,7 +18,9 @@ impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
-            (turret_tracking, update_turret_target).run_if(in_state(SceneState::Game)),
+            (turret_tracking, update_turret_target)
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Simulate),
         );
     }
 }

@@ -2,13 +2,19 @@ use bevy::prelude::*;
 
 use crate::SceneState;
 use crate::resource::SceneEntity;
+use crate::simulation::SimulationSet;
 
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(SceneState::Game), setup)
-            .add_systems(Update, parallax_follow.run_if(in_state(SceneState::Game)));
+            .add_systems(
+                Update,
+                parallax_follow
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Simulate),
+            );
     }
 }
 

@@ -12,9 +12,10 @@ use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
-use crate::resource::{GameVars, SceneEntity, SceneState};
+use crate::resource::{DeployPayload, SceneEntity, SceneState};
 
 use crate::mission::state::spawn_mission;
+use crate::simulation::SimulationSet;
 
 #[derive(Resource)]
 struct MissionAsset(Handle<MissionDef>);
@@ -30,20 +31,35 @@ impl Plugin for MissionPlugin {
             .register_asset_loader(crate::config::loader::RonAssetLoader::<MissionDef>::new(
                 &["ron"],
             ))
-            .add_systems(OnEnter(SceneState::Game), setup_battle)
-            .add_systems(OnEnter(BattlePhase::Ended), spawn_end_overlay)
             .add_systems(
-                Update,
-                poll_mission_loaded.run_if(in_state(BattlePhase::Loading)),
+                OnEnter(SceneState::Game),
+                setup_battle.in_set(SimulationSet::Input),
+            )
+            .add_systems(
+                OnEnter(BattlePhase::Ended),
+                spawn_end_overlay.in_set(SimulationSet::Input),
             )
             .add_systems(
                 Update,
-                handle_end_buttons.run_if(in_state(BattlePhase::Ended)),
+                poll_mission_loaded
+                    .run_if(in_state(BattlePhase::Loading))
+                    .in_set(SimulationSet::Simulate),
             )
-            .add_systems(OnEnter(SceneState::Home), resume_battle_on_restart)
+            .add_systems(
+                Update,
+                handle_end_buttons
+                    .run_if(in_state(BattlePhase::Ended))
+                    .in_set(SimulationSet::Input),
+            )
+            .add_systems(
+                OnEnter(SceneState::Home),
+                resume_battle_on_restart.in_set(SimulationSet::Simulate),
+            )
             .add_systems(
                 FixedUpdate,
-                check_battle_outcome.run_if(in_state(BattlePhase::Active)),
+                check_battle_outcome
+                    .run_if(in_state(BattlePhase::Active))
+                    .in_set(SimulationSet::Simulate),
             );
     }
 }
@@ -65,7 +81,7 @@ fn poll_mission_loaded(
     handle: Option<Res<MissionAsset>>,
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
-    state: Res<GameVars>,
+    state: Res<DeployPayload>,
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
     time: Res<Time>,

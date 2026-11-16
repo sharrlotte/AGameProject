@@ -4,6 +4,7 @@ use bevy_rapier2d::prelude::CollisionEvent;
 use crate::config::GameConfigValue;
 use crate::{content::block::Health, content::lifetime::Lifetime};
 use crate::resource::{SceneEntity, SceneState};
+use crate::simulation::SimulationSet;
 use super::*;
 
 pub struct DamagePlugin;
@@ -11,8 +12,14 @@ pub struct DamagePlugin;
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<DamageEvent>()
-            .add_systems(FixedUpdate, handle_damage_collisions)
-            .add_systems(FixedPostUpdate, handle_damage_events);
+            .add_systems(
+                FixedUpdate,
+                handle_damage_collisions.in_set(SimulationSet::Simulate),
+            )
+            .add_systems(
+                FixedPostUpdate,
+                handle_damage_events.in_set(SimulationSet::Apply),
+            );
     }
 }
 

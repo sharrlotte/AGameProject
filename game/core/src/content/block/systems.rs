@@ -10,6 +10,7 @@ use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
 use crate::content::team::Team;
 use crate::resource::{SceneEntity, SceneState};
+use crate::simulation::SimulationSet;
 use crate::config::GameConfigValue;
 
 pub struct BlockPlugin;
@@ -26,7 +27,8 @@ impl Plugin for BlockPlugin {
                     handle_flash_overlay,
                     handle_drop,
                     handle_block_destroy,
-                ),
+                )
+                    .in_set(SimulationSet::Apply),
             )
             .add_plugins((RadarPlugin, ComponentPlugin));
     }

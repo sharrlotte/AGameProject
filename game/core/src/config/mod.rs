@@ -12,6 +12,7 @@ use bevy::prelude::*;
 
 use crate::content::block::BlockRegistry;
 use crate::resource::SceneState;
+use crate::simulation::SimulationSet;
 
 #[derive(States, Clone, Copy, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
@@ -41,7 +42,9 @@ impl Plugin for ConfigPlugin {
             .add_systems(Startup, load_config_handles)
             .add_systems(
                 Update,
-                check_config_ready.run_if(in_state(ConfigState::Loading)),
+                check_config_ready
+                    .run_if(in_state(ConfigState::Loading))
+                    .in_set(SimulationSet::Apply),
             )
             .add_systems(
                 Update,
@@ -51,7 +54,8 @@ impl Plugin for ConfigPlugin {
                     settings::game_setting_bridge,
                     settings::save_setting_on_change,
                 )
-                    .run_if(in_state(ConfigState::Ready)),
+                    .run_if(in_state(ConfigState::Ready))
+                    .in_set(SimulationSet::Apply),
             );
 
         #[cfg(feature = "dev")]

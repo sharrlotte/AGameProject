@@ -8,15 +8,15 @@ game/                        Cargo workspace (resolver = "3")
     assets/                  assets (root of asset lookup; see assets.md)
     src/
       main.rs                plugin wiring, window, audio, fixed-timestep setup
-      resource.rs            states + shared resources
+      resource.rs            states + typed shared resources
+      simulation.rs          named simulation-set ordering contract
       system.rs              camera, startup ship load, scene-entity cleanup
       constant.rs            global constants
       content/               gameplay content (one module per domain)
       scene/                 UI/state scenes
+      mission/               battle-core scaffolding (mission.ron, overlay)
+      config/                ron config boot gate
       save/                  serialization
-      ui/                    reserved (empty)
-      utils/                 helpers
-      world/                 reserved (empty)
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.
@@ -24,18 +24,46 @@ Dev profile optimizes dependencies, not the workspace crate.
 
 ## States
 
-Three state machines, all Bevy 0.20 states:
+Five state machines, all Bevy 0.20 states:
 
 | State | Source | Variants | Default |
 |---|---|---|---|
-| `SceneState` | `resource.rs` | `Home`, `Game`, `ShipEditor` | `Home` |
+| `SceneState` | `resource.rs` | `Loading`, `Home`, `Game`, `ShipEditor` | `Loading` |
 | `PauseState` | `resource.rs` | `Playing`, `Paused` | `Playing` |
 | `SettingState` | `resource.rs` | `Closed`, `Open` | `Closed` |
+| `BattlePhase` | `mission/mod.rs` | `Loading`, `Active`, `Ended` | `Loading` |
+| `ConfigState` | `config/mod.rs` | `Loading`, `Ready` | `Loading` |
 
 `SettingState` is registered inside `SettingScenePlugin`, the others in `main.rs`.
 Scene-scoped entities are tagged `SceneEntity(SceneState)`; `clean_state_item`
-(`system.rs`) despawns them on every `SceneState` exit transition (`PreUpdate`).
+(`system.rs`) despawns them on every `SceneState` exit transition (`Cleanup`).
 Entities without the tag survive scene transitions.
+
+## Typed shared resources
+
+| Resource | Contents |
+|---|---|
+| `DeployPayload` | `current_ship: Option<SchematicData>` — Deploy payload consumed by mission spawn |
+| `CameraTarget` | `following: Option<Entity>` — camera-follow ship |
+| `ControlledShip` | `controlling: Option<Entity>` — ship receiving player input |
+| `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops) |
+
+## Simulation-set contract
+
+`simulation.rs` exports one `SystemSet` enum: `Input`, `Simulate`, `Apply`,
+`Cleanup`. Every ordering-sensitive system belongs to exactly one set.
+
+| Set | Meaning |
+|---|---|
+| `Input` | poll devices/UI; fire on user actions (selection, editor placement, pause, zoom) |
+| `Simulate` | think, integrate, collide, derive state (AI, turrets, radar, lifetimes, camera, stats) |
+| `Apply` | turn events into lasting state (damage, drops, fragmentation, deaths, scene save) |
+| `Cleanup` | despawn-dead, scene teardown hygiene |
+
+Bevy's schedules run in order (`FixedFirst → FixedPreUpdate → FixedUpdate
+→ FixedPostUpdate → FixedLast`; `PreUpdate → Update → PostUpdate`); sets
+documented inside each plugin identify members of the pipeline
+(`configure_sets(FixedFirst, SimulationSet::Simulate)`, etc.).
 
 ## Schedules and ordering
 
@@ -43,14 +71,14 @@ Entities without the tag survive scene transitions.
 |---|---|
 | `PreStartup` | `register_default_items` |
 | `Startup` | `setup_camera`, `load_current_ship`, `AmmoPlugin::setup_assets`, `ConfigPlugin::load_config_handles` |
-| `PreUpdate` | `clean_state_item` |
-| `FixedFirst` | Efficiency systems (chained, in `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
-| `FixedPreUpdate` | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
-| `FixedUpdate` | Bullet/damage/lifetime/selectable-independent logic: turrets, bullets, missiles, single/burst fire, laser beam, ammo warnings, ships (AI, player control, collider rebuild, UI), drop collection, radar warning timers |
-| `FixedPostUpdate` | Damage application, block damage flash overlay, drop spawn, block destroy, DamageEvent → health |
-| `FixedLast` | `death::despawn_dead` (despawn entities with `Death`) |
-| `PostUpdate` | `update_ship_behavior` |
-| `Update` | Radar scans, selection, editor systems, HUD/UI update, FPS text, ship list rebuild |
+| `PreUpdate` (Cleanup) | `clean_state_item` |
+| `FixedFirst` (Simulate) | Efficiency systems (chained, `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
+| `FixedPreUpdate` (Simulate) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
+| `FixedUpdate` (mixed) | Simulate: insert_added_block, turrets, bullets, missiles, fire/laser/pulling beam, ammo warnings, drops; Apply: `update_lifetime` (turns `Lifetime` into `Death`) |
+| `FixedPostUpdate` (Apply) | Damage application, block damage flash overlay, block destroy, drop spawn |
+| `FixedLast` (Cleanup) | `death::despawn_dead` |
+| `PostUpdate` (Simulate) | `update_ship_behavior` |
+| `Update` (Input/Simulate) | Handles/scroll/FPS (Input); radar scan, selection-gated simulations, outcome polls, list rebuilds (Simulate unless noted) |
 
 `Time::<Fixed>::from_hz(60.0)`; Rapier runs in the fixed schedule with 2D gravity zero,
 pixels-per-meter 1.0.
@@ -84,7 +112,6 @@ the `dev` cargo feature — production builds contain no inspector code.
 ```
 content/
   team.rs        Team { id: u8 } + Rapier collision groups, 16 palette entries
-  entity.rs      EntityType enum (Ship, Block, Bullet, Missile, Laser, Ammo)
   plugin.rs      ContentPlugin — aggregate
   block/         Block, BlockRegistry, BlockData/Def/Shape/Voxel, features (turret, thruster, energy, efficiency, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   ship/          Ship, AI controller, movement, UI, indicators, Stat computation

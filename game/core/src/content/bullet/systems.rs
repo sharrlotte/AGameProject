@@ -17,11 +17,11 @@ use crate::content::block::{
 };
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;
-use crate::content::entity::EntityType;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::{Blocks, Ship};
 use crate::content::team::Team;
 use crate::resource::{SceneEntity, SceneState};
+use crate::simulation::SimulationSet;
 
 pub struct BulletPlugin;
 
@@ -40,11 +40,14 @@ impl Plugin for BulletPlugin {
                 destroy_out_of_range_bullet,
                 handle_collisions,
             )
-                .run_if(in_state(SceneState::Game)),
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Simulate),
         )
         .add_systems(
             FixedPostUpdate,
-            (handle_laser).run_if(in_state(SceneState::Game)),
+            (handle_laser)
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Apply),
         );
     }
 }
@@ -517,8 +520,7 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
-                    EntityType::Bullet,
-                    SceneEntity(SceneState::Game),
+                                        SceneEntity(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
@@ -551,8 +553,7 @@ pub fn spawn_bullet(
         ShootingProjectile::Laser { damage, width, .. } => {
             let bullet = commands
                 .spawn((
-                    EntityType::Laser,
-                    SceneEntity(SceneState::Game),
+                                        SceneEntity(SceneState::Game),
                     Laser::Init {
                         width: *width,
                         length: range,
@@ -578,8 +579,7 @@ pub fn spawn_bullet(
         } => {
             let missile = commands
                 .spawn((
-                    EntityType::Missile,
-                    SceneEntity(SceneState::Game),
+                                        SceneEntity(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),

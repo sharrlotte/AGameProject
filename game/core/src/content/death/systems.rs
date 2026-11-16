@@ -1,11 +1,15 @@
 use bevy::prelude::*;
 use super::Death;
+use crate::simulation::SimulationSet;
 
 pub struct DeathPlugin;
 
 impl Plugin for DeathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedLast, despawn_dead);
+        app.add_systems(
+            FixedLast,
+            despawn_dead.in_set(SimulationSet::Cleanup),
+        );
     }
 }
 

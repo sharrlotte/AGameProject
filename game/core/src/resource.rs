@@ -32,8 +32,16 @@ pub enum SettingState {
 }
 
 #[derive(Resource, Default, Debug)]
-pub struct GameVars {
+pub struct DeployPayload {
     pub current_ship: Option<SchematicData>,
-    pub controlling: Option<Entity>,
+}
+
+#[derive(Resource, Default, Debug)]
+pub struct CameraTarget {
     pub following: Option<Entity>,
+}
+
+#[derive(Resource, Default, Debug)]
+pub struct ControlledShip {
+    pub controlling: Option<Entity>,
 }

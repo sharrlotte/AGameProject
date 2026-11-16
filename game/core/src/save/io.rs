@@ -12,6 +12,7 @@ use std::{
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
+use crate::simulation::SimulationSet;
 use crate::content::{
     block::{
         components::{
@@ -462,8 +463,12 @@ impl Plugin for SavePlugin {
             .add_systems(
                 Update,
                 (
-                    handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
-                    handle_load_world_event.run_if(on_message::<LoadWorldEvent>),
+                    handle_save_world_event
+                        .run_if(on_message::<SaveWorldEvent>)
+                        .in_set(SimulationSet::Apply),
+                    handle_load_world_event
+                        .run_if(on_message::<LoadWorldEvent>)
+                        .in_set(SimulationSet::Apply),
                 ),
             );
     }

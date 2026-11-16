@@ -34,7 +34,7 @@ Layout: left panel (220 px wide) — Back button, tab strip (**Blocks** / **Ship
 block palette (scrollable, one button per registered block type, with block icon layers +
 name) or ship-list (saved schematics, click to load); center grid area; right panel
 (250 px) — selected block properties (Name/Cost/Mass/HP), instructions, **Deploy** button
-(stores the assembled ship as `GameVars.current_ship` — consumed by the next mission
+(stores the assembled ship as `DeployPayload.current_ship` — consumed by the next mission
 spawn as the player's ship), **Start Game**.
 
 Mechanics:

@@ -7,6 +7,7 @@ use crate::content::{
     ship::stat::ComputedShipStats,
     team::Team,
 };
+use crate::simulation::SimulationSet;
 
 pub struct EfficiencyPlugin;
 
@@ -16,7 +17,8 @@ impl Plugin for EfficiencyPlugin {
             FixedFirst,
             (update_block_efficiency_base, apply_efficiency_buffs)
                 .chain()
-                .in_set(EfficiencyUpdateSet),
+                .in_set(EfficiencyUpdateSet)
+                .in_set(SimulationSet::Simulate),
         );
     }
 }

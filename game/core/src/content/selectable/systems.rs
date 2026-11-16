@@ -1,7 +1,7 @@
 use super::*;
-use crate::content::{entity::EntityType, ship::BoundingBox, team::Team};
+use crate::content::{ship::BoundingBox, team::Team};
+use crate::simulation::SimulationSet;
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 pub struct SelectablePlugin;
 
@@ -9,7 +9,10 @@ impl Plugin for SelectablePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectableRes>()
             .add_message::<EntitySelectEvent>()
-            .add_systems(Update, update_selectable);
+            .add_systems(
+                Update,
+                update_selectable.in_set(SimulationSet::Input),
+            );
     }
 }
 
@@ -22,13 +25,7 @@ fn update_selectable(
     keyboard: Res<ButtonInput<KeyCode>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     selectable_query: Query<
-        (
-            Entity,
-            &EntityType,
-            &GlobalTransform,
-            Option<&BoundingBox>,
-            &Team,
-        ),
+        (Entity, &GlobalTransform, Option<&BoundingBox>, &Team),
         With<Selectable>,
     >,
 ) {
@@ -98,9 +95,9 @@ fn update_selectable(
                 return;
             }
 
-            let mut selected: HashMap<EntityType, Vec<Entity>> = HashMap::new();
+            let mut selected: Vec<Entity> = Vec::new();
 
-            for (entity, entity_type, transform, bounding_box, team) in selectable_query.iter() {
+            for (entity, transform, bounding_box, team) in selectable_query.iter() {
                 if !team.is_player() {
                     continue;
                 }
@@ -117,7 +114,7 @@ fn update_selectable(
                         && bottom_right.x >= min.x
                         && bottom_right.y >= min.y
                     {
-                        selected.entry(*entity_type).or_default().push(entity);
+                        selected.push(entity);
                     }
 
                     continue;
@@ -128,7 +125,7 @@ fn update_selectable(
                     && bottom_right.x >= translation.x
                     && bottom_right.y >= translation.y
                 {
-                    selected.entry(*entity_type).or_default().push(entity);
+                    selected.push(entity);
                 }
             }
 

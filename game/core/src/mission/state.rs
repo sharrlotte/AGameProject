@@ -5,7 +5,7 @@ use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use super::def::{MissionDef, ShipSpawn};
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
-use crate::resource::GameVars;
+use crate::resource::DeployPayload;
 use crate::save::io::{SchematicData, load_saved_schematics};
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -71,7 +71,7 @@ pub fn spawn_mission(
     registry: &BlockRegistry,
     config: &GameConfigValue,
     mission: &MissionDef,
-    state: &GameVars,
+    state: &DeployPayload,
 ) {
     let schematics = load_saved_schematics();
 

@@ -22,7 +22,8 @@ use crate::content::death::Death;
 use crate::content::ship::indicators::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::Team;
-use crate::resource::{GameVars, SceneState};
+use crate::resource::{CameraTarget, ControlledShip, SceneState};
+use crate::simulation::SimulationSet;
 
 use super::*;
 
@@ -34,17 +35,22 @@ impl Plugin for ShipPlugin {
         #[cfg(debug_assertions)]
         app.add_systems(
             FixedUpdate,
-            update_ship_ui.run_if(in_state(SceneState::Game)),
+            update_ship_ui
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Input),
         );
         app.add_systems(
                 PostUpdate,
-                update_ship_behavior.run_if(in_state(SceneState::Game)),
+                update_ship_behavior
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Simulate),
             )
             .add_systems(
                 FixedPreUpdate,
                 update_stats
                     .after(StatsUpdateSet)
-                    .run_if(in_state(SceneState::Game)),
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Simulate),
             )
             .add_systems(
                 FixedUpdate,
@@ -53,9 +59,15 @@ impl Plugin for ShipPlugin {
                     check_rebuild_ship_collider,
                     player_control_ship,
                 )
-                    .run_if(in_state(SceneState::Game)),
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Simulate),
             )
-            .add_systems(FixedUpdate, collect_drop.run_if(in_state(SceneState::Game)))
+            .add_systems(
+                FixedUpdate,
+                collect_drop
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Simulate),
+            )
             .add_plugins(IndicatorsPlugin);
     }
 }
@@ -198,7 +210,8 @@ pub fn player_control_ship(
     >,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
-    mut state: ResMut<GameVars>,
+    mut camera_target: ResMut<CameraTarget>,
+    mut controlled: ResMut<ControlledShip>,
     config: Res<GameConfigValue>,
 ) {
     for event in mouse_wheel_events.read() {
@@ -211,7 +224,7 @@ pub fn player_control_ship(
         }
     }
 
-    if let Some(following) = state.following {
+    if let Some(following) = camera_target.following {
         match ships.get(following) {
             Ok((_, transform, ship, _)) => {
                 let target = transform
@@ -230,7 +243,7 @@ pub fn player_control_ship(
                 }
             }
             Err(_) => {
-                state.following = None;
+                camera_target.following = None;
             }
         }
     } else {
@@ -267,7 +280,7 @@ pub fn player_control_ship(
         }
     }
 
-    if let Some(controlling) = state.controlling {
+    if let Some(controlling) = controlled.controlling {
         match ships.get_mut(controlling) {
             Ok((mut force, transform, _, stats)) => {
                 let thrust_power = stats.thrust_power;
@@ -314,7 +327,7 @@ pub fn player_control_ship(
                 force.torque = torque;
             }
             Err(_) => {
-                state.controlling = None;
+                controlled.controlling = None;
             }
         }
     } else {
@@ -337,7 +350,8 @@ pub fn control_ship(
     >,
     ships2: Query<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>,
     global_transforms: Query<&Transform, Without<Camera2d>>,
-    state: ResMut<GameVars>,
+    camera_target: Res<CameraTarget>,
+    controlled: Res<ControlledShip>,
     mut commands: Commands,
     config: Res<GameConfigValue>,
 ) {
@@ -373,13 +387,13 @@ pub fn control_ship(
             continue;
         }
 
-        if let Some(following) = state.following
+        if let Some(following) = camera_target.following
             && following == entity
         {
             continue;
         }
 
-        if let Some(controlling) = state.controlling
+        if let Some(controlling) = controlled.controlling
             && controlling == entity
         {
             continue;
@@ -613,13 +627,13 @@ pub fn update_ship_behavior(
         &mut Velocity,
         &ComputedShipStats,
     )>,
-    state: Res<GameVars>,
+    controlled: Res<ControlledShip>,
     #[cfg_attr(not(debug_assertions), allow(unused_variables))]
     mut gizmos: Gizmos,
     config: Res<GameConfigValue>,
 ) {
     for (entity, _, size, behavior, transform, mut force, mut velocity, stats) in ships.iter_mut() {
-        if let Some(controlling) = state.controlling
+        if let Some(controlling) = controlled.controlling
             && controlling == entity
         {
             continue;

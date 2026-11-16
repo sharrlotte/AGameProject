@@ -4,14 +4,21 @@ use crate::{
     constant::LAYER_BLOCK_ICON,
     content::block::feature::ammo::AmmoState,
     resource::{SceneEntity, SceneState},
+    simulation::SimulationSet,
 };
 
 pub struct AmmoPlugin;
 
 impl Plugin for AmmoPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, (update_ammo, update_no_ammo_warning))
-            .add_systems(Startup, setup_assets);
+        app.add_systems(
+            FixedUpdate,
+            (
+                update_ammo.in_set(SimulationSet::Simulate),
+                update_no_ammo_warning.in_set(SimulationSet::Simulate),
+            ),
+        )
+        .add_systems(Startup, setup_assets);
     }
 }
 

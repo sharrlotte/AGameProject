@@ -8,7 +8,6 @@ use uuid::Uuid;
 use crate::constant::LAYER_SHIP_UI;
 use crate::config::GameConfigValue;
 use crate::content::block::{BlockData, BlockRegistry, ShipCalculatedStat};
-use crate::content::entity::EntityType;
 use crate::content::selectable::Selectable;
 use crate::content::ship::stat::ComputedShipStats;
 use crate::content::team::Team;
@@ -163,7 +162,6 @@ impl ShipData {
                 ShipState {},
                 ComputedShipStats::default(),
                 Visibility::Visible,
-                EntityType::Ship,
                 Selectable,
                 Blocks {
                     blocks: data.blocks.clone(),
