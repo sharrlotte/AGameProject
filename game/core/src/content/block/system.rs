@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use super::*;
+use crate::config::GameConfigValue;
 use crate::constant::{FLASH_OVERLAY_COLOR, LAYER_DROP, LAYER_FLASH_OVERLAY};
 use crate::content::block::feature::ComponentPlugin;
 use crate::content::block::radar::RadarPlugin;
@@ -9,9 +10,8 @@ use crate::content::death::Death;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::{ShipGrid, ShipMutation};
-use crate::resource::{SceneState};
+use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
-use crate::config::GameConfigValue;
 
 pub struct BlockPlugin;
 
@@ -41,12 +41,7 @@ impl Plugin for BlockPlugin {
 pub fn handle_block_destroy(
     mut commands: Commands,
     mut writer: MessageWriter<ShipMutation>,
-    mut query: Query<(
-        Entity,
-        &Health,
-        &BlockRef,
-        &BlockOwner,
-    )>,
+    mut query: Query<(Entity, &Health, &BlockRef, &BlockOwner)>,
 ) {
     for (entity, health, block, owner) in query.iter_mut() {
         if health.health <= 0.0 {

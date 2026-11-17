@@ -8,11 +8,11 @@ use bevy::asset::LoadState;
 use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
+use crate::config::ConfigState;
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
-use crate::config::ConfigState;
 use crate::resource::{AppNotice, DeployPayload, PendingLoad, SceneState};
 
 use crate::mission::state::spawn_mission;
@@ -29,9 +29,9 @@ impl Plugin for MissionPlugin {
             .init_asset::<MissionDef>()
             .init_resource::<BattleResult>()
             .init_resource::<BattleRestart>()
-            .register_asset_loader(crate::config::loader::RonAssetLoader::<MissionDef>::new(
-                &["ron"],
-            ))
+            .register_asset_loader(crate::config::loader::RonAssetLoader::<MissionDef>::new(&[
+                "ron",
+            ]))
             .add_systems(
                 OnEnter(SceneState::Game),
                 setup_battle.in_set(SimulationSet::Input),
@@ -103,10 +103,7 @@ fn poll_mission_loaded(
         return;
     };
 
-    if matches!(
-        server.get_load_state(&handle.0),
-        Some(LoadState::Failed(_))
-    ) {
+    if matches!(server.get_load_state(&handle.0), Some(LoadState::Failed(_))) {
         warn!("config/mission/quick-battle.ron failed to load");
         notice.show("Mission failed to load; returning home.");
         scene_state.set(SceneState::Home);
@@ -245,10 +242,7 @@ fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
 }
 
 fn handle_end_buttons(
-    interactions: Query<
-        (&PickingInteraction, &BattleEndButton),
-        Changed<PickingInteraction>,
-    >,
+    interactions: Query<(&PickingInteraction, &BattleEndButton), Changed<PickingInteraction>>,
     mut next_state: ResMut<NextState<SceneState>>,
     mut restart: ResMut<BattleRestart>,
 ) {

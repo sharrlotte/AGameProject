@@ -5,23 +5,20 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::Deserialize;
 
-use crate::content::{
-    block::{
-        BlockRegistry, BlockShape,
-        component::{
-            BlockDef, BurstShootPattern, DropComponent, LaserBeamPattern, PullingBeamPattern,
-            ShootPattern, ShootingProjectile, SingleShootPattern, TargetingStrategy,
-        },
-        feature::{
-            ammo::{Ammo, AmmoBuilder},
-            component::Feature,
-            efficiency::EfficiencyProvider,
-            energy::{EnergyConsumer, PowerProducer},
-            sprite::Texture,
-            storage::StorageBuilder,
-            thruster::Thruster,
-            turret::TurretComponent,
-        },
+use crate::content::block::{
+    BlockRegistry, BlockShape,
+    component::{
+        BlockDef, BurstShootPattern, DropComponent, LaserBeamPattern, PullingBeamPattern,
+        ShootPattern, ShootingProjectile, SingleShootPattern, TargetingStrategy,
+    },
+    feature::{
+        ammo::{Ammo, AmmoBuilder},
+        component::Feature,
+        efficiency::EfficiencyProvider,
+        energy::{EnergyConsumer, PowerProducer},
+        sprite::Texture,
+        thruster::Thruster,
+        turret::TurretComponent,
     },
 };
 
@@ -135,14 +132,8 @@ impl FeatureConfig {
             FeatureConfig::EnergyConsumer(consumer) => Feature::EnergyConsumer(consumer),
             FeatureConfig::PowerProducer(producer) => Feature::PowerProducer(producer),
             FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster),
-            FeatureConfig::EfficiencyProvider(provider) => {
-                Feature::EfficiencyProvider(provider)
-            }
-            FeatureConfig::Storage(config) => Feature::Storage(StorageBuilder::build(
-                StorageBuilder {
-                    capacity: config.capacity,
-                },
-            )),
+            FeatureConfig::EfficiencyProvider(provider) => Feature::EfficiencyProvider(provider),
+            FeatureConfig::Storage(config) => Feature::Storage(config.capacity),
         }
     }
 }
@@ -151,17 +142,15 @@ impl ShootPatternConfig {
     fn into_pattern(self, assets: &AssetServer) -> ShootPattern {
         match self {
             ShootPatternConfig::Single(pattern) => ShootPattern::Single(pattern),
-            ShootPatternConfig::Burst(config) => {
-                ShootPattern::Burst(BurstShootPattern {
-                    fire_rate: config.fire_rate,
-                    delay: config.delay,
-                    amount: config.amount,
-                    projectile: config.projectile,
-                    shoot_sound: config
-                        .shoot_sound
-                        .map(|sound| assets.load(format!("audio/{sound}"))),
-                })
-            }
+            ShootPatternConfig::Burst(config) => ShootPattern::Burst(BurstShootPattern {
+                fire_rate: config.fire_rate,
+                delay: config.delay,
+                amount: config.amount,
+                projectile: config.projectile,
+                shoot_sound: config
+                    .shoot_sound
+                    .map(|sound| assets.load(format!("audio/{sound}"))),
+            }),
             ShootPatternConfig::LaserBeam(pattern) => ShootPattern::LaserBeam(pattern),
             ShootPatternConfig::PullingBeam(pattern) => ShootPattern::PullingBeam(pattern),
         }
@@ -214,10 +203,7 @@ pub fn blocks_bridge(
             let mut rebuilt = BlockRegistry::default();
 
             for (key, block) in &config.blocks {
-                rebuilt.register(
-                    key,
-                    block.clone().into_def(server.as_ref(), key.clone()),
-                );
+                rebuilt.register(key, block.clone().into_def(server.as_ref(), key.clone()));
             }
 
             *registry = rebuilt;

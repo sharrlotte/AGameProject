@@ -5,8 +5,8 @@ use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use super::def::{MissionDef, ShipSpawn};
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
-use crate::resource::DeployPayload;
 use crate::content::ship::ShipDesign;
+use crate::resource::DeployPayload;
 use crate::save::catalog::ShipCatalog;
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -34,10 +34,7 @@ pub struct BattleResult {
 #[derive(Resource, Default)]
 pub struct BattleRestart(pub bool);
 
-pub fn find_schematic<'a>(
-    schematics: &'a [ShipDesign],
-    name: &str,
-) -> Option<&'a ShipDesign> {
+pub fn find_schematic<'a>(schematics: &'a [ShipDesign], name: &str) -> Option<&'a ShipDesign> {
     schematics
         .iter()
         .find(|s| s.name == name)

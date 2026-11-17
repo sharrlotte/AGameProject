@@ -5,23 +5,31 @@ use bevy_rapier2d::prelude::*;
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
-use crate::content::block::{
-    BlockPlacement, BlockRegistry, DropEvent, spawn_block_entity,
-};
+use crate::content::block::{BlockPlacement, BlockRegistry, DropEvent, spawn_block_entity};
 use crate::content::death::Death;
-use crate::content::ship::{
-    BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats,
-};
+use crate::content::ship::{BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats};
 use crate::content::team::Team;
 use crate::simulation::SimulationSet;
 
 /// All placement changes go through this single mutation pipeline.
 #[derive(Message, Debug, Clone)]
 pub enum ShipMutation {
-    DestroyBlock { ship: Entity, block_id: Uuid },
-    DestroyBlocks { ship: Entity, block_ids: Vec<Uuid> },
-    PlaceBlock { ship: Entity, block: BlockPlacement },
-    RebuildFromLayout { ship: Entity, layout: Vec<BlockPlacement> },
+    DestroyBlock {
+        ship: Entity,
+        block_id: Uuid,
+    },
+    DestroyBlocks {
+        ship: Entity,
+        block_ids: Vec<Uuid>,
+    },
+    PlaceBlock {
+        ship: Entity,
+        block: BlockPlacement,
+    },
+    RebuildFromLayout {
+        ship: Entity,
+        layout: Vec<BlockPlacement>,
+    },
 }
 
 pub struct ShipMutationPlugin;
@@ -105,14 +113,8 @@ pub fn apply_ship_mutations(
                         warn!("Unknown block type {:?}", block.block_type);
                         continue;
                     };
-                    let entity = spawn_block_entity(
-                        &mut commands,
-                        &block,
-                        def,
-                        ship_entity,
-                        *team,
-                        &config,
-                    );
+                    let entity =
+                        spawn_block_entity(&mut commands, &block, def, ship_entity, *team, &config);
                     grid.insert_block(block, entity, def);
                 }
                 ShipMutation::RebuildFromLayout { layout, .. } => {
@@ -198,7 +200,8 @@ pub fn apply_ship_mutations(
     }
 }
 
-fn reachable_from_core(grid: &ShipGrid, registry: &BlockRegistry) -> HashSet<Uuid> {    let mut visited = HashSet::new();
+fn reachable_from_core(grid: &ShipGrid, registry: &BlockRegistry) -> HashSet<Uuid> {
+    let mut visited = HashSet::new();
     let Some((core, _)) = registry.core_of(grid) else {
         return visited;
     };

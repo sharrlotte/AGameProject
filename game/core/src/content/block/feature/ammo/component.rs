@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
-
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
     capacity: u32,

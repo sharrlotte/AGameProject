@@ -22,12 +22,7 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn insert(
-        &self,
-        commands: &mut Commands,
-        base: Entity,
-        def: &BlockDef,
-    ) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),

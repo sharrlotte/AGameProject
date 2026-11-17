@@ -94,8 +94,10 @@ struct Candidate {
 fn better_closest(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
-        Some(best) => candidate.dist_sq < best.dist_sq
-            || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6 && candidate.id < best.id),
+        Some(best) => {
+            candidate.dist_sq < best.dist_sq
+                || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6 && candidate.id < best.id)
+        }
     }
 }
 
@@ -103,11 +105,13 @@ fn better_closest(candidate: Candidate, best: Option<Candidate>) -> bool {
 fn better_most_hp(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
-        Some(best) => candidate.health > best.health
-            || ((candidate.health - best.health).abs() < 1e-6
-                && (candidate.dist_sq < best.dist_sq
-                    || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6
-                        && candidate.id < best.id))),
+        Some(best) => {
+            candidate.health > best.health
+                || ((candidate.health - best.health).abs() < 1e-6
+                    && (candidate.dist_sq < best.dist_sq
+                        || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6
+                            && candidate.id < best.id)))
+        }
     }
 }
 
@@ -115,11 +119,13 @@ fn better_most_hp(candidate: Candidate, best: Option<Candidate>) -> bool {
 fn better_intercept(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
-        Some(best) => candidate.priority > best.priority
-            || ((candidate.priority - best.priority).abs() < 1e-6
-                && (candidate.dist_sq < best.dist_sq
-                    || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6
-                        && candidate.id < best.id))),
+        Some(best) => {
+            candidate.priority > best.priority
+                || ((candidate.priority - best.priority).abs() < 1e-6
+                    && (candidate.dist_sq < best.dist_sq
+                        || ((candidate.dist_sq - best.dist_sq).abs() < 1e-6
+                            && candidate.id < best.id)))
+        }
     }
 }
 
@@ -229,6 +235,77 @@ pub fn update_turret_target(
             state.can_fire = false;
             state.active = false;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(id: u64, dist_sq: f32, health: f32) -> Candidate {
+        Candidate {
+            target: TurretTarget::Ship(Entity::from_bits(id)),
+            aim: Vec2::ZERO,
+            dist_sq,
+            health,
+            priority: 0.0,
+            id,
+        }
+    }
+
+    #[test]
+    fn closest_ties_break_by_entity_id() {
+        let first = candidate(1, 100.0, 10.0);
+        let second = candidate(2, 100.0, 999.0);
+        // Equal distance: the lower entity id wins.
+        assert!(!better_closest(second, Some(first)));
+        assert!(better_closest(first, Some(second)));
+    }
+
+    #[test]
+    fn most_hp_uses_health_then_distance_then_id() {
+        let low_hp_close = candidate(1, 1.0, 10.0);
+        let high_hp_far = candidate(2, 400.0, 100.0);
+        assert!(better_most_hp(high_hp_far, Some(low_hp_close)));
+        assert!(!better_most_hp(low_hp_close, Some(high_hp_far)));
+
+        let equal_a = candidate(1, 100.0, 100.0);
+        let equal_b = candidate(2, 100.0, 100.0);
+        assert!(better_most_hp(equal_b, Some(equal_a)) == false);
+    }
+
+    #[test]
+    fn point_defense_prioritises_close_missiles() {
+        let mut bullet = candidate(1, 10.0, 0.0);
+        let mut missile = candidate(2, 20.0, 0.0);
+        missile.priority = 1.0;
+        assert!(better_intercept(missile, Some(bullet)));
+        assert!(!better_intercept(bullet, Some(missile)));
+
+        bullet.dist_sq = 1.0;
+        missile.priority = 0.0;
+        assert!(better_intercept(bullet, Some(missile)));
+    }
+
+    #[test]
+    fn lead_point_aheads_a_moving_target() {
+        let aim = lead_point(
+            Vec2::ZERO,
+            Vec2::new(0.0, 100.0),
+            Vec2::new(50.0, 0.0),
+            100.0,
+        );
+        assert!(aim.x > 0.0, "aim should lead the target: {aim:?}");
+        assert!((aim.y - 100.0).abs() < 1e-3);
+
+        // Instantaneous beams aim directly at the target.
+        let instant = lead_point(
+            Vec2::ZERO,
+            Vec2::new(0.0, 100.0),
+            Vec2::new(50.0, 0.0),
+            f32::INFINITY,
+        );
+        assert_eq!(instant, Vec2::new(0.0, 100.0));
     }
 }
 

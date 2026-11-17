@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::content::team::Team;
+use bevy::prelude::*;
 
 /// Team that fired a projectile. Used for point-defense targeting.
 #[derive(Component, Debug, Clone, Copy, Reflect)]

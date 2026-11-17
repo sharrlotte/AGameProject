@@ -3,12 +3,10 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::content::block::{
-    BlockOwner,
-    feature::{
-        storage::{Storage, StorageState},
-        thruster::{RotateSpeedComputed, ThrustPowerComputed},
-    },
+    BlockOwner, BlockRegistry,
+    feature::thruster::{RotateSpeedComputed, ThrustPowerComputed},
 };
+use crate::content::ship::ShipGrid;
 
 /// Single aggregate stats component for a ship.
 ///
@@ -64,6 +62,29 @@ impl ShipStats {
     }
 }
 
+/// Recompute pooled cargo capacity after the grid changes. If capacity drops
+/// below what is stored, the excess is discarded (items are cleared so the
+/// HUD never reports more cargo than the ship can hold).
+pub fn rebuild_cargo_capacity(
+    mut events: MessageReader<ShipChanged>,
+    mut ships: Query<(&mut ShipStats, &ShipGrid)>,
+    registry: Res<BlockRegistry>,
+) {
+    for event in events.read() {
+        let Ok((mut stats, grid)) = ships.get_mut(event.ship) else {
+            continue;
+        };
+        let Some(derived) = registry.stats_from_grid(grid) else {
+            continue;
+        };
+        stats.cargo_capacity = derived.cargo_capacity;
+        if stats.cargo_used > stats.cargo_capacity {
+            stats.cargo_used = stats.cargo_capacity;
+            stats.cargo_items.clear();
+        }
+    }
+}
+
 /// Emitted after a ship grid, stats, or collider changed.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct ShipChanged {
@@ -82,18 +103,14 @@ pub fn update_stats(
         &BlockOwner,
         Option<&ThrustPowerComputed>,
         Option<&RotateSpeedComputed>,
-        Option<&Storage>,
-        Option<&StorageState>,
     )>,
 ) {
     for mut stats in &mut ships {
         stats.thrust_power = 0.0;
         stats.rotate_speed = 0.0;
-        stats.cargo_items.clear();
-        stats.cargo_used = 0;
     }
 
-    for (entity, owner, thrust, rotate, storage, storage_state) in &blocks {
+    for (_, owner, thrust, rotate) in &blocks {
         let Ok(mut stats) = ships.get_mut(owner.ship) else {
             continue;
         };
@@ -103,18 +120,6 @@ pub fn update_stats(
         }
         if let Some(r) = rotate {
             stats.rotate_speed += r.value();
-        }
-
-        if let (Some(storage), Some(state)) = (storage, storage_state) {
-            for (item, count) in state.iter() {
-                stats
-                    .cargo_items
-                    .entry(item.clone())
-                    .and_modify(|c| *c += count)
-                    .or_insert(*count);
-                stats.cargo_used += *count;
-            }
-            let _ = (entity, storage);
         }
     }
 }

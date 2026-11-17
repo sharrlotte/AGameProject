@@ -138,10 +138,7 @@ pub fn handle_load_request(
 }
 
 /// Move from `Loading` into `Game` once a load has been requested.
-pub fn begin_loaded_game(
-    pending: Res<PendingLoad>,
-    mut next_scene: ResMut<NextState<SceneState>>,
-) {
+pub fn begin_loaded_game(pending: Res<PendingLoad>, mut next_scene: ResMut<NextState<SceneState>>) {
     if pending.is_pending() {
         next_scene.set(SceneState::Game);
     }
@@ -190,7 +187,10 @@ pub fn spawn_loaded_world(
     }
 
     let team = crate::content::team::Team::new(crate::content::team::DEFAULT_TEAM_ID);
-    if let Err(e) = save.clone().restore(&mut commands, &registry, &config, team, None) {
+    if let Err(e) = save
+        .clone()
+        .restore(&mut commands, &registry, &config, team, None)
+    {
         warn!("Failed to restore slot {slot}: {e}");
         notice.show(format!("Load failed: {e}"));
         scene_state.set(SceneState::Home);

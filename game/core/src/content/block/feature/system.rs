@@ -1,6 +1,6 @@
 use crate::content::block::feature::{
-    ammo::AmmoPlugin, efficiency::EfficiencyPlugin, energy::EnergyPlugin,
-    thruster::ThrusterPlugin, turret::TurretPlugin,
+    ammo::AmmoPlugin, efficiency::EfficiencyPlugin, energy::EnergyPlugin, thruster::ThrusterPlugin,
+    turret::TurretPlugin,
 };
 use bevy::prelude::*;
 

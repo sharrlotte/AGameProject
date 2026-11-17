@@ -61,39 +61,39 @@
 
 ## 6. Phase 5 — Targeting and combat
 
-- [ ] 6.1 Target the enemy core for every ship strategy; reject targets without a core
-- [ ] 6.2 Implement `Closest` tie-break by entity id and `MostHP` by current `ShipStats.health` then distance then id
-- [ ] 6.3 Add `ProjectileOwner` and `Interceptable` to bullets and missiles; keep lasers non-interceptable
-- [ ] 6.4 Implement `EnemyBullet` point defense with nearest/missile priority and lead prediction
-- [ ] 6.5 Add `TurretState { target, aim_point, can_fire }`, `TurretTarget`, barrel-forward fire gate, and save-skipped targets
-- [ ] 6.6 Parent continuous laser and pulling-beam visuals to the rotating barrel; fix the projectile laser axial offset
-- [ ] 6.7 Guard empty barrels, apply pulling-beam pull once per ship, set damage text to layer 400, align missile z-order, reset timers
-- [ ] 6.8 Scope all transient combat visuals to `SceneState::Game`
-- [ ] 6.9 Add MostHP, point-defense bullet/missile/laser, empty-barrel, pulling-beam, damage-text, and laser-parent/direction tests
-- [ ] 6.10 Playtest that the visible beam follows the barrel and matches the hitbox at several rotations
+- [x] 6.1 Target the enemy core for every ship strategy; reject targets without a core
+- [x] 6.2 Implement `Closest` tie-break by entity id and `MostHP` by current `ShipStats.health` then distance then id
+- [x] 6.3 Add `ProjectileOwner` and `Interceptable` to bullets and missiles; keep lasers non-interceptable
+- [x] 6.4 Implement `EnemyBullet` point defense with nearest/missile priority and lead prediction
+- [x] 6.5 Add `TurretState { target, aim_point, can_fire }`, `TurretTarget`, barrel-forward fire gate, and save-skipped targets
+- [x] 6.6 Parent continuous laser and pulling-beam visuals to the rotating barrel; fix the projectile laser axial offset
+- [x] 6.7 Guard empty barrels, apply pulling-beam pull once per ship, set damage text to layer 400, align missile z-order, reset timers
+- [x] 6.8 Scope all transient combat visuals to `SceneState::Game`
+- [x] 6.9 Add MostHP, point-defense bullet/missile/laser, empty-barrel, pulling-beam, damage-text, and laser-parent/direction tests
+- [x] 6.10 Playtest that the visible beam follows the barrel and matches the hitbox at several rotations
 
 ## 7. Phase 6 — AI profiles
 
-- [ ] 7.1 Add `AiProfile`, `AiRule`, `AiCondition`, `BehaviorSpec`, `TargetRef`, and `PositionRef` with RON serde
-- [ ] 7.2 Add `AiRuntime` and rule evaluation at `think_rate_hz` in `FixedUpdate` with priority and cooldowns
-- [ ] 7.3 Replace the 11 `BehaviorX` markers, `ShipBehavior`, and `AIShipController` with one `AiBehavior` runtime enum
-- [ ] 7.4 Implement all behavior semantics: idle, wander, patrol, guard, follow, regroup, kite, chase, attack, flee, kamikaze
-- [ ] 7.5 Fix the flee direction, wander chances, attack target, and kamikaze blast; invalidate dead or out-of-range targets
-- [ ] 7.6 Add editor AI panel: rule list, fields, validation, presets, preview label, and RON round-trip
-- [ ] 7.7 Add AI profiles to starter designs and mission ships
-- [ ] 7.8 Add flee-direction, priority/cooldown, reachability, target-invalidation, round-trip, and editor tests
-- [ ] 7.9 Playtest each behavior from a rule
+- [x] 7.1 Add `AiProfile`, `AiRule`, `AiCondition`, `BehaviorSpec`, `TargetRef`, and `PositionRef` with RON serde
+- [x] 7.2 Add `AiRuntime` and rule evaluation at `think_rate_hz` in `FixedUpdate` with priority and cooldowns
+- [x] 7.3 Replace the 11 `BehaviorX` markers, `ShipBehavior`, and `AIShipController` with one `AiBehavior` runtime enum
+- [x] 7.4 Implement all behavior semantics: idle, wander, patrol, guard, follow, regroup, kite, chase, attack, flee, kamikaze
+- [x] 7.5 Fix the flee direction, wander chances, attack target, and kamikaze blast; invalidate dead or out-of-range targets
+- [x] 7.6 Add editor AI panel: rule list, fields, validation, presets, preview label, and RON round-trip
+- [x] 7.7 Add AI profiles to starter designs and mission ships
+- [x] 7.8 Add flee-direction, priority/cooldown, reachability, target-invalidation, round-trip, and editor tests
+- [x] 7.9 Playtest each behavior from a rule
 
 ## 8. Phase 7 — Shared cargo
 
-- [ ] 8.1 Add `cargo_capacity`, `cargo_used`, and `cargo_items` to `ShipStats`
-- [ ] 8.2 Delete `Storage`, `StorageBuilder`, and `StorageState`; pool capacity from `StorageConfig`
-- [ ] 8.3 Implement atomic pickup: full amount fits or the drop stays in the world
-- [ ] 8.4 Implement player-only collection, nearest-ship magnet, and pickup radius
-- [ ] 8.5 Recompute capacity on `ShipChanged` and handle storage destruction
-- [ ] 8.6 Add cargo HUD and item breakdown in pause/editor stats
-- [ ] 8.7 Add pooled-capacity, atomic-pickup, full-cargo, player-only, and capacity-loss tests
-- [ ] 8.8 Playtest multiple storage blocks, a full ship, and enemy loot
+- [x] 8.1 Add `cargo_capacity`, `cargo_used`, and `cargo_items` to `ShipStats`
+- [x] 8.2 Delete `Storage`, `StorageBuilder`, and `StorageState`; pool capacity from `StorageConfig`
+- [x] 8.3 Implement atomic pickup: full amount fits or the drop stays in the world
+- [x] 8.4 Implement player-only collection, nearest-ship magnet, and pickup radius
+- [x] 8.5 Recompute capacity on `ShipChanged` and handle storage destruction
+- [x] 8.6 Add cargo HUD and item breakdown in pause/editor stats
+- [x] 8.7 Add pooled-capacity, atomic-pickup, full-cargo, player-only, and capacity-loss tests
+- [x] 8.8 Playtest multiple storage blocks, a full ship, and enemy loot
 
 ## 9. Phase 8 — Performance and editor split
 

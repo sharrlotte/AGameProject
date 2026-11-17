@@ -5,20 +5,16 @@ use crate::{
     content::{
         block::{BlockRegistry, Health},
         selectable::EntitySelectEvent,
-        ship::component::{BoundingBox, Ship},
         ship::ShipGrid,
+        ship::component::{BoundingBox, Ship},
         team::Team,
     },
-    resource::{CameraTarget, ControlledShip, ControlMode, SceneState},
+    resource::{CameraTarget, ControlMode, ControlledShip, SceneState},
     scene::background::BackgroundPlugin,
     simulation::SimulationSet,
 };
 
-use bevy::{
-    picking::hover::PickingInteraction,
-    prelude::*,
-    time::common_conditions::on_timer,
-};
+use bevy::{picking::hover::PickingInteraction, prelude::*, time::common_conditions::on_timer};
 
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
@@ -33,6 +29,8 @@ pub struct ShipButton(pub Entity);
 #[derive(Component)]
 pub struct ShipList;
 
+#[derive(Component)]
+pub struct CargoHudText;
 
 #[derive(Component)]
 pub struct SelectablePanel;
@@ -41,8 +39,7 @@ pub struct GameScenePlugin;
 
 impl Plugin for GameScenePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(OnEnter(SceneState::Game), setup)
+        app.add_systems(OnEnter(SceneState::Game), setup)
             .add_systems(
                 Update,
                 (
@@ -51,6 +48,7 @@ impl Plugin for GameScenePlugin {
                     update_ship_list.run_if(on_timer(Duration::from_millis(200))),
                     handle_ship_button_click,
                     update_select_panel,
+                    update_cargo_hud,
                 )
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Input),
@@ -92,6 +90,15 @@ fn setup(mut commands: Commands) {
                         TextColor(Color::WHITE),
                         Node { ..default() },
                         FpsText,
+                    ));
+                    top_bar.spawn((
+                        Text::new("CARGO 0 / 0"),
+                        TextFont {
+                            font_size: FontSize::Px(12.0),
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.7, 0.9, 1.0)),
+                        CargoHudText,
                     ));
                 });
 
@@ -222,6 +229,44 @@ fn handle_ship_button_click(
     }
 }
 
+/// Show the pooled cargo of all player ships plus an item breakdown.
+fn update_cargo_hud(
+    mut texts: Query<&mut Text, With<CargoHudText>>,
+    ships: Query<(&crate::content::ship::ShipStats, &Team)>,
+) {
+    let Ok(mut text) = texts.single_mut() else {
+        return;
+    };
+
+    let mut used = 0u32;
+    let mut capacity = 0u32;
+    let mut items: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+    for (stats, team) in &ships {
+        if !team.is_player() {
+            continue;
+        }
+        used += stats.cargo_used;
+        capacity += stats.cargo_capacity;
+        for (item, count) in &stats.cargo_items {
+            *items.entry(item.clone()).or_default() += *count;
+        }
+    }
+
+    let breakdown = items
+        .iter()
+        .map(|(item, count)| format!("{item}:{count}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    text.0 = format!(
+        "CARGO {used} / {capacity}{}",
+        if breakdown.is_empty() {
+            String::new()
+        } else {
+            format!("  {breakdown}")
+        }
+    );
+}
+
 fn update_ship_list(
     mut commands: Commands,
     mut ship_list: Query<Entity, With<ShipList>>,
@@ -269,7 +314,6 @@ fn update_ship_list(
                         ..Default::default()
                     },
                     BorderColor::all(color),
-
                     ShipButton(*entity),
                 ))
                 .with_children(|wrapper| {

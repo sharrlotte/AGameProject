@@ -27,13 +27,8 @@ impl ShipGrid {
                     .insert(placement.position + IVec2::new(x, y), placement.id);
             }
         }
-        self.blocks.insert(
-            placement.id,
-            GridBlock {
-                placement,
-                entity,
-            },
-        );
+        self.blocks
+            .insert(placement.id, GridBlock { placement, entity });
     }
 
     pub fn set_entity(&mut self, id: Uuid, entity: Entity) {
@@ -199,7 +194,10 @@ mod tests {
         let mut overlapping = layout();
         overlapping.push(BlockPlacement::new(IVec2::X, "plate", 0));
         let errors = registry.validate_ship(&overlapping).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("overlapping")), "{errors:?}");
+        assert!(
+            errors.iter().any(|e| e.contains("overlapping")),
+            "{errors:?}"
+        );
 
         let plate_only = vec![BlockPlacement::new(IVec2::ZERO, "plate", 0)];
         let errors = registry.validate_ship(&plate_only).unwrap_err();

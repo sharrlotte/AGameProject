@@ -27,6 +27,7 @@ pub struct GameConfig {
     pub ai_min_range_factor: f32,
     pub ai_wander_attack_chance: f32,
     pub ai_wander_guard_chance: f32,
+    pub ai_kamikaze_damage: f32,
 }
 
 impl Default for GameConfig {
@@ -53,6 +54,7 @@ impl Default for GameConfig {
             ai_min_range_factor: 0.9,
             ai_wander_attack_chance: 0.5,
             ai_wander_guard_chance: 0.5,
+            ai_kamikaze_damage: 500.0,
         }
     }
 }

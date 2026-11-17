@@ -25,7 +25,11 @@ pub struct Versioned<T> {
 pub enum DocumentError {
     Io(std::io::Error),
     Parse(String),
-    Version { kind: &'static str, expected: u32, found: u32 },
+    Version {
+        kind: &'static str,
+        expected: u32,
+        found: u32,
+    },
 }
 
 impl fmt::Display for DocumentError {
@@ -33,7 +37,11 @@ impl fmt::Display for DocumentError {
         match self {
             Self::Io(e) => write!(f, "io error: {e}"),
             Self::Parse(e) => write!(f, "parse error: {e}"),
-            Self::Version { kind, expected, found } => write!(
+            Self::Version {
+                kind,
+                expected,
+                found,
+            } => write!(
                 f,
                 "incompatible {kind} schema: expected version {expected}, found {found}"
             ),
@@ -135,11 +143,17 @@ mod tests {
     fn round_trips_and_keeps_backup() {
         let dir = std::env::temp_dir().join(format!("ron-doc-{}", std::process::id()));
         let file = dir.join("sample.ron");
-        let first = Sample { version: 2, value: 1 };
+        let first = Sample {
+            version: 2,
+            value: 1,
+        };
         write_document(&file, &first).unwrap();
         assert_eq!(read_document::<Sample>(&file).unwrap(), first);
 
-        let second = Sample { version: 2, value: 2 };
+        let second = Sample {
+            version: 2,
+            value: 2,
+        };
         write_document(&file, &second).unwrap();
         assert_eq!(read_document::<Sample>(&file).unwrap(), second);
         assert_eq!(

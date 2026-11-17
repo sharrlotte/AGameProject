@@ -10,12 +10,9 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{
-            feature::{turret::TurretSprite, Feature},
-            component::{
-                BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
-                FACE_UP,
-            },
             BlockPlacement, BlockRef,
+            component::{BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP},
+            feature::{Feature, turret::TurretSprite},
         },
         ship::{ShipDesign, ShipGrid},
     },
@@ -61,7 +58,17 @@ pub enum EditorTab {
     #[default]
     Blocks,
     Ships,
+    Ai,
 }
+
+#[derive(Component)]
+pub struct AiPanel;
+
+#[derive(Component)]
+pub struct AiPreviewText;
+
+#[derive(Component)]
+pub struct AiPresetButton(pub &'static str);
 
 #[derive(Component)]
 pub struct BlockPropertiesText;
@@ -98,6 +105,8 @@ impl Plugin for ShipEditorPlugin {
                     handle_deploy_button,
                     handle_deploy_button_click,
                     handle_nav_buttons,
+                    handle_ai_preset_click,
+                    update_ai_preview,
                     handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                 )
@@ -125,6 +134,7 @@ pub struct EditorState {
     pub filename: String,
     pub grid: ShipGrid,
     pub ships: Vec<ShipDesign>,
+    pub ai_profile: crate::content::ship::ai::AiProfile,
 }
 
 pub fn send_scroll_events(
@@ -253,7 +263,6 @@ pub fn setup_editor_ui(
                     // --- Back Button ---
                     left_panel
                         .spawn((
-
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
@@ -263,7 +272,6 @@ pub fn setup_editor_ui(
                                 border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
-
                             BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
                             BackButton,
                         ))
@@ -292,9 +300,8 @@ pub fn setup_editor_ui(
                             // Blocks Tab Button
                             header
                                 .spawn((
-
                                     Node {
-                                        width: Val::Percent(48.0),
+                                        width: Val::Percent(32.0),
                                         height: Val::Percent(100.0),
                                         justify_content: JustifyContent::Center,
                                         align_items: AlignItems::Center,
@@ -317,9 +324,8 @@ pub fn setup_editor_ui(
                             // Ships Tab Button
                             header
                                 .spawn((
-
                                     Node {
-                                        width: Val::Percent(48.0),
+                                        width: Val::Percent(32.0),
                                         height: Val::Percent(100.0),
                                         justify_content: JustifyContent::Center,
                                         align_items: AlignItems::Center,
@@ -338,6 +344,88 @@ pub fn setup_editor_ui(
                                         TextColor(Color::WHITE),
                                     ));
                                 });
+
+                            // AI Tab Button
+                            header
+                                .spawn((
+                                    Node {
+                                        width: Val::Percent(32.0),
+                                        height: Val::Percent(100.0),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                                    TabButton(EditorTab::Ai),
+                                ))
+                                .with_children(|btn| {
+                                    btn.spawn((
+                                        Text::new("AI"),
+                                        TextFont {
+                                            font_size: FontSize::Px(16.0),
+                                            ..default()
+                                        },
+                                        TextColor(Color::WHITE),
+                                    ));
+                                });
+                        });
+
+                    // --- AI Panel ---
+                    left_panel
+                        .spawn((
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(100.0),
+                                row_gap: Val::Px(6.0),
+                                display: Display::None,
+                                ..default()
+                            },
+                            AiPanel,
+                        ))
+                        .with_children(|panel| {
+                            panel.spawn((
+                                Text::new("AI Profile"),
+                                TextFont {
+                                    font_size: FontSize::Px(16.0),
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+                            for preset in crate::content::ship::ai::PRESETS {
+                                panel
+                                    .spawn((
+                                        Node {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Px(30.0),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(Color::srgb(0.2, 0.3, 0.2)),
+                                        AiPresetButton(preset),
+                                    ))
+                                    .with_children(|btn| {
+                                        btn.spawn((
+                                            Text::new(*preset),
+                                            TextFont {
+                                                font_size: FontSize::Px(13.0),
+                                                ..default()
+                                            },
+                                            TextColor(Color::WHITE),
+                                        ));
+                                    });
+                            }
+                            panel.spawn((
+                                AiPreviewText,
+                                Text::new(""),
+                                TextFont {
+                                    font_size: FontSize::Px(11.0),
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                            ));
                         });
 
                     // --- Block List Panel ---
@@ -359,7 +447,6 @@ pub fn setup_editor_ui(
                             for (block_type, def) in registry.iter() {
                                 list_content
                                     .spawn((
-
                                         Node {
                                             width: Val::Percent(100.0),
                                             height: Val::Px(60.0),
@@ -523,7 +610,6 @@ pub fn setup_editor_ui(
                     // Deploy Button
                     right_panel
                         .spawn((
-
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
@@ -533,7 +619,6 @@ pub fn setup_editor_ui(
                                 border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
-
                             BackgroundColor(Color::srgb(0.2, 0.6, 1.0)),
                             DeployButton,
                         ))
@@ -551,7 +636,6 @@ pub fn setup_editor_ui(
                     // Play Button
                     right_panel
                         .spawn((
-
                             Node {
                                 width: Val::Percent(100.0),
                                 height: Val::Px(30.0),
@@ -561,7 +645,6 @@ pub fn setup_editor_ui(
                                 border_radius: BorderRadius::all(Val::Px(6.0)),
                                 ..default()
                             },
-
                             BackgroundColor(Color::srgb(0.2, 0.8, 0.4)),
                             PlayButton,
                         ))
@@ -581,7 +664,12 @@ pub fn setup_editor_ui(
 
 pub fn handle_block_selection(
     mut interaction: Query<
-        (&PickingInteraction, &BlockSelection, &mut BackgroundColor, &mut Node),
+        (
+            &PickingInteraction,
+            &BlockSelection,
+            &mut BackgroundColor,
+            &mut Node,
+        ),
         Changed<PickingInteraction>,
     >,
     mut editor: ResMut<EditorState>,
@@ -630,7 +718,7 @@ pub fn handle_deploy_button_click(
                 id: Uuid::now_v7(),
                 name: editor.filename.clone(),
                 blocks: saved_blocks,
-                ai: crate::content::ship::ai::AiProfile::Default,
+                ai: editor.ai_profile.clone(),
             });
         }
 
@@ -859,9 +947,7 @@ pub fn check_placement_validity(
             let neighbor_position = my_position + dir;
             if let Some(neighbor_block) = grid.block_at(neighbor_position) {
                 // Found a neighbor. Check if faces match.
-                if let Some(neighbor_def) =
-                    registry.get(&neighbor_block.placement.block_type)
-                {
+                if let Some(neighbor_def) = registry.get(&neighbor_block.placement.block_type) {
                     // Find which voxel of the neighbor is at neighbor_pos
                     let neighbor_local_position =
                         neighbor_position - neighbor_block.placement.position;
@@ -908,13 +994,8 @@ pub fn update_placement_preview(
         let grid_position = mouse_grid_position - anchor_offset;
 
         // Check validity
-        let is_valid = check_placement_validity(
-            &editor.grid,
-            &registry,
-            selected_type,
-            grid_position,
-            0,
-        );
+        let is_valid =
+            check_placement_validity(&editor.grid, &registry, selected_type, grid_position, 0);
 
         // Despawn existing preview
         for entity in &preview {
@@ -991,13 +1072,8 @@ pub fn handle_placement(
             let anchor_offset = size / 2;
             let grid_position = mouse_grid_position - anchor_offset;
 
-            let is_valid = check_placement_validity(
-                &editor.grid,
-                &registry,
-                selected_type,
-                grid_position,
-                0,
-            );
+            let is_valid =
+                check_placement_validity(&editor.grid, &registry, selected_type, grid_position, 0);
 
             if !is_valid {
                 return;
@@ -1005,9 +1081,7 @@ pub fn handle_placement(
 
             let placement = BlockPlacement::new(grid_position, &def.block_type, 0);
             let base = spawn_placed_block(&mut commands, ship_base.entity(), def, &placement);
-            editor
-                .grid
-                .insert_block(placement, base, def);
+            editor.grid.insert_block(placement, base, def);
 
             events.write(ShipSaveChanged);
         }
@@ -1048,14 +1122,73 @@ pub fn update_block_properties_panel(
     }
 }
 
+/// Apply an AI preset from the editor panel and validate it.
+pub fn handle_ai_preset_click(
+    mut interaction: Query<(&PickingInteraction, &AiPresetButton), Changed<PickingInteraction>>,
+    mut editor: ResMut<EditorState>,
+) {
+    use crate::content::ship::ai::{preset, validate_profile};
+    for (interaction, button) in &mut interaction {
+        if *interaction == PickingInteraction::Pressed {
+            let profile = preset(button.0);
+            let errors = validate_profile(&profile);
+            if errors.is_empty() {
+                editor.ai_profile = profile;
+            } else {
+                warn!("AI preset {:?} is invalid: {:?}", button.0, errors);
+            }
+        }
+    }
+}
+
+/// Preview the authored AI profile as a compact RON string.
+pub fn update_ai_preview(
+    editor: Res<EditorState>,
+    mut texts: Query<&mut Text, With<AiPreviewText>>,
+) {
+    if editor.active_tab != EditorTab::Ai {
+        return;
+    }
+    let Ok(mut text) = texts.single_mut() else {
+        return;
+    };
+    let Ok(ron) = ron::ser::to_string_pretty(&editor.ai_profile, ron::ser::PrettyConfig::default())
+    else {
+        return;
+    };
+    text.0 = ron;
+}
+
 pub fn handle_tab_switching(
     mut interaction: Query<
         (&PickingInteraction, &TabButton, &mut BackgroundColor),
         Changed<PickingInteraction>,
     >,
     mut editor: ResMut<EditorState>,
-    mut block_list: Single<&mut Node, (With<BlockListPanel>, Without<ShipListPanel>)>,
-    mut ship_list: Single<&mut Node, (With<ShipListPanel>, Without<BlockListPanel>)>,
+    mut block_list: Single<
+        &mut Node,
+        (
+            With<BlockListPanel>,
+            Without<ShipListPanel>,
+            Without<AiPanel>,
+        ),
+    >,
+    mut ship_list: Single<
+        &mut Node,
+        (
+            With<ShipListPanel>,
+            Without<BlockListPanel>,
+            Without<AiPanel>,
+        ),
+    >,
+    mut ai_panel: Single<
+        &mut Node,
+        (
+            With<AiPanel>,
+            Without<BlockListPanel>,
+            Without<ShipListPanel>,
+        ),
+    >,
 ) {
     for (interaction, tab_btn, mut bg_color) in &mut interaction {
         match *interaction {
@@ -1083,6 +1216,11 @@ pub fn handle_tab_switching(
     };
 
     ship_list.display = if editor.active_tab == EditorTab::Ships {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    ai_panel.display = if editor.active_tab == EditorTab::Ai {
         Display::Flex
     } else {
         Display::None
@@ -1141,7 +1279,6 @@ pub fn refresh_ship_list(
                     .with_children(|row| {
                         // Load Button
                         row.spawn((
-
                             Node {
                                 flex_grow: 1.0,
                                 height: Val::Percent(100.0),
@@ -1195,7 +1332,10 @@ pub fn handle_ship_saving(
     }
 
     if let Err(errors) = registry.validate_ship(&layout) {
-        warn!("Refusing to save invalid ship {:?}: {:?}", state.filename, errors);
+        warn!(
+            "Refusing to save invalid ship {:?}: {:?}",
+            state.filename, errors
+        );
         return;
     }
 
@@ -1203,6 +1343,7 @@ pub fn handle_ship_saving(
         Uuid::now_v7(),
         state.filename.clone(),
         &state.grid,
+        &state.ai_profile,
         &mut ship_saved_event,
     );
 }
@@ -1317,6 +1458,7 @@ pub fn perform_save_schematic(
     id: Uuid,
     name: String,
     grid: &ShipGrid,
+    profile: &crate::content::ship::ai::AiProfile,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let design = ShipDesign {
@@ -1324,7 +1466,7 @@ pub fn perform_save_schematic(
         id,
         name,
         blocks: grid.blocks().map(|b| b.placement.clone()).collect(),
-        ai: crate::content::ship::ai::AiProfile::Default,
+        ai: profile.clone(),
     };
 
     if let Err(e) = ShipCatalog::save(&design) {
@@ -1367,8 +1509,7 @@ pub fn spawn_ship(
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
                 let placement = saved_block;
-                let base =
-                    spawn_placed_block(commands, ship_base, def, &placement);
+                let base = spawn_placed_block(commands, ship_base, def, &placement);
                 editor.grid.insert_block(placement, base, def);
             }
         }

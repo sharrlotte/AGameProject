@@ -3,16 +3,16 @@ use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config::GameConfigValue;
 #[cfg(debug_assertions)]
 use crate::constant::LAYER_SHIP_UI;
-use crate::config::GameConfigValue;
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
-use crate::content::ship::ai::{AiProfile, BehaviorIdle, BehaviorTimer};
+use crate::content::selectable::Selectable;
+use crate::content::ship::ai::{AiProfile, AiRuntime};
 use crate::content::ship::grid::ShipGrid;
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
-use crate::resource::{SceneState};
-use crate::content::selectable::Selectable;
+use crate::resource::SceneState;
 
 #[derive(Component, Debug, Default, Clone)]
 pub struct Ship {
@@ -128,9 +128,8 @@ impl ShipDesign {
                 ActiveCollisionTypes::all(),
             ))
             .insert((
-                BehaviorTimer::new(config.0.ai_think_rate_hz),
-                BehaviorIdle,
-                self.ai,
+                self.ai.clone(),
+                AiRuntime::new(&self.ai, transform.translation.truncate()),
                 Damping {
                     linear_damping: config.0.linear_damping,
                     angular_damping: config.0.angular_damping,
@@ -147,14 +146,7 @@ impl ShipDesign {
                 warn!("Unknown block type {:?}", placement.block_type);
                 continue;
             };
-            let block = spawn_block_entity(
-                commands,
-                &placement,
-                def,
-                ship_entity,
-                team,
-                config,
-            );
+            let block = spawn_block_entity(commands, &placement, def, ship_entity, team, config);
             grid.set_entity(placement.id, block);
             block_entities.push(block);
         }
@@ -220,7 +212,13 @@ mod tests {
             BlockPlacement::new(IVec2::X, "plate", 0),
         ]);
         design
-            .spawn(&mut commands, &registry, Team::new(0), Transform::default(), &config)
+            .spawn(
+                &mut commands,
+                &registry,
+                Team::new(0),
+                Transform::default(),
+                &config,
+            )
             .expect("valid design should spawn");
     }
 
@@ -240,7 +238,10 @@ mod tests {
         let mut grids = world.query::<&ShipGrid>();
         let grid = grids.single(world).expect("spawned ship has a grid");
         assert_eq!(grid.blocks.len(), 2);
-        assert!(grid.blocks().all(|block| block.entity != Entity::PLACEHOLDER));
+        assert!(
+            grid.blocks()
+                .all(|block| block.entity != Entity::PLACEHOLDER)
+        );
 
         let mut refs = world.query::<&BlockRef>();
         assert_eq!(refs.iter(world).count(), 2);

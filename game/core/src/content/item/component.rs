@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-
 #[derive(Debug, Reflect, Copy, Clone)]
 pub enum Rarity {
     Common,

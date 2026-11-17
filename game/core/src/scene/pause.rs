@@ -93,7 +93,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Resume Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -121,7 +120,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Settings Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -149,7 +147,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Save Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -175,7 +172,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 });
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -203,7 +199,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Home Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -231,7 +226,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             // Exit Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),

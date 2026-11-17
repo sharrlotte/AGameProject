@@ -9,10 +9,7 @@ use crate::config::GameConfigValue;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::{
-            BlockOwner, BlockPlacement, BlockRef,
-            feature::component::Feature,
-        },
+        block::{BlockOwner, BlockPlacement, BlockRef, feature::component::Feature},
         ship::{BoundingBox, Ship, ShipBuildResult, ShipFragment, ShipStats, grid::ShipGrid},
         team::Team,
     },
@@ -356,6 +353,8 @@ impl BlockDef {
 pub struct BlockRegistry {
     pub(crate) map: HashMap<String, BlockDef>,
     pub(crate) by_name: HashMap<String, String>,
+    /// Keys sorted by block group once at registration time.
+    sorted: Vec<String>,
 }
 
 impl BlockRegistry {
@@ -367,6 +366,10 @@ impl BlockRegistry {
 
         self.by_name.insert(key.to_string(), def.block_type.clone());
         self.map.insert(def.block_type.clone(), def);
+
+        let mut sorted = self.map.iter().collect::<Vec<_>>();
+        sorted.sort_by(|a, b| a.1.block_group.cmp(&b.1.block_group));
+        self.sorted = sorted.into_iter().map(|(key, _)| key.clone()).collect();
     }
 
     pub fn get(&self, key: &str) -> Option<&BlockDef> {
@@ -379,11 +382,9 @@ impl BlockRegistry {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&String, &BlockDef)> {
-        let mut value = self.map.iter().collect::<Vec<_>>();
-
-        value.sort_by(|a, b| a.1.block_group.cmp(&b.1.block_group));
-
-        return value.into_iter();
+        self.sorted
+            .iter()
+            .filter_map(|key| self.map.get_key_value(key))
     }
 
     pub fn blocks_to_voxel_points(&self, grid: &ShipGrid) -> Vec<Vec2> {
@@ -446,7 +447,10 @@ impl BlockRegistry {
 
         for block in grid.blocks() {
             let Some(def) = self.get_symbol(&block.placement.block_type) else {
-                warn!("Block type {:?} not found in registry", block.placement.block_type);
+                warn!(
+                    "Block type {:?} not found in registry",
+                    block.placement.block_type
+                );
                 continue;
             };
 
@@ -470,8 +474,8 @@ impl BlockRegistry {
                     Feature::PowerProducer(producer) => {
                         stats.power_production += producer.output;
                     }
-                    Feature::Storage(storage) => {
-                        stats.cargo_capacity += storage.capacity();
+                    Feature::Storage(capacity) => {
+                        stats.cargo_capacity += *capacity;
                     }
                     Feature::Thruster(thruster) => {
                         stats.thrust_power += thruster.force();
@@ -491,10 +495,7 @@ impl BlockRegistry {
         let Some((core_id, core_position)) = self.core_of(grid) else {
             return ShipBuildResult {
                 fragments: vec![ShipFragment {
-                    placements: grid
-                        .blocks()
-                        .map(|block| block.placement.clone())
-                        .collect(),
+                    placements: grid.blocks().map(|block| block.placement.clone()).collect(),
                 }],
                 ..default()
             };

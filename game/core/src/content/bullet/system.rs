@@ -5,8 +5,8 @@ use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
 use super::*;
-use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::config::GameConfigValue;
+use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::energy::PowerEfficiency;
 use crate::content::block::feature::turret::{Turret, TurretBarrel, TurretSprite, TurretState};
@@ -21,7 +21,7 @@ use crate::content::death::Death;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::{Ship, ShipGrid};
 use crate::content::team::Team;
-use crate::resource::{SceneState};
+use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
 
 pub struct BulletPlugin;
@@ -46,7 +46,9 @@ impl Plugin for BulletPlugin {
         )
         .add_systems(
             FixedUpdate,
-            handle_point_defense_hits.in_set(SimulationSet::Weapons),
+            handle_point_defense_hits
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Weapons),
         )
         .add_systems(
             FixedPostUpdate,
@@ -196,7 +198,9 @@ pub fn handle_single_shot(
                     *range,
                     &shoot_pattern.projectile,
                     match turret_state.target {
-                        Some(crate::content::block::feature::turret::TurretTarget::Ship(entity)) => Some(entity),
+                        Some(crate::content::block::feature::turret::TurretTarget::Ship(
+                            entity,
+                        )) => Some(entity),
                         _ => None,
                     },
                     &config,
@@ -266,16 +270,21 @@ pub fn handle_burst_shot(
                     continue;
                 }
 
+                if barrels.is_empty() {
+                    shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
+                        last_fired_at: time.elapsed_secs(),
+                    };
+                    continue;
+                }
                 let barrel_index = *current_barrel % barrels.len();
                 let barrel_position = barrels[barrel_index];
 
                 if let Some(ref mut ammo) = ammo_state
                     && !ammo.take()
                 {
-                    shoot_pattern_state.shooting =
-                        BurstShootPatternShootingState::Cooldown {
-                            last_fired_at: time.elapsed_secs(),
-                        };
+                    shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
+                        last_fired_at: time.elapsed_secs(),
+                    };
                     continue;
                 }
 
@@ -287,7 +296,9 @@ pub fn handle_burst_shot(
                     *range,
                     &shoot_pattern.projectile,
                     match turret_state.target {
-                        Some(crate::content::block::feature::turret::TurretTarget::Ship(entity)) => Some(entity),
+                        Some(crate::content::block::feature::turret::TurretTarget::Ship(
+                            entity,
+                        )) => Some(entity),
                         _ => None,
                     },
                     &config,
@@ -500,7 +511,12 @@ pub fn handle_pulling_beam(
         }
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
-        };        let Turret { barrels, range, .. } = turret;
+        };
+        let Turret { barrels, range, .. } = turret;
+
+        // Each target ship is pulled at most once per tick, even when several
+        // barrel boxes overlap the same block.
+        let mut pulled = std::collections::HashSet::new();
 
         if !turret_state.active {
             if let Some(beam) = state.beam {
@@ -532,6 +548,9 @@ pub fn handle_pulling_beam(
                         return true;
                     }
 
+                    if !pulled.insert(owner.ship) {
+                        return true;
+                    }
                     if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.ship) {
                         let direction =
                             (origin - ship_transform.translation().truncate()).normalize_or_zero();
@@ -557,9 +576,7 @@ pub fn handle_pulling_beam(
             let beam = commands
                 .spawn((
                     beam_sprite,
-                    Transform::from_translation(
-                        Vec2::new(0.0, *range / 2.0).extend(LAYER_BULLET),
-                    ),
+                    Transform::from_translation(Vec2::new(0.0, *range / 2.0).extend(LAYER_BULLET)),
                     Visibility::Hidden,
                 ))
                 .id();
@@ -567,6 +584,35 @@ pub fn handle_pulling_beam(
             state.beam = Some(beam);
             // Parent to the rotating barrel; the hitbox uses its transform.
             commands.entity(barrel_ref.0).add_child(beam);
+        }
+    }
+}
+
+/// Point defense: when an interceptor bullet hits a hostile projectile, both
+/// are removed. Missiles despawn this way do not trigger their blast.
+pub fn handle_point_defense_hits(
+    mut collision_events: MessageReader<CollisionEvent>,
+    owners: Query<&ProjectileOwner>,
+    interceptables: Query<Entity, With<Interceptable>>,
+    mut commands: Commands,
+) {
+    for event in collision_events.read() {
+        let CollisionEvent::Started(first, second, _) = event else {
+            continue;
+        };
+        for (interceptor, target) in [(*first, *second), (*second, *first)] {
+            let (Ok(interceptor_owner), Ok(target_owner)) =
+                (owners.get(interceptor), owners.get(target))
+            else {
+                continue;
+            };
+            if interceptor_owner.team == target_owner.team {
+                continue;
+            }
+            if interceptables.contains(target) {
+                commands.entity(target).despawn();
+                commands.entity(interceptor).despawn();
+            }
         }
     }
 }
@@ -597,7 +643,7 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
-                                        DespawnOnExit(SceneState::Game),
+                    DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
@@ -632,7 +678,7 @@ pub fn spawn_bullet(
         ShootingProjectile::Laser { damage, width, .. } => {
             let bullet = commands
                 .spawn((
-                                        DespawnOnExit(SceneState::Game),
+                    DespawnOnExit(SceneState::Game),
                     Laser::Init {
                         width: *width,
                         length: range,
@@ -658,7 +704,7 @@ pub fn spawn_bullet(
         } => {
             let missile = commands
                 .spawn((
-                                        DespawnOnExit(SceneState::Game),
+                    DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     ProjectileOwner { team: team.id },
                     Interceptable,
@@ -735,8 +781,8 @@ pub fn handle_laser(
                 let mut laser_length = *length;
 
                 let Ok(collision) = rapier.single() else {
-        return;
-    };
+                    return;
+                };
                 let filter = QueryFilter::from(CollisionGroups::new(
                     team.bullet_group(),
                     team.bullet_filter(),
@@ -761,8 +807,7 @@ pub fn handle_laser(
                     },
                     Transform {
                         translation: origin.extend(LAYER_BULLET)
-                            + *rotation
-                                * Vec2::new(0.0, laser_length / 2.0).extend(LAYER_BULLET),
+                            + *rotation * Vec2::new(0.0, laser_length / 2.0).extend(LAYER_BULLET),
                         rotation: *rotation,
                         ..default()
                     },

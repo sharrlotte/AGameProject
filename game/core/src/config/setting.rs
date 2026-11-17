@@ -6,8 +6,18 @@ use std::path::PathBuf;
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
 pub struct GameSetting {
+    #[serde(default = "default_volume")]
     pub volume: f32,
+    #[serde(default = "default_bloom")]
     pub bloom: bool,
+}
+
+fn default_volume() -> f32 {
+    0.5
+}
+
+fn default_bloom() -> bool {
+    true
 }
 
 impl Default for GameSetting {
@@ -36,8 +46,28 @@ pub fn game_setting_bridge(
     }
 }
 
-pub fn save_setting_on_change(setting: Res<GameSetting>) {
-    if !setting.is_changed() {
+/// Waits for a quiet period after the last settings change before writing.
+#[derive(Resource)]
+pub struct SettingSaveTimer(pub Timer);
+
+impl Default for SettingSaveTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(0.5, TimerMode::Once))
+    }
+}
+
+pub fn save_setting_on_change(
+    setting: Res<GameSetting>,
+    time: Res<Time>,
+    mut timer: ResMut<SettingSaveTimer>,
+) {
+    if setting.is_changed() {
+        timer.0.reset();
+        return;
+    }
+
+    timer.0.tick(time.delta());
+    if !timer.0.is_finished() {
         return;
     }
 
@@ -47,7 +77,11 @@ pub fn save_setting_on_change(setting: Res<GameSetting>) {
     if let Some(parent) = path.parent()
         && let Err(e) = std::fs::create_dir_all(parent)
     {
-        error!("Failed to create config directory {}: {:?}", parent.display(), e);
+        error!(
+            "Failed to create config directory {}: {:?}",
+            parent.display(),
+            e
+        );
 
         return;
     }
@@ -62,6 +96,7 @@ pub fn save_setting_on_change(setting: Res<GameSetting>) {
             error!("Failed to serialize settings: {:?}", e);
         }
     }
+    timer.0.reset();
 }
 
 fn asset_root() -> PathBuf {

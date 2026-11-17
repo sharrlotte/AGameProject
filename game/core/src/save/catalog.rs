@@ -40,14 +40,18 @@ impl ShipCatalog {
             return Vec::new();
         }
 
+        // Starter files are rewritten on every run so a schema upgrade cannot
+        // leave stale v1 profiles on disk. User-created designs are untouched.
+        for (name, text) in [("interceptor.ron", INTERCEPTOR), ("raider.ron", RAIDER)] {
+            let path = dir.join(name);
+            if let Err(e) = fs::write(&path, text) {
+                warn!("Failed to refresh starter design {name}: {e}");
+            }
+        }
+
         let mut designs = Self::read_dir(&dir);
         if designs.is_empty() {
             for (name, text) in [("interceptor.ron", INTERCEPTOR), ("raider.ron", RAIDER)] {
-                let path = dir.join(name);
-                if let Err(e) = fs::write(&path, text) {
-                    warn!("Failed to seed starter design {name}: {e}");
-                    continue;
-                }
                 match parse_document::<ShipDesign>(text) {
                     Ok(design) => designs.push(design),
                     Err(e) => warn!("Starter design {name} failed to parse: {e}"),
@@ -101,7 +105,12 @@ mod tests {
             let design = parse_document::<ShipDesign>(text).expect("starter parses");
             assert_eq!(design.version, DESIGN_SCHEMA_VERSION);
             assert!(!design.blocks.is_empty());
-            assert!(design.blocks.iter().any(|b: &BlockPlacement| b.block_type == "core"));
+            assert!(
+                design
+                    .blocks
+                    .iter()
+                    .any(|b: &BlockPlacement| b.block_type == "core")
+            );
         }
     }
 

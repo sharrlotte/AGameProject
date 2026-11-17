@@ -125,12 +125,8 @@ mod tests {
 
         let ship = app.world_mut().spawn(ShipStats::default()).id();
         if production > 0.0 {
-            app.world_mut().spawn((
-                BlockOwner { ship },
-                PowerProducer {
-                    output: production,
-                },
-            ));
+            app.world_mut()
+                .spawn((BlockOwner { ship }, PowerProducer { output: production }));
         }
         for rate in rates {
             app.world_mut().spawn((

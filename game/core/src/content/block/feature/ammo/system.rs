@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    constant::LAYER_BLOCK_ICON,
-    content::block::feature::ammo::AmmoState,
-    resource::{SceneState},
+    constant::LAYER_BLOCK_ICON, content::block::feature::ammo::AmmoState, resource::SceneState,
     simulation::SimulationSet,
 };
 

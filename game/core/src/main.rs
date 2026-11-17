@@ -1,5 +1,5 @@
-mod constant;
 mod config;
+mod constant;
 mod content;
 mod mission;
 mod resource;
@@ -8,28 +8,28 @@ mod scene;
 mod simulation;
 mod system;
 
-use crate::constant::AUDIO_SCALE;
 use crate::config::ConfigPlugin;
+use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
-use crate::simulation::SimulationSet;
 use crate::resource::{
-    CameraTarget, ControlledShip, ControlMode, DeployPayload, GameRng, PauseState, SceneState,
+    CameraTarget, ControlMode, ControlledShip, DeployPayload, GameRng, PauseState, SceneState,
 };
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::notice::NoticePlugin;
-use crate::scene::slot_panel::SlotPanelPlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
+use crate::scene::slot_panel::SlotPanelPlugin;
+use crate::simulation::SimulationSet;
 #[cfg(debug_assertions)]
 use crate::system::DebugAuditPlugin;
 use crate::system::{load_current_ship, setup_camera};
+use bevy::audio::{AudioPlugin, SpatialScale};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
-use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_hanabi::HanabiPlugin;
@@ -88,6 +88,9 @@ fn main() {
     .init_resource::<ControlledShip>()
     .init_resource::<ControlMode>()
     .init_resource::<GameRng>()
+    // Gameplay systems assume config exists; a failed load still shows the
+    // error screen instead of panicking on a missing resource.
+    .init_resource::<crate::config::GameConfigValue>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .configure_sets(PreUpdate, SimulationSet::Input)
@@ -108,7 +111,10 @@ fn main() {
         (SimulationSet::Damage, SimulationSet::Death).chain(),
     )
     .configure_sets(FixedLast, SimulationSet::Cleanup)
-    .configure_sets(Update, (SimulationSet::Input, SimulationSet::Present).chain())
+    .configure_sets(
+        Update,
+        (SimulationSet::Input, SimulationSet::Present).chain(),
+    )
     .configure_sets(PostUpdate, SimulationSet::Present)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((

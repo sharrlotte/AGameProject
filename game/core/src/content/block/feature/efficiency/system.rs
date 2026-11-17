@@ -2,11 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
 
 use super::*;
-use crate::content::{
-    block::BlockOwner,
-    ship::stat::ShipStats,
-    team::Team,
-};
+use crate::content::{block::BlockOwner, ship::stat::ShipStats, team::Team};
 use crate::simulation::SimulationSet;
 
 pub struct EfficiencyPlugin;

@@ -11,5 +11,6 @@ pub const LAYER_DROP: f32 = 110.0;
 pub const LAYER_FLASH_OVERLAY: f32 = 200.0;
 pub const LAYER_BLOCK_ICON: f32 = 210.0;
 pub const LAYER_SHIP_UI: f32 = 300.0;
+pub const LAYER_DAMAGE_TEXT: f32 = 400.0;
 
 pub const DROP_PICKUP_RADIUS: f32 = 32.0;

@@ -1,4 +1,6 @@
-use bevy::{audio::Volume, picking::hover::PickingInteraction, post_process::bloom::Bloom, prelude::*};
+use bevy::{
+    audio::Volume, picking::hover::PickingInteraction, post_process::bloom::Bloom, prelude::*,
+};
 
 use crate::config::GameSetting;
 use crate::resource::SettingState;
@@ -91,7 +93,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
 
                     // Decrease
                     row.spawn((
-
                         Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
@@ -100,7 +101,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                             border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
-
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         VolumeChange(-0.1),
                     ))
@@ -120,7 +120,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
 
                     // Increase
                     row.spawn((
-
                         Node {
                             width: Val::Px(40.0),
                             height: Val::Px(40.0),
@@ -129,7 +128,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                             border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
-
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         VolumeChange(0.1),
                     ))
@@ -155,7 +153,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                     ));
 
                     row.spawn((
-
                         Node {
                             width: Val::Px(100.0),
                             height: Val::Px(40.0),
@@ -164,7 +161,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                             border_radius: BorderRadius::all(Val::Px(5.0)),
                             ..default()
                         },
-
                         BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                         BloomButton,
                     ))
@@ -179,7 +175,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             // Close Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(150.0),
                         height: Val::Px(50.0),
@@ -189,7 +184,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                         border_radius: BorderRadius::all(Val::Px(5.0)),
                         ..default()
                     },
-
                     BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
                     CloseButton,
                 ))

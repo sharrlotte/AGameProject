@@ -2,7 +2,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::resource::{AppNotice, PauseState};
-use crate::save::io::{list_slots, LoadWorldEvent, SaveWorldEvent};
+use crate::save::io::{LoadWorldEvent, SaveWorldEvent, list_slots};
 use crate::save::schema::SlotInfo;
 use crate::simulation::SimulationSet;
 
@@ -13,10 +13,7 @@ impl Plugin for SlotPanelPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RefreshSlotPanel>()
             .add_systems(Update, refresh_slot_panel.in_set(SimulationSet::Present))
-            .add_systems(
-                Update,
-                handle_slot_buttons.in_set(SimulationSet::Input),
-            );
+            .add_systems(Update, handle_slot_buttons.in_set(SimulationSet::Input));
     }
 }
 
@@ -47,54 +44,31 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
     ));
 
     for info in &slots {
-        parent.spawn((
-            Node {
-                width: Val::Px(420.0),
-                min_height: Val::Px(34.0),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::all(Val::Px(6.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                border_radius: BorderRadius::all(Val::Px(4.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.12, 0.12, 0.12)),
-        ))
-        .with_children(|row| {
-            row.spawn((
-                Text::new(slot_label(info)),
-                TextFont {
-                    font_size: FontSize::Px(14.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-
-            row.spawn((
+        parent
+            .spawn((
                 Node {
-                    width: Val::Px(60.0),
-                    height: Val::Px(24.0),
-                    justify_content: JustifyContent::Center,
+                    width: Val::Px(420.0),
+                    min_height: Val::Px(34.0),
+                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    padding: UiRect::all(Val::Px(6.0)),
+                    border: UiRect::all(Val::Px(1.0)),
                     border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.2, 0.35, 0.55)),
-                SlotLoadButton(info.slot),
+                BackgroundColor(Color::srgb(0.12, 0.12, 0.12)),
             ))
-            .with_children(|btn| {
-                btn.spawn((
-                    Text::new("Load"),
+            .with_children(|row| {
+                row.spawn((
+                    Text::new(slot_label(info)),
                     TextFont {
-                        font_size: FontSize::Px(12.0),
+                        font_size: FontSize::Px(14.0),
                         ..default()
                     },
                     TextColor(Color::WHITE),
                 ));
-            });
 
-            if allow_save {
                 row.spawn((
                     Node {
                         width: Val::Px(60.0),
@@ -104,12 +78,12 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
                         border_radius: BorderRadius::all(Val::Px(4.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.25, 0.5, 0.25)),
-                    SlotSaveButton(info.slot),
+                    BackgroundColor(Color::srgb(0.2, 0.35, 0.55)),
+                    SlotLoadButton(info.slot),
                 ))
                 .with_children(|btn| {
                     btn.spawn((
-                        Text::new("Save"),
+                        Text::new("Load"),
                         TextFont {
                             font_size: FontSize::Px(12.0),
                             ..default()
@@ -117,8 +91,32 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
                         TextColor(Color::WHITE),
                     ));
                 });
-            }
-        });
+
+                if allow_save {
+                    row.spawn((
+                        Node {
+                            width: Val::Px(60.0),
+                            height: Val::Px(24.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.25, 0.5, 0.25)),
+                        SlotSaveButton(info.slot),
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("Save"),
+                            TextFont {
+                                font_size: FontSize::Px(12.0),
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                }
+            });
     }
 }
 

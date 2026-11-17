@@ -8,5 +8,5 @@ pub mod system;
 pub mod thruster;
 pub mod turret;
 
-pub use system::*;
 pub use component::*;
+pub use system::*;

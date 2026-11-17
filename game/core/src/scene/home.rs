@@ -50,7 +50,6 @@ fn setup_home(mut commands: Commands) {
             // Play Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -78,7 +77,6 @@ fn setup_home(mut commands: Commands) {
             // Quick Battle Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -106,7 +104,6 @@ fn setup_home(mut commands: Commands) {
             // Ship Editor Button (New)
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -134,7 +131,6 @@ fn setup_home(mut commands: Commands) {
             // Settings Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),
@@ -162,7 +158,6 @@ fn setup_home(mut commands: Commands) {
             // Exit Button
             parent
                 .spawn((
-
                     Node {
                         width: Val::Px(250.0),
                         height: Val::Px(65.0),

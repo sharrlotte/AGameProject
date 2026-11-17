@@ -1,142 +1,332 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// Serializable AI profile attached to a ship design.
-///
-/// Phase 6 expands this into a rule list; for now it selects the default
-/// runtime behavior a spawned ship starts with.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum AiProfile {
-    #[default]
-    Default,
-    Aggressive,
-    Skirmisher,
+fn default_think_rate() -> f32 {
+    4.0
 }
 
-/// Timer shared by all AI behavior systems. Each behavior system ticks it;
-/// a ship carries exactly one behavior marker, so only one system acts per tick.
-#[derive(Component, Debug, Clone)]
-pub struct BehaviorTimer(pub Timer);
+/// Authorable AI profile stored inline on a `ShipDesign` and mirrored on the
+/// spawned ship entity. Rules are evaluated in priority order at
+/// `think_rate_hz`.
+#[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AiProfile {
+    #[serde(default = "default_think_rate")]
+    pub think_rate_hz: f32,
+    pub initial: BehaviorSpec,
+    #[serde(default)]
+    pub rules: Vec<AiRule>,
+}
 
-impl BehaviorTimer {
-    pub fn new(think_rate_hz: f32) -> Self {
-        Self(Timer::from_seconds(
-            1.0 / think_rate_hz.max(f32::EPSILON),
-            TimerMode::Repeating,
-        ))
+impl Default for AiProfile {
+    fn default() -> Self {
+        Self {
+            think_rate_hz: default_think_rate(),
+            initial: BehaviorSpec::Idle,
+            rules: Vec::new(),
+        }
     }
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorIdle;
-
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorWander;
-
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorKiting;
-
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorRegroup;
-
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorChase {
-    pub target: Entity,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AiRule {
+    pub priority: i32,
+    pub when: AiCondition,
+    pub then: BehaviorSpec,
+    #[serde(default)]
+    pub cooldown_secs: f32,
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorAttack {
-    pub target_position: Vec2,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AiCondition {
+    Always,
+    HpBelow(f32),
+    HpAbove(f32),
+    EnemyInRange(f32),
+    AllyCountBelow(u32),
+    AllyCountAbove(u32),
+    TargetLost,
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorPatrol {
-    pub around_position: Vec2,
-    pub radius: f32,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum BehaviorSpec {
+    Idle,
+    Wander { radius: f32 },
+    Patrol { around: PositionRef, radius: f32 },
+    Guard { target: TargetRef, radius: f32 },
+    Follow { target: TargetRef, radius: f32 },
+    Regroup { position: PositionRef, radius: f32 },
+    Kite { range: f32 },
+    Chase { target: TargetRef },
+    Attack { target: TargetRef },
+    Flee { from: TargetRef, distance: f32 },
+    Kamikaze { target: TargetRef },
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorFlee {
-    pub from: Entity,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TargetRef {
+    NearestEnemy,
+    HighestHpEnemy,
+    NearestAlly,
+    Leader,
+    SpawnPoint,
+    SquadCenter,
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorGuard {
-    pub target: Entity,
-    pub radius: f32,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PositionRef {
+    SpawnPoint,
+    SquadCenter,
+    Leader,
+    SelfCore,
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorFollow {
-    pub target: Entity,
-    pub radius: f32,
+/// The single runtime behavior enum. It replaces the old `BehaviorX` marker
+/// components and `AIShipController`.
+#[derive(Component, Debug, Clone, PartialEq)]
+pub enum AiBehavior {
+    Idle,
+    Wander { point: Vec2 },
+    Patrol { around: Vec2, radius: f32 },
+    Guard { target: Option<Entity>, radius: f32 },
+    Follow { target: Option<Entity>, radius: f32 },
+    Regroup { position: Vec2, radius: f32 },
+    Kite { target: Option<Entity>, range: f32 },
+    Chase { target: Option<Entity> },
+    Attack { target: Option<Entity> },
+    Flee { from: Option<Entity>, distance: f32 },
+    Kamikaze { target: Option<Entity> },
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-pub struct BehaviorKamikaze {
-    pub target: Entity,
+impl AiBehavior {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Idle => "Idle",
+            Self::Wander { .. } => "Wander",
+            Self::Patrol { .. } => "Patrol",
+            Self::Guard { .. } => "Guard",
+            Self::Follow { .. } => "Follow",
+            Self::Regroup { .. } => "Regroup",
+            Self::Kite { .. } => "Kiting",
+            Self::Chase { .. } => "Chase",
+            Self::Attack { .. } => "Attack",
+            Self::Flee { .. } => "Flee",
+            Self::Kamikaze { .. } => "Kamikaze",
+        }
+    }
 }
 
-/// Remove every behavior marker and insert the new one in one deferred command.
-macro_rules! set_behavior {
-    ($commands:expr, $entity:expr, $new:expr) => {{
-        let mut ec = $commands.entity($entity);
-        ec.remove::<(
-            BehaviorIdle,
-            BehaviorWander,
-            BehaviorKiting,
-            BehaviorRegroup,
-            BehaviorChase,
-            BehaviorAttack,
-            BehaviorPatrol,
-            BehaviorFlee,
-            BehaviorGuard,
-            BehaviorFollow,
-            BehaviorKamikaze,
-        )>();
-        ec.insert($new);
-    }};
+/// Mutable AI state for one ship.
+#[derive(Component, Debug, Clone)]
+pub struct AiRuntime {
+    pub current: AiBehavior,
+    pub spawn_position: Vec2,
+    pub leader: Option<Entity>,
+    pub rule_cooldowns: Vec<f32>,
+    pub think_timer: Timer,
 }
 
-pub(crate) use set_behavior;
+impl AiRuntime {
+    pub fn new(profile: &AiProfile, spawn_position: Vec2) -> Self {
+        Self {
+            current: behavior_from_spec(&profile.initial, spawn_position, None),
+            spawn_position,
+            leader: None,
+            rule_cooldowns: vec![0.0; profile.rules.len()],
+            think_timer: Timer::from_seconds(
+                1.0 / profile.think_rate_hz.max(f32::EPSILON),
+                TimerMode::Repeating,
+            ),
+        }
+    }
+}
 
-/// Human-readable label for the single behavior marker on a ship (HUD/debug).
-pub fn behavior_label(
-    idle: Option<&BehaviorIdle>,
-    wander: Option<&BehaviorWander>,
-    kiting: Option<&BehaviorKiting>,
-    regroup: Option<&BehaviorRegroup>,
-    chase: Option<&BehaviorChase>,
-    attack: Option<&BehaviorAttack>,
-    patrol: Option<&BehaviorPatrol>,
-    flee: Option<&BehaviorFlee>,
-    guard: Option<&BehaviorGuard>,
-    follow: Option<&BehaviorFollow>,
-    kamikaze: Option<&BehaviorKamikaze>,
-) -> &'static str {
-    if idle.is_some() {
-        "Idle"
-    } else if wander.is_some() {
-        "Wander"
-    } else if kiting.is_some() {
-        "Kiting"
-    } else if regroup.is_some() {
-        "Regroup"
-    } else if chase.is_some() {
-        "Chase"
-    } else if attack.is_some() {
-        "Attack"
-    } else if patrol.is_some() {
-        "Patrol"
-    } else if flee.is_some() {
-        "Flee"
-    } else if guard.is_some() {
-        "Guard"
-    } else if follow.is_some() {
-        "Follow"
-    } else if kamikaze.is_some() {
-        "Kamikaze"
-    } else {
-        "None"
+/// Resolve an authorable behavior spec into its runtime form. Entity targets
+/// are resolved by the rule evaluator before this is called.
+pub fn behavior_from_spec(
+    spec: &BehaviorSpec,
+    spawn_position: Vec2,
+    target: Option<Entity>,
+) -> AiBehavior {
+    match spec {
+        BehaviorSpec::Idle => AiBehavior::Idle,
+        BehaviorSpec::Wander { radius } => AiBehavior::Wander {
+            point: spawn_position,
+        }
+        .with_radius(*radius),
+        BehaviorSpec::Patrol { radius, .. } => AiBehavior::Patrol {
+            around: spawn_position,
+            radius: *radius,
+        },
+        BehaviorSpec::Guard { radius, .. } => AiBehavior::Guard {
+            target,
+            radius: *radius,
+        },
+        BehaviorSpec::Follow { radius, .. } => AiBehavior::Follow {
+            target,
+            radius: *radius,
+        },
+        BehaviorSpec::Regroup { radius, .. } => AiBehavior::Regroup {
+            position: spawn_position,
+            radius: *radius,
+        },
+        BehaviorSpec::Kite { range } => AiBehavior::Kite {
+            target,
+            range: *range,
+        },
+        BehaviorSpec::Chase { .. } => AiBehavior::Chase { target },
+        BehaviorSpec::Attack { .. } => AiBehavior::Attack { target },
+        BehaviorSpec::Flee { distance, .. } => AiBehavior::Flee {
+            from: target,
+            distance: *distance,
+        },
+        BehaviorSpec::Kamikaze { .. } => AiBehavior::Kamikaze { target },
+    }
+}
+
+impl AiBehavior {
+    fn with_radius(self, _radius: f32) -> Self {
+        // Wander stores only its current point; radius is applied by the
+        // evaluator when re-rolling.
+        self
+    }
+}
+
+/// Named presets copied into an inline profile by the editor.
+pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher", "Kamikaze"];
+
+pub fn preset(name: &str) -> AiProfile {
+    let (initial, rules, rate) = match name {
+        "Aggressive" => (
+            BehaviorSpec::Chase {
+                target: TargetRef::NearestEnemy,
+            },
+            vec![AiRule {
+                priority: 10,
+                when: AiCondition::HpBelow(0.25),
+                then: BehaviorSpec::Flee {
+                    from: TargetRef::NearestEnemy,
+                    distance: 1000.0,
+                },
+                cooldown_secs: 8.0,
+            }],
+            4.0,
+        ),
+        "Guard" => (
+            BehaviorSpec::Guard {
+                target: TargetRef::SpawnPoint,
+                radius: 400.0,
+            },
+            vec![AiRule {
+                priority: 10,
+                when: AiCondition::EnemyInRange(800.0),
+                then: BehaviorSpec::Attack {
+                    target: TargetRef::NearestEnemy,
+                },
+                cooldown_secs: 0.0,
+            }],
+            4.0,
+        ),
+        "Escort" => (
+            BehaviorSpec::Follow {
+                target: TargetRef::NearestAlly,
+                radius: 300.0,
+            },
+            vec![AiRule {
+                priority: 10,
+                when: AiCondition::TargetLost,
+                then: BehaviorSpec::Regroup {
+                    position: PositionRef::SquadCenter,
+                    radius: 300.0,
+                },
+                cooldown_secs: 2.0,
+            }],
+            4.0,
+        ),
+        "Skirmisher" => (
+            BehaviorSpec::Wander { radius: 600.0 },
+            vec![AiRule {
+                priority: 10,
+                when: AiCondition::EnemyInRange(1500.0),
+                then: BehaviorSpec::Kite { range: 900.0 },
+                cooldown_secs: 0.0,
+            }],
+            6.0,
+        ),
+        "Kamikaze" => (
+            BehaviorSpec::Kamikaze {
+                target: TargetRef::NearestEnemy,
+            },
+            vec![],
+            6.0,
+        ),
+        _ => (BehaviorSpec::Idle, vec![], 4.0),
+    };
+
+    AiProfile {
+        think_rate_hz: rate,
+        initial,
+        rules,
+    }
+}
+
+/// Validate an authored profile. Returns a human-readable error list.
+pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
+    let mut errors = Vec::new();
+    if !profile.think_rate_hz.is_finite() || profile.think_rate_hz <= 0.0 {
+        errors.push("think rate must be positive".to_string());
+    }
+    for (index, rule) in profile.rules.iter().enumerate() {
+        if !rule.cooldown_secs.is_finite() || rule.cooldown_secs < 0.0 {
+            errors.push(format!("rule {index}: cooldown must be non-negative"));
+        }
+    }
+    errors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_round_trips_through_ron() {
+        let profile = AiProfile {
+            think_rate_hz: 4.0,
+            initial: BehaviorSpec::Wander { radius: 500.0 },
+            rules: vec![AiRule {
+                priority: 10,
+                when: AiCondition::HpBelow(0.3),
+                then: BehaviorSpec::Flee {
+                    from: TargetRef::NearestEnemy,
+                    distance: 1000.0,
+                },
+                cooldown_secs: 5.0,
+            }],
+        };
+        let text = ron::ser::to_string_pretty(&profile, ron::ser::PrettyConfig::default()).unwrap();
+        let back: AiProfile = ron::from_str(&text).unwrap();
+        assert_eq!(back, profile);
+    }
+
+    #[test]
+    fn all_presets_validate() {
+        for name in PRESETS {
+            let profile = preset(name);
+            assert!(
+                validate_profile(&profile).is_empty(),
+                "preset {name} is invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn starter_profiles_parse() {
+        for text in [
+            include_str!("../../../../assets/config/starter/interceptor.ron"),
+            include_str!("../../../../assets/config/starter/raider.ron"),
+        ] {
+            let design: crate::content::ship::ShipDesign = ron::from_str(text).unwrap();
+            assert!(!design.ai.rules.is_empty());
+            assert!(design.ai.think_rate_hz > 0.0);
+        }
     }
 }

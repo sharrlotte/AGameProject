@@ -9,10 +9,7 @@ impl Plugin for SelectablePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectableRes>()
             .add_message::<EntitySelectEvent>()
-            .add_systems(
-                Update,
-                update_selectable.in_set(SimulationSet::Input),
-            );
+            .add_systems(Update, update_selectable.in_set(SimulationSet::Input));
     }
 }
 

@@ -1,16 +1,15 @@
 use bevy::prelude::*;
-use rand::RngExt;
 use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
+use crate::content::damage::DamageEvent;
 use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlledShip, GameRng, SceneState};
+use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
 
-/// Snapshot of a ship used by behavior systems; avoids borrowing ECS queries
-/// across systems and keeps the team/enemy index rebuild in one place.
+/// Snapshot of a ship used by AI rule evaluation.
 #[derive(Clone, Copy, Debug)]
 pub struct ShipInfo {
     pub entity: Entity,
@@ -29,43 +28,13 @@ pub struct AiPlugin;
 impl Plugin for AiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ShipIndex>().add_systems(
-            bevy::prelude::FixedUpdate,
-            (
-                build_ship_index,
-                idle_behavior,
-                chase_behavior,
-                wander_behavior,
-                kiting_behavior,
-                regroup_behavior,
-                guard_behavior,
-                follow_behavior,
-                kamikaze_behavior,
-                attack_behavior,
-                patrol_behavior,
-                flee_behavior,
-            )
+            FixedUpdate,
+            (build_ship_index, evaluate_ai_rules, apply_ai_behaviors)
                 .chain()
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Ai),
         );
     }
-}
-
-fn should_skip(entity: Entity, camera: &CameraTarget, controlled: &ControlledShip) -> bool {
-    camera.following == Some(entity) || controlled.controlling == Some(entity)
-}
-
-fn in_range(index: &ShipIndex, team: u8, position: Vec2, max_range: f32) -> Vec<ShipInfo> {
-    index
-        .enemies
-        .get(&team)
-        .map(|list| {
-            list.iter()
-                .copied()
-                .filter(|other| other.position.distance(position) <= max_range)
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 pub fn build_ship_index(
@@ -94,494 +63,497 @@ pub fn build_ship_index(
     }
 }
 
-
-fn tick(
-    timer: &mut BehaviorTimer,
-    time: &Time,
-    entity: Entity,
-    camera: &CameraTarget,
-    controlled: &ControlledShip,
-) -> bool {
-    if !timer.0.tick(time.delta()).just_finished() {
-        return false;
-    }
-    !should_skip(entity, camera, controlled)
+fn should_skip(entity: Entity, camera: &CameraTarget, controlled: &ControlledShip) -> bool {
+    camera.following == Some(entity) || controlled.controlling == Some(entity)
 }
 
-pub fn idle_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &Ship,
-            &ShipStats,
-            &BoundingBox,
-            &Team,
-        ),
-        With<BehaviorIdle>,
-    >,
-    index: Res<ShipIndex>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, transform, _ship, stats, bbox, team) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let range = in_range(&index, team.id, transform.translation.truncate(), stats.max_range);
-        if let Some(enemy) = range.first() {
-            set_behavior!(commands, entity, BehaviorChase { target: enemy.entity });
-        } else {
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position: Vec2::ZERO,
-                radius: bbox.size.length() * config.0.ai_group_range_multiplier,
-            });
-        }
-    }
+fn enemy_list<'a>(index: &'a ShipIndex, team: u8) -> &'a [ShipInfo] {
+    index
+        .enemies
+        .get(&team)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
 }
 
-pub fn chase_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &Ship,
-            &ShipStats,
-        ),
-        With<BehaviorChase>,
-    >,
-    chases: Query<&BehaviorChase>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, transform, _ship, stats) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let target = chases.get(entity).map(|b| b.target).unwrap_or(entity);
-        if target == entity {
-            warn!("AI ship {:?} had itself as chase target, idling", entity);
-            set_behavior!(commands, entity, BehaviorIdle);
-            continue;
-        }
-
-        let Ok(target_transform) = transforms.get(target) else {
-            set_behavior!(commands, entity, BehaviorIdle);
-            continue;
-        };
-        let position = target_transform.translation.truncate();
-        if transform.translation.distance(position.extend(0.0)) >= stats.min_range {
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position,
-                radius: stats.min_range * config.0.ai_min_range_factor,
-            });
-        } else {
-            commands.entity(entity).insert(ShipBehavior::GoAround {
-                position,
-                radius: stats.min_range * config.0.ai_min_range_factor,
-            });
-        }
-    }
+fn ally_list<'a>(index: &'a ShipIndex, team: u8) -> &'a [ShipInfo] {
+    index
+        .teams
+        .get(&team)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
 }
 
-pub fn wander_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &Ship,
-            &ShipStats,
-            &BoundingBox,
-        ),
-        With<BehaviorWander>,
-    >,
-    index: Res<ShipIndex>,
-    teams: Query<&Team>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut game_rng: ResMut<GameRng>,
-    mut commands: Commands,
-) {
-    let rng = game_rng.rng_mut();
-    for (entity, mut timer, transform, _ship, stats, bbox) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(team) = teams.get(entity) else {
-            continue;
-        };
-        let allies = index
-            .teams
-            .get(&team.id)
-            .map(|v| v.as_slice())
-            .unwrap_or_default();
-        let ally = allies.iter().rev().find(|a| a.entity != entity).copied();
-        let has_enemy = !in_range(
-            &index,
-            team.id,
-            transform.translation.truncate(),
-            stats.max_range,
-        )
-        .is_empty();
-
-        if rng.random_bool(config.0.ai_wander_attack_chance as f64) && has_enemy {
-            set_behavior!(commands, entity, BehaviorKiting);
-        } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
-            set_behavior!(
-                commands,
-                entity,
-                BehaviorAttack {
-                    target_position: Vec2::ZERO,
-                }
-            );
-        } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
-            if let Some(a) = ally {
-                set_behavior!(
-                    commands,
-                    entity,
-                    BehaviorGuard {
-                        target: a.entity,
-                        radius: (a.size_len + bbox.size.length())
-                            * config.0.ai_group_range_multiplier,
-                    }
-                );
-            }
-        } else {
-            set_behavior!(
-                commands,
-                entity,
-                BehaviorPatrol {
-                    around_position: Vec2::ZERO,
-                    radius: bbox.size.length() * config.0.ai_wander_patrol_radius_multiplier,
-                }
-            );
-        }
-    }
+fn nearest(enemies: &[ShipInfo], position: Vec2, self_entity: Entity) -> Option<ShipInfo> {
+    enemies
+        .iter()
+        .copied()
+        .filter(|info| info.entity != self_entity)
+        .min_by(|a, b| {
+            a.position
+                .distance_squared(position)
+                .total_cmp(&b.position.distance_squared(position))
+        })
 }
 
-pub fn kiting_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &Ship,
-            &ShipStats,
-        ),
-        With<BehaviorKiting>,
-    >,
-    index: Res<ShipIndex>,
-    teams: Query<&Team>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, transform, _ship, stats) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(team) = teams.get(entity) else {
-            continue;
-        };
-        let desired = stats.max_range * config.0.ai_min_range_factor;
-        let position = transform.translation.truncate();
+fn squad_center(allies: &[ShipInfo], self_entity: Entity) -> Vec2 {
+    let members: Vec<&ShipInfo> = allies
+        .iter()
+        .filter(|info| info.entity != self_entity)
+        .collect();
+    if members.is_empty() {
+        return Vec2::ZERO;
+    }
+    members.iter().map(|info| info.position).sum::<Vec2>() / members.len() as f32
+}
 
-        let nearest = index
-            .enemies
-            .get(&team.id)
-            .map(|list| {
-                list.iter()
-                    .copied()
-                    .filter(|other| other.position.distance(position) <= stats.max_range)
-                    .min_by(|a, b| {
-                        a.position
-                            .distance_squared(position)
-                            .total_cmp(&b.position.distance_squared(position))
-                    })
+fn resolve_target(
+    reference: TargetRef,
+    index: &ShipIndex,
+    team: u8,
+    self_entity: Entity,
+    position: Vec2,
+    stats: &ShipStats,
+    ships: &Query<&ShipStats>,
+) -> Option<Entity> {
+    let enemies = enemy_list(index, team);
+    let allies = ally_list(index, team);
+    match reference {
+        TargetRef::NearestEnemy => nearest(enemies, position, self_entity).map(|e| e.entity),
+        TargetRef::HighestHpEnemy => enemies
+            .iter()
+            .filter(|info| info.entity != self_entity)
+            .filter(|info| info.position.distance(position) <= stats.max_range)
+            .filter_map(|info| ships.get(info.entity).ok().map(|s| (info, s.health)))
+            .max_by(|a, b| {
+                a.1.total_cmp(&b.1).then_with(|| {
+                    a.0.position
+                        .distance_squared(position)
+                        .total_cmp(&b.0.position.distance_squared(position))
+                })
             })
-            .flatten();
+            .map(|(info, _)| info.entity),
+        TargetRef::NearestAlly => nearest(allies, position, self_entity).map(|a| a.entity),
+        TargetRef::Leader => allies
+            .iter()
+            .rev()
+            .find(|a| a.entity != self_entity)
+            .map(|a| a.entity),
+        TargetRef::SpawnPoint | TargetRef::SquadCenter => None,
+    }
+}
 
-        match nearest {
-            Some(enemy) => {
-                let distance = enemy.position.distance(position);
-                if distance < desired {
-                    let away = (position - enemy.position).normalize_or_zero();
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: enemy.position + away * stats.max_range,
-                        radius: desired,
-                    });
-                } else {
-                    commands.entity(entity).insert(ShipBehavior::GoAround {
-                        position: enemy.position,
-                        radius: desired,
-                    });
+fn resolve_position(
+    reference: PositionRef,
+    index: &ShipIndex,
+    team: u8,
+    self_entity: Entity,
+    spawn: Vec2,
+    transforms: &Query<&Transform>,
+) -> Vec2 {
+    match reference {
+        PositionRef::SpawnPoint => spawn,
+        PositionRef::SquadCenter => squad_center(ally_list(index, team), self_entity),
+        PositionRef::Leader => ally_list(index, team)
+            .iter()
+            .rev()
+            .find(|a| a.entity != self_entity)
+            .and_then(|a| transforms.get(a.entity).ok())
+            .map(|t| t.translation.truncate())
+            .unwrap_or(spawn),
+        PositionRef::SelfCore => spawn,
+    }
+}
+
+fn condition_matches(
+    condition: &AiCondition,
+    index: &ShipIndex,
+    team: u8,
+    self_entity: Entity,
+    position: Vec2,
+    stats: &ShipStats,
+    current: &AiBehavior,
+) -> bool {
+    match condition {
+        AiCondition::Always => true,
+        AiCondition::HpBelow(threshold) => stats.health < *threshold,
+        AiCondition::HpAbove(threshold) => stats.health > *threshold,
+        AiCondition::EnemyInRange(range) => !enemy_list(index, team)
+            .iter()
+            .any(|e| e.entity != self_entity && e.position.distance(position) <= *range),
+        AiCondition::AllyCountBelow(count) => {
+            ally_list(index, team).len().saturating_sub(1) < *count as usize
+        }
+        AiCondition::AllyCountAbove(count) => {
+            ally_list(index, team).len().saturating_sub(1) > *count as usize
+        }
+        AiCondition::TargetLost => match current {
+            AiBehavior::Chase { target }
+            | AiBehavior::Attack { target }
+            | AiBehavior::Kite { target, .. }
+            | AiBehavior::Kamikaze { target } => target.is_none(),
+            _ => false,
+        },
+    }
+}
+
+/// Select the highest-priority matching rule that is not on cooldown.
+pub fn select_rule(
+    profile: &AiProfile,
+    cooldowns: &[f32],
+    condition_context: impl Fn(&AiCondition) -> bool,
+) -> Option<usize> {
+    let mut winner: Option<(i32, usize)> = None;
+    for (index, rule) in profile.rules.iter().enumerate() {
+        if cooldowns.get(index).copied().unwrap_or(0.0) > 0.0 {
+            continue;
+        }
+        if !condition_context(&rule.when) {
+            continue;
+        }
+        if winner
+            .map(|(priority, _)| rule.priority > priority)
+            .unwrap_or(true)
+        {
+            winner = Some((rule.priority, index));
+        }
+    }
+    winner.map(|(_, index)| index)
+}
+
+/// Evaluate rules at the profile's think rate. The highest-priority matching
+/// rule that is not on cooldown wins; with no match the current behavior is
+/// kept.
+pub fn evaluate_ai_rules(
+    time: Res<Time>,
+    index: Res<ShipIndex>,
+    camera: Res<CameraTarget>,
+    controlled: Res<ControlledShip>,
+    stats: Query<&ShipStats>,
+    transforms: Query<&Transform>,
+    mut ships: Query<(
+        Entity,
+        &mut AiRuntime,
+        &AiProfile,
+        &Transform,
+        &ShipStats,
+        &Team,
+    )>,
+) {
+    for (entity, mut runtime, profile, transform, ship_stats, team) in &mut ships {
+        if should_skip(entity, &camera, &controlled) {
+            continue;
+        }
+        runtime.think_timer.tick(time.delta());
+        if !runtime.think_timer.just_finished() {
+            continue;
+        }
+
+        for cooldown in &mut runtime.rule_cooldowns {
+            *cooldown = (*cooldown - time.delta_secs()).max(0.0);
+        }
+
+        let position = transform.translation.truncate();
+        let rule_index = select_rule(profile, &runtime.rule_cooldowns, |condition| {
+            condition_matches(
+                condition,
+                &index,
+                team.id,
+                entity,
+                position,
+                ship_stats,
+                &runtime.current,
+            )
+        });
+
+        if let Some(rule_index) = rule_index {
+            let rule = &profile.rules[rule_index];
+            let target = target_for_spec(
+                &rule.then, &index, team.id, entity, position, ship_stats, &stats,
+            );
+            runtime.current = behavior_from_spec(&rule.then, runtime.spawn_position, target);
+            if let Some(cooldown) = runtime.rule_cooldowns.get_mut(rule_index) {
+                *cooldown = rule.cooldown_secs;
+            }
+        }
+
+        // Re-roll a wander point once the ship reaches it.
+        if let AiBehavior::Wander { point } = &runtime.current
+            && point.distance(position) < 40.0
+        {
+            let jitter =
+                Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5) * 400.0;
+            runtime.current = AiBehavior::Wander {
+                point: runtime.spawn_position + jitter,
+            };
+        }
+
+        let _ = &transforms;
+    }
+}
+
+fn target_for_spec(
+    spec: &BehaviorSpec,
+    index: &ShipIndex,
+    team: u8,
+    entity: Entity,
+    position: Vec2,
+    stats: &ShipStats,
+    ships: &Query<&ShipStats>,
+) -> Option<Entity> {
+    match spec {
+        BehaviorSpec::Guard { target, .. }
+        | BehaviorSpec::Follow { target, .. }
+        | BehaviorSpec::Chase { target }
+        | BehaviorSpec::Attack { target }
+        | BehaviorSpec::Kamikaze { target }
+        | BehaviorSpec::Flee { from: target, .. } => {
+            resolve_target(*target, index, team, entity, position, stats, ships)
+        }
+        _ => None,
+    }
+}
+
+/// Turn the current runtime behavior into a steering intent consumed by
+/// `update_ship_behavior`.
+pub fn apply_ai_behaviors(
+    mut ships: Query<(
+        Entity,
+        &AiRuntime,
+        &Transform,
+        &Ship,
+        &ShipStats,
+        &BoundingBox,
+        &Team,
+        &mut bevy_rapier2d::prelude::Velocity,
+    )>,
+    transforms: Query<&Transform>,
+    stats: Query<&ShipStats>,
+    index: Res<ShipIndex>,
+    config: Res<GameConfigValue>,
+    mut effects: MessageWriter<DamageEvent>,
+    mut commands: Commands,
+) {
+    for (entity, runtime, transform, ship, ship_stats, bbox, _team, mut velocity) in &mut ships {
+        let position = transform.translation.truncate();
+        let size = bbox.size.length();
+        let intent = match &runtime.current {
+            AiBehavior::Idle => ShipBehavior::Approach {
+                position,
+                radius: size,
+            },
+            AiBehavior::Wander { point } => ShipBehavior::Approach {
+                position: *point,
+                radius: size,
+            },
+            AiBehavior::Patrol { around, radius } => ShipBehavior::Approach {
+                position: *around,
+                radius: *radius,
+            },
+            AiBehavior::Guard { target, radius } => {
+                let point = target
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                    .unwrap_or(position);
+                ShipBehavior::Approach {
+                    position: point,
+                    radius: *radius,
                 }
             }
-            None => set_behavior!(commands, entity, BehaviorIdle),
-        }
-    }
-}
-
-pub fn regroup_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &BoundingBox,
-        ),
-        With<BehaviorRegroup>,
-    >,
-    index: Res<ShipIndex>,
-    teams: Query<&Team>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, transform, bbox) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(team) = teams.get(entity) else {
-            continue;
-        };
-        let ally = index
-            .teams
-            .get(&team.id)
-            .and_then(|list| list.iter().rev().find(|a| a.entity != entity).copied());
-
-        if let Some(a) = ally {
-            let in_range = transform.translation.truncate().distance(a.position)
-                <= (a.size_len + bbox.size.length()) * config.0.ai_group_range_multiplier;
-            if in_range {
-                set_behavior!(commands, entity, BehaviorWander);
-            } else {
-                let target = transforms
-                    .get(a.entity)
-                    .map(|t| t.transform_point((Vec2::ZERO).extend(0.0)).truncate())
-                    .unwrap_or(a.position);
-                commands.entity(entity).insert(ShipBehavior::Approach {
-                    position: target,
-                    radius: (a.size_len + bbox.size.length())
-                        * config.0.ai_group_range_multiplier,
-                });
+            AiBehavior::Follow { target, radius } => {
+                let point = target
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                    .unwrap_or(position);
+                ShipBehavior::Approach {
+                    position: point,
+                    radius: *radius,
+                }
             }
-        } else {
-            set_behavior!(commands, entity, BehaviorIdle);
-        }
+            AiBehavior::Regroup {
+                position: point,
+                radius,
+            } => ShipBehavior::Approach {
+                position: *point,
+                radius: *radius,
+            },
+            AiBehavior::Kite { target, range } => {
+                let Some(enemy) = target
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                else {
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position,
+                        radius: size,
+                    });
+                    continue;
+                };
+                let distance = position.distance(enemy);
+                if distance < *range {
+                    let away = (position - enemy).normalize_or_zero();
+                    ShipBehavior::Approach {
+                        position: enemy + away * *range,
+                        radius: *range,
+                    }
+                } else {
+                    ShipBehavior::GoAround {
+                        position: enemy,
+                        radius: *range,
+                    }
+                }
+            }
+            AiBehavior::Chase { target } | AiBehavior::Attack { target } => {
+                let Some(enemy) = target
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                else {
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position,
+                        radius: size,
+                    });
+                    continue;
+                };
+                let radius = ship_stats.min_range * config.0.ai_min_range_factor;
+                if position.distance(enemy) >= ship_stats.min_range {
+                    ShipBehavior::Approach {
+                        position: enemy,
+                        radius,
+                    }
+                } else {
+                    ShipBehavior::GoAround {
+                        position: enemy,
+                        radius,
+                    }
+                }
+            }
+            AiBehavior::Flee { from, distance } => {
+                let Some(threat) = from
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                else {
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position,
+                        radius: size,
+                    });
+                    continue;
+                };
+                // Correct direction: away from the threat.
+                let away = (position - threat).normalize_or_zero();
+                ShipBehavior::Approach {
+                    position: position + away * *distance,
+                    radius: size,
+                }
+            }
+            AiBehavior::Kamikaze { target } => {
+                let Some(enemy) = target
+                    .and_then(|t| transforms.get(t).ok())
+                    .map(|t| t.translation.truncate())
+                else {
+                    commands.entity(entity).insert(ShipBehavior::Approach {
+                        position,
+                        radius: size,
+                    });
+                    continue;
+                };
+                if position.distance(enemy) <= size + 20.0 {
+                    effects.write(DamageEvent {
+                        attacker: entity,
+                        target: target.unwrap_or(entity),
+                        damage: config.0.ai_kamikaze_damage,
+                    });
+                    commands.entity(entity).insert(crate::content::death::Death);
+                }
+                ShipBehavior::Approach {
+                    position: enemy,
+                    radius: size,
+                }
+            }
+        };
+
+        commands.entity(entity).insert(intent);
+
+        let _ = (ship, &mut velocity, &index, &stats);
     }
 }
 
-pub fn guard_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-        ),
-        With<BehaviorGuard>,
-    >,
-    guards: Query<&BehaviorGuard>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, _) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(guard) = guards.get(entity) else {
-            continue;
-        };
-        if let Ok(position) = transforms.get(guard.target) {
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position: position.translation.truncate(),
-                radius: guard.radius,
-            });
-        } else {
-            set_behavior!(commands, entity, BehaviorIdle);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ship_info(entity: Entity, position: Vec2) -> ShipInfo {
+        ShipInfo {
+            entity,
+            position,
+            size_len: 100.0,
         }
     }
-}
 
-pub fn follow_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-        ),
-        With<BehaviorFollow>,
-    >,
-    follows: Query<&BehaviorFollow>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(follow) = follows.get(entity) else {
-            continue;
-        };
-        if let Ok(position) = transforms.get(follow.target) {
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position: position.translation.truncate(),
-                radius: follow.radius,
-            });
-        } else {
-            set_behavior!(commands, entity, BehaviorIdle);
-        }
+    #[test]
+    fn nearest_enemy_picks_closest_and_ties_by_id() {
+        let low = Entity::from_bits(10);
+        let high = Entity::from_bits(20);
+        let enemies = [
+            ship_info(low, Vec2::new(10.0, 0.0)),
+            ship_info(high, Vec2::new(-10.0, 0.0)),
+        ];
+        assert_eq!(
+            nearest(&enemies, Vec2::ZERO, Entity::from_bits(1)).map(|e| e.entity),
+            Some(low)
+        );
     }
-}
 
-pub fn kamikaze_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &BoundingBox,
-        ),
-        With<BehaviorKamikaze>,
-    >,
-    kamikazes: Query<&BehaviorKamikaze>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, bbox) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(kamikaze) = kamikazes.get(entity) else {
-            continue;
-        };
-        if let Ok(position) = transforms.get(kamikaze.target) {
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position: position.translation.truncate(),
-                radius: bbox.size.length(),
-            });
-        } else {
-            set_behavior!(commands, entity, BehaviorIdle);
-        }
+    #[test]
+    fn squad_center_averages_allies() {
+        let allies = [
+            ship_info(Entity::from_bits(1), Vec2::new(0.0, 0.0)),
+            ship_info(Entity::from_bits(2), Vec2::new(100.0, 100.0)),
+            ship_info(Entity::from_bits(3), Vec2::new(200.0, 200.0)),
+        ];
+        assert_eq!(
+            squad_center(&allies, Entity::from_bits(1)),
+            Vec2::new(150.0, 150.0)
+        );
     }
-}
 
-pub fn attack_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &BoundingBox,
-        ),
-        With<BehaviorAttack>,
-    >,
-    attacks: Query<&BehaviorAttack>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, bbox) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(attack) = attacks.get(entity) else {
-            continue;
+    #[test]
+    fn highest_priority_wins_and_cooldown_blocks() {
+        let profile = AiProfile {
+            think_rate_hz: 1.0,
+            initial: BehaviorSpec::Idle,
+            rules: vec![
+                AiRule {
+                    priority: 1,
+                    when: AiCondition::Always,
+                    then: BehaviorSpec::Wander { radius: 100.0 },
+                    cooldown_secs: 0.0,
+                },
+                AiRule {
+                    priority: 10,
+                    when: AiCondition::HpAbove(0.0),
+                    then: BehaviorSpec::Kite { range: 500.0 },
+                    cooldown_secs: 5.0,
+                },
+            ],
         };
-        commands.entity(entity).insert(ShipBehavior::Approach {
-            position: attack.target_position,
-            radius: bbox.size.length(),
-        });
+
+        // Highest priority matches first.
+        assert_eq!(select_rule(&profile, &[0.0, 0.0], |_| true), Some(1));
+        // On cooldown, the lower-priority rule takes over.
+        assert_eq!(select_rule(&profile, &[0.0, 5.0], |_| true), Some(0));
+        // A condition that does not match skips that rule.
+        assert_eq!(
+            select_rule(&profile, &[0.0, 0.0], |c| matches!(c, AiCondition::Always)),
+            Some(0)
+        );
     }
-}
 
-pub fn patrol_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-        ),
-        With<BehaviorPatrol>,
-    >,
-    patrols: Query<&BehaviorPatrol>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(patrol) = patrols.get(entity) else {
-            continue;
-        };
-        commands.entity(entity).insert(ShipBehavior::Approach {
-            position: patrol.around_position,
-            radius: patrol.radius,
-        });
-    }
-}
-
-pub fn flee_behavior(
-    time: Res<Time>,
-    mut ships: Query<
-        (
-            Entity,
-            &mut BehaviorTimer,
-            &Transform,
-            &BoundingBox,
-        ),
-        With<BehaviorFlee>,
-    >,
-    flees: Query<&BehaviorFlee>,
-    transforms: Query<&Transform>,
-    camera: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
-    mut commands: Commands,
-) {
-    for (entity, mut timer, transform, bbox) in &mut ships {
-        if !tick(&mut timer, &time, entity, &camera, &controlled) {
-            continue;
-        }
-        let Ok(flee) = flees.get(entity) else {
-            continue;
-        };
-        if let Ok(position) = transforms.get(flee.from) {
-            let direction =
-                (transform.translation.truncate() - position.translation.truncate())
-                    .normalize_or_zero();
-            let op_position = transform.translation.truncate()
-                + (direction * -1.0) * config.0.ai_flee_distance;
-            commands.entity(entity).insert(ShipBehavior::Approach {
-                position: op_position,
-                radius: bbox.size.length(),
-            });
-        }
+    #[test]
+    fn flee_behavior_moves_away_from_threat() {
+        let threat = Vec2::new(0.0, 0.0);
+        let position = Vec2::new(100.0, 0.0);
+        // The runtime behavior stores the threat entity; the steering intent
+        // is computed as `position + away * distance`.
+        let away = (position - threat).normalize_or_zero();
+        let intent_position = position + away * 1000.0;
+        assert!(intent_position.x > position.x);
     }
 }

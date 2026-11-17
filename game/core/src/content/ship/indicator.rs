@@ -8,10 +8,7 @@ pub struct IndicatorsPlugin;
 
 impl Plugin for IndicatorsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            draw_indicators.in_set(SimulationSet::Present),
-        );
+        app.add_systems(PostUpdate, draw_indicators.in_set(SimulationSet::Present));
     }
 }
 

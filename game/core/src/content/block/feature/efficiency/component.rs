@@ -72,5 +72,3 @@ impl EfficiencyProvider {
         self.value
     }
 }
-
-

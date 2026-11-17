@@ -1,17 +1,14 @@
+use super::Radar;
+use crate::content::{ship::Ship, team::Team};
+use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
-use crate::content::{ship::Ship, team::Team};
-use super::Radar;
-use crate::simulation::SimulationSet;
 
 pub struct RadarPlugin;
 
 impl Plugin for RadarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            radar_scan.in_set(SimulationSet::Weapons),
-        );
+        app.add_systems(Update, radar_scan.in_set(SimulationSet::Weapons));
     }
 }
 
@@ -43,13 +40,19 @@ pub fn radar_scan(
 
         let should_continue = true;
 
-        collision.intersect_shape(origin, Rot::default(), shape, filter, |entity, _collider| {
-            if let Ok(ship_team) = ships.get(entity) {
-                if ship_team.id != team.id {
-                    radar.targets.push(entity);
+        collision.intersect_shape(
+            origin,
+            Rot::default(),
+            shape,
+            filter,
+            |entity, _collider| {
+                if let Ok(ship_team) = ships.get(entity) {
+                    if ship_team.id != team.id {
+                        radar.targets.push(entity);
+                    }
                 }
-            }
-            should_continue
-        });
+                should_continue
+            },
+        );
     }
 }

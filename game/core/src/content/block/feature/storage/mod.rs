@@ -1,3 +1,1 @@
-pub mod component;
-
-pub use component::*;
+pub type StorageCapacity = u32;

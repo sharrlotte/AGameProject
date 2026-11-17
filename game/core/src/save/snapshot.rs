@@ -16,11 +16,7 @@ use crate::content::block::{
     LaserBeamPatternState, PullingBeamPatternState, SingleShootPatternState, spawn_block_entity,
 };
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::ai::{
-    AiProfile, BehaviorAttack, BehaviorChase, BehaviorFlee, BehaviorFollow, BehaviorGuard,
-    BehaviorIdle, BehaviorKamikaze, BehaviorKiting, BehaviorPatrol, BehaviorRegroup, BehaviorTimer,
-    BehaviorWander, behavior_label,
-};
+use crate::content::ship::ai::{AiBehavior, AiProfile, AiRuntime};
 use crate::content::ship::{Ship, ShipDesign, ShipGrid};
 use crate::content::team::Team;
 use crate::save::document::DocumentError;
@@ -73,12 +69,10 @@ impl CaptureSnapshot for BlockSnapshot {
             .and_then(|r| placement_for(world, r.id))
             .unwrap_or_else(|| BlockPlacement::new(IVec2::ZERO, "hull", 0));
         let health = world.get::<Health>(entity).cloned().unwrap_or_default();
-        let turret = world
-            .get::<TurretState>(entity)
-            .map(|s| TurretSaveState {
-                active: s.active,
-                shoot_at: s.shoot_at,
-            });
+        let turret = world.get::<TurretState>(entity).map(|s| TurretSaveState {
+            active: s.active,
+            shoot_at: s.shoot_at,
+        });
         let ammo = world.get::<AmmoState>(entity).map(|s| s.current());
         let single_pattern = world.get::<SingleShootPatternState>(entity).cloned();
         let burst_pattern = world.get::<BurstShootPatternState>(entity).cloned();
@@ -156,10 +150,7 @@ impl RestoreSnapshot for BlockSnapshot {
         let def = registry
             .get_symbol(&self.placement.block_type)
             .ok_or_else(|| {
-                DocumentError::Parse(format!(
-                    "unknown block type {}",
-                    self.placement.block_type
-                ))
+                DocumentError::Parse(format!("unknown block type {}", self.placement.block_type))
             })?;
 
         let block = spawn_block_entity(commands, &self.placement, def, ship, team, config);
@@ -174,7 +165,7 @@ impl CaptureSnapshot for ShipSnapshot {
         let team = world.get::<Team>(entity).map(|t| t.id).unwrap_or(0);
         let transform = world.get::<Transform>(entity).cloned().unwrap_or_default();
         let velocity = world.get::<Velocity>(entity).cloned().unwrap_or_default();
-        let ai = world.get::<AiProfile>(entity).copied().unwrap_or_default();
+        let ai = world.get::<AiProfile>(entity).cloned().unwrap_or_default();
 
         let blocks = world
             .get::<ShipGrid>(entity)
@@ -186,23 +177,13 @@ impl CaptureSnapshot for ShipSnapshot {
             })
             .unwrap_or_default();
 
-        let behavior = behavior_label(
-            world.get::<BehaviorIdle>(entity),
-            world.get::<BehaviorWander>(entity),
-            world.get::<BehaviorKiting>(entity),
-            world.get::<BehaviorRegroup>(entity),
-            world.get::<BehaviorChase>(entity),
-            world.get::<BehaviorAttack>(entity),
-            world.get::<BehaviorPatrol>(entity),
-            world.get::<BehaviorFlee>(entity),
-            world.get::<BehaviorGuard>(entity),
-            world.get::<BehaviorFollow>(entity),
-            world.get::<BehaviorKamikaze>(entity),
-        )
-        .to_string();
+        let behavior = world
+            .get::<AiRuntime>(entity)
+            .map(|r| r.current.label().to_string())
+            .unwrap_or_default();
         let timer_secs = world
-            .get::<BehaviorTimer>(entity)
-            .map(|t| t.0.remaining_secs())
+            .get::<AiRuntime>(entity)
+            .map(|r| r.think_timer.remaining_secs())
             .unwrap_or(0.0);
 
         Self {
@@ -228,46 +209,50 @@ impl CaptureSnapshot for ShipSnapshot {
     }
 }
 
-/// Insert the runtime marker matching a saved behavior label. Behaviors that
-/// carry a live entity target fall back to `Idle`; the AI reacquires a target
-/// on its next think tick.
+/// Restore a saved behavior. Behaviors that carry a live entity target fall
+/// back to `Idle`; the rule engine reacquires one on its next think tick.
 fn restore_behavior(commands: &mut Commands, entity: Entity, label: &str, timer_secs: f32) {
-    let mut ec = commands.entity(entity);
-    ec.remove::<(
-        BehaviorIdle,
-        BehaviorWander,
-        BehaviorKiting,
-        BehaviorRegroup,
-        BehaviorChase,
-        BehaviorAttack,
-        BehaviorPatrol,
-        BehaviorFlee,
-        BehaviorGuard,
-        BehaviorFollow,
-        BehaviorKamikaze,
-    )>();
+    let behavior = match label {
+        "Wander" => AiBehavior::Wander { point: Vec2::ZERO },
+        "Patrol" => AiBehavior::Patrol {
+            around: Vec2::ZERO,
+            radius: 400.0,
+        },
+        "Guard" => AiBehavior::Guard {
+            target: None,
+            radius: 400.0,
+        },
+        "Follow" => AiBehavior::Follow {
+            target: None,
+            radius: 400.0,
+        },
+        "Regroup" => AiBehavior::Regroup {
+            position: Vec2::ZERO,
+            radius: 400.0,
+        },
+        "Kiting" => AiBehavior::Kite {
+            target: None,
+            range: 400.0,
+        },
+        "Flee" => AiBehavior::Flee {
+            from: None,
+            distance: 1000.0,
+        },
+        "Kamikaze" => AiBehavior::Kamikaze { target: None },
+        _ => AiBehavior::Idle,
+    };
 
-    let _ = timer_secs; // Think timer is recreated from config on spawn.
-    match label {
-        "Wander" => {
-            ec.insert(BehaviorWander);
-        }
-        "Kiting" => {
-            ec.insert(BehaviorKiting);
-        }
-        "Regroup" => {
-            ec.insert(BehaviorRegroup);
-        }
-        "Patrol" => {
-            ec.insert(BehaviorPatrol {
-                around_position: Vec2::ZERO,
-                radius: 400.0,
-            });
-        }
-        _ => {
-            ec.insert(BehaviorIdle);
-        }
-    }
+    // The think timer is recreated from the profile on spawn; only carry the
+    // remaining delay so restored ships do not all think on the same tick.
+    let duration = timer_secs.max(f32::EPSILON);
+    let timer = Timer::from_seconds(duration, TimerMode::Repeating);
+    commands.entity(entity).insert(AiRuntime {
+        current: behavior,
+        spawn_position: Vec2::ZERO,
+        leader: None,
+        rule_cooldowns: Vec::new(),
+        think_timer: timer,
+    });
 }
 
 impl RestoreSnapshot for ShipSnapshot {
@@ -289,13 +274,14 @@ impl RestoreSnapshot for ShipSnapshot {
             id: self.id,
             name: String::new(),
             blocks: placements,
-            ai: self.ai,
+            ai: self.ai.clone(),
         };
         let team = Team::new(self.team);
         let transform = Transform::from_xyz(self.transform.x, self.transform.y, 0.0)
             .with_rotation(Quat::from_rotation_z(self.transform.rotation));
 
-        let Some((ship, block_entities)) = design.spawn(commands, registry, team, transform, config)
+        let Some((ship, block_entities)) =
+            design.spawn(commands, registry, team, transform, config)
         else {
             return Err(DocumentError::Parse(format!(
                 "saved ship {} has no core",
@@ -303,13 +289,10 @@ impl RestoreSnapshot for ShipSnapshot {
             )));
         };
 
-        commands.entity(ship).insert((
-            Velocity {
-                linear: Vec2::new(self.velocity.x, self.velocity.y),
-                angular: self.velocity.angvel,
-            },
-            self.ai,
-        ));
+        commands.entity(ship).insert(Velocity {
+            linear: Vec2::new(self.velocity.x, self.velocity.y),
+            angular: self.velocity.angvel,
+        });
         restore_behavior(
             commands,
             ship,
@@ -331,9 +314,7 @@ impl CaptureSnapshot for WorldSave {
 
         let ships: Vec<ShipSnapshot> = world
             .iter_entities()
-            .filter(|entity| {
-                entity.get::<Ship>().is_some() && entity.get::<ShipGrid>().is_some()
-            })
+            .filter(|entity| entity.get::<Ship>().is_some() && entity.get::<ShipGrid>().is_some())
             .map(|entity| ShipSnapshot::capture(ctx, entity.id()))
             .collect();
 
@@ -464,9 +445,7 @@ mod tests {
             .insert_resource(GameConfigValue(GameConfig::default()))
             .add_systems(Startup, {
                 let design = design.clone();
-                move |mut commands: Commands,
-                      reg: Res<BlockRegistry>,
-                      cfg: Res<GameConfigValue>| {
+                move |mut commands: Commands, reg: Res<BlockRegistry>, cfg: Res<GameConfigValue>| {
                     design.spawn(
                         &mut commands,
                         &reg,
@@ -499,14 +478,17 @@ mod tests {
         restored
             .insert_resource(registry())
             .insert_resource(GameConfigValue(GameConfig::default()))
-            .add_systems(Startup, move |mut commands: Commands,
-                                         reg: Res<BlockRegistry>,
-                                         cfg: Res<GameConfigValue>| {
-                restore_save
-                    .clone()
-                    .restore(&mut commands, &reg, &cfg, Team::new(0), None)
-                    .expect("snapshot restores");
-            });
+            .add_systems(
+                Startup,
+                move |mut commands: Commands,
+                      reg: Res<BlockRegistry>,
+                      cfg: Res<GameConfigValue>| {
+                    restore_save
+                        .clone()
+                        .restore(&mut commands, &reg, &cfg, Team::new(0), None)
+                        .expect("snapshot restores");
+                },
+            );
         restored.update();
 
         let mut grids = restored.world_mut().query::<&ShipGrid>();

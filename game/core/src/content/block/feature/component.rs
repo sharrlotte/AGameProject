@@ -5,8 +5,11 @@ use crate::content::{
     block::{
         component::BlockDef,
         feature::{
-            efficiency::EfficiencyProvider, energy::{EnergyConsumer, PowerProducer}, sprite::Texture,
-            storage::Storage, thruster::Thruster, turret::TurretComponent,
+            efficiency::EfficiencyProvider,
+            energy::{EnergyConsumer, PowerProducer},
+            sprite::Texture,
+            thruster::Thruster,
+            turret::TurretComponent,
         },
     },
     team::Team,
@@ -20,11 +23,11 @@ pub enum Feature {
     PowerProducer(PowerProducer),
     Thruster(Thruster),
     EfficiencyProvider(EfficiencyProvider),
-    Storage(Storage),
+    Storage(u32),
 }
 
 impl Feature {
-   pub fn insert(
+    pub fn insert(
         &self,
         commands: &mut Commands,
         base: Entity,
@@ -38,7 +41,9 @@ impl Feature {
             Self::Thruster(thruster) => thruster.insert(commands, base, config),
             Self::EnergyConsumer(consumer) => consumer.insert(commands, base),
             Self::PowerProducer(producer) => producer.insert(commands, base),
-            Self::Storage(storage) => storage.insert(commands, base),
+            Self::Storage(_) => {
+                // Capacity is pooled into ShipStats; no runtime component.
+            }
             Self::EfficiencyProvider(provider) => {
                 commands.entity(base).insert(*provider);
             }

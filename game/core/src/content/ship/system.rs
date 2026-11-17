@@ -2,7 +2,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::f32::consts::PI;
 
 use crate::config::GameConfigValue;
@@ -10,18 +10,15 @@ use crate::constant::DROP_PICKUP_RADIUS;
 #[cfg(debug_assertions)]
 use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
-use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
 use crate::content::block::{BlockOwner, DropComponent};
-use crate::content::ship::ai::{
-    behavior_label, AiPlugin, BehaviorAttack, BehaviorChase, BehaviorFlee, BehaviorFollow,
-    BehaviorGuard, BehaviorIdle, BehaviorKamikaze, BehaviorKiting, BehaviorPatrol, BehaviorRegroup,
-    BehaviorWander,
-};
+use crate::content::ship::ai::AiPlugin;
+#[cfg(debug_assertions)]
+use crate::content::ship::ai::AiRuntime;
 use crate::content::ship::indicator::IndicatorsPlugin;
-use crate::content::ship::stat::{ShipStats, update_stats};
+use crate::content::ship::stat::{ShipChanged, ShipStats, update_stats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlledShip, ControlMode, SceneState};
+use crate::resource::{CameraTarget, ControlMode, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
 
 use super::*;
@@ -39,37 +36,44 @@ impl Plugin for ShipPlugin {
                 .in_set(SimulationSet::Present),
         );
         app.add_systems(
-                PostUpdate,
-                update_ship_behavior
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Present),
-            )
-            .add_systems(
-                FixedPreUpdate,
-                update_stats
-                    .after(StatsUpdateSet)
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Stats),
-            )
-            .add_systems(
-                FixedUpdate,
-                player_control_ship
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Control),
-            )
-            .add_systems(
-                Update,
-                toggle_control_mode
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Input),
-            )
-            .add_systems(
-                FixedUpdate,
-                collect_drop
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Control),
-            )
-            .add_plugins((IndicatorsPlugin, AiPlugin, ShipMutationPlugin));
+            PostUpdate,
+            update_ship_behavior
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Present),
+        )
+        .add_systems(
+            FixedPreUpdate,
+            update_stats
+                .after(StatsUpdateSet)
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Stats),
+        )
+        .add_systems(
+            FixedPreUpdate,
+            crate::content::ship::stat::rebuild_cargo_capacity
+                .run_if(on_message::<ShipChanged>)
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Stats),
+        )
+        .add_systems(
+            FixedUpdate,
+            player_control_ship
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Control),
+        )
+        .add_systems(
+            Update,
+            toggle_control_mode
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Input),
+        )
+        .add_systems(
+            FixedUpdate,
+            collect_drop
+                .run_if(in_state(SceneState::Game))
+                .in_set(SimulationSet::Control),
+        )
+        .add_plugins((IndicatorsPlugin, AiPlugin, ShipMutationPlugin));
     }
 }
 
@@ -79,17 +83,7 @@ pub fn update_ship_ui(
     mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
     ships: Query<(
         &Ship,
-        Option<&BehaviorIdle>,
-        Option<&BehaviorWander>,
-        Option<&BehaviorKiting>,
-        Option<&BehaviorRegroup>,
-        Option<&BehaviorChase>,
-        Option<&BehaviorAttack>,
-        Option<&BehaviorPatrol>,
-        Option<&BehaviorFlee>,
-        Option<&BehaviorGuard>,
-        Option<&BehaviorFollow>,
-        Option<&BehaviorKamikaze>,
+        &AiRuntime,
         Option<&ShipBehavior>,
         &GlobalTransform,
         &ShipStats,
@@ -117,34 +111,15 @@ pub fn update_ship_ui(
     }
 
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
-        if let Ok((
-            ship,
-            idle,
-            wander,
-            kiting,
-            regroup,
-            chase,
-            attack,
-            patrol,
-            flee,
-            guard,
-            follow,
-            kamikaze,
-            behavior,
-            global_transform,
-            stats,
-        )) = ships.get(ui_root.ship)
-        {
-            let current = behavior_label(
-                idle, wander, kiting, regroup, chase, attack, patrol, flee, guard, follow,
-                kamikaze,
-            );
+        if let Ok((ship, ai_runtime, behavior, global_transform, stats)) = ships.get(ui_root.ship) {
+            let current = ai_runtime.current.label();
             let empty = String::new();
             let string = data.get(&ui_root.ship).unwrap_or(&empty);
 
             commands.entity(ui_entity).insert((
                 Text2d::new(format!(
-                    "Ship: {ship:?}\nC: {current}\nB: {behavior:?}\nS: {stats:?}\n{string}",
+                    "Ship: {ship:?}\nC: {current}\nB: {behavior:?}\nCARGO {}/{} {:?}\nS: {stats:?}\n{string}",
+                    stats.cargo_used, stats.cargo_capacity, stats.cargo_items,
                 )),
                 TextFont {
                     font_size: FontSize::Px(30.0),
@@ -160,10 +135,7 @@ pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut ships: Query<
-        (&mut ExternalForce, &Transform, &Ship, &ShipStats),
-        Without<Camera2d>,
-    >,
+    mut ships: Query<(&mut ExternalForce, &Transform, &Ship, &ShipStats), Without<Camera2d>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion: MessageReader<MouseMotion>,
@@ -369,8 +341,7 @@ pub fn update_ship_behavior(
         &ShipStats,
     )>,
     controlled: Res<ControlledShip>,
-    #[cfg_attr(not(debug_assertions), allow(unused_variables))]
-    mut gizmos: Gizmos,
+    #[cfg_attr(not(debug_assertions), allow(unused_variables))] mut gizmos: Gizmos,
     config: Res<GameConfigValue>,
 ) {
     for (entity, _, size, behavior, transform, mut force, mut velocity, stats) in ships.iter_mut() {
@@ -396,11 +367,7 @@ pub fn update_ship_behavior(
                 let distance = current_postion.distance(*position);
 
                 if cfg!(debug_assertions) {
-                    gizmos.line_2d(
-                        current_postion,
-                        *position,
-                        Color::srgba(0.0, 1.0, 1.0, 0.5),
-                    );
+                    gizmos.line_2d(current_postion, *position, Color::srgba(0.0, 1.0, 1.0, 0.5));
 
                     gizmos.circle_2d(*position, 30.0, Color::srgb(0.0, 1.0, 1.0));
                 }
@@ -429,8 +396,7 @@ pub fn update_ship_behavior(
                 force.torque = torque;
 
                 let speed = velocity.linear.length();
-                let stop_distance =
-                    speed * speed / (2.0 * config.0.linear_damping);
+                let stop_distance = speed * speed / (2.0 * config.0.linear_damping);
 
                 if distance <= stop_distance {
                     force.force = Vec2::ZERO;
@@ -509,45 +475,64 @@ fn wrap_angle(mut a: f32) -> f32 {
     a
 }
 
+/// Collect drops into the nearest player ship's shared cargo.
+///
+/// Pickup is atomic: the full amount must fit or the drop stays in the world.
+/// Non-player ships never collect.
 pub fn collect_drop(
     mut commands: Commands,
     mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
-    mut storages: Query<(&Storage, &mut StorageState, &GlobalTransform, &Team)>,
+    mut ships: Query<(Entity, &mut ShipStats, &GlobalTransform, &Team)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
 ) {
-    let mut collected: HashSet<Entity> = HashSet::new();
+    for (drop_entity, mut drop_transform, drop_component) in &mut drops {
+        let drop_position = drop_transform.translation.truncate();
+        let DropComponent::Item(item) = drop_component else {
+            continue;
+        };
 
-    for (storage, mut storage_state, ship_transform, ship_team) in storages.iter_mut() {
-        if !ship_team.is_player() || storage_state.is_full(storage) {
+        let nearest = ships
+            .iter_mut()
+            .filter(|(_, stats, _, team)| team.is_player() && !stats.is_full())
+            .map(|(entity, stats, transform, _)| {
+                (entity, stats, transform.translation().truncate())
+            })
+            .filter(|(_, _, position)| {
+                position.distance(drop_position) <= config.0.drop_collect_radius
+            })
+            .min_by(|a, b| {
+                a.2.distance_squared(drop_position)
+                    .total_cmp(&b.2.distance_squared(drop_position))
+            });
+
+        let Some((_, mut stats, ship_position)) = nearest else {
+            continue;
+        };
+
+        let direction = ship_position - drop_position;
+        let distance = direction.length();
+        drop_transform.translation += (config.0.drop_collect_radius
+            * direction.normalize_or_zero()
+            * time.delta_secs()
+            * 3.0)
+            .extend(0.0);
+
+        if distance > DROP_PICKUP_RADIUS {
             continue;
         }
 
-        for (drop_entity, mut drop_transform, drop_component) in drops.iter_mut() {
-            if collected.contains(&drop_entity) {
-                continue;
-            }
-
-            let dir = ship_transform.translation() - drop_transform.translation;
-            let distance = dir.length();
-
-            if distance <= config.0.drop_collect_radius {
-                drop_transform.translation +=
-                    config.0.drop_collect_radius * dir.normalize_or_zero() * time.delta_secs() * 3.0;
-
-                collected.insert(drop_entity);
-
-                if distance <= DROP_PICKUP_RADIUS {
-                    match drop_component {
-                        DropComponent::Item(item) => {
-                            if storage_state.add(storage, item.item_type.clone(), item.amount) {
-                                commands.entity(drop_entity).despawn();
-                            }
-                        }
-                    }
-                }
-            }
+        // Atomic add: only mutate cargo state when the whole amount fits.
+        if stats.cargo_used.saturating_add(item.amount) > stats.cargo_capacity {
+            continue;
         }
+        stats.cargo_used += item.amount;
+        stats
+            .cargo_items
+            .entry(item.item_type.clone())
+            .and_modify(|count| *count += item.amount)
+            .or_insert(item.amount);
+        commands.entity(drop_entity).despawn();
     }
 }
 
@@ -564,11 +549,93 @@ mod tests {
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(Update, toggle_control_mode);
 
+        let ship = app.world_mut().spawn((Ship::default(), Team::new(0))).id();
+        (app, ship)
+    }
+
+    fn app_with_cargo(capacity: u32) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Update, collect_drop)
+            .insert_resource(GameConfigValue(crate::config::GameConfig::default()));
         let ship = app
             .world_mut()
-            .spawn((Ship::default(), Team::new(0)))
+            .spawn((
+                ShipStats {
+                    cargo_capacity: capacity,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                Transform::default(),
+                Team::new(0),
+            ))
             .id();
         (app, ship)
+    }
+
+    #[test]
+    fn pickup_is_atomic() {
+        let (mut app, ship) = app_with_cargo(5);
+        app.world_mut().spawn((
+            Transform::default(),
+            DropComponent::Item(crate::content::block::ItemDrop {
+                item_type: "steel".to_string(),
+                amount: 6,
+            }),
+        ));
+        app.update();
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.cargo_used, 0);
+        assert!(stats.cargo_items.is_empty());
+    }
+
+    #[test]
+    fn pickup_fills_shared_cargo() {
+        let (mut app, ship) = app_with_cargo(10);
+        app.world_mut().spawn((
+            Transform::default(),
+            DropComponent::Item(crate::content::block::ItemDrop {
+                item_type: "steel".to_string(),
+                amount: 4,
+            }),
+        ));
+        app.update();
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.cargo_used, 4);
+        assert_eq!(stats.cargo_items.get("steel"), Some(&4));
+    }
+
+    #[test]
+    fn enemy_ships_do_not_collect() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Update, collect_drop)
+            .insert_resource(GameConfigValue(crate::config::GameConfig::default()));
+        let ship = app
+            .world_mut()
+            .spawn((
+                ShipStats {
+                    cargo_capacity: 100,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                Transform::default(),
+                Team::new(1),
+            ))
+            .id();
+        app.world_mut().spawn((
+            Transform::default(),
+            DropComponent::Item(crate::content::block::ItemDrop {
+                item_type: "steel".to_string(),
+                amount: 4,
+            }),
+        ));
+        app.update();
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.cargo_used, 0);
     }
 
     /// `F` toggles between piloting the followed ship and free look, and

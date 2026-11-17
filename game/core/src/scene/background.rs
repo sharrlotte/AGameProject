@@ -65,7 +65,7 @@ fn setup(mut commands: Commands) {
     // FAR stars
     spawn_parallax_layer(
         &mut commands,
-        1500,
+        200,
         0.01,
         24000.0,
         6.0,
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands) {
     // MID dust
     spawn_parallax_layer(
         &mut commands,
-        900,
+        120,
         0.03,
         18000.0,
         9.0,
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands) {
     // NEAR debris
     spawn_parallax_layer(
         &mut commands,
-        320,
+        60,
         0.06,
         15000.0,
         12.0,
