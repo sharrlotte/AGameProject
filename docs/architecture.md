@@ -70,7 +70,7 @@ The authoritative contract is the doc comment on `SimulationSet` in
 | Schedule | Set | Contents |
 |---|---|---|
 | `PreUpdate` | `Input` | keyboard/mouse, UI buttons, pause toggle, editor input |
-| `FixedFirst` | `Stats` | efficiency (chained) then power usage |
+| `FixedFirst` | `Stats` | `PowerSet::{Generate, Boost, Demand, Solve}` (chained) |
 | `FixedPreUpdate` | `Stats` | thrust/rotate stats (`StatsUpdateSet`), then `ship::update_stats` |
 | `FixedUpdate` | `Ai` | AI think/steering |
 | `FixedUpdate` | `Control` | player forces, camera follow target, drop collection |
@@ -93,7 +93,7 @@ persistence across frames is never assumed.
 | `PreStartup` | `register_default_items` |
 | `Startup` | `setup_camera`, `load_current_ship`, `AmmoPlugin::setup_assets`, `ConfigPlugin::load_config_handles` |
 | `PreUpdate` | input handling; Bevy state transitions |
-| `FixedFirst` (`Stats`) | Efficiency systems (chained, `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
+| `FixedFirst` (`Stats`) | `PowerSet::{Generate, Boost, Demand, Solve}` chained: generation, booster priority & apply, active demand, proportional split & battery |
 | `FixedPreUpdate` (`Stats`) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
 | `FixedUpdate` (`Ai` → `Control` → `Weapons` → `Cleanup`) | AI chain, player control/camera, turrets/bullets/ammo, lifetime countdown |
 | `FixedPostUpdate` (`Damage` → `Death`) | Damage events and laser hits; block destruction, mutations, drops |
@@ -139,7 +139,7 @@ the `dev` cargo feature — production builds contain no inspector code.
 content/
   team.rs        Team { id: u8 } + Rapier collision groups, 16 palette entries
   plugin.rs      ContentPlugin — aggregate
-  block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, energy, efficiency, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
+  block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, power, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   ship/          Ship, AI controller, movement, UI, indicators, Stat computation
   bullet/        Bullet/Laser/Missile components + all projectile systems
   damage/        Damage/DamageEvent (health decrement + floating text)

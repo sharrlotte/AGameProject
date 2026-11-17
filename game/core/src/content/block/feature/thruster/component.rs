@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::config::GameConfigValue;
-use crate::content::block::{feature::efficiency::BlockEfficiency, stat::StatEffect};
+use crate::content::block::{feature::power::Boost, stat::StatEffect};
 
 // ThrustPower
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
@@ -11,6 +11,11 @@ pub struct ThrustPowerBase {
 }
 
 impl ThrustPowerBase {
+    #[cfg(test)]
+    pub fn new(value: f32) -> Self {
+        Self { value }
+    }
+
     pub fn value(&self) -> f32 {
         self.value
     }
@@ -89,7 +94,7 @@ impl Thruster {
                 value: self.torque * config.0.turn_speed_factor,
             },
             RotateSpeedComputed::default(),
-            BlockEfficiency::default(),
+            Boost::default(),
         ));
     }
 }

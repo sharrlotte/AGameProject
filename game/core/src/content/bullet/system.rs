@@ -9,9 +9,10 @@ use super::*;
 use crate::config::GameConfigValue;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::content::block::feature::ammo::AmmoState;
-use crate::content::block::feature::energy::PowerEfficiency;
+use crate::content::block::feature::power::{Boost, STARVATION_THRESHOLD, Supply};
 use crate::content::block::feature::turret::{
-    Turret, TurretBarrel, TurretSprite, TurretState, TurretTarget,
+    Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget,
+    advance_turret_charge,
 };
 use crate::content::block::radar::Radar;
 use crate::content::block::{
@@ -36,8 +37,8 @@ impl Plugin for BulletPlugin {
             (
                 handle_missiles,
                 handle_bullets,
-                handle_single_shot,
-                handle_burst_shot,
+                handle_single_shot.after(advance_turret_charge),
+                handle_burst_shot.after(advance_turret_charge),
                 handle_missile_radar_target,
                 handle_laser_beam,
                 handle_pulling_beam,
@@ -152,7 +153,8 @@ pub fn handle_single_shot(
         &Team,
         Option<&mut AmmoState>,
         &TurretBarrel,
-        Option<&PowerEfficiency>,
+        Option<(&TurretPower, &mut TurretCharge)>,
+        Option<&Boost>,
     )>,
     config: Res<GameConfigValue>,
 ) {
@@ -164,19 +166,11 @@ pub fn handle_single_shot(
         team,
         mut ammo_state,
         barrel_ref,
-        power_efficiency,
+        mut turret_power,
+        boost,
     ) in query.iter_mut()
     {
         if !turret_state.active {
-            continue;
-        }
-
-        // Only powered turrets are gated. A turret with no EnergyConsumer has
-        // no PowerEfficiency and fires at its full configured rate. A powered
-        // turret that is not fully supplied cannot fire at all.
-        if let Some(eff) = power_efficiency
-            && eff.value() < 0.999
-        {
             continue;
         }
 
@@ -185,29 +179,42 @@ pub fn handle_single_shot(
         };
         let Turret { barrels, range, .. } = turret;
 
-        if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
-            for barrel_position in barrels.iter() {
-                if let Some(ref mut ammo) = ammo_state
-                    && !ammo.take()
-                {
-                    continue;
-                }
+        let boost_val = boost.map_or(1.0, Boost::value).max(1.0);
+        let cooldown = shoot_pattern.fire_rate / boost_val;
+        if time.elapsed_secs() < shoot_pattern_state.last_fired_at + cooldown {
+            continue;
+        }
 
-                spawn_bullet(
-                    &mut commands,
-                    transform,
-                    team,
-                    *barrel_position,
-                    *range,
-                    &shoot_pattern.projectile,
-                    match turret_state.target {
-                        Some(TurretTarget::Ship(entity)) => Some(entity),
-                        _ => None,
-                    },
-                    &config,
-                );
+        if let Some((TurretPower::Charge { capacity, .. }, ref charge)) = turret_power
+            && charge.value < *capacity - 1e-5
+        {
+            continue;
+        }
+
+        for barrel_position in barrels.iter() {
+            if let Some(ref mut ammo) = ammo_state
+                && !ammo.take()
+            {
+                continue;
             }
-            shoot_pattern_state.last_fired_at = time.elapsed_secs();
+
+            spawn_bullet(
+                &mut commands,
+                transform,
+                team,
+                *barrel_position,
+                *range,
+                &shoot_pattern.projectile,
+                match turret_state.target {
+                    Some(TurretTarget::Ship(entity)) => Some(entity),
+                    _ => None,
+                },
+                &config,
+            );
+        }
+        shoot_pattern_state.last_fired_at = time.elapsed_secs();
+        if let Some((TurretPower::Charge { .. }, ref mut charge)) = turret_power {
+            charge.value = 0.0;
         }
     }
 }
@@ -224,7 +231,8 @@ pub fn handle_burst_shot(
         &Team,
         Option<&mut AmmoState>,
         &TurretBarrel,
-        Option<&PowerEfficiency>,
+        Option<(&TurretPower, &mut TurretCharge)>,
+        Option<&Boost>,
     )>,
     config: Res<GameConfigValue>,
 ) {
@@ -236,16 +244,11 @@ pub fn handle_burst_shot(
         team,
         mut ammo_state,
         barrel_ref,
-        power_efficiency,
+        mut turret_power,
+        boost,
     ) in query.iter_mut()
     {
         if !turret_state.active {
-            continue;
-        }
-
-        if let Some(eff) = power_efficiency
-            && eff.value() < 0.999
-        {
             continue;
         }
 
@@ -253,6 +256,7 @@ pub fn handle_burst_shot(
             continue;
         };
         let Turret { barrels, range, .. } = turret;
+        let boost_val = boost.map_or(1.0, Boost::value).max(1.0);
 
         match &mut shoot_pattern_state.shooting {
             BurstShootPatternShootingState::Shooting {
@@ -315,7 +319,16 @@ pub fn handle_burst_shot(
                 *current_barrel += 1;
             }
             BurstShootPatternShootingState::Cooldown { last_fired_at } => {
-                if time.elapsed_secs() >= *last_fired_at + shoot_pattern.fire_rate {
+                let cooldown = shoot_pattern.fire_rate / boost_val;
+                if time.elapsed_secs() >= *last_fired_at + cooldown {
+                    if let Some((TurretPower::Charge { capacity, .. }, ref mut charge)) =
+                        turret_power
+                    {
+                        if charge.value < *capacity - 1e-5 {
+                            continue;
+                        }
+                        charge.value = 0.0;
+                    }
                     shoot_pattern_state.shooting = BurstShootPatternShootingState::Shooting {
                         current_barrel: 0,
                         last_barrel_fired_at: 0.0,
@@ -341,7 +354,8 @@ pub fn handle_laser_beam(
         &mut LaserBeamPatternState,
         &Team,
         &TurretBarrel,
-        Option<&PowerEfficiency>,
+        Option<&Supply>,
+        Option<&Boost>,
     )>,
     mut events: MessageWriter<DamageEvent>,
 ) {
@@ -357,14 +371,12 @@ pub fn handle_laser_beam(
         mut shoot_pattern_state,
         team,
         barrel_ref,
-        power_efficiency,
+        supply,
+        boost,
     ) in query.iter_mut()
     {
-        if let Some(eff) = power_efficiency
-            && eff.value() < 0.999
-        {
-            continue;
-        }
+        let supply_val = supply.map_or(1.0, Supply::value);
+        let boost_val = boost.map_or(1.0, Boost::value).max(1.0);
 
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
@@ -373,7 +385,9 @@ pub fn handle_laser_beam(
 
         match &mut shoot_pattern_state.shooting {
             LaserBeamPatternShootingState::Shooting { start_time } => {
-                if time.elapsed_secs() >= *start_time + shoot_pattern.duration {
+                if supply_val <= STARVATION_THRESHOLD
+                    || time.elapsed_secs() >= *start_time + shoot_pattern.duration
+                {
                     shoot_pattern_state.shooting = LaserBeamPatternShootingState::Cooldown {
                         last_fired_at: time.elapsed_secs(),
                     };
@@ -415,7 +429,7 @@ pub fn handle_laser_beam(
                                 events.write(DamageEvent {
                                     attacker: entity,
                                     target: health,
-                                    damage: shoot_pattern.damage,
+                                    damage: shoot_pattern.damage * supply_val,
                                 });
                             }
                             true
@@ -454,11 +468,12 @@ pub fn handle_laser_beam(
                 }
             }
             LaserBeamPatternShootingState::Cooldown { last_fired_at } => {
-                if !turret_state.active {
+                if !turret_state.active || supply_val <= STARVATION_THRESHOLD {
                     continue;
                 }
 
-                if time.elapsed_secs() >= *last_fired_at + shoot_pattern.cooldown {
+                let cooldown = shoot_pattern.cooldown / boost_val;
+                if time.elapsed_secs() >= *last_fired_at + cooldown {
                     shoot_pattern_state.shooting = LaserBeamPatternShootingState::Shooting {
                         start_time: time.elapsed_secs(),
                     };
@@ -483,7 +498,7 @@ pub fn handle_pulling_beam(
         &mut PullingBeamPatternState,
         &Team,
         &TurretBarrel,
-        Option<&PowerEfficiency>,
+        Option<&Supply>,
     )>,
 ) {
     const PULL_SPEED: f32 = 500.0;
@@ -500,14 +515,10 @@ pub fn handle_pulling_beam(
         mut state,
         team,
         barrel_ref,
-        power_efficiency,
+        supply,
     ) in query.iter_mut()
     {
-        if let Some(eff) = power_efficiency
-            && eff.value() < 0.999
-        {
-            continue;
-        }
+        let supply_val = supply.map_or(1.0, Supply::value);
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
         };
@@ -517,7 +528,7 @@ pub fn handle_pulling_beam(
         // barrel boxes overlap the same block.
         let mut pulled = HashSet::new();
 
-        if !turret_state.active {
+        if !turret_state.active || supply_val <= STARVATION_THRESHOLD {
             if let Some(beam) = state.beam {
                 commands.entity(beam).insert(Visibility::Hidden);
             }
@@ -553,7 +564,7 @@ pub fn handle_pulling_beam(
                     if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.ship) {
                         let direction =
                             (origin - ship_transform.translation().truncate()).normalize_or_zero();
-                        velocity.linear += direction * PULL_SPEED * time.delta_secs();
+                        velocity.linear += direction * PULL_SPEED * supply_val * time.delta_secs();
                     }
 
                     true

@@ -1,7 +1,6 @@
 pub mod ammo;
 pub mod component;
-pub mod efficiency;
-pub mod energy;
+pub mod power;
 pub mod sprite;
 pub mod storage;
 pub mod system;

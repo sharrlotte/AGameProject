@@ -26,9 +26,8 @@ maps string ids to defs, rejects duplicates, and keeps an `iter()` order sorted
 once at registration by block group.
 
 Features (`FeatureConfig`/`Feature`, shared between RON config and runtime):
-`Texture`, `Turret`, `EnergyConsumer`, `PowerProducer`, `Thruster`,
-`EfficiencyProvider`, `Storage` (capacity only). Producers/consumers are single
-serde + component types; there is no separate power config struct.
+`Texture`, `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`,
+`Storage` (capacity only). Power components are shared between serde and runtime.
 
 Block entities carry `BlockRef`, `BlockOwner`, `Health`, `Team`, a sensor
 `Collider` in a per-team hitbox layer, and all feature components. The only
@@ -37,20 +36,26 @@ render-only children.
 
 ## Power
 
-`PowerProducer { output }` creates power from nothing. `EnergyConsumer { rate }`
-consumes it. `update_power_efficiency` (FixedFirst) computes per ship:
+Each ship is one isolated power grid solved in `FixedFirst` (`SimulationSet::Stats`)
+via chained `PowerSet::{Generate, Boost, Demand, Solve}`:
 
-```text
-production = sum(producer.output)
-consumers  = consumers with rate > 0
-share      = production / consumers.len()
-efficiency_i = 1                       if no consumers or production >= demand
-             = clamp(share / rate_i,0,1) otherwise
-```
+1. **Generate**: `Generator { output }` contributes `output × Boost` (previous tick's boost).
+   `Battery { capacity }` pools stored energy (`Charge`, spawns full, lost on block destruction).
+2. **Boost**: `Booster { radius, boost, rate }` takes priority power before consumers,
+   ordered by ascending distance to the ship core. A booster is binary: fully powered or off.
+   Powered boosters apply `Boost` (max stacking, own team within physics radius on any ship).
+3. **Demand**: Active consumers report `Demand`:
+   - Thrusters with `Consumer { rate }`: `rate × max(throttle.linear, throttle.angular) × Boost`.
+   - Charge turrets (`Single`/`Burst`): `charge_rate × Boost` while `TurretCharge < capacity`, else `0`.
+   - Beam turrets (`LaserBeam`/`PullingBeam`): `rate` while firing, else `0`.
+4. **Solve**: Remaining available power (`generation + stored / dt - booster_draw`) splits
+   proportionally across active demand: `supply = clamp(available / demand, 0, 1)` (`1` when `demand == 0`).
+   Net surplus charges batteries up to `capacity`; net deficit discharges batteries before `supply` drops.
+   `Supply ≤ 0.01` (`STARVATION_THRESHOLD`) disables thrust and beams.
 
-Only consumers get `PowerEfficiency`. `ShipStats` exposes `power_production`,
-`power_demand`, `power_used`, and `efficiency`. A powered turret that is not
-fully supplied cannot fire; unpowered turrets are unaffected.
+`ShipStats` exposes `power_production`, `power_demand`, `power_supply`, `power_stored`, `power_capacity`.
+Movement intent is tracked per ship by `Throttle { linear, angular }` (`0..1`), written by both
+player control and AI steering.
 
 ## Destruction and fragmentation
 

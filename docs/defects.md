@@ -47,13 +47,10 @@ Factual defects found in the current code, used as a work queue. Not a changelog
     `y == size.y` / `x == size.x` now scanned; `+1` probes deleted.
 15. `ComputedShipStats::default().efficiency == 0.0` → first-frame thrust of 0 — **fixed
     (Slice 2b)**: default is `1.0`; ships outside the power map reset to `1.0` each tick.
-16. `EnergyConsumer`/`PowerUsage*`/`EfficiencyEffect` — **unchanged**: built, wired, still
-    unused by any placed block; kept as plumbing (config spec may wire it later).
+16. `EnergyConsumer`/`PowerUsage*`/`EfficiencyEffect` — **resolved**: replaced by `feature/power` (`Generator`, `Battery`, `Consumer`, `Booster`, `Supply`, `Boost`, `Demand`).
 17. `AmmoState::refill` inverted — **fixed (Slice 2)**; `AmmoBuilder::build` now returns
     a plain `Ammo` instead of an always-`Some` `Option` — **fixed (Slice 2b)**.
-18. Efficiency sign inconsistency (power divided, thrust multiplied) — **accepted**:
-    power usage and thrust are different stats; a power-rich ship benefits, a thrust
-    ship doesn't. config.md may unify later.
+18. Efficiency sign inconsistency (power divided, thrust multiplied) — **resolved**: replaced by unified `Supply` (0..1) and `Boost` (≥ 1).
 19. `TurretControl::Manual/Hold` — **removed entirely (Slice 2b)**: turret control enum
     and the manual/hold branches are gone; turrets always auto-target the camera-range
     enemies.

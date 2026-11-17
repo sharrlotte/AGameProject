@@ -10,22 +10,20 @@ macro_rules! make_stat_system {
                 &$base,
                 &mut $computed,
                 Option<&$effects>,
-                Option<&EfficiencyEffect>,
-                Option<&BlockEfficiency>,
+                Option<&Supply>,
+                Option<&Boost>,
             )>,
         ) {
-            for (base, mut computed, effects, efficiency_effect, block_efficiency) in &mut query {
-                let eff = block_efficiency
-                    .map(|e| e.value())
-                    .or_else(|| efficiency_effect.map(|e| e.value()))
-                    .unwrap_or(1.0);
+            for (base, mut computed, effects, supply, boost) in &mut query {
+                let supply = supply.map_or(1.0, Supply::value);
+                let boost = boost.map_or(1.0, Boost::value);
 
                 // A starved feature is disabled rather than running at a
                 // negligible fraction of its base value.
-                let mut val = if eff <= 0.01 {
+                let mut val = if supply <= STARVATION_THRESHOLD {
                     0.0
                 } else {
-                    ($op)(base.value(), eff)
+                    ($op)(base.value(), supply * boost)
                 };
 
                 if let Some(effects) = effects {

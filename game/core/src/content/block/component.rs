@@ -464,11 +464,17 @@ impl BlockRegistry {
                         };
                         stats.max_range = stats.max_range.max(turret.range);
                     }
-                    Feature::EnergyConsumer(consumer) => {
+                    Feature::Consumer(consumer) => {
                         stats.power_demand += consumer.rate();
                     }
-                    Feature::PowerProducer(producer) => {
-                        stats.power_production += producer.output;
+                    Feature::Generator(generator) => {
+                        stats.power_production += generator.output;
+                    }
+                    Feature::Battery(battery) => {
+                        stats.power_capacity += battery.capacity;
+                    }
+                    Feature::Booster(booster) => {
+                        stats.power_demand += booster.rate;
                     }
                     Feature::Storage(capacity) => {
                         stats.cargo_capacity += *capacity;
@@ -482,7 +488,8 @@ impl BlockRegistry {
             }
         }
 
-        stats.efficiency = 1.0;
+        stats.power_supply = 1.0;
+        stats.power_stored = stats.power_capacity;
         Some(stats)
     }
 

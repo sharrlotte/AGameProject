@@ -9,7 +9,7 @@ use bevy::prelude::*;
 /// | Schedule         | Set       | Contents                                              |
 /// |------------------|-----------|-------------------------------------------------------|
 /// | `PreUpdate`      | `Input`   | keyboard/mouse, UI buttons, pause toggle, editor input |
-/// | `FixedFirst`     | `Stats`   | efficiency, power usage, reactor output                |
+/// | `FixedFirst`     | `Stats`   | `PowerSet::{Generate, Boost, Demand, Solve}`          |
 /// | `FixedPreUpdate` | `Stats`   | thrust/rotate stats, ship stat aggregation, cargo      |
 /// | `FixedUpdate`    | `Ai`      | AI think/steering at `AI_THINK_RATE_HZ`                |
 /// | `FixedUpdate`    | `Control` | player forces, camera follow target, drop collection   |

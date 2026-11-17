@@ -3,9 +3,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::content::block::{
     component::{BlockDef, ShootPattern, TargetingStrategy},
-    feature::{ammo::Ammo, efficiency::BlockEfficiency},
+    feature::{
+        ammo::Ammo,
+        power::{Boost, Demand, Supply},
+    },
     radar::Radar,
 };
+
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Serialize, Deserialize)]
+#[reflect(Component)]
+pub enum TurretPower {
+    Charge { capacity: f32, charge_rate: f32 },
+    Drain { rate: f32 },
+}
+
+#[derive(Component, Debug, Clone, Copy, Reflect, Default)]
+#[reflect(Component)]
+pub struct TurretCharge {
+    pub value: f32,
+}
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TurretComponent {
@@ -19,6 +35,7 @@ pub struct TurretComponent {
     pub z: f32,
     pub animated: bool,
     pub ammo: Option<Ammo>,
+    pub power: Option<TurretPower>,
 }
 
 impl TurretComponent {
@@ -31,7 +48,7 @@ impl TurretComponent {
                 barrels: self.barrels.clone(),
                 shooting_pattern: self.shooting_pattern.clone(),
             },
-            BlockEfficiency::default(),
+            Boost::default(),
             TurretState::default(),
             Radar::new(self.range, 1.0),
         ));
@@ -40,6 +57,17 @@ impl TurretComponent {
 
         if let Some(ammo) = &self.ammo {
             ammo.insert(commands, base);
+        }
+
+        if let Some(power) = self.power {
+            commands
+                .entity(base)
+                .insert((power, Demand::default(), Supply::default()));
+            if let TurretPower::Charge { capacity, .. } = power {
+                commands.entity(base).insert(TurretCharge {
+                    value: capacity.max(0.0),
+                });
+            }
         }
 
         let barrel = commands

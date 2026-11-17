@@ -1,23 +1,21 @@
 # Simulation Sets
 
-## Requirements
+## Purpose
 
+Systems register into one documented set pipeline so execution ordering is explicit and reviewable.
+
+## Requirements
 ### Requirement: Simulation has a named, reviewable ordering contract
 
-All systems participating in the fixed/frame pipelines SHALL be registered into
-an explicit set with a documented position in the pipeline, and all plugins
-SHALL rely on those sets instead of ad-hoc schedule placement where ordering
-matters.
+All systems participating in the fixed and frame pipelines SHALL be registered into an explicit set with a documented position in the pipeline, and all plugins SHALL rely on those sets instead of ad-hoc schedule placement where ordering matters.
 
 #### Scenario: Fresh setup ordering
 - **WHEN** the application starts
-- **THEN** the fixed-update pipeline runs `Input → Simulate → Apply → Cleanup`
-  in that order, and `PostUpdate`/`FixedLast` run after `FixedPostUpdate`
+- **THEN** `PreUpdate/Input`, `FixedPreUpdate/Stats`, `FixedUpdate/Ai`, `FixedUpdate/Control`, `FixedUpdate/Weapons`, the Rapier step, `FixedPostUpdate/Damage`, `FixedPostUpdate/Death`, `PostUpdate/Present`, and `Last/Cleanup` run in that order
 
 #### Scenario: New plugin registers ordering
 - **WHEN** a plugin registers a system that depends on another plugin's output
-- **THEN** it declares the dependency through the shared sets, not by placing
-  the system in `FixedUpdate` and hoping for the best
+- **THEN** it declares the dependency through the shared sets, not by placing the system in a schedule and hoping for the best
 
 ### Requirement: No shared enum tags with multiple meanings
 
@@ -46,11 +44,8 @@ purpose-named resources with a single owner per field.
 
 ### Requirement: Docs match the new foundation
 
-`docs/architecture.md` SHALL describe the named simulation contract, the
-typed resources, and the marker-component taxonomy, replacing the old
-scheduling tables.
+`docs/architecture.md` SHALL describe the named simulation contract, the typed resources, the marker-component taxonomy, `DespawnOnExit` state scoping, and the damage to death to ship-mutation chain, replacing the old scheduling tables.
 
 #### Scenario: Architecture doc read after migration
 - **WHEN** a contributor opens `docs/architecture.md` after this change
-- **THEN** the scheduling table lists the named sets and their members, and no
-  longer references removed symbols like `GameVars`
+- **THEN** the scheduling table lists the new sets and their members, the state scopes, and no longer references removed symbols such as `GameVars`, `SceneEntity`, or `Simulate`

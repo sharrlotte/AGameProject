@@ -5,8 +5,7 @@ use crate::content::{
     block::{
         component::BlockDef,
         feature::{
-            efficiency::EfficiencyProvider,
-            energy::{EnergyConsumer, PowerProducer},
+            power::{Battery, Booster, Consumer, Generator},
             sprite::Texture,
             thruster::Thruster,
             turret::TurretComponent,
@@ -19,10 +18,11 @@ use crate::content::{
 pub enum Feature {
     Texture(Texture),
     Turret(TurretComponent),
-    EnergyConsumer(EnergyConsumer),
-    PowerProducer(PowerProducer),
+    Generator(Generator),
+    Battery(Battery),
+    Consumer(Consumer),
+    Booster(Booster),
     Thruster(Thruster),
-    EfficiencyProvider(EfficiencyProvider),
     Storage(u32),
 }
 
@@ -39,13 +39,12 @@ impl Feature {
             Self::Texture(sprite) => sprite.insert(commands, base, def),
             Self::Turret(turret) => turret.insert(commands, base, def),
             Self::Thruster(thruster) => thruster.insert(commands, base, config),
-            Self::EnergyConsumer(consumer) => consumer.insert(commands, base),
-            Self::PowerProducer(producer) => producer.insert(commands, base),
+            Self::Generator(generator) => generator.insert(commands, base),
+            Self::Battery(battery) => battery.insert(commands, base),
+            Self::Consumer(consumer) => consumer.insert(commands, base),
+            Self::Booster(booster) => booster.insert(commands, base),
             Self::Storage(_) => {
                 // Capacity is pooled into ShipStats; no runtime component.
-            }
-            Self::EfficiencyProvider(provider) => {
-                commands.entity(base).insert(*provider);
             }
         }
     }

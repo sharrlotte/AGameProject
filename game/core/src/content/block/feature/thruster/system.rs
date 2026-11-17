@@ -2,10 +2,11 @@ use bevy::prelude::*;
 
 use super::*;
 use crate::content::block::{
-    feature::efficiency::{BlockEfficiency, EfficiencyEffect},
-    stat::StatsUpdateSet,
-    stat::make_stat_system,
+    BlockOwner,
+    feature::power::{Boost, Consumer, Demand, PowerSet, STARVATION_THRESHOLD, Supply},
+    stat::{StatsUpdateSet, make_stat_system},
 };
+use crate::content::ship::Throttle;
 use crate::simulation::SimulationSet;
 
 pub struct ThrusterPlugin;
@@ -13,11 +14,29 @@ pub struct ThrusterPlugin;
 impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
+            FixedFirst,
+            update_thruster_demand.in_set(PowerSet::Demand),
+        )
+        .add_systems(
             FixedPreUpdate,
             (update_thrust_power_stats, update_rotate_speed_stats)
                 .in_set(StatsUpdateSet)
                 .in_set(SimulationSet::Stats),
         );
+    }
+}
+
+pub fn update_thruster_demand(
+    ships: Query<&Throttle>,
+    mut thrusters: Query<
+        (&BlockOwner, &Consumer, &mut Demand, Option<&Boost>),
+        With<ThrustPowerBase>,
+    >,
+) {
+    for (owner, consumer, mut demand, boost) in &mut thrusters {
+        let throttle = ships.get(owner.ship).map_or(0.0, Throttle::max_axis);
+        let boost = boost.map_or(1.0, Boost::value);
+        demand.value = consumer.rate() * throttle * boost;
     }
 }
 
@@ -35,3 +54,92 @@ make_stat_system!(
     RotateSpeedEffects,
     |base, eff| base * eff
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn idle_thruster_draws_nothing_and_scales_with_throttle_and_boost() {
+        let mut app = App::new();
+        app.add_systems(Update, update_thruster_demand);
+
+        let ship = app.world_mut().spawn(Throttle::default()).id();
+        let thruster = app
+            .world_mut()
+            .spawn((
+                BlockOwner { ship },
+                ThrustPowerBase::new(100.0),
+                Consumer { rate: 3.0 },
+                Demand::default(),
+                Boost { value: 1.0 },
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(app.world().get::<Demand>(thruster).unwrap().value, 0.0);
+
+        app.world_mut().get_mut::<Throttle>(ship).unwrap().set(1.0, 0.0);
+        app.update();
+        assert_eq!(app.world().get::<Demand>(thruster).unwrap().value, 3.0);
+
+        app.world_mut().get_mut::<Throttle>(ship).unwrap().set(0.0, 0.5);
+        app.update();
+        assert_eq!(app.world().get::<Demand>(thruster).unwrap().value, 1.5);
+
+        app.world_mut().get_mut::<Throttle>(ship).unwrap().set(1.0, 0.0);
+        app.world_mut().get_mut::<Boost>(thruster).unwrap().value = 1.5;
+        app.update();
+        assert_eq!(app.world().get::<Demand>(thruster).unwrap().value, 4.5);
+    }
+
+    #[test]
+    fn thruster_output_scales_with_supply_and_boost_and_disables_below_threshold() {
+        let mut app = App::new();
+        app.add_systems(Update, update_thrust_power_stats);
+
+        let powered = app
+            .world_mut()
+            .spawn((
+                ThrustPowerBase::new(200.0),
+                ThrustPowerComputed::default(),
+                Supply { value: 0.5 },
+                Boost { value: 1.5 },
+            ))
+            .id();
+        let unpowered = app
+            .world_mut()
+            .spawn((
+                ThrustPowerBase::new(200.0),
+                ThrustPowerComputed::default(),
+                Boost { value: 1.5 },
+            ))
+            .id();
+        let starved = app
+            .world_mut()
+            .spawn((
+                ThrustPowerBase::new(200.0),
+                ThrustPowerComputed::default(),
+                Supply { value: 0.005 },
+                Boost { value: 1.5 },
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(
+            app.world().get::<ThrustPowerComputed>(powered).unwrap().value(),
+            150.0
+        );
+        assert_eq!(
+            app.world()
+                .get::<ThrustPowerComputed>(unpowered)
+                .unwrap()
+                .value(),
+            300.0
+        );
+        assert_eq!(
+            app.world().get::<ThrustPowerComputed>(starved).unwrap().value(),
+            0.0
+        );
+    }
+}

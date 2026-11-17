@@ -27,7 +27,8 @@ pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<ShipStats>();
+        app.register_type::<ShipStats>()
+            .register_type::<Throttle>();
         #[cfg(debug_assertions)]
         app.add_systems(
             FixedUpdate,
@@ -135,7 +136,10 @@ pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut ships: Query<(&mut ExternalForce, &Transform, &Ship, &ShipStats), Without<Camera2d>>,
+    mut ships: Query<
+        (&mut ExternalForce, &Transform, &Ship, &ShipStats, &mut Throttle),
+        Without<Camera2d>,
+    >,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion: MessageReader<MouseMotion>,
@@ -178,7 +182,7 @@ pub fn player_control_ship(
         }
     } else if let Some(following) = camera_target.following {
         match ships.get(following) {
-            Ok((_, transform, ship, _)) => {
+            Ok((_, transform, ship, _, _)) => {
                 let target = transform
                     .transform_point(ship.core_position.extend(0.0))
                     .truncate();
@@ -236,12 +240,14 @@ pub fn player_control_ship(
     if *mode == ControlMode::Pilot {
         if let Some(controlling) = controlled.controlling {
             match ships.get_mut(controlling) {
-                Ok((mut force, transform, _, stats)) => {
+                Ok((mut force, transform, _, stats, mut throttle)) => {
                     let thrust_power = stats.thrust_power;
                     let turn_speed = stats.rotate_speed;
 
                     let mut linear_force = Vec2::ZERO;
                     let mut torque = 0.0;
+                    let mut linear_active = false;
+                    let mut angular_active = false;
 
                     let forward = transform.local_y().truncate(); // +Y is forward
                     let right = transform.local_x().truncate();
@@ -250,36 +256,46 @@ pub fn player_control_ship(
                         || keyboard_input.pressed(KeyCode::ArrowUp)
                     {
                         linear_force += forward * thrust_power;
+                        linear_active = true;
                     }
 
                     if keyboard_input.pressed(KeyCode::KeyS)
                         || keyboard_input.pressed(KeyCode::ArrowDown)
                     {
                         linear_force -= forward * thrust_power;
+                        linear_active = true;
                     }
 
                     if keyboard_input.pressed(KeyCode::KeyA)
                         || keyboard_input.pressed(KeyCode::ArrowLeft)
                     {
                         torque += turn_speed;
+                        angular_active = true;
                     }
 
                     if keyboard_input.pressed(KeyCode::KeyD)
                         || keyboard_input.pressed(KeyCode::ArrowRight)
                     {
                         torque -= turn_speed;
+                        angular_active = true;
                     }
 
                     // Strafe
                     if keyboard_input.pressed(KeyCode::KeyQ) {
                         linear_force -= right * thrust_power;
+                        linear_active = true;
                     }
                     if keyboard_input.pressed(KeyCode::KeyE) {
                         linear_force += right * thrust_power;
+                        linear_active = true;
                     }
 
                     force.force = linear_force;
                     force.torque = torque;
+                    throttle.set(
+                        if linear_active { 1.0 } else { 0.0 },
+                        if angular_active { 1.0 } else { 0.0 },
+                    );
                 }
                 Err(_) => {
                     controlled.controlling = None;
@@ -288,9 +304,10 @@ pub fn player_control_ship(
         }
     } else if let Some(controlling) = controlled.controlling {
         // Clear any force left over from Pilot mode so the ship coasts.
-        if let Ok((mut force, _, _, _)) = ships.get_mut(controlling) {
+        if let Ok((mut force, _, _, _, mut throttle)) = ships.get_mut(controlling) {
             force.force = Vec2::ZERO;
             force.torque = 0.0;
+            throttle.set(0.0, 0.0);
         }
     }
 }
@@ -339,12 +356,15 @@ pub fn update_ship_behavior(
         &mut ExternalForce,
         &mut Velocity,
         &ShipStats,
+        &mut Throttle,
     )>,
     controlled: Res<ControlledShip>,
     #[cfg_attr(not(debug_assertions), allow(unused_variables))] mut gizmos: Gizmos,
     config: Res<GameConfigValue>,
 ) {
-    for (entity, _, size, behavior, transform, mut force, mut velocity, stats) in ships.iter_mut() {
+    for (entity, _, size, behavior, transform, mut force, mut velocity, stats, mut throttle) in
+        ships.iter_mut()
+    {
         if let Some(controlling) = controlled.controlling
             && controlling == entity
         {
@@ -398,13 +418,22 @@ pub fn update_ship_behavior(
                 let speed = velocity.linear.length();
                 let stop_distance = speed * speed / (2.0 * config.0.linear_damping);
 
-                if distance <= stop_distance {
+                let linear = if distance <= stop_distance {
                     force.force = Vec2::ZERO;
+                    0.0
                 } else if angle_diff.abs() < PI / 3.0 && distance > *radius {
                     force.force = forward * thrust_power * force_multiplier;
+                    force_multiplier
                 } else {
                     force.force = Vec2::ZERO;
-                }
+                    0.0
+                };
+                let angular = if torque.abs() > 0.0 {
+                    torque_multiplier
+                } else {
+                    0.0
+                };
+                throttle.set(linear, angular);
             }
             ShipBehavior::GoAround { position, radius } => {
                 let direction = (current_postion - position).normalize_or_zero();
@@ -457,9 +486,19 @@ pub fn update_ship_behavior(
 
                 force.torque = torque;
 
-                if angle_diff.abs() < PI / 3.0 {
+                let linear = if angle_diff.abs() < PI / 3.0 {
                     force.force = forward * thrust_power * force_multiplier;
-                }
+                    force_multiplier
+                } else {
+                    force.force = Vec2::ZERO;
+                    0.0
+                };
+                let angular = if torque.abs() > 0.0 {
+                    torque_multiplier
+                } else {
+                    0.0
+                };
+                throttle.set(linear, angular);
             }
         }
     }

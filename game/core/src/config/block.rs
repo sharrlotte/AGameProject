@@ -14,11 +14,10 @@ use crate::content::block::{
     feature::{
         ammo::{Ammo, AmmoBuilder},
         component::Feature,
-        efficiency::EfficiencyProvider,
-        energy::{EnergyConsumer, PowerProducer},
+        power::{Battery, Booster, Consumer, Generator},
         sprite::Texture,
         thruster::Thruster,
-        turret::TurretComponent,
+        turret::{TurretComponent, TurretPower},
     },
 };
 
@@ -45,10 +44,11 @@ pub struct BlockDefConfig {
 pub enum FeatureConfig {
     Texture(TextureConfig),
     Turret(TurretComponentConfig),
-    EnergyConsumer(EnergyConsumer),
-    PowerProducer(PowerProducer),
+    Generator(Generator),
+    Battery(Battery),
+    Consumer(Consumer),
+    Booster(Booster),
     Thruster(Thruster),
-    EfficiencyProvider(EfficiencyProvider),
     Storage(StorageConfig),
 }
 
@@ -74,6 +74,26 @@ pub struct TurretComponentConfig {
     pub z: f32,
     pub animated: bool,
     pub ammo: Option<AmmoConfig>,
+    pub power: Option<TurretPowerConfig>,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
+pub enum TurretPowerConfig {
+    Charge(TurretChargeConfig),
+    Drain(TurretDrainConfig),
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TurretChargeConfig {
+    pub capacity: f32,
+    pub charge_rate: f32,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TurretDrainConfig {
+    pub rate: f32,
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -109,7 +129,7 @@ pub struct StorageConfig {
 }
 
 impl FeatureConfig {
-    fn into_feature(self, assets: &AssetServer) -> Feature {
+    fn into_feature(self, assets: &AssetServer, block_type: &str) -> Feature {
         match self {
             FeatureConfig::Texture(config) => Feature::Texture(Texture {
                 image: assets.load(format!("texture/{}", config.image)),
@@ -117,23 +137,75 @@ impl FeatureConfig {
                 z: config.z,
                 animated: config.animated,
             }),
-            FeatureConfig::Turret(config) => Feature::Turret(TurretComponent {
-                strategy: config.strategy,
-                shooting_pattern: config.shooting_pattern.into_pattern(assets),
-                turn_speed: config.turn_speed,
-                range: config.range,
-                barrels: config.barrels,
-                image: assets.load(format!("texture/{}", config.image)),
-                offset: config.offset,
-                z: config.z,
-                animated: config.animated,
-                ammo: config.ammo.map(|ammo| ammo.into_ammo(assets)),
-            }),
-            FeatureConfig::EnergyConsumer(consumer) => Feature::EnergyConsumer(consumer),
-            FeatureConfig::PowerProducer(producer) => Feature::PowerProducer(producer),
+            FeatureConfig::Turret(config) => {
+                let shooting_pattern = config.shooting_pattern.into_pattern(assets);
+                let power = config
+                    .power
+                    .and_then(|p| validate_turret_power(p, &shooting_pattern, block_type));
+                Feature::Turret(TurretComponent {
+                    strategy: config.strategy,
+                    shooting_pattern,
+                    turn_speed: config.turn_speed,
+                    range: config.range,
+                    barrels: config.barrels,
+                    image: assets.load(format!("texture/{}", config.image)),
+                    offset: config.offset,
+                    z: config.z,
+                    animated: config.animated,
+                    ammo: config.ammo.map(|ammo| ammo.into_ammo(assets)),
+                    power,
+                })
+            }
+            FeatureConfig::Generator(generator) => {
+                Feature::Generator(generator.validated(block_type))
+            }
+            FeatureConfig::Battery(battery) => Feature::Battery(battery.validated(block_type)),
+            FeatureConfig::Consumer(consumer) => Feature::Consumer(consumer.validated(block_type)),
+            FeatureConfig::Booster(booster) => Feature::Booster(booster.validated(block_type)),
             FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster),
-            FeatureConfig::EfficiencyProvider(provider) => Feature::EfficiencyProvider(provider),
             FeatureConfig::Storage(config) => Feature::Storage(config.capacity),
+        }
+    }
+}
+
+fn validate_turret_power(
+    power: TurretPowerConfig,
+    pattern: &ShootPattern,
+    block_type: &str,
+) -> Option<TurretPower> {
+    match (pattern, power) {
+        (ShootPattern::Single(_) | ShootPattern::Burst(_), TurretPowerConfig::Charge(c)) => {
+            let mut capacity = c.capacity;
+            let mut charge_rate = c.charge_rate;
+            if capacity < 0.0 {
+                warn!("Turret {block_type} power capacity is negative ({capacity}); clamping to 0.0");
+                capacity = 0.0;
+            }
+            if charge_rate < 0.0 {
+                warn!("Turret {block_type} power charge_rate is negative ({charge_rate}); clamping to 0.0");
+                charge_rate = 0.0;
+            }
+            Some(TurretPower::Charge {
+                capacity,
+                charge_rate,
+            })
+        }
+        (
+            ShootPattern::LaserBeam(_) | ShootPattern::PullingBeam(_),
+            TurretPowerConfig::Drain(d),
+        ) => {
+            let mut rate = d.rate;
+            if rate < 0.0 {
+                warn!("Turret {block_type} power drain rate is negative ({rate}); clamping to 0.0");
+                rate = 0.0;
+            }
+            Some(TurretPower::Drain { rate })
+        }
+        _ => {
+            warn!(
+                "Turret {block_type} has mismatched power config for its shooting pattern; spawning unpowered"
+            );
+            None
         }
     }
 }
@@ -169,6 +241,11 @@ impl AmmoConfig {
 
 impl BlockDefConfig {
     pub fn into_def(self, assets: &AssetServer, block_type: String) -> BlockDef {
+        let features = self
+            .features
+            .into_iter()
+            .map(|feature| feature.into_feature(assets, &block_type))
+            .collect();
         BlockDef {
             name: self.name,
             block_type,
@@ -177,11 +254,7 @@ impl BlockDefConfig {
             health: self.health,
             cost: self.cost,
             shape: self.shape,
-            features: self
-                .features
-                .into_iter()
-                .map(|feature| feature.into_feature(assets))
-                .collect(),
+            features,
             drops: self.drops,
         }
     }

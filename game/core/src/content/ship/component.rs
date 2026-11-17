@@ -11,10 +11,12 @@ use crate::content::selectable::Selectable;
 use crate::content::ship::ai::{AiProfile, AiRuntime};
 use crate::content::ship::grid::ShipGrid;
 use crate::content::ship::stat::ShipStats;
+use crate::content::ship::throttle::Throttle;
 use crate::content::team::Team;
 use crate::resource::SceneState;
 
 #[derive(Component, Debug, Default, Clone)]
+#[require(Throttle)]
 pub struct Ship {
     /// Core block id.
     pub id: Uuid,

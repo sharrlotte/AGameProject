@@ -188,7 +188,7 @@ Implemented as specified, with these deltas (all spec, no notes):
 - `register_default_blocks` deleted; `register_default_items` stays (items deferred).
 - Shared derives: `DropComponent`, `ShootingProjectile`, `SingleShootPattern`,
   `LaserBeamPattern`, `PullingBeamPattern`, `BlockShape`, `BlockVoxel`, `BlockGroup`,
-  `ItemDrop`, `ItemType`, `Thruster`, `EnergyConsumer`, `EfficiencyProvider` and
+  `ItemDrop`, `ItemType`, `Thruster`, `Generator`, `Battery`, `Consumer`, `Booster`, and
   `TargetingStrategy` gained `Serialize`/`Deserialize`. `BurstShootPattern` stays
   runtime-only (`Handle<AudioSource>`); its `.ron` side is `BurstShootPatternConfig`
   with a path string.

@@ -1,10 +1,15 @@
 use bevy::{math::FloatPow, prelude::*};
 use std::f32::consts::PI;
 
-use super::{Turret, TurretBarrel, TurretSprite, TurretState, TurretTarget};
+use super::{Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
 use crate::{
     content::{
-        block::{component::TargetingStrategy, radar::Radar},
+        block::{
+            LaserBeamPatternState, LaserBeamPatternShootingState, PullingBeamPattern,
+            component::TargetingStrategy,
+            feature::power::{Boost, Demand, PowerSet, Supply},
+            radar::Radar,
+        },
         bullet::{Interceptable, Missile, ProjectileOwner},
         ship::{Ship, ShipGrid, ShipStats},
         team::Team,
@@ -18,12 +23,80 @@ pub struct TurretPlugin;
 
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (turret_tracking, update_turret_target)
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Weapons),
-        );
+        app.add_systems(FixedFirst, update_turret_demand.in_set(PowerSet::Demand))
+            .add_systems(
+                FixedUpdate,
+                (
+                    advance_turret_charge,
+                    turret_tracking,
+                    update_turret_target,
+                )
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Weapons),
+            );
+    }
+}
+
+pub fn update_turret_demand(
+    mut turrets: Query<(
+        &TurretPower,
+        &TurretState,
+        &mut Demand,
+        Option<&TurretCharge>,
+        Option<&Boost>,
+        Option<&LaserBeamPatternState>,
+        Option<&PullingBeamPattern>,
+    )>,
+) {
+    for (power, state, mut demand, charge, boost, laser_state, pulling) in &mut turrets {
+        let boost = boost.map_or(1.0, Boost::value);
+        demand.value = match power {
+            TurretPower::Charge {
+                capacity,
+                charge_rate,
+            } => {
+                let current = charge.map_or(*capacity, |c| c.value);
+                if current < *capacity {
+                    charge_rate * boost
+                } else {
+                    0.0
+                }
+            }
+            TurretPower::Drain { rate } => {
+                let beam_active = laser_state.is_some_and(|s| {
+                    matches!(s.shooting, LaserBeamPatternShootingState::Shooting { .. })
+                }) || (pulling.is_some() && state.active);
+                if beam_active { *rate } else { 0.0 }
+            }
+        };
+    }
+}
+
+pub fn advance_turret_charge(
+    time: Res<Time>,
+    mut turrets: Query<(
+        &TurretPower,
+        &mut TurretCharge,
+        Option<&Supply>,
+        Option<&Boost>,
+    )>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+
+    for (power, mut charge, supply, boost) in &mut turrets {
+        let TurretPower::Charge {
+            capacity,
+            charge_rate,
+        } = *power
+        else {
+            continue;
+        };
+        let supply = supply.map_or(1.0, Supply::value);
+        let boost = boost.map_or(1.0, Boost::value);
+        charge.value = (charge.value + charge_rate * supply * boost * dt).min(capacity);
     }
 }
 
@@ -257,6 +330,75 @@ mod tests {
     }
 
     #[test]
+    fn full_battery_draws_zero_and_starved_charges_slower() {
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.add_systems(Update, (update_turret_demand, advance_turret_charge).chain());
+
+        let turret = app
+            .world_mut()
+            .spawn((
+                TurretPower::Charge {
+                    capacity: 20.0,
+                    charge_rate: 10.0,
+                },
+                TurretState::default(),
+                TurretCharge { value: 20.0 },
+                Demand::default(),
+                Supply { value: 0.5 },
+                Boost { value: 1.0 },
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<Time<()>>()
+            .advance_by(Duration::from_secs(1));
+        app.update();
+        assert_eq!(app.world().get::<Demand>(turret).unwrap().value, 0.0);
+
+        app.world_mut().get_mut::<TurretCharge>(turret).unwrap().value = 0.0;
+        for _ in 0..4 {
+            app.world_mut()
+                .resource_mut::<Time<()>>()
+                .advance_by(Duration::from_secs(1));
+            app.update();
+        }
+        assert!((app.world().get::<TurretCharge>(turret).unwrap().value - 20.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn beam_turret_draws_only_while_active() {
+        let mut app = App::new();
+        app.add_systems(Update, update_turret_demand);
+
+        let beam = app
+            .world_mut()
+            .spawn((
+                TurretPower::Drain { rate: 10.0 },
+                TurretState::default(),
+                Demand::default(),
+                LaserBeamPatternState {
+                    targets: Vec::new(),
+                    beam: None,
+                    shooting: LaserBeamPatternShootingState::Cooldown { last_fired_at: 0.0 },
+                },
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(app.world().get::<Demand>(beam).unwrap().value, 0.0);
+
+        app.world_mut()
+            .get_mut::<LaserBeamPatternState>(beam)
+            .unwrap()
+            .shooting = LaserBeamPatternShootingState::Shooting { start_time: 0.0 };
+        app.update();
+        assert_eq!(app.world().get::<Demand>(beam).unwrap().value, 10.0);
+    }
+
+    #[test]
     fn most_hp_uses_health_then_distance_then_id() {
         let low_hp_close = candidate(1, 1.0, 10.0);
         let high_hp_far = candidate(2, 400.0, 100.0);
@@ -361,3 +503,4 @@ pub fn turret_tracking(
         }
     }
 }
+

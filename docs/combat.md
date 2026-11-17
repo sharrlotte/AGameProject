@@ -9,7 +9,9 @@
   `shooting_pattern`.
 - `TurretState` — `active: bool`, `target: Option<Entity>`, `shoot_at: Option<Vec2>`.
 - `Radar::new(range, 1.0s)` — repeating sensor scan for enemy ships.
-- `BlockEfficiency` (stats), `Sprite` (barrel/base image).
+- `Boost` (stats), `Sprite` (barrel/base image).
+- Optional `TurretPower` (`Charge { capacity, charge_rate }` for `Single`/`Burst` with `TurretCharge`; `Drain { rate }` for `LaserBeam`/`PullingBeam`), plus `Demand` and `Supply` when powered.
+  Shot patterns require full `TurretCharge` and `fire_rate / boost` cooldown; beam damage/pull scale with `Supply` (stopping at `<= 0.01`), with cooldown divided by `boost`.
 
 ## Targeting (`FixedUpdate::update_turret_target`)
 
