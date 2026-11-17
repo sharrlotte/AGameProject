@@ -417,12 +417,7 @@ impl BlockRegistry {
         let min = min.as_vec2() * GRID_SIZE;
         let max = max.as_vec2() * GRID_SIZE;
 
-        Some(BoundingBox {
-            min,
-            max,
-            size: max - min,
-            center: (min + max) / 2.0,
-        })
+        Some(BoundingBox { size: max - min })
     }
 
     /// Locate the single core block. Returns its id and ship-local centre.

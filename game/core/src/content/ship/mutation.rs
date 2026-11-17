@@ -13,6 +13,7 @@ use crate::simulation::SimulationSet;
 
 /// All placement changes go through this single mutation pipeline.
 #[derive(Message, Debug, Clone)]
+#[allow(dead_code)] // Batch/layout variants are handled by the pipeline and kept for editor use.
 pub enum ShipMutation {
     DestroyBlock {
         ship: Entity,

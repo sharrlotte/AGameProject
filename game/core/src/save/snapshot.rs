@@ -251,7 +251,6 @@ fn restore_behavior(commands: &mut Commands, entity: Entity, label: &str, timer_
     commands.entity(entity).insert(AiRuntime {
         current: behavior,
         spawn_position: Vec2::ZERO,
-        leader: None,
         rule_cooldowns: Vec::new(),
         think_timer: timer,
     });

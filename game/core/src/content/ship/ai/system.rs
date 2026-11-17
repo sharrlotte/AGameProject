@@ -1,10 +1,9 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::Velocity;
 use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
-use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
+use crate::content::ship::{BoundingBox, ShipBehavior, ShipStats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
@@ -14,7 +13,6 @@ use crate::simulation::SimulationSet;
 pub struct ShipInfo {
     pub entity: Entity,
     pub position: Vec2,
-    pub size_len: f32,
 }
 
 #[derive(Resource, Default)]
@@ -38,15 +36,14 @@ impl Plugin for AiPlugin {
 }
 
 pub fn build_ship_index(
-    ships: Query<(Entity, &GlobalTransform, &BoundingBox, &Team)>,
+    ships: Query<(Entity, &GlobalTransform, &Team)>,
     mut index: ResMut<ShipIndex>,
 ) {
     index.teams.clear();
-    for (entity, transform, bbox, team) in &ships {
+    for (entity, transform, team) in &ships {
         index.teams.entry(team.id).or_default().push(ShipInfo {
             entity,
             position: transform.translation().truncate(),
-            size_len: bbox.size.length(),
         });
     }
 
@@ -164,6 +161,16 @@ fn resolve_position(
     }
 }
 
+/// Which `PositionRef`, if any, a behavior spec needs resolved before it can
+/// become a runtime behavior.
+fn position_for_spec(spec: &BehaviorSpec) -> Option<PositionRef> {
+    match spec {
+        BehaviorSpec::Patrol { around, .. } => Some(*around),
+        BehaviorSpec::Regroup { position, .. } => Some(*position),
+        _ => None,
+    }
+}
+
 fn condition_matches(
     condition: &AiCondition,
     index: &ShipIndex,
@@ -269,7 +276,25 @@ pub fn evaluate_ai_rules(
             let target = target_for_spec(
                 &rule.then, &index, team.id, entity, position, ship_stats, &stats,
             );
-            runtime.current = behavior_from_spec(&rule.then, runtime.spawn_position, target);
+            let position_ref = position_for_spec(&rule.then);
+            let behavior_position = position_ref
+                .map(|reference| {
+                    resolve_position(
+                        reference,
+                        &index,
+                        team.id,
+                        entity,
+                        runtime.spawn_position,
+                        &transforms,
+                    )
+                })
+                .unwrap_or(runtime.spawn_position);
+            runtime.current = behavior_from_spec(
+                &rule.then,
+                runtime.spawn_position,
+                behavior_position,
+                target,
+            );
             if let Some(cooldown) = runtime.rule_cooldowns.get_mut(rule_index) {
                 *cooldown = rule.cooldown_secs;
             }
@@ -285,8 +310,6 @@ pub fn evaluate_ai_rules(
                 point: runtime.spawn_position + jitter,
             };
         }
-
-        let _ = &transforms;
     }
 }
 
@@ -314,23 +337,12 @@ fn target_for_spec(
 /// Turn the current runtime behavior into a steering intent consumed by
 /// `update_ship_behavior`.
 pub fn apply_ai_behaviors(
-    mut ships: Query<(
-        Entity,
-        &AiRuntime,
-        &Transform,
-        &Ship,
-        &ShipStats,
-        &BoundingBox,
-        &Team,
-        &mut Velocity,
-    )>,
+    mut ships: Query<(Entity, &AiRuntime, &Transform, &ShipStats, &BoundingBox)>,
     transforms: Query<&Transform>,
-    stats: Query<&ShipStats>,
-    index: Res<ShipIndex>,
     config: Res<GameConfigValue>,
     mut commands: Commands,
 ) {
-    for (entity, runtime, transform, ship, ship_stats, bbox, _team, mut velocity) in &mut ships {
+    for (entity, runtime, transform, ship_stats, bbox) in &mut ships {
         let position = transform.translation.truncate();
         let size = bbox.size.length();
         let intent = match &runtime.current {
@@ -443,8 +455,6 @@ pub fn apply_ai_behaviors(
         };
 
         commands.entity(entity).insert(intent);
-
-        let _ = (ship, &mut velocity, &index, &stats);
     }
 }
 
@@ -453,11 +463,7 @@ mod tests {
     use super::*;
 
     fn ship_info(entity: Entity, position: Vec2) -> ShipInfo {
-        ShipInfo {
-            entity,
-            position,
-            size_len: 100.0,
-        }
+        ShipInfo { entity, position }
     }
 
     #[test]

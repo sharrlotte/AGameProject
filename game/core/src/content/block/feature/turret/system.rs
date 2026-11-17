@@ -27,12 +27,6 @@ impl Plugin for TurretPlugin {
     }
 }
 
-fn target_entity(target: TurretTarget) -> Entity {
-    match target {
-        TurretTarget::Ship(entity) | TurretTarget::Projectile(entity) => entity,
-    }
-}
-
 /// Solve the intercept point for a moving target and a finite projectile
 /// speed. Falls back to the target's current position when there is no
 /// positive-time solution (e.g. instantaneous beams).

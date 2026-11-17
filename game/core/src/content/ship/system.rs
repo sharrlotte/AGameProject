@@ -488,9 +488,7 @@ pub fn collect_drop(
 ) {
     for (drop_entity, mut drop_transform, drop_component) in &mut drops {
         let drop_position = drop_transform.translation.truncate();
-        let DropComponent::Item(item) = drop_component else {
-            continue;
-        };
+        let DropComponent::Item(item) = drop_component;
 
         let nearest = ships
             .iter_mut()

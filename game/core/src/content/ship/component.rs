@@ -22,27 +22,14 @@ pub struct Ship {
     pub core_position: Vec2,
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default)]
 pub struct BoundingBox {
-    pub min: Vec2,
-    pub max: Vec2,
     pub size: Vec2,
-    pub center: Vec2,
-}
-
-impl Default for BoundingBox {
-    fn default() -> Self {
-        Self {
-            min: Vec2::splat(f32::MAX),
-            max: Vec2::splat(f32::MIN),
-            size: Vec2::ZERO,
-            center: Vec2::ZERO,
-        }
-    }
 }
 
 /// Blocks that were cut off from the core by a mutation.
 #[derive(Component, Debug, Clone, Default)]
+#[allow(dead_code)] // Authoritative build result consumed by tests and future consumers.
 pub struct ShipFragment {
     pub placements: Vec<BlockPlacement>,
 }
@@ -50,6 +37,7 @@ pub struct ShipFragment {
 /// Result of deriving a ship from a grid. A missing `ship` means the layout has
 /// no core and cannot be spawned as a ship.
 #[derive(Clone, Debug, Default)]
+#[allow(dead_code)] // `fragments` is part of the canonical build result.
 pub struct ShipBuildResult {
     pub ship: Option<Ship>,
     pub stats: Option<ShipStats>,
@@ -75,6 +63,7 @@ fn default_version() -> u32 {
 }
 
 impl ShipDesign {
+    #[allow(dead_code)] // Used by design fixtures and tests.
     pub fn new(blocks: Vec<BlockPlacement>) -> Self {
         Self {
             version: 1,

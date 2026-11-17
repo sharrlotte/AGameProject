@@ -57,10 +57,6 @@ impl ShipStats {
     pub fn is_full(&self) -> bool {
         self.cargo_used >= self.cargo_capacity
     }
-
-    pub fn cargo_free(&self) -> u32 {
-        self.cargo_capacity.saturating_sub(self.cargo_used)
-    }
 }
 
 /// Recompute pooled cargo capacity after the grid changes. If capacity drops

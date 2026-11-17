@@ -37,6 +37,7 @@ impl ShipGrid {
         }
     }
 
+    #[allow(dead_code)] // Canonical grid query; used by validation/tests.
     pub fn entity_at(&self, cell: IVec2) -> Option<Entity> {
         let id = self.cells.get(&cell)?;
         self.blocks.get(id).map(|block| block.entity)
@@ -81,6 +82,7 @@ impl ShipGrid {
     }
 
     /// Recompute the cell map after block entities changed.
+    #[allow(dead_code)] // Canonical grid rebuild helper; kept for layout mutations.
     pub fn refresh_cells(&mut self, registry: &BlockRegistry) {
         self.cells.clear();
         let blocks: Vec<(Uuid, IVec2, IVec2)> = self

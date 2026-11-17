@@ -57,10 +57,6 @@ impl AmmoState {
         self.current
     }
 
-    pub fn set_current(&mut self, current: u32) {
-        self.current = current;
-    }
-
     pub fn take(&mut self) -> bool {
         if self.current > 0 {
             self.current -= 1;

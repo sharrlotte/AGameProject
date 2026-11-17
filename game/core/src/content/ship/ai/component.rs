@@ -112,7 +112,6 @@ impl AiBehavior {
 pub struct AiRuntime {
     pub current: AiBehavior,
     pub spawn_position: Vec2,
-    pub leader: Option<Entity>,
     pub rule_cooldowns: Vec<f32>,
     pub think_timer: Timer,
 }
@@ -120,9 +119,8 @@ pub struct AiRuntime {
 impl AiRuntime {
     pub fn new(profile: &AiProfile, spawn_position: Vec2) -> Self {
         Self {
-            current: behavior_from_spec(&profile.initial, spawn_position, None),
+            current: behavior_from_spec(&profile.initial, spawn_position, spawn_position, None),
             spawn_position,
-            leader: None,
             rule_cooldowns: vec![0.0; profile.rules.len()],
             think_timer: Timer::from_seconds(
                 1.0 / AI_THINK_RATE_HZ.max(f32::EPSILON),
@@ -137,6 +135,7 @@ impl AiRuntime {
 pub fn behavior_from_spec(
     spec: &BehaviorSpec,
     spawn_position: Vec2,
+    position: Vec2,
     target: Option<Entity>,
 ) -> AiBehavior {
     match spec {
@@ -146,7 +145,7 @@ pub fn behavior_from_spec(
         }
         .with_radius(*radius),
         BehaviorSpec::Patrol { radius, .. } => AiBehavior::Patrol {
-            around: spawn_position,
+            around: position,
             radius: *radius,
         },
         BehaviorSpec::Guard { radius, .. } => AiBehavior::Guard {
@@ -158,7 +157,7 @@ pub fn behavior_from_spec(
             radius: *radius,
         },
         BehaviorSpec::Regroup { radius, .. } => AiBehavior::Regroup {
-            position: spawn_position,
+            position,
             radius: *radius,
         },
         BehaviorSpec::Kite { range } => AiBehavior::Kite {

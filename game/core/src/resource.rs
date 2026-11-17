@@ -3,8 +3,6 @@ use bevy::{
     prelude::Reflect,
     state::state::States,
 };
-use rand::SeedableRng;
-use rand::rngs::SmallRng;
 
 use crate::content::ship::ShipDesign;
 
@@ -36,28 +34,20 @@ pub struct DeployPayload {
     pub current_ship: Option<ShipDesign>,
 }
 
-/// Seeded RNG shared by systems that affect gameplay. Persisting the seed in a
-/// save slot makes a restored battle continue its exact random sequence.
+/// Seed persisted in save slots. Kept as a resource so the snapshot can carry
+/// it without tying the save schema to a concrete RNG implementation.
 #[derive(Resource)]
 pub struct GameRng {
     seed: u64,
-    rng: SmallRng,
 }
 
 impl GameRng {
     pub fn new(seed: u64) -> Self {
-        Self {
-            seed,
-            rng: SmallRng::seed_from_u64(seed),
-        }
+        Self { seed }
     }
 
     pub fn seed(&self) -> u64 {
         self.seed
-    }
-
-    pub fn rng_mut(&mut self) -> &mut SmallRng {
-        &mut self.rng
     }
 }
 
@@ -88,10 +78,6 @@ pub struct PendingLoad {
 }
 
 impl PendingLoad {
-    pub fn request(&mut self, slot: u8) {
-        self.slot = Some(slot);
-    }
-
     pub fn is_pending(&self) -> bool {
         self.slot.is_some()
     }
