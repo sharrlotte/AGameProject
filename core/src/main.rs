@@ -2,12 +2,14 @@ mod asset;
 mod config;
 mod constant;
 mod content;
+mod control;
 mod mission;
 mod resource;
 mod save;
 mod scene;
 mod simulation;
 mod system;
+mod ui;
 
 #[cfg(feature = "dev")]
 use crate::asset::AssetCheckPlugin;
@@ -16,7 +18,7 @@ use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
 use crate::resource::{
-    CameraTarget, ControlMode, ControlledShip, DeployPayload, GameRng, PauseState, SceneState,
+    DeployPayload, GameRng, PauseState, SceneState,
 };
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
@@ -25,6 +27,7 @@ use crate::scene::home::HomeScenePlugin;
 use crate::scene::notice::NoticePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
+use crate::control::ControlPlugin;
 use crate::simulation::SimulationSet;
 use crate::system::{load_current_ship, setup_camera};
 use bevy::audio::{AudioPlugin, SpatialScale};
@@ -45,10 +48,19 @@ use bevy::input::common_conditions::input_toggle_active;
 #[cfg(all(debug_assertions, feature = "dev"))]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
-// TODO: To big, seperate into smaller function that register things in group
 fn main() {
     let mut app = App::new();
 
+    register_engine_plugins(&mut app);
+    register_resources_and_states(&mut app);
+    register_simulation_sets(&mut app);
+    register_game_plugins(&mut app);
+    register_debug_and_dev_plugins(&mut app);
+
+    app.run();
+}
+
+fn register_engine_plugins(app: &mut App) {
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
@@ -81,56 +93,66 @@ fn main() {
                 },
             )
             .in_fixed_schedule(),
-    )
-    .init_resource::<DeployPayload>()
-    .init_resource::<CameraTarget>()
-    .init_resource::<ControlledShip>()
-    .init_resource::<ControlMode>()
-    .init_resource::<GameRng>()
-    // Gameplay systems assume config exists; a failed load still shows the
-    // error screen instead of panicking on a missing resource.
-    .init_resource::<GameConfigValue>()
-    .init_state::<SceneState>()
-    .init_state::<PauseState>()
-    .configure_sets(PreUpdate, SimulationSet::Input)
-    .configure_sets(FixedFirst, SimulationSet::Stats)
-    .configure_sets(FixedPreUpdate, SimulationSet::Stats)
-    .configure_sets(
-        FixedUpdate,
-        (
-            SimulationSet::Ai,
-            SimulationSet::Control,
-            SimulationSet::Weapons,
-            SimulationSet::Cleanup,
+    );
+}
+
+fn register_resources_and_states(app: &mut App) {
+    app.init_resource::<DeployPayload>()
+        .init_resource::<GameRng>()
+        // Gameplay systems assume config exists; a failed load still shows the
+        // error screen instead of panicking on a missing resource.
+        .init_resource::<GameConfigValue>()
+        .init_state::<SceneState>()
+        .init_state::<PauseState>()
+        .insert_resource(Time::<Fixed>::from_hz(60.0));
+}
+
+fn register_simulation_sets(app: &mut App) {
+    app.configure_sets(PreUpdate, SimulationSet::Input)
+        .configure_sets(FixedFirst, SimulationSet::Stats)
+        .configure_sets(FixedPreUpdate, SimulationSet::Stats)
+        .configure_sets(
+            FixedUpdate,
+            (
+                SimulationSet::Ai,
+                SimulationSet::Control,
+                SimulationSet::Weapons,
+                SimulationSet::Cleanup,
+            )
+                .chain(),
         )
-            .chain(),
-    )
-    .configure_sets(
-        FixedPostUpdate,
-        (SimulationSet::Damage, SimulationSet::Death).chain(),
-    )
-    .configure_sets(FixedLast, SimulationSet::Cleanup)
-    .configure_sets(
-        Update,
-        (SimulationSet::Input, SimulationSet::Present).chain(),
-    )
-    .configure_sets(PostUpdate, SimulationSet::Present)
-    .add_systems(Startup, (setup_camera, load_current_ship))
-    .add_plugins((
-        ConfigPlugin,
-        MissionPlugin,
-        GameScenePlugin,
-        HomeScenePlugin,
-        PauseScenePlugin,
-        ShipEditorPlugin,
-        SavePlugin,
-        HanabiPlugin,
-        ContentPlugin,
-        SettingScenePlugin,
-        NoticePlugin,
-        scene::widget::WidgetPlugin,
-    ))
-    .insert_resource(Time::<Fixed>::from_hz(60.0));
+        .configure_sets(
+            FixedPostUpdate,
+            (SimulationSet::Damage, SimulationSet::Death).chain(),
+        )
+        .configure_sets(FixedLast, SimulationSet::Cleanup)
+        .configure_sets(
+            Update,
+            (SimulationSet::Input, SimulationSet::Present).chain(),
+        )
+        .configure_sets(PostUpdate, SimulationSet::Present);
+}
+
+fn register_game_plugins(app: &mut App) {
+    app.add_systems(Startup, (setup_camera, load_current_ship))
+        .add_plugins((
+            ConfigPlugin,
+            ControlPlugin,
+            MissionPlugin,
+            GameScenePlugin,
+            HomeScenePlugin,
+            PauseScenePlugin,
+            ShipEditorPlugin,
+            SavePlugin,
+            HanabiPlugin,
+            ContentPlugin,
+            SettingScenePlugin,
+            NoticePlugin,
+            scene::widget::WidgetPlugin,
+        ));
+}
+
+fn register_debug_and_dev_plugins(app: &mut App) {
 
     #[cfg(debug_assertions)]
     {
@@ -159,6 +181,4 @@ fn main() {
             AssetCheckPlugin,
         ));
     }
-
-    app.run();
 }
