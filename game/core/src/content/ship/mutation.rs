@@ -41,7 +41,7 @@ impl Plugin for ShipMutationPlugin {
             .add_systems(
                 FixedPostUpdate,
                 apply_ship_mutations
-                    .after(crate::content::block::handle_block_destroy)
+                    .after(super::super::block::handle_block_destroy)
                     .in_set(SimulationSet::Death),
             );
     }

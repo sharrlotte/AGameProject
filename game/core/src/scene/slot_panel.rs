@@ -1,5 +1,6 @@
 use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::resource::{AppNotice, PauseState};
 use crate::save::io::{LoadWorldEvent, SaveWorldEvent, list_slots};
@@ -135,8 +136,8 @@ fn slot_label(info: &SlotInfo) -> String {
 }
 
 fn relative_time(saved_at_unix_ms: u64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(saved_at_unix_ms);
     let secs = now.saturating_sub(saved_at_unix_ms) / 1000;

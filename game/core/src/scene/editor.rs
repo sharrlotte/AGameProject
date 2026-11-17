@@ -4,6 +4,8 @@ use bevy::{
     prelude::*,
     window::PrimaryWindow,
 };
+use ron::ser::{PrettyConfig, to_string_pretty};
+use std::mem;
 use uuid::Uuid;
 
 use crate::{
@@ -14,6 +16,7 @@ use crate::{
             component::{BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP},
             feature::{Feature, turret::TurretSprite},
         },
+        ship::ai::{AiProfile, PRESETS},
         ship::{ShipDesign, ShipGrid},
     },
     resource::{DeployPayload, SceneState},
@@ -134,7 +137,7 @@ pub struct EditorState {
     pub filename: String,
     pub grid: ShipGrid,
     pub ships: Vec<ShipDesign>,
-    pub ai_profile: crate::content::ship::ai::AiProfile,
+    pub ai_profile: AiProfile,
 }
 
 pub fn send_scroll_events(
@@ -151,7 +154,7 @@ pub fn send_scroll_events(
         }
 
         if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-            std::mem::swap(&mut delta.x, &mut delta.y);
+            mem::swap(&mut delta.x, &mut delta.y);
         }
 
         for pointer_map in hover_map.values() {
@@ -392,7 +395,7 @@ pub fn setup_editor_ui(
                                 },
                                 TextColor(Color::WHITE),
                             ));
-                            for preset in crate::content::ship::ai::PRESETS {
+                            for preset in PRESETS {
                                 panel
                                     .spawn((
                                         Node {
@@ -1152,8 +1155,7 @@ pub fn update_ai_preview(
     let Ok(mut text) = texts.single_mut() else {
         return;
     };
-    let Ok(ron) = ron::ser::to_string_pretty(&editor.ai_profile, ron::ser::PrettyConfig::default())
-    else {
+    let Ok(ron) = to_string_pretty(&editor.ai_profile, PrettyConfig::default()) else {
         return;
     };
     text.0 = ron;
@@ -1458,7 +1460,7 @@ pub fn perform_save_schematic(
     id: Uuid,
     name: String,
     grid: &ShipGrid,
-    profile: &crate::content::ship::ai::AiProfile,
+    profile: &AiProfile,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let design = ShipDesign {

@@ -3,6 +3,7 @@ use bevy::{
     state::state::States,
 };
 use rand::SeedableRng;
+use rand::rngs::SmallRng;
 
 use crate::content::ship::ShipDesign;
 
@@ -39,14 +40,14 @@ pub struct DeployPayload {
 #[derive(Resource)]
 pub struct GameRng {
     seed: u64,
-    rng: rand::rngs::SmallRng,
+    rng: SmallRng,
 }
 
 impl GameRng {
     pub fn new(seed: u64) -> Self {
         Self {
             seed,
-            rng: rand::rngs::SmallRng::seed_from_u64(seed),
+            rng: SmallRng::seed_from_u64(seed),
         }
     }
 
@@ -54,7 +55,7 @@ impl GameRng {
         self.seed
     }
 
-    pub fn rng_mut(&mut self) -> &mut rand::rngs::SmallRng {
+    pub fn rng_mut(&mut self) -> &mut SmallRng {
         &mut self.rng
     }
 }

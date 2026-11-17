@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::path::PathBuf;
 use std::{fs, path::Path};
 
 use crate::content::ship::ShipDesign;
@@ -15,7 +16,7 @@ const RAIDER: &str = include_str!("../../assets/config/starter/raider.ron");
 pub struct ShipCatalog;
 
 impl ShipCatalog {
-    pub fn designs_dir() -> std::path::PathBuf {
+    pub fn designs_dir() -> PathBuf {
         data_dir().join("designs")
     }
 
@@ -89,6 +90,7 @@ impl ShipCatalog {
         write_document(&Self::designs_dir().join(file), design)
     }
 
+    #[allow(dead_code)]
     pub fn load(name: &str) -> Result<ShipDesign, DocumentError> {
         read_document(&Self::designs_dir().join(format!("{name}.ron")))
     }

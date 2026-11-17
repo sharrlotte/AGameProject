@@ -2,6 +2,7 @@ use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
+use std::collections::HashSet;
 use std::f32::consts::PI;
 
 use super::*;
@@ -9,7 +10,9 @@ use crate::config::GameConfigValue;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::energy::PowerEfficiency;
-use crate::content::block::feature::turret::{Turret, TurretBarrel, TurretSprite, TurretState};
+use crate::content::block::feature::turret::{
+    Turret, TurretBarrel, TurretSprite, TurretState, TurretTarget,
+};
 use crate::content::block::radar::Radar;
 use crate::content::block::{
     BlockOwner, BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
@@ -198,9 +201,7 @@ pub fn handle_single_shot(
                     *range,
                     &shoot_pattern.projectile,
                     match turret_state.target {
-                        Some(crate::content::block::feature::turret::TurretTarget::Ship(
-                            entity,
-                        )) => Some(entity),
+                        Some(TurretTarget::Ship(entity)) => Some(entity),
                         _ => None,
                     },
                     &config,
@@ -296,9 +297,7 @@ pub fn handle_burst_shot(
                     *range,
                     &shoot_pattern.projectile,
                     match turret_state.target {
-                        Some(crate::content::block::feature::turret::TurretTarget::Ship(
-                            entity,
-                        )) => Some(entity),
+                        Some(TurretTarget::Ship(entity)) => Some(entity),
                         _ => None,
                     },
                     &config,
@@ -516,7 +515,7 @@ pub fn handle_pulling_beam(
 
         // Each target ship is pulled at most once per tick, even when several
         // barrel boxes overlap the same block.
-        let mut pulled = std::collections::HashSet::new();
+        let mut pulled = HashSet::new();
 
         if !turret_state.active {
             if let Some(beam) = state.beam {

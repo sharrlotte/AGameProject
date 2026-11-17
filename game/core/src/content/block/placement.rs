@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+
+use crate::constant::GRID_SIZE;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -27,7 +29,7 @@ impl BlockPlacement {
 
     /// Top-left pixel position of this block, relative to the ship origin.
     pub fn position_pixel(&self) -> Vec2 {
-        self.position.as_vec2() * crate::constant::GRID_SIZE
+        self.position.as_vec2() * GRID_SIZE
     }
 }
 

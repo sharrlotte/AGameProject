@@ -1,5 +1,8 @@
+use std::error::Error;
+use std::io;
 use std::{fmt, fs, path::Path};
 
+use ron::ser::{PrettyConfig, to_string_pretty};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// A top-level file format that carries its own schema version.
@@ -23,7 +26,7 @@ pub struct Versioned<T> {
 
 #[derive(Debug)]
 pub enum DocumentError {
-    Io(std::io::Error),
+    Io(io::Error),
     Parse(String),
     Version {
         kind: &'static str,
@@ -49,10 +52,10 @@ impl fmt::Display for DocumentError {
     }
 }
 
-impl std::error::Error for DocumentError {}
+impl Error for DocumentError {}
 
-impl From<std::io::Error> for DocumentError {
-    fn from(value: std::io::Error) -> Self {
+impl From<io::Error> for DocumentError {
+    fn from(value: io::Error) -> Self {
         Self::Io(value)
     }
 }
@@ -84,14 +87,14 @@ pub fn read_document<T: RonDocument>(path: &Path) -> Result<T, DocumentError> {
 
 /// Serialize a versioned RON document and write it atomically.
 pub fn write_document<T: RonDocument>(path: &Path, value: &T) -> Result<(), DocumentError> {
-    let text = ron::ser::to_string_pretty(value, ron::ser::PrettyConfig::default())
+    let text = to_string_pretty(value, PrettyConfig::default())
         .map_err(|e| DocumentError::Parse(e.to_string()))?;
     atomic_write(path, text.as_bytes())?;
     Ok(())
 }
 
 /// Write through a temporary file, keeping the previous contents as `.bak`.
-pub fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+pub fn atomic_write(path: &Path, contents: &[u8]) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }

@@ -9,16 +9,19 @@ use bevy_rapier2d::prelude::*;
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
+use crate::constant::LAYER_DROP;
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::turret::TurretState;
 use crate::content::block::{
     BlockPlacement, BlockRef, BlockRegistry, BurstShootPatternState, DropComponent, Health,
-    LaserBeamPatternState, PullingBeamPatternState, SingleShootPatternState, spawn_block_entity,
+    ItemDrop, LaserBeamPatternState, PullingBeamPatternState, SingleShootPatternState,
+    spawn_block_entity,
 };
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::ai::{AiBehavior, AiProfile, AiRuntime};
 use crate::content::ship::{Ship, ShipDesign, ShipGrid};
 use crate::content::team::Team;
+use crate::resource::SceneState;
 use crate::save::document::DocumentError;
 use crate::save::schema::*;
 
@@ -385,12 +388,12 @@ impl RestoreSnapshot for WorldSave {
         for drop in self.drops {
             let duration = drop.remaining_secs.max(0.0);
             commands.spawn((
-                DropComponent::Item(crate::content::block::ItemDrop {
+                DropComponent::Item(ItemDrop {
                     item_type: drop.item_type,
                     amount: drop.amount,
                 }),
-                DespawnOnExit(crate::resource::SceneState::Game),
-                Transform::from_translation(drop.position.extend(crate::constant::LAYER_DROP)),
+                DespawnOnExit(SceneState::Game),
+                Transform::from_translation(drop.position.extend(LAYER_DROP)),
                 Lifetime::seconds(duration),
             ));
         }

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use crate::{
@@ -5,8 +6,8 @@ use crate::{
     content::{
         block::{BlockRegistry, Health},
         selectable::EntitySelectEvent,
-        ship::ShipGrid,
         ship::component::{BoundingBox, Ship},
+        ship::{ShipGrid, ShipStats},
         team::Team,
     },
     resource::{CameraTarget, ControlMode, ControlledShip, SceneState},
@@ -232,7 +233,7 @@ fn handle_ship_button_click(
 /// Show the pooled cargo of all player ships plus an item breakdown.
 fn update_cargo_hud(
     mut texts: Query<&mut Text, With<CargoHudText>>,
-    ships: Query<(&crate::content::ship::ShipStats, &Team)>,
+    ships: Query<(&ShipStats, &Team)>,
 ) {
     let Ok(mut text) = texts.single_mut() else {
         return;
@@ -240,7 +241,7 @@ fn update_cargo_hud(
 
     let mut used = 0u32;
     let mut capacity = 0u32;
-    let mut items: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+    let mut items: BTreeMap<String, u32> = BTreeMap::new();
     for (stats, team) in &ships {
         if !team.is_player() {
             continue;

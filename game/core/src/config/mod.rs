@@ -57,8 +57,10 @@ pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
+        use crate::config::setting::SettingSaveTimer;
+
         app.init_state::<ConfigState>()
-            .init_resource::<setting::SettingSaveTimer>()
+            .init_resource::<SettingSaveTimer>()
             .init_asset::<GameConfig>()
             .init_asset::<BlocksConfig>()
             .init_asset::<GameSetting>()

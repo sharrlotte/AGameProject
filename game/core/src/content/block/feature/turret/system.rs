@@ -5,7 +5,7 @@ use super::{Turret, TurretBarrel, TurretSprite, TurretState, TurretTarget};
 use crate::{
     content::{
         block::{component::TargetingStrategy, radar::Radar},
-        bullet::{Interceptable, ProjectileOwner},
+        bullet::{Interceptable, Missile, ProjectileOwner},
         ship::{Ship, ShipGrid, ShipStats},
         team::Team,
     },
@@ -137,7 +137,7 @@ pub fn update_turret_target(
             &GlobalTransform,
             &Velocity,
             &ProjectileOwner,
-            Option<&crate::content::bullet::Missile>,
+            Option<&Missile>,
         ),
         With<Interceptable>,
     >,

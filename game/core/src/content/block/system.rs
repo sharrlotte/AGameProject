@@ -9,6 +9,7 @@ use crate::content::damage::DamageEvent;
 use crate::content::death::Death;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
+use crate::content::ship::mutation::apply_ship_mutations;
 use crate::content::ship::{ShipGrid, ShipMutation};
 use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
@@ -31,7 +32,7 @@ impl Plugin for BlockPlugin {
             .add_systems(
                 FixedPostUpdate,
                 handle_drop
-                    .after(crate::content::ship::mutation::apply_ship_mutations)
+                    .after(apply_ship_mutations)
                     .in_set(SimulationSet::Death),
             )
             .add_plugins((RadarPlugin, ComponentPlugin));

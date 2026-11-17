@@ -1,9 +1,11 @@
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::Velocity;
 use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
 use crate::content::damage::DamageEvent;
+use crate::content::death::Death;
 use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
@@ -324,7 +326,7 @@ pub fn apply_ai_behaviors(
         &ShipStats,
         &BoundingBox,
         &Team,
-        &mut bevy_rapier2d::prelude::Velocity,
+        &mut Velocity,
     )>,
     transforms: Query<&Transform>,
     stats: Query<&ShipStats>,
@@ -460,7 +462,7 @@ pub fn apply_ai_behaviors(
                         target: target.unwrap_or(entity),
                         damage: config.0.ai_kamikaze_damage,
                     });
-                    commands.entity(entity).insert(crate::content::death::Death);
+                    commands.entity(entity).insert(Death);
                 }
                 ShipBehavior::Approach {
                     position: enemy,

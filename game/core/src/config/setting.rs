@@ -2,6 +2,9 @@ use bevy::asset::AssetEvent;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use ron::ser::{PrettyConfig, to_string_pretty};
+use std::env;
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
@@ -75,7 +78,7 @@ pub fn save_setting_on_change(
     let path = root.join("config/setting.ron");
 
     if let Some(parent) = path.parent()
-        && let Err(e) = std::fs::create_dir_all(parent)
+        && let Err(e) = fs::create_dir_all(parent)
     {
         error!(
             "Failed to create config directory {}: {:?}",
@@ -86,9 +89,9 @@ pub fn save_setting_on_change(
         return;
     }
 
-    match ron::ser::to_string_pretty(&*setting, ron::ser::PrettyConfig::default()) {
+    match to_string_pretty(&*setting, PrettyConfig::default()) {
         Ok(ron) => {
-            if let Err(e) = std::fs::write(&path, ron) {
+            if let Err(e) = fs::write(&path, ron) {
                 error!("Failed to write {}: {:?}", path.display(), e);
             }
         }
@@ -100,7 +103,7 @@ pub fn save_setting_on_change(
 }
 
 fn asset_root() -> PathBuf {
-    std::env::var("BEVY_ASSET_ROOT")
+    env::var("BEVY_ASSET_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("assets"))
 }

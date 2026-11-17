@@ -7,6 +7,7 @@ use std::{
 
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
+use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::mission::{BattleOutcome, BattlePhase, BattleResult};
 use crate::resource::{AppNotice, CameraTarget, ControlledShip, GameRng, PendingLoad, SceneState};
 use crate::save::document::{read_document, write_document};
@@ -186,7 +187,7 @@ pub fn spawn_loaded_world(
         commands.entity(entity).despawn();
     }
 
-    let team = crate::content::team::Team::new(crate::content::team::DEFAULT_TEAM_ID);
+    let team = Team::new(DEFAULT_TEAM_ID);
     if let Err(e) = save
         .clone()
         .restore(&mut commands, &registry, &config, team, None)

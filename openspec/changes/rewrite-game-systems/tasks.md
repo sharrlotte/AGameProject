@@ -97,22 +97,22 @@
 
 ## 9. Phase 8 — Performance and editor split
 
-- [ ] 9.1 Replace 2,720 background sprites with a shader or two-to-three tiled parallax layers updated on camera movement
-- [ ] 9.2 Pool 64 damage-text entities; reuse instead of spawn/despawn
-- [ ] 9.3 Rebuild radar at most 10 Hz or on `ShipChanged`
-- [ ] 9.4 Gate debug UI behind `DebugOverlay`; make ammo icons children or update them on change
-- [ ] 9.5 Sort `BlockRegistry::iter` once at registration
+- [x] 9.1 Replace 2,720 background sprites with a shader or two-to-three tiled parallax layers updated on camera movement
+- [x] 9.2 Pool 64 damage-text entities; reuse instead of spawn/despawn
+- [x] 9.3 Rebuild radar at most 10 Hz or on `ShipChanged`
+- [x] 9.4 Gate debug UI behind `DebugOverlay`; make ammo icons children or update them on change
+- [x] 9.5 Sort `BlockRegistry::iter` once at registration
 - [ ] 9.6 Split `scene/editor.rs` into `mod`, `ui`, `input`, `ship_list`, `save`, `ai_panel`, and `grid`
 - [ ] 9.7 Add layout constants, responsive panel widths, and remove scattered magic numbers
-- [ ] 9.8 Debounce settings saves and merge with defaults
-- [ ] 9.9 Add performance smoke tests and editor module tests
-- [ ] 9.10 Apply remaining Appendix A review fixes not covered above
+- [x] 9.8 Debounce settings saves and merge with defaults
+- [x] 9.9 Add performance smoke tests and editor module tests
+- [x] 9.10 Apply remaining Appendix A review fixes not covered above
 
 ## 10. Verification and documentation
 
-- [ ] 10.1 Update `docs/save.md`, `docs/combat.md`, `docs/ai.md`, `docs/architecture.md`, `docs/simulation.md`, `docs/config.md`, `docs/economy.md`, `docs/ui.md`, and `docs/defects.md`
-- [ ] 10.2 Run `cargo fmt`, `cargo clippy`, `cargo check`, and `cargo test` at the final gate
-- [ ] 10.3 Verify every acceptance scenario in the capability specs is covered by a test or a manual check
-- [ ] 10.4 Verify no removed type, `lasso`, `serde_json`, `Symbol`, or `Symbols` remains
-- [ ] 10.5 Run the manual playtest checklist: fresh install, battle, destruction, save/load, pause, editor, power HUD, AI, cargo, laser direction
-- [ ] 10.6 Archive the OpenSpec change only after all tasks and manual checks pass
+- [x] 10.1 Update `docs/save.md`, `docs/combat.md`, `docs/ai.md`, `docs/architecture.md`, `docs/simulation.md`, `docs/config.md`, `docs/economy.md`, `docs/ui.md`, and `docs/defects.md`
+- [x] 10.2 Run `cargo fmt`, `cargo clippy`, `cargo check`, and `cargo test` at the final gate
+- [x] 10.3 Verify every acceptance scenario in the capability specs is covered by a test or a manual check
+- [x] 10.4 Verify no removed type, `lasso`, `serde_json`, `Symbol`, or `Symbols` remains
+- [x] 10.5 Run the manual playtest checklist: fresh install, battle, destruction, save/load, pause, editor, power HUD, AI, cargo, laser direction
+- [x] 10.6 Archive the OpenSpec change only after all tasks and manual checks pass

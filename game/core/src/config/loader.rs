@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::tasks::ConditionalSendFuture;
 
+use ron::de::from_bytes;
 use serde::de::DeserializeOwned;
 
 #[derive(TypePath)]
@@ -42,7 +43,7 @@ impl<A: Asset + DeserializeOwned> AssetLoader for RonAssetLoader<A> {
                 .await
                 .map_err(|e| BevyError::new(Severity::Error, e))?;
 
-            ron::de::from_bytes(&bytes).map_err(|e| BevyError::new(Severity::Error, e))
+            from_bytes(&bytes).map_err(|e| BevyError::new(Severity::Error, e))
         }
     }
 

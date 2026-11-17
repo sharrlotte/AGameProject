@@ -8,7 +8,7 @@ mod scene;
 mod simulation;
 mod system;
 
-use crate::config::ConfigPlugin;
+use crate::config::{ConfigPlugin, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
@@ -90,7 +90,7 @@ fn main() {
     .init_resource::<GameRng>()
     // Gameplay systems assume config exists; a failed load still shows the
     // error screen instead of panicking on a missing resource.
-    .init_resource::<crate::config::GameConfigValue>()
+    .init_resource::<GameConfigValue>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .configure_sets(PreUpdate, SimulationSet::Input)

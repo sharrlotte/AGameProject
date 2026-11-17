@@ -2,7 +2,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::resource::{SceneState, SettingState};
-use crate::scene::slot_panel::SlotPanel;
+use crate::scene::slot_panel::{SlotPanel, build_slot_panel};
 use crate::simulation::SimulationSet;
 
 pub struct HomeScenePlugin;
@@ -193,7 +193,7 @@ fn setup_home(mut commands: Commands) {
                     SlotPanel { allow_save: false },
                 ))
                 .with_children(|panel| {
-                    crate::scene::slot_panel::build_slot_panel(panel, false);
+                    build_slot_panel(panel, false);
                 });
         });
 }

@@ -16,7 +16,7 @@ use crate::content::ship::ai::AiPlugin;
 #[cfg(debug_assertions)]
 use crate::content::ship::ai::AiRuntime;
 use crate::content::ship::indicator::IndicatorsPlugin;
-use crate::content::ship::stat::{ShipChanged, ShipStats, update_stats};
+use crate::content::ship::stat::{ShipChanged, ShipStats, rebuild_cargo_capacity, update_stats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlMode, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
@@ -50,7 +50,7 @@ impl Plugin for ShipPlugin {
         )
         .add_systems(
             FixedPreUpdate,
-            crate::content::ship::stat::rebuild_cargo_capacity
+            rebuild_cargo_capacity
                 .run_if(on_message::<ShipChanged>)
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Stats),
