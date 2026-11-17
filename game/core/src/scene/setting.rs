@@ -217,7 +217,7 @@ pub fn setup_setting_ui(
                 position_type: PositionType::Absolute,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.99)),
             SettingRoot,
             DespawnOnExit(SettingState::Open),
             GlobalZIndex(100),
