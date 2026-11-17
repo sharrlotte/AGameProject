@@ -10,8 +10,8 @@ Block features live as components on the block entity, with the turret barrel as
 After spawning, a block entity SHALL carry all of its features as components; no system creates additional child entities on the normal spawn path.
 
 #### Scenario: Thruster block exists after spawn
-- **WHEN** a `ThrusterSmall` block spawns from a `BlockPlacement`
-- **THEN** the entity has `BlockRef`, `BlockOwner`, `Thruster`, its applicable power-efficiency runtime state, and no child entities beyond the turret-barrel exception
+- **WHEN** a `thruster_small` block spawns from a `BlockPlacement`
+- **THEN** the entity has `BlockRef`, `BlockOwner`, `Thruster`, `Consumer`, `Demand`, `Supply`, `Boost`, and no child entities beyond the turret-barrel exception
 
 ### Requirement: Turret barrel is the only child-entity exception
 

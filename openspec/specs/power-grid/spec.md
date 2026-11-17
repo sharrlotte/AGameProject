@@ -1,4 +1,4 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Each ship is one power grid
 Every block owned by a ship SHALL belong to that ship's single power grid. Power SHALL NOT flow between ships.

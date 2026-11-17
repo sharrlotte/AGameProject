@@ -1,4 +1,4 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Consumers draw only while active
 A block with `Consumer { rate }` SHALL report a `Demand` greater than 0 only while it is active. An inactive consumer SHALL report `Demand` 0 and SHALL NOT reduce other consumers' supply.

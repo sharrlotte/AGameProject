@@ -1,4 +1,4 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Ship throttle component
 Every ship SHALL have a `Throttle { linear, angular }` component with both values clamped to 0..1, representing movement intent for the current tick.

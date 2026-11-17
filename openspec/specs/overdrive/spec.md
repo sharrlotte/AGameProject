@@ -1,4 +1,4 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Booster block
 A block with `Booster { radius, boost, rate }` SHALL be a power consumer drawing `rate` and SHALL boost own-team blocks within `radius` (physics shape query) on any ship by `boost` while powered. `boost` SHALL be validated ≥ 1, `radius` and `rate` ≥ 0 at load.

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Turret power is optional and independent of ammo
 A turret config SHALL have an optional `power` field: `Charge((capacity, charge_rate))` for `Single` and `Burst` patterns, `Drain((rate))` for `LaserBeam` and `PullingBeam` patterns, or `None`. Ammo SHALL remain independently optional.
