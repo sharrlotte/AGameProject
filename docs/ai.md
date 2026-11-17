@@ -7,7 +7,6 @@ AI is data, not Rust marker components. Each `ShipDesign` carries an inline
 
 ```rust
 pub struct AiProfile {
-    pub think_rate_hz: f32,
     pub initial: BehaviorSpec,
     pub rules: Vec<AiRule>,
 }
@@ -22,10 +21,10 @@ pub struct AiRule {
 `AiCondition` is one of `Always`, `HpBelow`, `HpAbove`, `EnemyInRange`,
 `AllyCountBelow`, `AllyCountAbove`, `TargetLost`. `BehaviorSpec` selects one of
 `Idle`, `Wander`, `Patrol`, `Guard`, `Follow`, `Regroup`, `Kite`, `Chase`,
-`Attack`, `Flee`, `Kamikaze` with a `TargetRef`/`PositionRef` where needed.
+`Attack`, `Flee` with a `TargetRef`/`PositionRef` where needed.
 All of these derive serde and round-trip through RON.
 
-Editor presets (`Aggressive`, `Guard`, `Escort`, `Skirmisher`, `Kamikaze`) copy
+Editor presets (`Aggressive`, `Guard`, `Escort`, `Skirmisher`) copy
 a complete profile into the inline field; the AI tab shows a RON preview and
 validation errors before saving.
 
@@ -39,7 +38,7 @@ position, leader, per-rule cooldowns, and a think timer.
 `AiPlugin` runs three chained systems in `FixedUpdate`, `SimulationSet::Ai`:
 
 1. `build_ship_index` — rebuilds per-team and enemy snapshots (`ShipIndex`).
-2. `evaluate_ai_rules` — at `think_rate_hz`, ticks cooldowns, tests conditions,
+2. `evaluate_ai_rules` — at the shared `AI_THINK_RATE_HZ`, ticks cooldowns, tests conditions,
    and applies the highest-priority matching rule. Ties keep the current
    behavior. Wander points re-roll on arrival.
 3. `apply_ai_behaviors` — converts the current `AiBehavior` into a
@@ -56,8 +55,6 @@ position, leader, per-rule cooldowns, and a think timer.
   orbit; `Attack` reacquires the nearest enemy when its target is lost.
 - `Flee` — move **away** from the threat until `distance` is reached (the old
   inverted-sign bug is fixed).
-- `Kamikaze` — full thrust at the target and apply `ai_kamikaze_damage` on
-  contact, then despawn.
 
 Targets are invalidated when the entity no longer has a core or leaves radar
 range; the next think tick reacquires via `TargetRef`.

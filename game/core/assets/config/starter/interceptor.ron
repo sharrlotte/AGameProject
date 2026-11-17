@@ -9,7 +9,6 @@
         (id: "5f1c0a24-7b4e-4a11-9c3d-1e5f6a7b8c90", position: (2, 3), block_type: "laser_turret", rotation: 0),
     ],
     ai: (
-        think_rate_hz: 4.0,
         initial: Chase(target: NearestEnemy),
         rules: [
             (priority: 10, when: HpBelow(0.3), then: Flee(from: NearestEnemy, distance: 1000.0), cooldown_secs: 5.0),

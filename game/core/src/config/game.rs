@@ -20,14 +20,12 @@ pub struct GameConfig {
     pub missile_max_turn: f32,
     pub bullet_fade_time: f32,
     pub damage_number_lifetime: f32,
-    pub ai_think_rate_hz: f32,
     pub ai_flee_distance: f32,
     pub ai_wander_patrol_radius_multiplier: f32,
     pub ai_group_range_multiplier: f32,
     pub ai_min_range_factor: f32,
     pub ai_wander_attack_chance: f32,
     pub ai_wander_guard_chance: f32,
-    pub ai_kamikaze_damage: f32,
 }
 
 impl Default for GameConfig {
@@ -47,14 +45,12 @@ impl Default for GameConfig {
             missile_max_turn: 2.0,
             bullet_fade_time: 0.25,
             damage_number_lifetime: 1.5,
-            ai_think_rate_hz: 15.0,
             ai_flee_distance: 1000.0,
             ai_wander_patrol_radius_multiplier: 10.0,
             ai_group_range_multiplier: 2.0,
             ai_min_range_factor: 0.9,
             ai_wander_attack_chance: 0.5,
             ai_wander_guard_chance: 0.5,
-            ai_kamikaze_damage: 500.0,
         }
     }
 }

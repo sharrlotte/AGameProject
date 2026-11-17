@@ -24,9 +24,10 @@ All HUD elements are UI nodes (not world-space canvases) except the per-ship deb
 
 ```
 Ship: <Entity id>
-C: <AIShipController state>
+C: <AiBehavior label>
 B: <ShipBehavior or None>
-S: <ComputedShipStats debug>
+CARGO <used> / <capacity> {item breakdown}
+S: <ShipStats debug>
 <ammo debug dump for each ammo-capable child>
 ```
 

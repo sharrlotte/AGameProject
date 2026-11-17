@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::{
     resource::{PauseState, SceneState, SettingState},
     save::io::{LoadWorldEvent, SaveWorldEvent},
+    scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE},
     scene::slot_panel::{RefreshSlotPanel, SlotPanel, build_slot_panel},
     simulation::SimulationSet,
 };
@@ -69,7 +70,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
+                row_gap: Val::Px(FONT_TITLE),
                 ..default()
             },
             PauseScreen,
@@ -94,13 +95,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -121,13 +122,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -148,13 +149,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -173,13 +174,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -200,13 +201,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -227,13 +228,13 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),

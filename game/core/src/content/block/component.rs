@@ -188,6 +188,7 @@ impl ShootPattern {
 }
 
 #[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]
+#[reflect(Component)]
 pub struct Health {
     pub health: f32,
     pub max_health: f32,

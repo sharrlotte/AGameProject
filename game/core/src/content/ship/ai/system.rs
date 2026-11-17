@@ -4,8 +4,6 @@ use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
-use crate::content::damage::DamageEvent;
-use crate::content::death::Death;
 use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
@@ -191,8 +189,7 @@ fn condition_matches(
         AiCondition::TargetLost => match current {
             AiBehavior::Chase { target }
             | AiBehavior::Attack { target }
-            | AiBehavior::Kite { target, .. }
-            | AiBehavior::Kamikaze { target } => target.is_none(),
+            | AiBehavior::Kite { target, .. } => target.is_none(),
             _ => false,
         },
     }
@@ -307,7 +304,6 @@ fn target_for_spec(
         | BehaviorSpec::Follow { target, .. }
         | BehaviorSpec::Chase { target }
         | BehaviorSpec::Attack { target }
-        | BehaviorSpec::Kamikaze { target }
         | BehaviorSpec::Flee { from: target, .. } => {
             resolve_target(*target, index, team, entity, position, stats, ships)
         }
@@ -332,7 +328,6 @@ pub fn apply_ai_behaviors(
     stats: Query<&ShipStats>,
     index: Res<ShipIndex>,
     config: Res<GameConfigValue>,
-    mut effects: MessageWriter<DamageEvent>,
     mut commands: Commands,
 ) {
     for (entity, runtime, transform, ship, ship_stats, bbox, _team, mut velocity) in &mut ships {
@@ -445,30 +440,6 @@ pub fn apply_ai_behaviors(
                     radius: size,
                 }
             }
-            AiBehavior::Kamikaze { target } => {
-                let Some(enemy) = target
-                    .and_then(|t| transforms.get(t).ok())
-                    .map(|t| t.translation.truncate())
-                else {
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position,
-                        radius: size,
-                    });
-                    continue;
-                };
-                if position.distance(enemy) <= size + 20.0 {
-                    effects.write(DamageEvent {
-                        attacker: entity,
-                        target: target.unwrap_or(entity),
-                        damage: config.0.ai_kamikaze_damage,
-                    });
-                    commands.entity(entity).insert(Death);
-                }
-                ShipBehavior::Approach {
-                    position: enemy,
-                    radius: size,
-                }
-            }
         };
 
         commands.entity(entity).insert(intent);
@@ -519,7 +490,6 @@ mod tests {
     #[test]
     fn highest_priority_wins_and_cooldown_blocks() {
         let profile = AiProfile {
-            think_rate_hz: 1.0,
             initial: BehaviorSpec::Idle,
             rules: vec![
                 AiRule {

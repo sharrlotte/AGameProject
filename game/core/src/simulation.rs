@@ -11,7 +11,7 @@ use bevy::prelude::*;
 /// | `PreUpdate`      | `Input`   | keyboard/mouse, UI buttons, pause toggle, editor input |
 /// | `FixedFirst`     | `Stats`   | efficiency, power usage, reactor output                |
 /// | `FixedPreUpdate` | `Stats`   | thrust/rotate stats, ship stat aggregation, cargo      |
-/// | `FixedUpdate`    | `Ai`      | AI think/steering at `ai_think_rate_hz`                |
+/// | `FixedUpdate`    | `Ai`      | AI think/steering at `AI_THINK_RATE_HZ`                |
 /// | `FixedUpdate`    | `Control` | player forces, camera follow target, drop collection   |
 /// | `FixedUpdate`    | `Weapons` | turret targeting/tracking, shooting, projectiles, radar|
 /// | `FixedUpdate`    | `Cleanup` | lifetime countdown                                     |

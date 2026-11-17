@@ -93,7 +93,6 @@ Flat, all fields required, `deny_unknown_fields`:
     missile_max_turn: 2.0,
     bullet_fade_time: 0.25,
     damage_number_lifetime: 1.5,
-    ai_think_rate_hz: 15.0,
     ai_flee_distance: 1000.0,
     ai_wander_patrol_radius_multiplier: 10.0,
     ai_group_range_multiplier: 2.0,
@@ -109,7 +108,7 @@ Usage sites switch from `constant::X` to `Res<GameConfigValue>`:
 - damping setup (`LINEAR_DAMPING`, `ANGULAR_DAMPING`) + `stop_distance`
 - drop spawn size/despawn (`DROP_SIZE`, `DROP_DESPAWN_IN_SECONDS`), collect radius (`DROP_COLLECT_RADIUS`)
 - zoom clamp (`MIN_ZOOM`, `MAX_ZOOM`), `MAX_SHIPS`, missile (`missile_accel_time`, `missile_max_turn`), laser fade (`FADE_TIME`), damage number float (`damage_number_lifetime`)
-- AI (`AIShipController::new` timer Hz, `Flee` 1000.0 offset, Wander 0.5/0.5 chances + `radius*10.0`, Regroup/Guard `radius*2.0`, `min_range*0.9`)
+- AI (`AI_THINK_RATE_HZ` is a shared constant in `constant.rs`; `Flee` 1000.0 offset, Wander 0.5/0.5 chances, Regroup/Guard `radius*2.0`, `min_range*0.9`)
 
 `constant.rs` keeps only grid/layer/color/audio constants; `ANGULAR_DAMPING`/`LINEAR_DAMPING` and the other moved constants are removed.
 
@@ -130,13 +129,13 @@ Usage sites switch from `constant::X` to `Res<GameConfigValue>`:
             ],
             drops: [Item(item_type: "steel", amount: 10)],
         ),
-        // ... one entry per block; the map key is the block id (Symbol)
+        // ... one entry per block; the map key is a plain String block id
     },
 )
 ```
 
 - Serde mirror types in `config/block.rs` for `Feature` (`FeatureConfig`) and any struct holding `Handle`s (`Texture`, `TurretComponent` image, `Ammo` icon) with `image`/`sound` as asset-relative path strings (same `format!("texture/{image}")` / `format!("audio/{sound}")` convention as today).
-- Registry keys are interned `Symbol` ids (Slice 2): `BlockType` and `ItemType` enums are gone; `block.ron` is keyed by id and `BlockRegistry` exposes `get(id: &str)`. `BlockGroup` stays a small enum (Core/Base/Turret). `ItemDrop.item_type` is a `Symbol`.
+- Registry keys are plain `String` ids: `block.ron` is keyed by id and `BlockRegistry` exposes `get(key: &str)`. `ItemDrop.item_type` is a `String`.
 - `Vec2`/`IVec2`: bevy `serialize` feature provides serde support — verify during impl; else tuple mirrors.
 - `BlockDefConfig::into_def(assets: &AssetServer) -> BlockDef` converts and loads handles.
 - Turret shoot sound (`BurstShootPattern.shoot_sound`) stays a path string in config → resolved at conversion.

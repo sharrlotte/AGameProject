@@ -44,7 +44,8 @@
 
 ## Testing
 
-- Run cargo dev after every intergration to make sure no error, run it in the background while you continue to work on the next task
+- Run cargo dev after every intergration to make sure no error, run it in the background while you continue to work on the next task, this
+  command will run the game fovever and will not exit so you have to terminate it yourself
 
 # Files
 

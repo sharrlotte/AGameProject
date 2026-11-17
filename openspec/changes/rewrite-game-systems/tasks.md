@@ -19,7 +19,7 @@
 - [x] 2.6 Rebuild the collider from `ShipGrid.cells` only; remove `check_rebuild_ship_collider`
 - [x] 2.7 Route ship spawn and editor placement through `rebuild_from_layout` and `validate_ship`
 - [x] 2.8 Add grid, stats, mutation, and spawn-with-destruction integration tests
-- [ ] 2.9 Remove every remaining `BlockData`/`Blocks` reference and confirm the game still spawns and destroys blocks
+- [x] 2.9 Remove every remaining `BlockData`/`Blocks` reference and confirm the game still spawns and destroys blocks
 
 ## 3. Phase 2 — Scene lifecycle and schedules
 
@@ -57,7 +57,7 @@
 - [x] 5.6 Add `feature_set!` and `make_ship_stat!`; migrate feature mapping and power/stat pipelines
 - [x] 5.7 Add power validation for output, rate, core producer, and missing producer warnings
 - [x] 5.8 Add formula, scaling, HUD, macro, and validation tests
-- [ ] 5.9 Playtest core-only, reactor, deficit, and zero-production ships
+- [x] 5.9 Playtest core-only, reactor, deficit, and zero-production ships
 
 ## 6. Phase 5 — Targeting and combat
 
@@ -102,8 +102,8 @@
 - [x] 9.3 Rebuild radar at most 10 Hz or on `ShipChanged`
 - [x] 9.4 Gate debug UI behind `DebugOverlay`; make ammo icons children or update them on change
 - [x] 9.5 Sort `BlockRegistry::iter` once at registration
-- [ ] 9.6 Split `scene/editor.rs` into `mod`, `ui`, `input`, `ship_list`, `save`, `ai_panel`, and `grid`
-- [ ] 9.7 Add layout constants, responsive panel widths, and remove scattered magic numbers
+- [x] 9.6 Split `scene/editor.rs` into `mod`, `ui`, `input`, `ship_list`, `save`, `ai_panel`, and `grid`
+- [x] 9.7 Add layout constants, responsive panel widths, and remove scattered magic numbers
 - [x] 9.8 Debounce settings saves and merge with defaults
 - [x] 9.9 Add performance smoke tests and editor module tests
 - [x] 9.10 Apply remaining Appendix A review fixes not covered above

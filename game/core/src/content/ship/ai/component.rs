@@ -1,17 +1,13 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-fn default_think_rate() -> f32 {
-    4.0
-}
+use crate::constant::AI_THINK_RATE_HZ;
 
 /// Authorable AI profile stored inline on a `ShipDesign` and mirrored on the
-/// spawned ship entity. Rules are evaluated in priority order at
-/// `think_rate_hz`.
+/// spawned ship entity. Rules are evaluated in priority order at the shared
+/// `AI_THINK_RATE_HZ`.
 #[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AiProfile {
-    #[serde(default = "default_think_rate")]
-    pub think_rate_hz: f32,
     pub initial: BehaviorSpec,
     #[serde(default)]
     pub rules: Vec<AiRule>,
@@ -20,7 +16,6 @@ pub struct AiProfile {
 impl Default for AiProfile {
     fn default() -> Self {
         Self {
-            think_rate_hz: default_think_rate(),
             initial: BehaviorSpec::Idle,
             rules: Vec::new(),
         }
@@ -59,7 +54,6 @@ pub enum BehaviorSpec {
     Chase { target: TargetRef },
     Attack { target: TargetRef },
     Flee { from: TargetRef, distance: f32 },
-    Kamikaze { target: TargetRef },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,7 +88,6 @@ pub enum AiBehavior {
     Chase { target: Option<Entity> },
     Attack { target: Option<Entity> },
     Flee { from: Option<Entity>, distance: f32 },
-    Kamikaze { target: Option<Entity> },
 }
 
 impl AiBehavior {
@@ -110,7 +103,6 @@ impl AiBehavior {
             Self::Chase { .. } => "Chase",
             Self::Attack { .. } => "Attack",
             Self::Flee { .. } => "Flee",
-            Self::Kamikaze { .. } => "Kamikaze",
         }
     }
 }
@@ -133,7 +125,7 @@ impl AiRuntime {
             leader: None,
             rule_cooldowns: vec![0.0; profile.rules.len()],
             think_timer: Timer::from_seconds(
-                1.0 / profile.think_rate_hz.max(f32::EPSILON),
+                1.0 / AI_THINK_RATE_HZ.max(f32::EPSILON),
                 TimerMode::Repeating,
             ),
         }
@@ -179,7 +171,6 @@ pub fn behavior_from_spec(
             from: target,
             distance: *distance,
         },
-        BehaviorSpec::Kamikaze { .. } => AiBehavior::Kamikaze { target },
     }
 }
 
@@ -192,10 +183,10 @@ impl AiBehavior {
 }
 
 /// Named presets copied into an inline profile by the editor.
-pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher", "Kamikaze"];
+pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher"];
 
 pub fn preset(name: &str) -> AiProfile {
-    let (initial, rules, rate) = match name {
+    let (initial, rules) = match name {
         "Aggressive" => (
             BehaviorSpec::Chase {
                 target: TargetRef::NearestEnemy,
@@ -209,7 +200,6 @@ pub fn preset(name: &str) -> AiProfile {
                 },
                 cooldown_secs: 8.0,
             }],
-            4.0,
         ),
         "Guard" => (
             BehaviorSpec::Guard {
@@ -224,7 +214,6 @@ pub fn preset(name: &str) -> AiProfile {
                 },
                 cooldown_secs: 0.0,
             }],
-            4.0,
         ),
         "Escort" => (
             BehaviorSpec::Follow {
@@ -240,7 +229,6 @@ pub fn preset(name: &str) -> AiProfile {
                 },
                 cooldown_secs: 2.0,
             }],
-            4.0,
         ),
         "Skirmisher" => (
             BehaviorSpec::Wander { radius: 600.0 },
@@ -250,31 +238,16 @@ pub fn preset(name: &str) -> AiProfile {
                 then: BehaviorSpec::Kite { range: 900.0 },
                 cooldown_secs: 0.0,
             }],
-            6.0,
         ),
-        "Kamikaze" => (
-            BehaviorSpec::Kamikaze {
-                target: TargetRef::NearestEnemy,
-            },
-            vec![],
-            6.0,
-        ),
-        _ => (BehaviorSpec::Idle, vec![], 4.0),
+        _ => (BehaviorSpec::Idle, vec![]),
     };
 
-    AiProfile {
-        think_rate_hz: rate,
-        initial,
-        rules,
-    }
+    AiProfile { initial, rules }
 }
 
 /// Validate an authored profile. Returns a human-readable error list.
 pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
     let mut errors = Vec::new();
-    if !profile.think_rate_hz.is_finite() || profile.think_rate_hz <= 0.0 {
-        errors.push("think rate must be positive".to_string());
-    }
     for (index, rule) in profile.rules.iter().enumerate() {
         if !rule.cooldown_secs.is_finite() || rule.cooldown_secs < 0.0 {
             errors.push(format!("rule {index}: cooldown must be non-negative"));
@@ -290,7 +263,6 @@ mod tests {
     #[test]
     fn profile_round_trips_through_ron() {
         let profile = AiProfile {
-            think_rate_hz: 4.0,
             initial: BehaviorSpec::Wander { radius: 500.0 },
             rules: vec![AiRule {
                 priority: 10,
@@ -326,7 +298,6 @@ mod tests {
         ] {
             let design: crate::content::ship::ShipDesign = ron::from_str(text).unwrap();
             assert!(!design.ai.rules.is_empty());
-            assert!(design.ai.think_rate_hz > 0.0);
         }
     }
 }

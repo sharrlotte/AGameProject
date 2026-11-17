@@ -1,5 +1,6 @@
 use bevy::{
     ecs::{entity::Entity, resource::Resource},
+    prelude::Reflect,
     state::state::States,
 };
 use rand::SeedableRng;
@@ -7,7 +8,7 @@ use rand::rngs::SmallRng;
 
 use crate::content::ship::ShipDesign;
 
-#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default, Reflect)]
 pub enum SceneState {
     #[default]
     Loading,

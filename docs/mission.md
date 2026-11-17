@@ -76,7 +76,7 @@ as usual. Empty/missing schematics spawn nothing and log a warning.
 ## Explicitly not done (future)
 
 - Other objectives (survive/collect/escort/waves), mission select screen, campaign map.
-- Difficulty scaling/AI personalities; enemy Kamikaze use.
+- Difficulty scaling and mission-specific AI profiles beyond the starter designs.
 - `quick-battle.ron` is the only mission; no mission hot reload pipeline beyond the
   existing loader (it reloads only on scene re-entry).
 - Victory rewards/meta progression of any kind.

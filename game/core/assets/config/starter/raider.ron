@@ -9,10 +9,9 @@
         (id: "9d2b1c34-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (2, 3), block_type: "swarmer", rotation: 0),
     ],
     ai: (
-        think_rate_hz: 6.0,
         initial: Wander(radius: 600.0),
         rules: [
-            (priority: 10, when: EnemyInRange(2000.0), then: Kamikaze(target: NearestEnemy), cooldown_secs: 0.0),
+            (priority: 10, when: EnemyInRange(2000.0), then: Attack(target: NearestEnemy), cooldown_secs: 0.0),
         ],
     ),
 )

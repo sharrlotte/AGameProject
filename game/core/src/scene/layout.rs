@@ -1,0 +1,15 @@
+pub const PANEL_WIDTH: f32 = 220.0;
+pub const BUTTON_WIDTH: f32 = 250.0;
+pub const BUTTON_HEIGHT: f32 = 65.0;
+pub const ROW_HEIGHT: f32 = 30.0;
+pub const ICON_SIZE: f32 = 40.0;
+pub const BORDER_WIDTH: f32 = 5.0;
+pub const CORNER_RADIUS: f32 = 10.0;
+pub const FONT_TITLE: f32 = 20.0;
+pub const FONT_BODY: f32 = 14.0;
+pub const FONT_SMALL: f32 = 12.0;
+pub const SECTION_GAP: f32 = 20.0;
+pub const SLOT_ROW_WIDTH: f32 = 420.0;
+pub const SLOT_ROW_HEIGHT: f32 = 34.0;
+pub const SLOT_BUTTON_WIDTH: f32 = 60.0;
+pub const SLOT_BUTTON_HEIGHT: f32 = 24.0;

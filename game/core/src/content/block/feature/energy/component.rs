@@ -16,7 +16,7 @@ impl PowerProducer {
 }
 
 /// A block that consumes power. Shared by config and runtime.
-#[derive(Component, Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
+#[derive(Component, Clone, Copy, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct EnergyConsumer {
     pub rate: f32,
 }
@@ -70,6 +70,7 @@ impl EnergyConsumer {
 
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
+            *self,
             PowerUsageBase { value: self.rate },
             PowerUsageComputed::default(),
             PowerEfficiency { value: 1.0 },

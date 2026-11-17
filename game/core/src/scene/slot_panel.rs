@@ -5,6 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::resource::{AppNotice, PauseState};
 use crate::save::io::{LoadWorldEvent, SaveWorldEvent, list_slots};
 use crate::save::schema::SlotInfo;
+use crate::scene::layout::{
+    SLOT_BUTTON_HEIGHT, SLOT_BUTTON_WIDTH, SLOT_ROW_HEIGHT, SLOT_ROW_WIDTH,
+};
 use crate::simulation::SimulationSet;
 
 /// Shared five-slot save/load list, used by Home and Pause.
@@ -48,8 +51,8 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
         parent
             .spawn((
                 Node {
-                    width: Val::Px(420.0),
-                    min_height: Val::Px(34.0),
+                    width: Val::Px(SLOT_ROW_WIDTH),
+                    min_height: Val::Px(SLOT_ROW_HEIGHT),
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
@@ -72,8 +75,8 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
 
                 row.spawn((
                     Node {
-                        width: Val::Px(60.0),
-                        height: Val::Px(24.0),
+                        width: Val::Px(SLOT_BUTTON_WIDTH),
+                        height: Val::Px(SLOT_BUTTON_HEIGHT),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border_radius: BorderRadius::all(Val::Px(4.0)),
@@ -96,8 +99,8 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
                 if allow_save {
                     row.spawn((
                         Node {
-                            width: Val::Px(60.0),
-                            height: Val::Px(24.0),
+                            width: Val::Px(SLOT_BUTTON_WIDTH),
+                            height: Val::Px(SLOT_BUTTON_HEIGHT),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             border_radius: BorderRadius::all(Val::Px(4.0)),

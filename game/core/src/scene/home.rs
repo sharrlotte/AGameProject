@@ -2,6 +2,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::resource::{SceneState, SettingState};
+use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::slot_panel::{SlotPanel, build_slot_panel};
 use crate::simulation::SimulationSet;
 
@@ -40,7 +41,7 @@ fn setup_home(mut commands: Commands) {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
+                row_gap: Val::Px(FONT_TITLE),
                 ..default()
             },
             HomeScreen,
@@ -51,13 +52,13 @@ fn setup_home(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -78,13 +79,13 @@ fn setup_home(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.2, 0.35, 0.55)),
@@ -105,13 +106,13 @@ fn setup_home(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -132,13 +133,13 @@ fn setup_home(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -159,13 +160,13 @@ fn setup_home(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        padding: UiRect::all(Val::Px(10.0)),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: Val::Px(BUTTON_WIDTH),
+                        height: Val::Px(BUTTON_HEIGHT),
+                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(Val::Px(10.0)),
+                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),

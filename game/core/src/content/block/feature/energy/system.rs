@@ -139,6 +139,35 @@ mod tests {
     }
 
     #[test]
+    fn consumer_feature_inserts_its_runtime_component() {
+        let mut app = App::new();
+        app.add_systems(Update, update_power_efficiency);
+        app.insert_resource(crate::config::GameConfigValue(
+            crate::config::GameConfig::default(),
+        ));
+
+        let ship = app.world_mut().spawn(ShipStats::default()).id();
+        let block = app.world_mut().spawn(()).id();
+        app.world_mut()
+            .entity_mut(block)
+            .insert(BlockOwner { ship })
+            .with_children(|_| {});
+        // Insert exactly what `EnergyConsumer::insert` installs on a block.
+        let consumer = EnergyConsumer { rate: 5.0 };
+        consumer.insert(&mut app.world_mut().commands(), block);
+        app.world_mut()
+            .entity_mut(block)
+            .insert(BlockOwner { ship });
+
+        assert!(app.world().get::<EnergyConsumer>(block).is_some());
+        app.update();
+        assert_eq!(
+            app.world().get::<ShipStats>(ship).unwrap().power_demand,
+            5.0
+        );
+    }
+
+    #[test]
     fn no_consumers_runs_at_full_efficiency() {
         let (mut app, ship) = app_with(10.0, &[]);
         app.update();

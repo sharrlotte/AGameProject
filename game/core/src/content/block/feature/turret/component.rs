@@ -83,6 +83,7 @@ pub enum TurretTarget {
 }
 
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize, Default)]
+#[reflect(Component)]
 pub struct TurretState {
     pub active: bool,
     #[serde(skip)]

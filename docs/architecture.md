@@ -10,13 +10,17 @@ game/                        Cargo workspace (resolver = "3")
       main.rs                plugin wiring, window, audio, fixed-timestep setup
       resource.rs            states + typed shared resources
       simulation.rs          named simulation-set ordering contract
-      system.rs              camera, startup ship load, scene-entity cleanup
-      constant.rs            global constants
+      system.rs              camera, startup ship load, debug scene audit
+      constant.rs            global constants (incl. AI_THINK_RATE_HZ)
       content/               gameplay content (one module per domain)
       scene/                 UI/state scenes
+        editor.rs            editor module root: state, components, plugin wiring
+        editor/{ui,input,grid,save,ship_list,ai_panel}.rs  editor feature modules
+        slot_panel.rs        shared five-slot save/load panel
+        layout.rs            shared UI layout constants
       mission/               battle-core scaffolding (mission.ron, overlay)
       config/                ron config boot gate
-      save/                  serialization (`document.rs` versioned RON IO, `io.rs`, `schema.rs`)
+      save/                  serialization (`document.rs`, `io.rs`, `schema.rs`, `catalog.rs`, `snapshot.rs`)
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.
@@ -135,7 +139,7 @@ the `dev` cargo feature — production builds contain no inspector code.
 content/
   team.rs        Team { id: u8 } + Rapier collision groups, 16 palette entries
   plugin.rs      ContentPlugin — aggregate
-  block/         Block, BlockRegistry, BlockData/Def/Shape/Voxel, features (turret, thruster, energy, efficiency, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
+  block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, energy, efficiency, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   ship/          Ship, AI controller, movement, UI, indicators, Stat computation
   bullet/        Bullet/Laser/Missile components + all projectile systems
   damage/        Damage/DamageEvent (health decrement + floating text)

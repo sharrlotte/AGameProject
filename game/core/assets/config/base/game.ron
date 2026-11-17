@@ -13,12 +13,10 @@
     missile_max_turn: 2.0,
     bullet_fade_time: 0.25,
     damage_number_lifetime: 1.5,
-    ai_think_rate_hz: 15.0,
     ai_flee_distance: 1000.0,
     ai_wander_patrol_radius_multiplier: 10.0,
     ai_group_range_multiplier: 2.0,
     ai_min_range_factor: 0.9,
     ai_wander_attack_chance: 0.5,
     ai_wander_guard_chance: 0.5,
-    ai_kamikaze_damage: 500.0,
 )

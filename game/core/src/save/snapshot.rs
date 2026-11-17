@@ -241,7 +241,6 @@ fn restore_behavior(commands: &mut Commands, entity: Entity, label: &str, timer_
             from: None,
             distance: 1000.0,
         },
-        "Kamikaze" => AiBehavior::Kamikaze { target: None },
         _ => AiBehavior::Idle,
     };
 

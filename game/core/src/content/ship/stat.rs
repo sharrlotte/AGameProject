@@ -14,6 +14,7 @@ use crate::content::ship::ShipGrid;
 /// mutation. Runtime systems update power/thrust/cargo fields from live block
 /// state without changing the structural values.
 #[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct ShipStats {
     pub mass: f32,
     pub max_range: f32,
