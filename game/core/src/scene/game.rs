@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use crate::{
@@ -12,10 +12,11 @@ use crate::{
     },
     resource::{CameraTarget, ControlMode, ControlledShip, SceneState},
     scene::background::BackgroundPlugin,
+    scene::widget::{ButtonVisuals, spawn_widget},
     simulation::SimulationSet,
 };
 
-use bevy::{picking::hover::PickingInteraction, prelude::*, time::common_conditions::on_timer};
+use bevy::{prelude::*, time::common_conditions::on_timer};
 
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
@@ -26,6 +27,31 @@ pub struct FpsText;
 
 #[derive(Component)]
 pub struct ShipButton(pub Entity);
+
+fn on_ship_button(
+    click: On<PointerClick>,
+    buttons: Query<&ShipButton>,
+    mut camera_target: ResMut<CameraTarget>,
+    mut controlled: ResMut<ControlledShip>,
+    mut mode: ResMut<ControlMode>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    let entity = button.0;
+    if camera_target.following == Some(entity) {
+        if controlled.controlling == Some(entity) {
+            camera_target.following = None;
+            controlled.controlling = None;
+            *mode = ControlMode::FreeLook;
+        } else {
+            controlled.controlling = Some(entity);
+            *mode = ControlMode::Pilot;
+        }
+    } else {
+        camera_target.following = Some(entity);
+        controlled.controlling = None;
+        *mode = ControlMode::FreeLook;
+    }
+}
 
 #[derive(Component)]
 pub struct ShipList;
@@ -47,7 +73,6 @@ impl Plugin for GameScenePlugin {
                     #[cfg(debug_assertions)]
                     update_fps,
                     update_ship_list.run_if(on_timer(Duration::from_millis(200))),
-                    handle_ship_button_click,
                     update_select_panel,
                     update_cargo_hud,
                 )
@@ -200,36 +225,6 @@ fn update_fps(
     }
 }
 
-fn handle_ship_button_click(
-    mut interaction: Query<(&PickingInteraction, &ShipButton), Changed<PickingInteraction>>,
-    mut camera_target: ResMut<CameraTarget>,
-    mut controlled: ResMut<ControlledShip>,
-    mut mode: ResMut<ControlMode>,
-) {
-    for (interaction, ship_button) in interaction.iter_mut() {
-        if *interaction == PickingInteraction::Pressed {
-            if let Some(following) = camera_target.following
-                && following == ship_button.0
-            {
-                if let Some(controlling) = controlled.controlling
-                    && controlling == ship_button.0
-                {
-                    camera_target.following = None;
-                    controlled.controlling = None;
-                    *mode = ControlMode::FreeLook;
-                } else {
-                    controlled.controlling = Some(ship_button.0);
-                    *mode = ControlMode::Pilot;
-                }
-            } else {
-                camera_target.following = Some(ship_button.0);
-                controlled.controlling = None;
-                *mode = ControlMode::FreeLook;
-            }
-        }
-    }
-}
-
 /// Show the pooled cargo of all player ships plus an item breakdown.
 fn update_cargo_hud(
     mut texts: Query<&mut Text, With<CargoHudText>>,
@@ -270,18 +265,18 @@ fn update_cargo_hud(
 
 fn update_ship_list(
     mut commands: Commands,
-    mut ship_list: Query<Entity, With<ShipList>>,
+    ship_list: Single<Entity, With<ShipList>>,
     ships: Query<(Entity, &Ship, &BoundingBox, &Team, &ShipGrid)>,
     healths: Query<&Health>,
+    buttons: Query<(Entity, &ShipButton)>,
     state: Res<ControlledShip>,
     camera_target: Res<CameraTarget>,
     registry: Res<BlockRegistry>,
 ) {
-    let Ok(ship_list) = ship_list.single_mut() else {
-        return;
-    };
-
-    commands.entity(ship_list).despawn_children();
+    let existing: HashMap<Entity, Entity> = buttons
+        .iter()
+        .map(|(button, marker)| (marker.0, button))
+        .collect();
 
     let mut player_ships = ships
         .iter()
@@ -290,22 +285,18 @@ fn update_ship_list(
 
     player_ships.sort_by(|a, b| a.1.id.cmp(&b.1.id));
 
-    for (entity, _, bbox, _, grid) in player_ships.iter() {
-        commands.entity(ship_list).with_children(|container| {
-            let color: Color = if let Some(controlling) = state.controlling
-                && controlling == *entity
-            {
-                Color::srgba(0.0, 1.0, 0.0, 1.0)
-            } else if let Some(following) = camera_target.following
-                && following == *entity
-            {
-                Color::srgba(0.0, 1.0, 1.0, 1.0)
-            } else {
-                Color::WHITE
-            };
+    let mut present = HashSet::new();
 
-            container
-                .spawn((
+    for (entity, _, bbox, _, grid) in player_ships.iter() {
+        present.insert(*entity);
+
+        let button = if let Some(&button) = existing.get(entity) {
+            button
+        } else {
+            let mut spawned = None;
+            commands.entity(ship_list.entity()).with_children(|parent| {
+                spawned = Some(spawn_widget(
+                    parent,
                     Node {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
@@ -314,76 +305,97 @@ fn update_ship_list(
                         border_radius: BorderRadius::all(Val::Percent(5.0)),
                         ..Default::default()
                     },
-                    BorderColor::all(color),
                     ShipButton(*entity),
+                    on_ship_button,
+                    ButtonVisuals::dark(),
+                ));
+            });
+            let Some(button) = spawned else {
+                continue;
+            };
+            button
+        };
+
+        let color: Color = if state.controlling == Some(*entity) {
+            Color::srgba(0.0, 1.0, 0.0, 1.0)
+        } else if camera_target.following == Some(*entity) {
+            Color::srgba(0.0, 1.0, 1.0, 1.0)
+        } else {
+            Color::WHITE
+        };
+        commands.entity(button).insert(BorderColor::all(color));
+        commands.entity(button).despawn_children();
+        commands.entity(button).with_children(|wrapper| {
+            wrapper
+                .spawn((
+                    Node {
+                        position_type: PositionType::Relative,
+                        min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
                 ))
-                .with_children(|wrapper| {
-                    wrapper
-                        .spawn((Node {
-                            position_type: PositionType::Relative,
-                            min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                            height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                            ..default()
-                        },))
-                        .with_children(|block_container| {
-                            let mut offset_x = 0;
-                            let mut offset_y = 0;
+                .with_children(|block_container| {
+                    let mut offset_x = 0;
+                    let mut offset_y = 0;
 
-                            for block in grid.blocks() {
-                                if block.placement.position.x < offset_x {
-                                    offset_x = block.placement.position.x;
-                                }
+                    for block in grid.blocks() {
+                        if block.placement.position.x < offset_x {
+                            offset_x = block.placement.position.x;
+                        }
+                        if block.placement.position.y < offset_y {
+                            offset_y = block.placement.position.y;
+                        }
+                    }
 
-                                if block.placement.position.y < offset_y {
-                                    offset_y = block.placement.position.y;
-                                }
-                            }
+                    for block in grid.blocks() {
+                        let placement = &block.placement;
+                        let Ok(health) = healths.get(block.entity) else {
+                            continue;
+                        };
+                        let Some(def) = registry.get_symbol(&placement.block_type) else {
+                            continue;
+                        };
 
-                            for block in grid.blocks() {
-                                let placement = &block.placement;
-                                let Ok(health) = healths.get(block.entity) else {
-                                    continue;
-                                };
-                                let Some(def) = registry.get_symbol(&placement.block_type) else {
-                                    continue;
-                                };
+                        let hp_percent = (health.health / health.max_health).clamp(0.0, 1.0);
+                        let color = if hp_percent > 0.75 {
+                            Color::srgb(0.0, 1.0, 0.0)
+                        } else if hp_percent > 0.5 {
+                            Color::srgb(1.0, 1.0, 0.0)
+                        } else {
+                            Color::srgb(1.0, 0.0, 0.0)
+                        };
 
-                                let hp_percent =
-                                    (health.health / health.max_health).clamp(0.0, 1.0);
-
-                                let color = if hp_percent > 0.75 {
-                                    Color::srgb(0.0, 1.0, 0.0)
-                                } else if hp_percent > 0.5 {
-                                    Color::srgb(1.0, 1.0, 0.0)
-                                } else {
-                                    Color::srgb(1.0, 0.0, 0.0)
-                                };
-
-                                block_container.spawn((
-                                    BackgroundColor(color),
-                                    Node {
-                                        position_type: PositionType::Absolute,
-                                        top: Val::Px(
-                                            ((placement.position.y - offset_y) as f32)
-                                                * SMALL_GRID_SIZE
-                                                + SMALL_GRID_SIZE,
-                                        ),
-                                        left: Val::Px(
-                                            ((placement.position.x - offset_x) as f32)
-                                                * SMALL_GRID_SIZE
-                                                + SMALL_GRID_SIZE,
-                                        ),
-                                        width: Val::Px(def.get_block_size().x * SMALL_GRID_SIZE),
-                                        height: Val::Px(def.get_block_size().y * SMALL_GRID_SIZE),
-                                        border: UiRect::all(Val::Px(1.0)),
-                                        ..default()
-                                    },
-                                    BorderColor::from(Color::WHITE),
-                                ));
-                            }
-                        });
+                        block_container.spawn((
+                            BackgroundColor(color),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                top: Val::Px(
+                                    ((placement.position.y - offset_y) as f32) * SMALL_GRID_SIZE
+                                        + SMALL_GRID_SIZE,
+                                ),
+                                left: Val::Px(
+                                    ((placement.position.x - offset_x) as f32) * SMALL_GRID_SIZE
+                                        + SMALL_GRID_SIZE,
+                                ),
+                                width: Val::Px(def.get_block_size().x * SMALL_GRID_SIZE),
+                                height: Val::Px(def.get_block_size().y * SMALL_GRID_SIZE),
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderColor::from(Color::WHITE),
+                            Pickable::IGNORE,
+                        ));
+                    }
                 });
         });
+    }
+
+    for (button, marker) in &buttons {
+        if !present.contains(&marker.0) {
+            commands.entity(button).despawn();
+        }
     }
 }
 
@@ -492,5 +504,59 @@ mod tests {
             app.world().resource::<OrderLog>().0,
             vec!["damage", "death"]
         );
+    }
+
+    #[test]
+    fn ship_list_buttons_survive_refresh_and_stale_are_removed() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ControlledShip>()
+            .init_resource::<CameraTarget>()
+            .init_resource::<ControlMode>()
+            .insert_resource(BlockRegistry::default())
+            .add_systems(Update, update_ship_list);
+
+        app.world_mut().spawn((ShipList, Node::default()));
+        let ship_a = app
+            .world_mut()
+            .spawn((
+                Ship::default(),
+                Team::new(0),
+                BoundingBox::default(),
+                ShipGrid::new(),
+            ))
+            .id();
+        let ship_b = app
+            .world_mut()
+            .spawn((
+                Ship::default(),
+                Team::new(0),
+                BoundingBox::default(),
+                ShipGrid::new(),
+            ))
+            .id();
+
+        fn ship_buttons(app: &mut App) -> Vec<(Entity, Entity)> {
+            let mut query = app.world_mut().query::<(Entity, &ShipButton)>();
+            query
+                .iter(app.world())
+                .map(|(entity, marker)| (marker.0, entity))
+                .collect()
+        }
+
+        app.update();
+        let first = ship_buttons(&mut app);
+        assert_eq!(first.len(), 2);
+
+        app.update();
+        assert_eq!(ship_buttons(&mut app), first);
+
+        app.world_mut().entity_mut(ship_b).despawn();
+        app.update();
+        let remaining = ship_buttons(&mut app);
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].0, ship_a);
+        let original_a = first.iter().find(|(ship, _)| *ship == ship_a).unwrap().1;
+        assert_eq!(remaining[0].1, original_a);
     }
 }

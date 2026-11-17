@@ -14,7 +14,7 @@ pub use ui::*;
 
 use bevy::{
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
-    picking::hover::{HoverMap, PickingInteraction},
+    picking::hover::HoverMap,
     prelude::*,
     window::PrimaryWindow,
 };
@@ -48,27 +48,10 @@ pub struct EditorUiRoot;
 pub struct PlacementPreview;
 
 #[derive(Component)]
-pub struct TabButton(pub EditorTab);
-
-#[derive(Component)]
 pub struct BlockListPanel;
 
 #[derive(Component)]
 pub struct ShipListPanel;
-
-#[derive(Component)]
-pub struct LoadShipButton {
-    pub filename: String,
-}
-
-#[derive(Component)]
-pub struct DeployButton;
-
-#[derive(Component)]
-pub struct BackButton;
-
-#[derive(Component)]
-pub struct PlayButton;
 
 #[derive(Component)]
 pub struct ShipBase;
@@ -88,9 +71,6 @@ pub struct AiPanel;
 pub struct AiPreviewText;
 
 #[derive(Component)]
-pub struct AiPresetButton(pub &'static str);
-
-#[derive(Component)]
 pub struct BlockPropertiesText;
 
 #[derive(Message)]
@@ -99,12 +79,18 @@ pub struct ShipSavesChanged;
 #[derive(Message)]
 pub struct ShipSaveChanged;
 
+#[derive(Message)]
+pub struct LoadShipSelected {
+    pub filename: String,
+}
+
 pub struct ShipEditorPlugin;
 
 impl Plugin for ShipEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ShipSavesChanged>()
             .add_message::<ShipSaveChanged>()
+            .add_message::<LoadShipSelected>()
             .init_resource::<EditorState>()
             .add_systems(
                 OnEnter(SceneState::ShipEditor),
@@ -113,8 +99,8 @@ impl Plugin for ShipEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    handle_block_selection,
-                    handle_tab_switching,
+                    sync_block_selection,
+                    sync_tabs,
                     handle_ship_loading,
                     process_input,
                     draw_grid,
@@ -122,10 +108,8 @@ impl Plugin for ShipEditorPlugin {
                     handle_placement,
                     handle_block_deletion,
                     update_block_properties_panel,
-                    handle_deploy_button,
-                    handle_deploy_button_click,
-                    handle_nav_buttons,
-                    handle_ai_preset_click,
+                    sync_deploy_button,
+                    sync_ai_preset,
                     update_ai_preview,
                     handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
@@ -138,9 +122,6 @@ impl Plugin for ShipEditorPlugin {
             .add_observer(on_scroll_handler);
     }
 }
-
-#[derive(Component, Clone)]
-pub struct BlockSelection(pub String);
 
 #[derive(Resource, Default)]
 pub struct EditorState {

@@ -1,28 +1,56 @@
-use bevy::{
-    audio::Volume, picking::hover::PickingInteraction, post_process::bloom::Bloom, prelude::*,
-};
+use bevy::{audio::Volume, post_process::bloom::Bloom, prelude::*};
 
 use crate::config::GameSetting;
 use crate::resource::SettingState;
+use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 use crate::simulation::SimulationSet;
 
 #[derive(Component)]
 pub struct SettingRoot;
 
 #[derive(Component)]
-pub struct VolumeChange(pub f32);
-
-#[derive(Component)]
 pub struct VolumeText;
-
-#[derive(Component)]
-pub struct BloomButton;
 
 #[derive(Component)]
 pub struct BloomText;
 
 #[derive(Component)]
-pub struct CloseButton;
+struct VolumeButton(pub f32);
+
+fn on_volume(
+    click: On<PointerClick>,
+    buttons: Query<&VolumeButton>,
+    mut setting: ResMut<GameSetting>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    setting.volume = (setting.volume + button.0).clamp(0.0, 1.0);
+}
+
+#[derive(Component)]
+struct BloomButton;
+
+fn on_bloom(
+    click: On<PointerClick>,
+    buttons: Query<&BloomButton>,
+    mut setting: ResMut<GameSetting>,
+) {
+    if buttons.contains(click.event().entity) {
+        setting.bloom = !setting.bloom;
+    }
+}
+
+#[derive(Component)]
+struct CloseSettingsButton;
+
+fn on_close(
+    click: On<PointerClick>,
+    buttons: Query<&CloseSettingsButton>,
+    mut next: ResMut<NextState<SettingState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        next.set(SettingState::Closed);
+    }
+}
 
 pub struct SettingScenePlugin;
 
@@ -33,12 +61,7 @@ impl Plugin for SettingScenePlugin {
             .add_systems(OnEnter(SettingState::Open), setup_setting_ui)
             .add_systems(
                 Update,
-                (
-                    handle_close_button,
-                    handle_volume_change,
-                    handle_bloom_toggle,
-                    sync_settings_to_ui,
-                )
+                sync_settings_to_ui
                     .run_if(in_state(SettingState::Open))
                     .in_set(SimulationSet::Input),
             )
@@ -47,6 +70,8 @@ impl Plugin for SettingScenePlugin {
 }
 
 pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
+    let mut bloom_button = None;
+
     commands
         .spawn((
             Node {
@@ -65,7 +90,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             GlobalZIndex(100),
         ))
         .with_children(|parent| {
-            // Title
             parent.spawn((
                 Text::new("Settings"),
                 TextFont {
@@ -75,7 +99,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                 TextColor(Color::WHITE),
             ));
 
-            // Volume Control
             parent
                 .spawn(Node {
                     align_items: AlignItems::Center,
@@ -91,24 +114,17 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                         },
                     ));
 
-                    // Decrease
-                    row.spawn((
-                        Node {
-                            width: Val::Px(40.0),
-                            height: Val::Px(40.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        VolumeChange(-0.1),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn(Text::new("-"));
-                    });
+                    spawn_button(
+                        row,
+                        small_button_node(40.0, 40.0),
+                        "-",
+                        20.0,
+                        Color::WHITE,
+                        VolumeButton(-0.1),
+                        on_volume,
+                        ButtonVisuals::dark(),
+                    );
 
-                    // Display Value
                     row.spawn((
                         Text::new(format!("{:.0}%", setting.volume * 100.0)),
                         TextFont {
@@ -118,25 +134,18 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                         VolumeText,
                     ));
 
-                    // Increase
-                    row.spawn((
-                        Node {
-                            width: Val::Px(40.0),
-                            height: Val::Px(40.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        VolumeChange(0.1),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn(Text::new("+"));
-                    });
+                    spawn_button(
+                        row,
+                        small_button_node(40.0, 40.0),
+                        "+",
+                        20.0,
+                        Color::WHITE,
+                        VolumeButton(0.1),
+                        on_volume,
+                        ButtonVisuals::dark(),
+                    );
                 });
 
-            // Bloom Control
             parent
                 .spawn(Node {
                     align_items: AlignItems::Center,
@@ -152,98 +161,58 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                         },
                     ));
 
-                    row.spawn((
-                        Node {
-                            width: Val::Px(100.0),
-                            height: Val::Px(40.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                    bloom_button = Some(spawn_widget(
+                        row,
+                        small_button_node(100.0, 40.0),
                         BloomButton,
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn((
-                            Text::new(if setting.bloom { "On" } else { "Off" }),
-                            BloomText,
-                        ));
-                    });
+                        on_bloom,
+                        ButtonVisuals::dark(),
+                    ));
                 });
 
-            // Close Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(150.0),
-                        height: Val::Px(50.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        margin: UiRect::top(Val::Px(20.0)),
-                        border_radius: BorderRadius::all(Val::Px(5.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
-                    CloseButton,
-                ))
-                .with_children(|btn| {
-                    btn.spawn(Text::new("Close"));
-                });
+            spawn_button(
+                parent,
+                Node {
+                    width: Val::Px(150.0),
+                    height: Val::Px(50.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(20.0)),
+                    border_radius: BorderRadius::all(Val::Px(5.0)),
+                    ..default()
+                },
+                "Close",
+                20.0,
+                Color::WHITE,
+                CloseSettingsButton,
+                on_close,
+                ButtonVisuals::red(),
+            );
         });
-}
 
-pub fn handle_close_button(
-    mut interaction: Query<
-        (&PickingInteraction, &mut BackgroundColor),
-        (Changed<PickingInteraction>, With<CloseButton>),
-    >,
-    mut next_state: ResMut<NextState<SettingState>>,
-) {
-    for (interaction, mut bg) in &mut interaction {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                next_state.set(SettingState::Closed);
-            }
-            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.6, 0.3, 0.3)),
-            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.5, 0.2, 0.2)),
-        }
+    if let Some(entity) = bloom_button {
+        commands.entity(entity).with_children(|button| {
+            button.spawn((
+                Text::new(if setting.bloom { "On" } else { "Off" }),
+                TextFont {
+                    font_size: FontSize::Px(20.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                BloomText,
+            ));
+        });
     }
 }
 
-pub fn handle_volume_change(
-    mut interaction: Query<
-        (&PickingInteraction, &VolumeChange, &mut BackgroundColor),
-        Changed<PickingInteraction>,
-    >,
-    mut setting: ResMut<GameSetting>,
-) {
-    for (interaction, change, mut bg) in &mut interaction {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                setting.volume = (setting.volume + change.0).clamp(0.0, 1.0);
-            }
-            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-        }
-    }
-}
-
-pub fn handle_bloom_toggle(
-    mut interaction: Query<
-        (&PickingInteraction, &mut BackgroundColor),
-        (Changed<PickingInteraction>, With<BloomButton>),
-    >,
-    mut setting: ResMut<GameSetting>,
-) {
-    for (interaction, mut bg) in &mut interaction {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                setting.bloom = !setting.bloom;
-            }
-            PickingInteraction::Hovered => *bg = BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-            PickingInteraction::None => *bg = BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-        }
+fn small_button_node(width: f32, height: f32) -> Node {
+    Node {
+        width: Val::Px(width),
+        height: Val::Px(height),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border_radius: BorderRadius::all(Val::Px(5.0)),
+        ..default()
     }
 }
 

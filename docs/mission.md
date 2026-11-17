@@ -7,10 +7,13 @@ One battle. Victory = all enemy ships destroyed; defeat = all player ships destr
 objectives (`Survive`, `Collect`, `Escort`, waves) are reserved in the schema and marked
 future work; they are not implemented.
 
-`BattlePhase` is a Bevy state: `Loading → Active → Ended`. `Loading` is the default on
-`SceneState::Game` entry (mission asset kicks off async load). When the mission def is
-read, ships spawn and phase becomes `Active`. `FixedUpdate` polls team counts; first side
-without ships ends the battle (`Ended`). On `Ended`, the overlay spawns.
+`BattlePhase` is a Bevy state: `Idle → Loading → Active → Ended`. `Idle` is the default
+resting state; `SceneState::Game` entry moves it to `Loading` (mission asset kicks off
+async load). When the mission def is read, ships spawn and phase becomes `Active`. Core
+destruction emits `ShipDestroyed { ship, team }` from the ship mutation pipeline; the
+mission system consumes that message and queries remaining ships by team to decide the
+outcome. Leaving Game resets the phase to `Idle` and clears `BattleResult`. On `Ended`,
+the overlay spawns.
 
 ## Quick Battle flow
 
@@ -23,9 +26,11 @@ Home → **Quick Battle** (or **Play** — same battle in v1) → `SceneState::G
 3. Player ship = `DeployPayload.current_ship` if the editor Deployed one, otherwise the
    `ship_0` schematic (a fresh Core + LazerTurret hull). Enemies = `ship_1`, `ship_2` from
    their absolute spawn positions, team 1.
-4. Enemy Core blocks still die via `check_rebuild_ship_collider` → ship `Death`.
-5. First side to zero ships loses. `BattleResult { started_at, outcome, duration_secs }`
-   recorded; `OnEnter(BattlePhase::Ended)` spawns the overlay.
+4. Core loss in `apply_ship_mutations` emits `ShipDestroyed` and marks the ship `Death`.
+5. The outcome system consumes `ShipDestroyed` in `FixedPostUpdate` after the mutation
+   pipeline, queries remaining ships by team, and sets
+   `BattleResult { started_at, outcome, duration_secs }`. `OnEnter(BattlePhase::Ended)`
+   spawns the overlay.
 6. Overlay buttons: **Retry** → `BattleRestart(true)` + Home → Home's
    `resume_battle_on_restart` sees the flag, clears it, and re-enters Game fresh (full
    respawn, mission reload). **Home** → Home, battle stays over until next entry.
@@ -66,10 +71,13 @@ as usual. Empty/missing schematics spawn nothing and log a warning.
   deleted; `utils::random_vec2_step` deleted.
 - Player fallback order: Deploy → `ship_0` → (missing) first available schematic.
 - The mission asset is cached after first read; Retry/Home re-entry re-uses it.
-- Outcome detection counts only `Ship` entities — blocks/bullets/lasers/missiles don't
-  count toward attrition.
-- `BattlePhase` is a `States`; `Loading` is the default; `Ended` overlay and buttons are
-  `SceneEntity(Game)` — they despawn on scene exit.
+- Outcome detection is event-driven: `ShipDestroyed` is emitted only when a ship's core
+  is lost; scene teardown does not emit it. Counting uses only `Ship` entities —
+  blocks/bullets/lasers/missiles don't count toward attrition.
+- Outcome detection, mission loading, and overlay buttons run only in `SceneState::Game`.
+- `BattlePhase` is a `States`; `Idle` is the default; exiting Game resets the phase and
+  `BattleResult`. `Ended` overlay and buttons are `SceneEntity(Game)` — they despawn on
+  scene exit.
 - `handle_pause_input` is unchanged — Escape toggles pause during battle as before
   (the overlay does not block the pause menu; deliberate: battle stays accessible).
 

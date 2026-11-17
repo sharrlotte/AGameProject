@@ -1,20 +1,33 @@
 use super::*;
 
-pub fn handle_ai_preset_click(
-    mut interaction: Query<(&PickingInteraction, &AiPresetButton), Changed<PickingInteraction>>,
+use crate::content::ship::ai::{preset, validate_profile};
+use crate::scene::widget::ButtonVisualState;
+
+#[derive(Component)]
+pub struct AiPresetButton(pub &'static str);
+
+pub fn on_ai_preset(
+    click: On<PointerClick>,
+    buttons: Query<&AiPresetButton>,
     mut editor: ResMut<EditorState>,
 ) {
-    use crate::content::ship::ai::{preset, validate_profile};
-    for (interaction, button) in &mut interaction {
-        if *interaction == PickingInteraction::Pressed {
-            let profile = preset(button.0);
-            let errors = validate_profile(&profile);
-            if errors.is_empty() {
-                editor.ai_profile = profile;
-            } else {
-                warn!("AI preset {:?} is invalid: {:?}", button.0, errors);
-            }
-        }
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    let profile = preset(button.0);
+    if validate_profile(&profile).is_empty() {
+        editor.ai_profile = profile;
+    }
+}
+
+pub fn sync_ai_preset(
+    editor: Res<EditorState>,
+    mut buttons: Query<(&AiPresetButton, &mut ButtonVisualState)>,
+) {
+    for (button, mut state) in &mut buttons {
+        *state = if preset(button.0) == editor.ai_profile {
+            ButtonVisualState::Selected
+        } else {
+            ButtonVisualState::Normal
+        };
     }
 }
 

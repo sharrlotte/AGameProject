@@ -7,3 +7,4 @@ pub mod notice;
 pub mod pause;
 pub mod setting;
 pub mod slot_panel;
+pub mod widget;

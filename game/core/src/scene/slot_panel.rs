@@ -1,4 +1,3 @@
-use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,6 +7,7 @@ use crate::save::schema::SlotInfo;
 use crate::scene::layout::{
     SLOT_BUTTON_HEIGHT, SLOT_BUTTON_WIDTH, SLOT_ROW_HEIGHT, SLOT_ROW_WIDTH,
 };
+use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
 
 /// Shared five-slot save/load list, used by Home and Pause.
@@ -16,8 +16,7 @@ pub struct SlotPanelPlugin;
 impl Plugin for SlotPanelPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<RefreshSlotPanel>()
-            .add_systems(Update, refresh_slot_panel.in_set(SimulationSet::Present))
-            .add_systems(Update, handle_slot_buttons.in_set(SimulationSet::Input));
+            .add_systems(Update, refresh_slot_panel.in_set(SimulationSet::Present));
     }
 }
 
@@ -30,20 +29,41 @@ pub struct SlotPanel {
 }
 
 #[derive(Component)]
-pub struct SlotLoadButton(pub u8);
+struct LoadSlotButton(pub u8);
+
+fn on_load_slot(
+    click: On<PointerClick>,
+    buttons: Query<&LoadSlotButton>,
+    mut pause: ResMut<NextState<PauseState>>,
+    mut loads: MessageWriter<LoadWorldEvent>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    pause.set(PauseState::Playing);
+    loads.write(LoadWorldEvent { slot: button.0 });
+}
 
 #[derive(Component)]
-pub struct SlotSaveButton(pub u8);
+struct SaveSlotButton(pub u8);
+
+fn on_save_slot(
+    click: On<PointerClick>,
+    buttons: Query<&SaveSlotButton>,
+    mut saves: MessageWriter<SaveWorldEvent>,
+    mut notice: ResMut<AppNotice>,
+    mut refresh: MessageWriter<RefreshSlotPanel>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    saves.write(SaveWorldEvent { slot: button.0 });
+    notice.show(format!("Saving slot {}…", button.0));
+    refresh.write(RefreshSlotPanel);
+}
 
 /// Build the panel's children. Called during scene setup and on refresh.
 pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
     let slots = list_slots();
     parent.spawn((
         Text::new("Save Slots"),
-        TextFont {
-            font_size: FontSize::Px(18.0),
-            ..default()
-        },
+        TextFont { font_size: FontSize::Px(18.0), ..default() },
         TextColor(Color::srgb(0.8, 0.8, 0.8)),
     ));
 
@@ -66,61 +86,29 @@ pub fn build_slot_panel(parent: &mut ChildSpawnerCommands, allow_save: bool) {
             .with_children(|row| {
                 row.spawn((
                     Text::new(slot_label(info)),
-                    TextFont {
-                        font_size: FontSize::Px(14.0),
-                        ..default()
-                    },
+                    TextFont { font_size: FontSize::Px(14.0), ..default() },
                     TextColor(Color::WHITE),
                 ));
 
-                row.spawn((
-                    Node {
-                        width: Val::Px(SLOT_BUTTON_WIDTH),
-                        height: Val::Px(SLOT_BUTTON_HEIGHT),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.2, 0.35, 0.55)),
-                    SlotLoadButton(info.slot),
-                ))
-                .with_children(|btn| {
-                    btn.spawn((
-                        Text::new("Load"),
-                        TextFont {
-                            font_size: FontSize::Px(12.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
+                spawn_button(row, slot_button_node(), "Load", 12.0, Color::WHITE,
+                    LoadSlotButton(info.slot), on_load_slot, ButtonVisuals::blue());
 
                 if allow_save {
-                    row.spawn((
-                        Node {
-                            width: Val::Px(SLOT_BUTTON_WIDTH),
-                            height: Val::Px(SLOT_BUTTON_HEIGHT),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.25, 0.5, 0.25)),
-                        SlotSaveButton(info.slot),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn((
-                            Text::new("Save"),
-                            TextFont {
-                                font_size: FontSize::Px(12.0),
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                        ));
-                    });
+                    spawn_button(row, slot_button_node(), "Save", 12.0, Color::WHITE,
+                        SaveSlotButton(info.slot), on_save_slot, ButtonVisuals::green());
                 }
             });
+    }
+}
+
+fn slot_button_node() -> Node {
+    Node {
+        width: Val::Px(SLOT_BUTTON_WIDTH),
+        height: Val::Px(SLOT_BUTTON_HEIGHT),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border_radius: BorderRadius::all(Val::Px(4.0)),
+        ..default()
     }
 }
 
@@ -130,10 +118,7 @@ fn slot_label(info: &SlotInfo) -> String {
     }
     format!(
         "Slot {} — {} — {} ships — {:.1}s — {}",
-        info.slot,
-        info.mission,
-        info.ship_count,
-        info.elapsed_secs,
+        info.slot, info.mission, info.ship_count, info.elapsed_secs,
         relative_time(info.saved_at_unix_ms)
     )
 }
@@ -169,29 +154,5 @@ fn refresh_slot_panel(
         commands.entity(entity).with_children(move |parent| {
             build_slot_panel(parent, allow_save);
         });
-    }
-}
-
-fn handle_slot_buttons(
-    loads: Query<(&PickingInteraction, &SlotLoadButton), Changed<PickingInteraction>>,
-    saves: Query<(&PickingInteraction, &SlotSaveButton), Changed<PickingInteraction>>,
-    mut load_events: MessageWriter<LoadWorldEvent>,
-    mut save_events: MessageWriter<SaveWorldEvent>,
-    mut refresh: MessageWriter<RefreshSlotPanel>,
-    mut pause: ResMut<NextState<PauseState>>,
-    mut notice: ResMut<AppNotice>,
-) {
-    for (interaction, button) in &loads {
-        if *interaction == PickingInteraction::Pressed {
-            pause.set(PauseState::Playing);
-            load_events.write(LoadWorldEvent { slot: button.0 });
-        }
-    }
-    for (interaction, button) in &saves {
-        if *interaction == PickingInteraction::Pressed {
-            save_events.write(SaveWorldEvent { slot: button.0 });
-            notice.show(format!("Saving slot {}…", button.0));
-            refresh.write(RefreshSlotPanel);
-        }
     }
 }

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
+
 pub fn setup_editor_ui(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
@@ -8,6 +10,7 @@ pub fn setup_editor_ui(
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation = Vec3::new(0.0, 0.0, 0.0);
     }
+    let mut block_buttons = Vec::new();
     // Root Node (Full Screen)
     commands.spawn((
         ShipBase,
@@ -43,30 +46,24 @@ pub fn setup_editor_ui(
                 ))
                 .with_children(|left_panel| {
                     // --- Back Button ---
-                    left_panel
-                        .spawn((
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(ROW_HEIGHT),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                margin: UiRect::bottom(Val::Px(CORNER_RADIUS)),
-                                border_radius: BorderRadius::all(Val::Px(6.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-                            BackButton,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Back to Home"),
-                                TextFont {
-                                    font_size: FontSize::Px(14.0),
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
+                    spawn_button(
+                        left_panel,
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(ROW_HEIGHT),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(CORNER_RADIUS)),
+                            border_radius: BorderRadius::all(Val::Px(6.0)),
+                            ..default()
+                        },
+                        "Back to Home",
+                        14.0,
+                        Color::WHITE,
+                        NavBackButton,
+                        on_nav_back,
+                        ButtonVisuals::dark(),
+                    );
 
                     // --- Tab Header ---
                     left_panel
@@ -79,77 +76,18 @@ pub fn setup_editor_ui(
                             ..default()
                         })
                         .with_children(|header| {
-                            // Blocks Tab Button
-                            header
-                                .spawn((
-                                    Node {
-                                        width: Val::Percent(32.0),
-                                        height: Val::Percent(100.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                                    TabButton(EditorTab::Blocks),
-                                ))
-                                .with_children(|btn| {
-                                    btn.spawn((
-                                        Text::new("Blocks"),
-                                        TextFont {
-                                            font_size: FontSize::Px(16.0),
-                                            ..default()
-                                        },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-
-                            // Ships Tab Button
-                            header
-                                .spawn((
-                                    Node {
-                                        width: Val::Percent(32.0),
-                                        height: Val::Percent(100.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                                    TabButton(EditorTab::Ships),
-                                ))
-                                .with_children(|btn| {
-                                    btn.spawn((
-                                        Text::new("Ships"),
-                                        TextFont {
-                                            font_size: FontSize::Px(16.0),
-                                            ..default()
-                                        },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-
-                            // AI Tab Button
-                            header
-                                .spawn((
-                                    Node {
-                                        width: Val::Percent(32.0),
-                                        height: Val::Percent(100.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                                    TabButton(EditorTab::Ai),
-                                ))
-                                .with_children(|btn| {
-                                    btn.spawn((
-                                        Text::new("AI"),
-                                        TextFont {
-                                            font_size: FontSize::Px(16.0),
-                                            ..default()
-                                        },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
+                            spawn_button(
+                                header, tab_node(), "Blocks", 16.0, Color::WHITE,
+                                TabButton(EditorTab::Blocks), on_tab, ButtonVisuals::dark(),
+                            );
+                            spawn_button(
+                                header, tab_node(), "Ships", 16.0, Color::WHITE,
+                                TabButton(EditorTab::Ships), on_tab, ButtonVisuals::dark(),
+                            );
+                            spawn_button(
+                                header, tab_node(), "AI", 16.0, Color::WHITE,
+                                TabButton(EditorTab::Ai), on_tab, ButtonVisuals::dark(),
+                            );
                         });
 
                     // --- AI Panel ---
@@ -175,29 +113,23 @@ pub fn setup_editor_ui(
                                 TextColor(Color::WHITE),
                             ));
                             for preset in PRESETS {
-                                panel
-                                    .spawn((
-                                        Node {
-                                            width: Val::Percent(100.0),
-                                            height: Val::Px(ROW_HEIGHT),
-                                            justify_content: JustifyContent::Center,
-                                            align_items: AlignItems::Center,
-                                            border_radius: BorderRadius::all(Val::Px(4.0)),
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::srgb(0.2, 0.3, 0.2)),
-                                        AiPresetButton(preset),
-                                    ))
-                                    .with_children(|btn| {
-                                        btn.spawn((
-                                            Text::new(*preset),
-                                            TextFont {
-                                                font_size: FontSize::Px(13.0),
-                                                ..default()
-                                            },
-                                            TextColor(Color::WHITE),
-                                        ));
-                                    });
+                                spawn_button(
+                                    panel,
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Px(ROW_HEIGHT),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    *preset,
+                                    13.0,
+                                    Color::WHITE,
+                                    AiPresetButton(preset),
+                                    on_ai_preset,
+                                    ButtonVisuals::green(),
+                                );
                             }
                             panel.spawn((
                                 AiPreviewText,
@@ -227,88 +159,23 @@ pub fn setup_editor_ui(
                         .with_children(|list_content| {
                             // Block List
                             for (block_type, def) in registry.iter() {
-                                list_content
-                                    .spawn((
-                                        Node {
-                                            width: Val::Percent(100.0),
-                                            height: Val::Px(60.0),
-                                            justify_content: JustifyContent::Start,
-                                            align_items: AlignItems::Center,
-                                            border: UiRect::all(Val::Px(1.0)),
-                                            padding: UiRect::all(Val::Px(8.0)),
-                                            border_radius: BorderRadius::all(Val::Px(8.0)),
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                                        BlockSelection(block_type.clone()),
-                                    ))
-                                    .with_children(|btn| {
-                                        // Block Icon/Sprite
-                                        // Create a container for the stacked layers
-                                        btn.spawn(Node {
-                                            width: Val::Px(ICON_SIZE),
-                                            height: Val::Px(ICON_SIZE),
-                                            flex_shrink: 0.0,
-                                            ..default()
-                                        })
-                                        .with_children(
-                                            |icon_parent| {
-                                                for feature in &def.features {
-                                                    match feature {
-                                                        Feature::Texture(visual) => {
-                                                            icon_parent.spawn((
-                                                                ImageNode {
-                                                                    image: visual.image.clone(),
-                                                                    ..default()
-                                                                },
-                                                                Node {
-                                                                    position_type:
-                                                                        PositionType::Absolute,
-                                                                    width: Val::Percent(100.0),
-                                                                    height: Val::Percent(100.0),
-
-                                                                    ..default()
-                                                                },
-                                                            ));
-                                                        }
-                                                        Feature::Turret(visual) => {
-                                                            icon_parent.spawn((
-                                                                ImageNode {
-                                                                    image: visual.image.clone(),
-                                                                    ..default()
-                                                                },
-                                                                Node {
-                                                                    position_type:
-                                                                        PositionType::Absolute,
-                                                                    width: Val::Percent(100.0),
-                                                                    height: Val::Percent(100.0),
-
-                                                                    ..default()
-                                                                },
-                                                            ));
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                            },
-                                        );
-
-                                        // Add a small spacer
-                                        btn.spawn(Node {
-                                            width: Val::Px(FONT_SMALL),
-                                            ..default()
-                                        });
-
-                                        // Block Name
-                                        btn.spawn((
-                                            Text::new(&def.name),
-                                            TextFont {
-                                                font_size: FontSize::Px(14.0),
-                                                ..default()
-                                            },
-                                            TextColor(Color::WHITE),
-                                        ));
-                                    });
+                                let button = spawn_widget(
+                                    list_content,
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Px(60.0),
+                                        justify_content: JustifyContent::Start,
+                                        align_items: AlignItems::Center,
+                                        border: UiRect::all(Val::Px(1.0)),
+                                        padding: UiRect::all(Val::Px(8.0)),
+                                        border_radius: BorderRadius::all(Val::Px(8.0)),
+                                        ..default()
+                                    },
+                                    BlockSelectButton(block_type.clone()),
+                                    on_block_select,
+                                    ButtonVisuals::dark(),
+                                );
+                                block_buttons.push((button, def));
                             }
                         });
 
@@ -389,57 +256,112 @@ pub fn setup_editor_ui(
                         ..default()
                     });
 
-                    // Deploy Button
-                    right_panel
-                        .spawn((
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(ROW_HEIGHT),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                margin: UiRect::top(Val::Px(CORNER_RADIUS)),
-                                border_radius: BorderRadius::all(Val::Px(6.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.6, 1.0)),
-                            DeployButton,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Deploy"),
-                                TextFont {
-                                    font_size: FontSize::Px(16.0),
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
+                    spawn_button(
+                        right_panel,
+                        action_node(),
+                        "Deploy",
+                        16.0,
+                        Color::WHITE,
+                        DeployButton,
+                        on_deploy,
+                        ButtonVisuals::blue(),
+                    );
 
-                    // Play Button
-                    right_panel
-                        .spawn((
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(ROW_HEIGHT),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                margin: UiRect::top(Val::Px(CORNER_RADIUS)),
-                                border_radius: BorderRadius::all(Val::Px(6.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.8, 0.4)),
-                            PlayButton,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Start Game"),
-                                TextFont {
-                                    font_size: FontSize::Px(16.0),
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
+                    spawn_button(
+                        right_panel,
+                        action_node(),
+                        "Start Game",
+                        16.0,
+                        Color::WHITE,
+                        NavPlayButton,
+                        on_nav_play,
+                        ButtonVisuals::green(),
+                    );
                 });
         });
+
+    for (button, def) in block_buttons {
+        commands.entity(button).with_children(|btn| {
+            btn.spawn((
+                Node {
+                    width: Val::Px(ICON_SIZE),
+                    height: Val::Px(ICON_SIZE),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|icon_parent| {
+                for feature in &def.features {
+                    match feature {
+                        Feature::Texture(visual) => {
+                            icon_parent.spawn((
+                                ImageNode {
+                                    image: visual.image.clone(),
+                                    ..default()
+                                },
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                Pickable::IGNORE,
+                            ));
+                        }
+                        Feature::Turret(visual) => {
+                            icon_parent.spawn((
+                                ImageNode {
+                                    image: visual.image.clone(),
+                                    ..default()
+                                },
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                Pickable::IGNORE,
+                            ));
+                        }
+                        _ => {}
+                    }
+                }
+            });
+
+            btn.spawn((Node {
+                width: Val::Px(FONT_SMALL),
+                ..default()
+            }, Pickable::IGNORE));
+
+            btn.spawn((
+                Text::new(&def.name),
+                TextFont { font_size: FontSize::Px(14.0), ..default() },
+                TextColor(Color::WHITE),
+                Pickable::IGNORE,
+            ));
+        });
+    }
+}
+
+fn tab_node() -> Node {
+    Node {
+        width: Val::Percent(32.0),
+        height: Val::Percent(100.0),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        ..default()
+    }
+}
+
+fn action_node() -> Node {
+    Node {
+        width: Val::Percent(100.0),
+        height: Val::Px(ROW_HEIGHT),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        margin: UiRect::top(Val::Px(CORNER_RADIUS)),
+        border_radius: BorderRadius::all(Val::Px(6.0)),
+        ..default()
+    }
 }

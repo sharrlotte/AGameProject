@@ -119,11 +119,11 @@ fn main() {
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
         #[cfg(debug_assertions)]
-        FrameTimeDiagnosticsPlugin::new(100),
-        #[cfg(debug_assertions)]
-        EntityCountDiagnosticsPlugin::new(100),
-        #[cfg(debug_assertions)]
-        DebugAuditPlugin,
+        (
+            FrameTimeDiagnosticsPlugin::new(100),
+            EntityCountDiagnosticsPlugin::new(100),
+            DebugAuditPlugin,
+        ),
         ConfigPlugin,
         MissionPlugin,
         GameScenePlugin,
@@ -136,6 +136,7 @@ fn main() {
         SettingScenePlugin,
         NoticePlugin,
         SlotPanelPlugin,
+        scene::widget::WidgetPlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));
 

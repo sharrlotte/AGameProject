@@ -12,6 +12,7 @@ use crate::save::catalog::ShipCatalog;
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum BattlePhase {
     #[default]
+    Idle,
     Loading,
     Active,
     Ended,

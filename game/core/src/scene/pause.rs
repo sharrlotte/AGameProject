@@ -1,13 +1,11 @@
-use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
-use crate::{
-    resource::{PauseState, SceneState, SettingState},
-    save::io::{LoadWorldEvent, SaveWorldEvent},
-    scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE},
-    scene::slot_panel::{RefreshSlotPanel, SlotPanel, build_slot_panel},
-    simulation::SimulationSet,
-};
+use crate::resource::{AppNotice, PauseState, SceneState, SettingState};
+use crate::save::io::{LoadWorldEvent, SaveWorldEvent};
+use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
+use crate::scene::slot_panel::{RefreshSlotPanel, SlotPanel, build_slot_panel};
+use crate::scene::widget::{ButtonVisuals, spawn_button};
+use crate::simulation::SimulationSet;
 
 pub struct PauseScenePlugin;
 
@@ -16,32 +14,13 @@ impl Plugin for PauseScenePlugin {
         app.add_systems(OnEnter(PauseState::Paused), setup_pause)
             .add_systems(
                 Update,
-                handle_pause_buttons
-                    .run_if(in_state(PauseState::Paused))
-                    .in_set(SimulationSet::Input),
-            )
-            .add_systems(OnExit(PauseState::Paused), cleanup_pause)
-            .add_systems(
-                Update,
                 handle_pause_input
                     .run_if(in_state(SceneState::Game).or_else(in_state(SceneState::ShipEditor)))
                     .in_set(SimulationSet::Input),
-            );
+            )
+            .add_systems(OnExit(PauseState::Paused), cleanup_pause);
     }
 }
-
-#[derive(Component)]
-enum PauseButton {
-    Resume,
-    Settings,
-    Home,
-    Save,
-    Load,
-    Exit,
-}
-
-#[derive(Component)]
-struct PauseScreen;
 
 fn handle_pause_input(
     keys: Res<ButtonInput<KeyCode>>,
@@ -53,8 +32,91 @@ fn handle_pause_input(
             PauseState::Paused => PauseState::Playing,
             PauseState::Playing => PauseState::Paused,
         };
-
         game_state.set(next_state);
+    }
+}
+
+#[derive(Component)]
+struct ResumeButton;
+
+fn on_resume(
+    click: On<PointerClick>,
+    buttons: Query<&ResumeButton>,
+    mut pause: ResMut<NextState<PauseState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        pause.set(PauseState::Playing);
+    }
+}
+
+#[derive(Component)]
+struct PauseSettingsButton;
+
+fn on_settings(
+    click: On<PointerClick>,
+    buttons: Query<&PauseSettingsButton>,
+    mut setting: ResMut<NextState<SettingState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        setting.set(SettingState::Open);
+    }
+}
+
+#[derive(Component)]
+struct SaveButton(pub u8);
+
+fn on_save(
+    click: On<PointerClick>,
+    buttons: Query<&SaveButton>,
+    mut saves: MessageWriter<SaveWorldEvent>,
+    mut refresh: MessageWriter<RefreshSlotPanel>,
+    mut notice: ResMut<AppNotice>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    saves.write(SaveWorldEvent { slot: button.0 });
+    notice.show(format!("Saving slot {}…", button.0));
+    refresh.write(RefreshSlotPanel);
+}
+
+#[derive(Component)]
+struct LoadButton(pub u8);
+
+fn on_load(
+    click: On<PointerClick>,
+    buttons: Query<&LoadButton>,
+    mut pause: ResMut<NextState<PauseState>>,
+    mut loads: MessageWriter<LoadWorldEvent>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    pause.set(PauseState::Playing);
+    loads.write(LoadWorldEvent { slot: button.0 });
+}
+
+#[derive(Component)]
+struct HomeButton;
+
+fn on_home(
+    click: On<PointerClick>,
+    buttons: Query<&HomeButton>,
+    mut pause: ResMut<NextState<PauseState>>,
+    mut scene: ResMut<NextState<SceneState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        pause.set(PauseState::Playing);
+        scene.set(SceneState::Home);
+    }
+}
+
+#[derive(Component)]
+struct ExitButton;
+
+fn on_exit(
+    click: On<PointerClick>,
+    buttons: Query<&ExitButton>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if buttons.contains(click.event().entity) {
+        exit.write(AppExit::Success);
     }
 }
 
@@ -73,183 +135,28 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 row_gap: Val::Px(FONT_TITLE),
                 ..default()
             },
-            PauseScreen,
             DespawnOnExit(PauseState::Paused),
         ))
         .with_children(|parent| {
-            // Title
             parent.spawn((
                 Text::new("Paused"),
-                TextFont {
-                    font_size: FontSize::Px(40.0),
-                    ..default()
-                },
+                TextFont { font_size: FontSize::Px(40.0), ..default() },
                 TextColor(Color::WHITE),
-                Node {
-                    margin: UiRect::bottom(Val::Px(40.0)),
-                    ..default()
-                },
+                Node { margin: UiRect::bottom(Val::Px(40.0)), ..default() },
             ));
 
-            // Resume Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Resume,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Resume"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-
-            // Settings Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Settings,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Settings"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-
-            // Save Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Save,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Save"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Load,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Load"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-
-            // Home Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Home,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Back to Home"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-
-            // Exit Button
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
-                        border: UiRect::all(Val::Px(BORDER_WIDTH)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    PauseButton::Exit,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Exit"),
-                        TextFont {
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
+            spawn_button(parent, button_node(), "Resume", 20.0, Color::WHITE,
+                ResumeButton, on_resume, ButtonVisuals::dark());
+            spawn_button(parent, button_node(), "Settings", 20.0, Color::WHITE,
+                PauseSettingsButton, on_settings, ButtonVisuals::dark());
+            spawn_button(parent, button_node(), "Save", 20.0, Color::WHITE,
+                SaveButton(1), on_save, ButtonVisuals::green());
+            spawn_button(parent, button_node(), "Load", 20.0, Color::WHITE,
+                LoadButton(1), on_load, ButtonVisuals::blue());
+            spawn_button(parent, button_node(), "Back to Home", 20.0, Color::WHITE,
+                HomeButton, on_home, ButtonVisuals::dark());
+            spawn_button(parent, button_node(), "Exit", 20.0, Color::WHITE,
+                ExitButton, on_exit, ButtonVisuals::dark());
 
             parent
                 .spawn((
@@ -267,60 +174,19 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
         });
 }
 
-fn handle_pause_buttons(
-    mut interaction_query: Query<
-        (&PickingInteraction, &PauseButton, &mut BackgroundColor),
-        Changed<PickingInteraction>,
-    >,
-    mut app_state: ResMut<NextState<SceneState>>,
-    mut game_state: ResMut<NextState<PauseState>>,
-    mut setting_state: ResMut<NextState<SettingState>>,
-    mut exit: MessageWriter<AppExit>,
-    mut save_events: MessageWriter<SaveWorldEvent>,
-    mut load_events: MessageWriter<LoadWorldEvent>,
-    mut refresh: MessageWriter<RefreshSlotPanel>,
-) {
-    for (interaction, button_type, mut bg_color) in &mut interaction_query {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                *bg_color = BackgroundColor(Color::srgb(0.35, 0.75, 0.35));
-                match button_type {
-                    PauseButton::Resume => {
-                        game_state.set(PauseState::Playing);
-                    }
-                    PauseButton::Settings => {
-                        setting_state.set(SettingState::Open);
-                    }
-                    PauseButton::Home => {
-                        game_state.set(PauseState::Playing);
-                        app_state.set(SceneState::Home);
-                    }
-                    PauseButton::Exit => {
-                        game_state.set(PauseState::Playing);
-                        exit.write(AppExit::Success);
-                    }
-                    PauseButton::Save => {
-                        save_events.write(SaveWorldEvent { slot: 1 });
-                        refresh.write(RefreshSlotPanel);
-                    }
-                    PauseButton::Load => {
-                        game_state.set(PauseState::Playing);
-                        // Scene teardown is handled by `DespawnOnExit(SceneState::Game)`.
-                        load_events.write(LoadWorldEvent { slot: 1 });
-                    }
-                }
-            }
-            PickingInteraction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
-            }
-            PickingInteraction::None => {
-                *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
-            }
-        }
+fn button_node() -> Node {
+    Node {
+        width: Val::Px(BUTTON_WIDTH),
+        height: Val::Px(BUTTON_HEIGHT),
+        border: UiRect::all(Val::Px(BORDER_WIDTH)),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        padding: UiRect::all(Val::Px(CORNER_RADIUS)),
+        border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
+        ..default()
     }
 }
 
 fn cleanup_pause(mut time: ResMut<Time<Virtual>>) {
     time.unpause();
-    // UI entities are removed by `DespawnOnExit(PauseState::Paused)`.
 }

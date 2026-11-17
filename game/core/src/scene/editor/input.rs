@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::scene::widget::ButtonVisualState;
+
 pub fn send_scroll_events(
     mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
@@ -72,133 +74,116 @@ pub fn on_scroll_handler(
     }
 }
 
-pub fn handle_block_selection(
-    mut interaction: Query<
-        (
-            &PickingInteraction,
-            &BlockSelection,
-            &mut BackgroundColor,
-            &mut Node,
-        ),
-        Changed<PickingInteraction>,
-    >,
+#[derive(Component)]
+pub struct BlockSelectButton(pub String);
+
+pub fn on_block_select(
+    click: On<PointerClick>,
+    buttons: Query<&BlockSelectButton>,
     mut editor: ResMut<EditorState>,
 ) {
-    for (interaction, block_type, mut bg_color, mut _node) in &mut interaction {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                // Toggle selection
-                if editor.selected_block == Some(block_type.0.clone()) {
-                    editor.selected_block = None;
-                } else {
-                    editor.selected_block = Some(block_type.0.clone());
-                }
-            }
-            PickingInteraction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
-            }
-            PickingInteraction::None => {
-                // Highlight if selected
-                if editor.selected_block == Some(block_type.0.clone()) {
-                    *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
-                } else {
-                    *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.2).with_alpha(0.8));
-                }
-            }
-        }
-    }
-}
-
-pub fn handle_deploy_button_click(
-    mut buttons: Query<(&PickingInteraction, &mut BackgroundColor), With<DeployButton>>,
-    mut app_var: ResMut<DeployPayload>,
-    editor: Res<EditorState>,
-) {
-    for (interaction, mut bg_color) in &mut buttons {
-        if *interaction == PickingInteraction::Pressed {
-            // Deploy Logic
-            let saved_blocks: Vec<BlockPlacement> = editor
-                .grid
-                .blocks()
-                .map(|block| block.placement.clone())
-                .collect();
-
-            app_var.current_ship = Some(ShipDesign {
-                version: 1,
-                id: Uuid::now_v7(),
-                name: editor.filename.clone(),
-                blocks: saved_blocks,
-                ai: editor.ai_profile.clone(),
-            });
-        }
-
-        match interaction {
-            PickingInteraction::Pressed => *bg_color = BackgroundColor(Color::srgb(0.1, 0.4, 0.8)),
-            PickingInteraction::Hovered => *bg_color = BackgroundColor(Color::srgb(0.3, 0.7, 1.0)),
-            _def => {}
-        }
-    }
-}
-
-pub fn handle_deploy_button(
-    mut buttons: Query<&mut BackgroundColor, With<DeployButton>>,
-    app_var: ResMut<DeployPayload>,
-    editor: Res<EditorState>,
-) {
-    let is_deployed = if let Some(current) = &app_var.current_ship {
-        current.name == editor.filename
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    if editor.selected_block.as_deref() == Some(button.0.as_str()) {
+        editor.selected_block = None;
     } else {
-        false
-    };
-
-    for mut bg_color in &mut buttons {
-        if is_deployed {
-            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
-        } else {
-            *bg_color = BackgroundColor(Color::srgb(0.2, 0.6, 1.0));
-        }
+        editor.selected_block = Some(button.0.clone());
     }
 }
 
-pub fn handle_nav_buttons(
-    mut interactions: Query<
-        (
-            &PickingInteraction,
-            &mut BackgroundColor,
-            Option<&BackButton>,
-            Option<&PlayButton>,
-        ),
-        Changed<PickingInteraction>,
-    >,
-    mut next_state: ResMut<NextState<SceneState>>,
+pub fn sync_block_selection(
+    editor: Res<EditorState>,
+    mut buttons: Query<(&BlockSelectButton, &mut ButtonVisualState)>,
 ) {
-    for (interaction, mut bg_color, back, play) in &mut interactions {
-        if back.is_none() && play.is_none() {
-            continue;
-        }
+    for (button, mut state) in &mut buttons {
+        *state = if editor.selected_block.as_deref() == Some(button.0.as_str()) {
+            ButtonVisualState::Selected
+        } else {
+            ButtonVisualState::Normal
+        };
+    }
+}
 
-        match *interaction {
-            PickingInteraction::Pressed => {
-                if back.is_some() {
-                    next_state.set(SceneState::Home);
-                } else if play.is_some() {
-                    next_state.set(SceneState::Game);
-                }
-            }
-            PickingInteraction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
-                if play.is_some() {
-                    *bg_color = BackgroundColor(Color::srgb(0.3, 0.9, 0.5));
-                }
-            }
-            PickingInteraction::None => {
-                if back.is_some() {
-                    *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
-                } else if play.is_some() {
-                    *bg_color = BackgroundColor(Color::srgb(0.2, 0.8, 0.4));
-                }
-            }
-        }
+#[derive(Component)]
+pub struct DeployButton;
+
+pub fn on_deploy(
+    click: On<PointerClick>,
+    buttons: Query<&DeployButton>,
+    mut deploy: ResMut<DeployPayload>,
+    editor: Res<EditorState>,
+) {
+    if !buttons.contains(click.event().entity) {
+        return;
+    }
+    let blocks = editor
+        .grid
+        .blocks()
+        .map(|block| block.placement.clone())
+        .collect();
+    deploy.current_ship = Some(ShipDesign {
+        version: 1,
+        id: Uuid::now_v7(),
+        name: editor.filename.clone(),
+        blocks,
+        ai: editor.ai_profile.clone(),
+    });
+}
+
+pub fn sync_deploy_button(
+    app_var: Res<DeployPayload>,
+    editor: Res<EditorState>,
+    mut buttons: Query<(&DeployButton, &mut ButtonVisualState)>,
+) {
+    let is_deployed = app_var
+        .current_ship
+        .as_ref()
+        .is_some_and(|current| current.name == editor.filename);
+
+    for (_, mut state) in &mut buttons {
+        *state = if is_deployed {
+            ButtonVisualState::Disabled
+        } else {
+            ButtonVisualState::Normal
+        };
+    }
+}
+
+#[derive(Component)]
+pub struct NavBackButton;
+
+pub fn on_nav_back(
+    click: On<PointerClick>,
+    buttons: Query<&NavBackButton>,
+    mut scene: ResMut<NextState<SceneState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        scene.set(SceneState::Home);
+    }
+}
+
+#[derive(Component)]
+pub struct NavPlayButton;
+
+pub fn on_nav_play(
+    click: On<PointerClick>,
+    buttons: Query<&NavPlayButton>,
+    mut scene: ResMut<NextState<SceneState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        scene.set(SceneState::Game);
+    }
+}
+
+#[derive(Component)]
+pub struct TabButton(pub EditorTab);
+
+pub fn on_tab(
+    click: On<PointerClick>,
+    buttons: Query<&TabButton>,
+    mut editor: ResMut<EditorState>,
+) {
+    if let Ok(button) = buttons.get(click.event().entity) {
+        editor.active_tab = button.0;
     }
 }
 
@@ -334,12 +319,9 @@ pub fn handle_block_deletion(
     }
 }
 
-pub fn handle_tab_switching(
-    mut interaction: Query<
-        (&PickingInteraction, &TabButton, &mut BackgroundColor),
-        Changed<PickingInteraction>,
-    >,
-    mut editor: ResMut<EditorState>,
+pub fn sync_tabs(
+    editor: Res<EditorState>,
+    mut buttons: Query<(&TabButton, &mut ButtonVisualState)>,
     mut block_list: Single<
         &mut Node,
         (
@@ -365,22 +347,12 @@ pub fn handle_tab_switching(
         ),
     >,
 ) {
-    for (interaction, tab_btn, mut bg_color) in &mut interaction {
-        match *interaction {
-            PickingInteraction::Pressed => {
-                editor.active_tab = tab_btn.0;
-            }
-            PickingInteraction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
-            }
-            PickingInteraction::None => {
-                if editor.active_tab == tab_btn.0 {
-                    *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
-                } else {
-                    *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.2));
-                }
-            }
-        }
+    for (button, mut state) in &mut buttons {
+        *state = if button.0 == editor.active_tab {
+            ButtonVisualState::Selected
+        } else {
+            ButtonVisualState::Normal
+        };
     }
 
     // Update Visibility

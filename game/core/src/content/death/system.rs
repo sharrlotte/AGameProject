@@ -1,4 +1,4 @@
-use super::Death;
+use super::{Death, ShipDestroyed};
 use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
@@ -6,7 +6,8 @@ pub struct DeathPlugin;
 
 impl Plugin for DeathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedLast, despawn_dead.in_set(SimulationSet::Cleanup));
+        app.add_message::<ShipDestroyed>()
+            .add_systems(FixedLast, despawn_dead.in_set(SimulationSet::Cleanup));
     }
 }
 

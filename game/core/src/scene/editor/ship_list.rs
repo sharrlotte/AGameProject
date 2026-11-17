@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::scene::widget::{ButtonVisuals, spawn_button};
+
 pub fn load_initial_ship(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
@@ -26,6 +28,20 @@ pub fn load_initial_ship(
     );
 }
 
+#[derive(Component)]
+pub struct LoadShipButton(pub String);
+
+fn on_load_ship(
+    click: On<PointerClick>,
+    buttons: Query<&LoadShipButton>,
+    mut selections: MessageWriter<LoadShipSelected>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    selections.write(LoadShipSelected {
+        filename: button.0.clone(),
+    });
+}
+
 pub fn refresh_ship_list(
     mut commands: Commands,
     mut available_ships: ResMut<EditorState>,
@@ -50,8 +66,8 @@ pub fn refresh_ship_list(
                         ..default()
                     },))
                     .with_children(|row| {
-                        // Load Button
-                        row.spawn((
+                        spawn_button(
+                            row,
                             Node {
                                 flex_grow: 1.0,
                                 height: Val::Percent(100.0),
@@ -63,25 +79,17 @@ pub fn refresh_ship_list(
                                 border_radius: BorderRadius::all(Val::Px(4.0)),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                            LoadShipButton {
-                                filename: ShipCatalog::file_name(ship),
+                            if ship.name.is_empty() {
+                                ShipCatalog::file_name(ship)
+                            } else {
+                                ship.name.clone()
                             },
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new(if ship.name.is_empty() {
-                                    ShipCatalog::file_name(ship)
-                                } else {
-                                    ship.name.clone()
-                                }),
-                                TextFont {
-                                    font_size: FontSize::Px(14.0),
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
+                            14.0,
+                            Color::WHITE,
+                            LoadShipButton(ShipCatalog::file_name(ship)),
+                            on_load_ship,
+                            ButtonVisuals::dark(),
+                        );
                     });
             }
         });
@@ -92,20 +100,18 @@ pub fn handle_ship_loading(
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
     placed_blocks: Query<Entity, With<BlockRef>>,
-    mut interaction: Query<(&PickingInteraction, &LoadShipButton), Changed<PickingInteraction>>,
+    mut selections: MessageReader<LoadShipSelected>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    for (interaction, load_btn) in &mut interaction {
-        if *interaction == PickingInteraction::Pressed {
-            despawn_ship(&mut commands, &placed_blocks);
-            spawn_ship(
-                &mut commands,
-                &mut editor,
-                &registry,
-                &load_btn.filename,
-                ship_base.entity(),
-            );
-        }
+    for selection in selections.read() {
+        despawn_ship(&mut commands, &placed_blocks);
+        spawn_ship(
+            &mut commands,
+            &mut editor,
+            &registry,
+            &selection.filename,
+            ship_base.entity(),
+        );
     }
 }
 

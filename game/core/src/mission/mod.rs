@@ -1,22 +1,26 @@
 pub mod def;
 mod state;
 
+use std::collections::HashSet;
+
 pub use def::MissionDef;
 pub use state::{BattleOutcome, BattlePhase, BattleRestart, BattleResult};
 
 use bevy::asset::LoadState;
-use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::config::ConfigState;
 use crate::config::GameConfigValue;
 use crate::config::loader::RonAssetLoader;
 use crate::content::block::BlockRegistry;
+use crate::content::death::ShipDestroyed;
+use crate::content::ship::mutation::apply_ship_mutations;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::resource::{AppNotice, DeployPayload, PendingLoad, SceneState};
 
 use crate::mission::state::spawn_mission;
+use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
 
 #[derive(Resource)]
@@ -42,25 +46,26 @@ impl Plugin for MissionPlugin {
             .add_systems(
                 Update,
                 poll_mission_loaded
+                    .run_if(in_state(SceneState::Game))
                     .run_if(in_state(BattlePhase::Loading))
                     .run_if(in_state(ConfigState::Ready))
                     .in_set(SimulationSet::Present),
-            )
-            .add_systems(
-                Update,
-                handle_end_buttons
-                    .run_if(in_state(BattlePhase::Ended))
-                    .in_set(SimulationSet::Input),
             )
             .add_systems(
                 OnEnter(SceneState::Home),
                 resume_battle_on_restart.in_set(SimulationSet::Input),
             )
             .add_systems(
-                FixedUpdate,
+                OnExit(SceneState::Game),
+                reset_battle.in_set(SimulationSet::Input),
+            )
+            .add_systems(
+                FixedPostUpdate,
                 check_battle_outcome
+                    .after(apply_ship_mutations)
+                    .run_if(in_state(SceneState::Game))
                     .run_if(in_state(BattlePhase::Active))
-                    .in_set(SimulationSet::Damage),
+                    .in_set(SimulationSet::Death),
             );
     }
 }
@@ -122,16 +127,46 @@ fn poll_mission_loaded(
     phase.set(BattlePhase::Active);
 }
 
+fn reset_battle(
+    mut result: ResMut<BattleResult>,
+    mut phase: ResMut<NextState<BattlePhase>>,
+) {
+    *result = BattleResult::default();
+    phase.set(BattlePhase::Idle);
+}
+
 fn check_battle_outcome(
-    ships: Query<&Team, With<Ship>>,
+    mut events: MessageReader<ShipDestroyed>,
+    ships: Query<(Entity, &Team), With<Ship>>,
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
     time: Res<Time>,
 ) {
+    let mut destroyed = HashSet::new();
+    let mut player_destroyed = false;
+    let mut enemy_destroyed = false;
+    for event in events.read() {
+        destroyed.insert(event.ship);
+        if event.team.is_player() {
+            player_destroyed = true;
+        } else {
+            enemy_destroyed = true;
+        }
+    }
+    if destroyed.is_empty() {
+        return;
+    }
+
+    let Some(started_at) = result.started_at else {
+        return;
+    };
+
     let mut player_ships = 0usize;
     let mut enemy_ships = 0usize;
-
-    for team in &ships {
+    for (entity, team) in &ships {
+        if destroyed.contains(&entity) {
+            continue;
+        }
         if team.is_player() {
             player_ships += 1;
         } else {
@@ -139,15 +174,11 @@ fn check_battle_outcome(
         }
     }
 
-    let Some(started_at) = result.started_at else {
-        return;
-    };
-
-    if player_ships == 0 {
+    if player_destroyed && player_ships == 0 {
         result.outcome = Some(BattleOutcome::Defeat);
         result.duration_secs = time.elapsed_secs() - started_at;
         phase.set(BattlePhase::Ended);
-    } else if enemy_ships == 0 {
+    } else if enemy_destroyed && enemy_ships == 0 {
         result.outcome = Some(BattleOutcome::Victory);
         result.duration_secs = time.elapsed_secs() - started_at;
         phase.set(BattlePhase::Ended);
@@ -155,9 +186,31 @@ fn check_battle_outcome(
 }
 
 #[derive(Component)]
-enum BattleEndButton {
-    Retry,
-    Home,
+struct RetryButton;
+
+fn on_retry(
+    click: On<PointerClick>,
+    buttons: Query<&RetryButton>,
+    mut restart: ResMut<BattleRestart>,
+    mut scene: ResMut<NextState<SceneState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        *restart = BattleRestart(true);
+        scene.set(SceneState::Home);
+    }
+}
+
+#[derive(Component)]
+struct EndHomeButton;
+
+fn on_end_home(
+    click: On<PointerClick>,
+    buttons: Query<&EndHomeButton>,
+    mut scene: ResMut<NextState<SceneState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        scene.set(SceneState::Home);
+    }
 }
 
 fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
@@ -210,55 +263,37 @@ fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
                     ..default()
                 })
                 .with_children(|row| {
-                    for (label, button) in [
-                        ("Retry", BattleEndButton::Retry),
-                        ("Home", BattleEndButton::Home),
-                    ] {
-                        row.spawn((
-                            Node {
-                                width: Val::Px(180.0),
-                                height: Val::Px(50.0),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                            button,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new(label),
-                                TextFont {
-                                    font_size: FontSize::Px(20.0),
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
-                    }
+                    spawn_button(
+                        row,
+                        end_button_node(),
+                        "Retry",
+                        20.0,
+                        Color::WHITE,
+                        RetryButton,
+                        on_retry,
+                        ButtonVisuals::dark(),
+                    );
+                    spawn_button(
+                        row,
+                        end_button_node(),
+                        "Home",
+                        20.0,
+                        Color::WHITE,
+                        EndHomeButton,
+                        on_end_home,
+                        ButtonVisuals::dark(),
+                    );
                 });
         });
 }
 
-fn handle_end_buttons(
-    interactions: Query<(&PickingInteraction, &BattleEndButton), Changed<PickingInteraction>>,
-    mut next_state: ResMut<NextState<SceneState>>,
-    mut restart: ResMut<BattleRestart>,
-) {
-    for (interaction, button) in &interactions {
-        if *interaction != PickingInteraction::Pressed {
-            continue;
-        }
-
-        match button {
-            BattleEndButton::Retry => {
-                *restart = BattleRestart(true);
-                next_state.set(SceneState::Home);
-            }
-            BattleEndButton::Home => {
-                next_state.set(SceneState::Home);
-            }
-        }
+fn end_button_node() -> Node {
+    Node {
+        width: Val::Px(180.0),
+        height: Val::Px(50.0),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        ..default()
     }
 }
 
@@ -269,5 +304,148 @@ fn resume_battle_on_restart(
     if restart.0 {
         *restart = BattleRestart(false);
         next_state.set(SceneState::Game);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::content::death::ShipDestroyed;
+    use bevy::state::app::StatesPlugin;
+
+    #[derive(Resource, Default)]
+    struct EndedSpawned(bool);
+
+    fn setup() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(StatesPlugin)
+            .init_state::<SceneState>()
+            .init_state::<BattlePhase>()
+            .init_resource::<BattleResult>()
+            .init_resource::<EndedSpawned>()
+            .add_message::<ShipDestroyed>()
+            .configure_sets(FixedPostUpdate, SimulationSet::Death)
+            .add_systems(OnExit(SceneState::Game), reset_battle)
+            .add_systems(
+                OnEnter(BattlePhase::Ended),
+                |mut flag: ResMut<EndedSpawned>| flag.0 = true,
+            )
+            .add_systems(
+                FixedPostUpdate,
+                check_battle_outcome
+                    .after(apply_ship_mutations)
+                    .run_if(in_state(SceneState::Game))
+                    .run_if(in_state(BattlePhase::Active))
+                    .in_set(SimulationSet::Death),
+            );
+        app
+    }
+
+    fn enter_battle(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Game);
+        app.world_mut()
+            .resource_mut::<NextState<BattlePhase>>()
+            .set(BattlePhase::Active);
+        app.update();
+        app.world_mut().resource_mut::<BattleResult>().started_at = Some(0.0);
+    }
+
+    fn spawn_ship(app: &mut App, team: Team) -> Entity {
+        app.world_mut().spawn((Ship::default(), team)).id()
+    }
+
+    fn emit(app: &mut App, ship: Entity, team: Team) {
+        app.world_mut()
+            .resource_mut::<Messages<ShipDestroyed>>()
+            .write(ShipDestroyed { ship, team });
+    }
+
+    fn tick(app: &mut App) {
+        app.world_mut().run_schedule(FixedPostUpdate);
+    }
+
+    #[test]
+    fn last_enemy_core_yields_victory() {
+        let mut app = setup();
+        enter_battle(&mut app);
+        spawn_ship(&mut app, Team::new(0));
+        let enemy = spawn_ship(&mut app, Team::new(1));
+        emit(&mut app, enemy, Team::new(1));
+        tick(&mut app);
+        assert_eq!(
+            app.world().resource::<BattleResult>().outcome,
+            Some(BattleOutcome::Victory)
+        );
+    }
+
+    #[test]
+    fn last_player_core_yields_defeat() {
+        let mut app = setup();
+        enter_battle(&mut app);
+        let player = spawn_ship(&mut app, Team::new(0));
+        spawn_ship(&mut app, Team::new(1));
+        emit(&mut app, player, Team::new(0));
+        tick(&mut app);
+        assert_eq!(
+            app.world().resource::<BattleResult>().outcome,
+            Some(BattleOutcome::Defeat)
+        );
+    }
+
+    #[test]
+    fn battle_continues_when_other_ships_remain() {
+        let mut app = setup();
+        enter_battle(&mut app);
+        let player = spawn_ship(&mut app, Team::new(0));
+        spawn_ship(&mut app, Team::new(0));
+        spawn_ship(&mut app, Team::new(1));
+        emit(&mut app, player, Team::new(0));
+        tick(&mut app);
+        assert_eq!(app.world().resource::<BattleResult>().outcome, None);
+    }
+
+    #[test]
+    fn no_destroyed_message_does_not_end_battle() {
+        let mut app = setup();
+        enter_battle(&mut app);
+        spawn_ship(&mut app, Team::new(0));
+        tick(&mut app);
+        assert_eq!(app.world().resource::<BattleResult>().outcome, None);
+    }
+
+    #[test]
+    fn returning_home_resets_battle_without_overlay() {
+        let mut app = setup();
+        enter_battle(&mut app);
+        app.world_mut().resource_mut::<BattleResult>().outcome = Some(BattleOutcome::Victory);
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Home);
+        app.update();
+        app.update();
+        tick(&mut app);
+        assert_eq!(app.world().resource::<BattleResult>().outcome, None);
+        assert_eq!(
+            *app.world().resource::<State<BattlePhase>>().get(),
+            BattlePhase::Idle
+        );
+        assert!(!app.world().resource::<EndedSpawned>().0);
+    }
+
+    #[test]
+    fn outcome_event_outside_game_is_ignored() {
+        let mut app = setup();
+        app.world_mut()
+            .resource_mut::<NextState<BattlePhase>>()
+            .set(BattlePhase::Active);
+        app.update();
+        app.world_mut().resource_mut::<BattleResult>().started_at = Some(0.0);
+        let enemy = spawn_ship(&mut app, Team::new(1));
+        emit(&mut app, enemy, Team::new(1));
+        tick(&mut app);
+        assert_eq!(app.world().resource::<BattleResult>().outcome, None);
     }
 }

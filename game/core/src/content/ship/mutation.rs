@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::content::block::{BlockPlacement, BlockRegistry, DropEvent, spawn_block_entity};
-use crate::content::death::Death;
+use crate::content::death::{Death, ShipDestroyed};
 use crate::content::ship::{BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats};
 use crate::content::team::Team;
 use crate::simulation::SimulationSet;
@@ -60,6 +60,7 @@ type ShipQuery<'w, 's> = Query<
         &'static Team,
         &'static GlobalTransform,
     ),
+    Without<Death>,
 >;
 
 pub fn apply_ship_mutations(
@@ -69,6 +70,7 @@ pub fn apply_ship_mutations(
     config: Res<GameConfigValue>,
     mut ships: ShipQuery,
     mut changed: MessageWriter<ShipChanged>,
+    mut destroyed: MessageWriter<ShipDestroyed>,
     mut drops: MessageWriter<DropEvent>,
 ) {
     let mut by_ship: HashMap<Entity, Vec<ShipMutation>> = HashMap::new();
@@ -183,6 +185,10 @@ pub fn apply_ship_mutations(
         else {
             // The core is gone (or nothing is left): the ship dies.
             commands.entity(ship_entity).insert(Death);
+            destroyed.write(ShipDestroyed {
+                ship: ship_entity,
+                team: *team,
+            });
             changed.write(ShipChanged { ship: ship_entity });
             continue;
         };
@@ -241,7 +247,7 @@ mod tests {
     use super::*;
     use crate::config::GameConfig;
     use crate::content::block::{BlockDef, BlockShape};
-    use crate::content::death::Death;
+    use crate::content::death::{Death, ShipDestroyed};
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
         BlockDef {
@@ -281,6 +287,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<ShipMutation>()
             .add_message::<ShipChanged>()
+            .add_message::<ShipDestroyed>()
             .add_message::<DropEvent>()
             .insert_resource(registry)
             .insert_resource(GameConfigValue(GameConfig::default()))
@@ -358,6 +365,51 @@ mod tests {
         );
 
         assert!(app.world().entity(ship_entity).contains::<Death>());
+    }
+
+    #[test]
+    fn core_loss_emits_one_ship_destroyed_and_dead_ship_is_skipped() {
+        let (mut app, ship_entity) = setup();
+        let core_id = app
+            .world()
+            .get::<ShipGrid>(ship_entity)
+            .unwrap()
+            .block_at(IVec2::ZERO)
+            .unwrap()
+            .placement
+            .id;
+
+        send(
+            &mut app,
+            ShipMutation::DestroyBlock {
+                ship: ship_entity,
+                block_id: core_id,
+            },
+        );
+
+        let destroyed: Vec<ShipDestroyed> = app
+            .world_mut()
+            .resource_mut::<Messages<ShipDestroyed>>()
+            .drain()
+            .collect();
+        assert_eq!(destroyed.len(), 1);
+        assert_eq!(destroyed[0].ship, ship_entity);
+        assert_eq!(destroyed[0].team, Team::new(0));
+
+        send(
+            &mut app,
+            ShipMutation::DestroyBlock {
+                ship: ship_entity,
+                block_id: core_id,
+            },
+        );
+
+        let repeated: Vec<ShipDestroyed> = app
+            .world_mut()
+            .resource_mut::<Messages<ShipDestroyed>>()
+            .drain()
+            .collect();
+        assert!(repeated.is_empty());
     }
 
     #[test]

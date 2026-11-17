@@ -7,8 +7,10 @@ All HUD elements are UI nodes (not world-space canvases) except the per-ship deb
 
 - **Top bar** — `FPS: <value>, Vec2(<x>, <y>)` — `FrameTimeDiagnosticsPlugin::FPS`
   (smoothed), prefixed with `TextFont { font_size: 10.0 }`.
-- **Left — ship list** — rebuilt every 200 ms (`on_timer(200ms)`). One button per player
-  ship, showing:
+- **Left — ship list** — refreshed every 200 ms (`on_timer(200ms)`) but updated
+  incrementally: button entities are keyed by their target ship and survive a refresh.
+  Mini-map icon nodes are non-pickable so the button is the sole click target. One button
+  per player ship, showing:
   - a 6 px-ish scaled `(ship_size / GRID_SIZE + 2) × SMALL_GRID_SIZE = 6.0` px box,
   - absolute-positioned mini block icons colored by health fraction (see scenes.md),
   - white border by default; green border = controlled, cyan = followed.
@@ -40,6 +42,17 @@ z = `LAYER_SHIP_UI = 300`. This is a development visual leaking into release bui
 - No-ammo warning: 3-mesh triangle + exclamation (border triangle black, inner triangle
   yellow, exclamation black) hovering above the block, `LAYER_BLOCK_ICON + offsets`,
   removed when ammo > 0.
+
+## Shared button widget
+
+`scene/widget.rs` provides the single button builder. All interactive UI buttons are
+spawned through it. The builder inserts the button's action component (defined in the
+owning domain module), `ButtonVisuals`, `ButtonVisualState` and `ButtonInteraction`, and
+attaches the domain-provided `PointerClick` observer plus shared `PointerOver` /
+`PointerOut` / `PointerPress` / `PointerRelease` observers. Pointer events bubble from
+text sections to the button, so clicks and hover feedback work over both the label and
+blank space. Domain systems set `ButtonVisualState` (`Normal` / `Selected` / `Disabled`);
+one generic system derives the final color from `ButtonVisuals` and that state.
 
 ## Setting panel
 
