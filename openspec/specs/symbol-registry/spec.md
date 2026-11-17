@@ -1,4 +1,6 @@
-## ADDED Requirements
+# Symbol Registry
+
+## Requirements
 
 ### Requirement: Registry is keyed by interned symbols
 
