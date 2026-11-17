@@ -7,11 +7,8 @@ use crate::content::block::{
 };
 use crate::symbol::Symbol;
 
-/// Current schema version for both `world.ron` and `ships/<id>.ron`.
 pub const WORLD_SCHEMA_VERSION: u32 = 1;
 
-/// Lightweight turret state persisted in a ship file. Entity references are
-/// intentionally omitted — a loaded world starts with no acquired targets.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TurretSaveState {
     pub active: bool,
@@ -53,13 +50,16 @@ pub fn read_version(data: &str) -> Result<u32, String> {
     struct VersionOnly {
         version: u32,
     }
+
     let parsed = ron::from_str::<VersionOnly>(data)
         .map_err(|e| format!("incompatible save schema: malformed header ({e})"))?;
+
     if parsed.version != WORLD_SCHEMA_VERSION {
         return Err(format!(
             "incompatible save schema: expected version {}, found {}",
             WORLD_SCHEMA_VERSION, parsed.version
         ));
     }
+
     Ok(parsed.version)
 }

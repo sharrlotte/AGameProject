@@ -51,7 +51,6 @@ impl Default for BlockEfficiency {
     }
 }
 
-/// Component that provides efficiency buff to nearby blocks.
 #[derive(Component, Clone, Copy, Debug, Reflect, Default, PartialEq, Serialize, Deserialize)]
 pub struct EfficiencyProvider {
     radius: f32,

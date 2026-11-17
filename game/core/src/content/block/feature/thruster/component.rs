@@ -64,18 +64,6 @@ impl RotateSpeedComputed {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 pub struct RotateSpeedEffects(pub Vec<StatEffect>);
 
-// #[derive(Component, Debug, Clone, Reflect)]
-// pub struct Thruster {
-//     force: f32,
-//     torque: f32,
-// }
-
-// impl Thruster {
-//     pub fn new(force: f32, torque: f32) -> Self {
-//         Self { force, torque }
-//     }
-// }
-
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct Thruster {
     force: f32,

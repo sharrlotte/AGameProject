@@ -103,6 +103,7 @@ pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos().to_string())
             .unwrap_or_else(|_| "0".to_string());
+
         schematics.push(SchematicData {
             id: Uuid::now_v7(),
             filename: timestamp,
@@ -157,6 +158,7 @@ pub fn spawn_ship_from_save(
             rotation: b.rotation,
         })
         .collect();
+
     let team = Team::new(save.team);
     let (ship, block_entities) = ShipData {
         id: save.id,
@@ -169,6 +171,7 @@ pub fn spawn_ship_from_save(
             health: saved.health,
             max_health: saved.max_health,
         });
+
         if let Some(turret) = &saved.turret_state {
             commands.entity(*entity).insert(TurretState {
                 active: turret.active,
@@ -176,9 +179,11 @@ pub fn spawn_ship_from_save(
                 shoot_at: turret.shoot_at,
             });
         }
+
         if let Some(state) = &saved.single_pattern {
             commands.entity(*entity).insert(state.clone());
         }
+        
         if let Some(state) = &saved.burst_pattern {
             commands.entity(*entity).insert(state.clone());
         }

@@ -22,8 +22,6 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    /// Insert all turret logic onto the block entity; the rotating barrel
-    /// sprite is the one deliberate child entity (Transform + Sprite only).
     pub fn insert(
         &self,
         commands: &mut Commands,
@@ -65,12 +63,9 @@ impl TurretComponent {
     }
 }
 
-/// Marker for the single child entity of a turret block: the barrel sprite.
-/// Carries only `Transform` + `Sprite`; no logic or ownership components.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 pub struct TurretSprite;
 
-/// Reference from a turret block entity to its barrel child entity.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 pub struct TurretBarrel(pub Entity);
 
