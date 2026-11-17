@@ -7,14 +7,10 @@ use std::f32::consts::PI;
 
 use crate::config::GameConfigValue;
 use crate::constant::DROP_PICKUP_RADIUS;
-#[cfg(debug_assertions)]
-use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::stat::StatsUpdateSet;
 use crate::content::block::{BlockOwner, Loot};
 use crate::content::ship::ai::AiPlugin;
-#[cfg(debug_assertions)]
-use crate::content::ship::ai::AiRuntime;
 use crate::content::ship::indicator::IndicatorsPlugin;
 use crate::content::ship::stat::{ShipChanged, ShipStats, rebuild_cargo_capacity, update_stats};
 use crate::content::team::Team;
@@ -84,7 +80,7 @@ pub fn update_ship_ui(
     mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
     ships: Query<(
         &Ship,
-        &AiRuntime,
+        &crate::content::ship::ai::AiRuntime,
         Option<&ShipBehavior>,
         &GlobalTransform,
         &ShipStats,
@@ -127,7 +123,7 @@ pub fn update_ship_ui(
                     ..default()
                 },
                 Transform::from_rotation(global_transform.rotation().inverse())
-                    .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
+                    .with_translation(Vec2::ZERO.extend(crate::constant::LAYER_SHIP_UI)),
             ));
         }
     }

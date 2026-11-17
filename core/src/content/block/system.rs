@@ -6,7 +6,6 @@ use crate::constant::{FLASH_OVERLAY_COLOR, LAYER_DROP, LAYER_FLASH_OVERLAY};
 use crate::content::block::feature::ComponentPlugin;
 use crate::content::block::radar::RadarPlugin;
 use crate::content::damage::DamageEvent;
-use crate::content::death::Death;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::mutation::apply_ship_mutations;
@@ -50,7 +49,7 @@ pub fn handle_block_destroy(
                 ship: owner.ship,
                 block_id: block.id,
             });
-            commands.entity(entity).insert(Death);
+            commands.entity(entity).despawn();
         }
     }
 }

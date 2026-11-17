@@ -1,5 +1,4 @@
 use super::Lifetime;
-use crate::content::death::Death;
 use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
@@ -24,7 +23,7 @@ pub fn update_lifetime(
                 continue;
             };
 
-            commands.insert(Death);
+            commands.despawn();
         }
     }
 }

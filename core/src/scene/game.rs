@@ -18,13 +18,6 @@ use crate::{
 
 use bevy::{prelude::*, time::common_conditions::on_timer};
 
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-
-#[cfg(debug_assertions)]
-#[derive(Component)]
-pub struct FpsText;
-
 #[derive(Component)]
 pub struct ShipButton(pub Entity);
 
@@ -71,7 +64,7 @@ impl Plugin for GameScenePlugin {
                 Update,
                 (
                     #[cfg(debug_assertions)]
-                    update_fps,
+                    fps_debug::update_fps,
                     update_ship_list.run_if(on_timer(Duration::from_millis(200))),
                     update_select_panel,
                     update_cargo_hud,
@@ -205,23 +198,6 @@ fn update_select_panel(
                     Text::new(format!("Selected: {}", event.selected.len())),
                 ));
             });
-    }
-}
-
-#[cfg(debug_assertions)]
-fn update_fps(
-    mut text: Single<&mut Text, With<FpsText>>,
-    diagnostics: Res<DiagnosticsStore>,
-    camera: Single<&GlobalTransform, With<Camera2d>>,
-) {
-    let position = camera.translation().truncate();
-
-    let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) else {
-        return;
-    };
-
-    if let Some(value) = fps.smoothed() {
-        text.0 = format!("FPS: {value:.2}, {position}",);
     }
 }
 
@@ -551,5 +527,33 @@ mod tests {
         assert_eq!(remaining[0].0, ship_a);
         let original_a = first.iter().find(|(ship, _)| *ship == ship_a).unwrap().1;
         assert_eq!(remaining[0].1, original_a);
+    }
+}
+
+#[cfg(debug_assertions)]
+pub use fps_debug::FpsText;
+
+#[cfg(debug_assertions)]
+mod fps_debug {
+    use super::*;
+    use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+
+    #[derive(Component)]
+    pub struct FpsText;
+
+    pub fn update_fps(
+        mut text: Single<&mut Text, With<FpsText>>,
+        diagnostics: Res<DiagnosticsStore>,
+        camera: Single<&GlobalTransform, With<Camera2d>>,
+    ) {
+        let position = camera.translation().truncate();
+
+        let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) else {
+            return;
+        };
+
+        if let Some(value) = fps.smoothed() {
+            text.0 = format!("FPS: {value:.0}\nPOS: ({:.0}, {:.0})", position.x, position.y);
+        }
     }
 }

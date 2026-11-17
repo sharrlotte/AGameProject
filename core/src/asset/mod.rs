@@ -13,7 +13,7 @@ use system::validate_assets;
 pub struct AssetCheckPlugin;
 
 impl Plugin for AssetCheckPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         #[cfg(feature = "dev")]
         app.add_systems(Startup, validate_assets);
     }

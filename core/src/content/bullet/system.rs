@@ -21,7 +21,6 @@ use crate::content::block::{
     PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
 };
 use crate::content::damage::{Damage, DamageEvent};
-use crate::content::death::Death;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::{Ship, ShipGrid};
 use crate::content::team::Team;
@@ -64,7 +63,7 @@ impl Plugin for BulletPlugin {
 }
 
 pub fn handle_bullets(
-    mut query: Query<(&mut Bullet, &mut Transform), Without<Death>>,
+    mut query: Query<(&mut Bullet, &mut Transform)>,
     time: Res<Time>,
 ) {
     for (bullet, mut transform) in query.iter_mut() {
@@ -83,13 +82,13 @@ pub fn destroy_out_of_range_bullet(
                 .truncate()
                 .distance_squared(bullet.shooted_at)
         {
-            commands.entity(entity).insert(Death);
+            commands.entity(entity).despawn();
         }
     }
 }
 
 pub fn handle_missiles(
-    mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
+    mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform)>,
     targets: Query<(&GlobalTransform, &ShipGrid)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
@@ -828,7 +827,7 @@ pub fn handle_laser(
                 let fade_time = config.0.bullet_fade_time;
 
                 if time.elapsed_secs() - *fired_at > fade_time {
-                    commands.entity(entity).insert(Death);
+                    commands.entity(entity).despawn();
                 } else {
                     let intensive = 10.0 * (fade_time - (time.elapsed_secs() - *fired_at)).max(0.0);
 
@@ -841,9 +840,7 @@ pub fn handle_laser(
     }
 }
 
-pub fn handle_missile_radar_target(
-    mut missile_radars: Query<(&mut Missile, &Radar), Without<Death>>,
-) {
+pub fn handle_missile_radar_target(mut missile_radars: Query<(&mut Missile, &Radar)>) {
     'outer: for (mut missile, radar) in missile_radars.iter_mut() {
         if let Some(current) = missile.target {
             if radar.targets.is_empty() {
@@ -871,7 +868,7 @@ pub fn handle_missile_radar_target(
 pub fn handle_collisions(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
-    mut bullets: Query<(Entity, &mut Bullet), Without<Death>>,
+    mut bullets: Query<(Entity, &mut Bullet)>,
     missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
 ) {
     for event in collision_events.read() {
@@ -891,12 +888,7 @@ pub fn handle_collisions(
 
 fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mut Bullet) {
     if bulletc.piercing <= 0 {
-        commands
-            .entity(bullet)
-            .insert((Visibility::Hidden, Death))
-            .remove::<Collider>()
-            .remove::<CollisionGroups>()
-            .remove::<ActiveEvents>();
+        commands.entity(bullet).despawn();
     } else {
         bulletc.piercing -= 1;
     }
@@ -907,12 +899,7 @@ fn handle_missile_collision(
     hitbox: &MissileHitbox,
     transform: &GlobalTransform,
 ) {
-    commands
-        .entity(hitbox.missile)
-        .insert((Visibility::Hidden, Death))
-        .remove::<Collider>()
-        .remove::<CollisionGroups>()
-        .remove::<ActiveEvents>();
+    commands.entity(hitbox.missile).despawn();
 
     commands.spawn((
         hitbox.team,

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::content::block::{BlockPlacement, BlockRegistry, DropEvent, spawn_block_entity};
-use crate::content::death::{Death, ShipDestroyed};
+use crate::content::death::ShipDestroyed;
 use crate::content::ship::{BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats};
 use crate::content::team::Team;
 use crate::simulation::SimulationSet;
@@ -59,7 +59,6 @@ type ShipQuery<'w, 's> = Query<
         &'static Team,
         &'static GlobalTransform,
     ),
-    Without<Death>,
 >;
 
 pub fn apply_ship_mutations(
@@ -96,7 +95,7 @@ pub fn apply_ship_mutations(
                     if let Some(block) = grid.remove_block(block_id) {
                         removed.push(block.placement);
                         if block.entity != Entity::PLACEHOLDER {
-                            commands.entity(block.entity).insert(Death);
+                            commands.entity(block.entity).despawn();
                         }
                     }
                 }
@@ -105,7 +104,7 @@ pub fn apply_ship_mutations(
                         if let Some(block) = grid.remove_block(block_id) {
                             removed.push(block.placement);
                             if block.entity != Entity::PLACEHOLDER {
-                                commands.entity(block.entity).insert(Death);
+                                commands.entity(block.entity).despawn();
                             }
                         }
                     }
@@ -155,7 +154,7 @@ pub fn apply_ship_mutations(
             if let Some(block) = grid.remove_block(id) {
                 removed.push(block.placement);
                 if block.entity != Entity::PLACEHOLDER {
-                    commands.entity(block.entity).insert(Death);
+                    commands.entity(block.entity).despawn();
                 }
             }
         }
@@ -181,7 +180,7 @@ pub fn apply_ship_mutations(
         let (Some(new_ship), Some(new_stats), Some(new_bounds)) =
             (build.ship, build.stats, build.bounds)
         else {
-            commands.entity(ship_entity).insert(Death);
+            commands.entity(ship_entity).despawn();
             destroyed.write(ShipDestroyed {
                 ship: ship_entity,
                 team: *team,
@@ -244,7 +243,7 @@ mod tests {
     use super::*;
     use crate::config::GameConfig;
     use crate::content::block::{BlockDef, BlockShape};
-    use crate::content::death::{Death, ShipDestroyed};
+    use crate::content::death::ShipDestroyed;
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
         BlockDef {
@@ -338,7 +337,7 @@ mod tests {
 
         let stats = app.world().get::<ShipStats>(ship_entity).unwrap();
         assert_eq!(stats.mass, 10.0);
-        assert!(!app.world().entity(ship_entity).contains::<Death>());
+        assert!(app.world().get_entity(ship_entity).is_ok());
     }
 
     #[test]
@@ -361,7 +360,7 @@ mod tests {
             },
         );
 
-        assert!(app.world().entity(ship_entity).contains::<Death>());
+        assert!(app.world().get_entity(ship_entity).is_err());
     }
 
     #[test]
@@ -431,7 +430,6 @@ mod tests {
             },
         );
 
-        let grid = app.world().get::<ShipGrid>(ship_entity).unwrap();
-        assert!(grid.blocks.is_empty());
+        assert!(app.world().get_entity(ship_entity).is_err());
     }
 }

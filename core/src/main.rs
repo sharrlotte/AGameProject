@@ -26,12 +26,8 @@ use crate::scene::notice::NoticePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
 use crate::simulation::SimulationSet;
-#[cfg(debug_assertions)]
-use crate::system::DebugAuditPlugin;
 use crate::system::{load_current_ship, setup_camera};
 use bevy::audio::{AudioPlugin, SpatialScale};
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_hanabi::HanabiPlugin;
@@ -121,12 +117,6 @@ fn main() {
     .configure_sets(PostUpdate, SimulationSet::Present)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
-        #[cfg(debug_assertions)]
-        (
-            FrameTimeDiagnosticsPlugin::new(100),
-            EntityCountDiagnosticsPlugin::new(100),
-            DebugAuditPlugin,
-        ),
         ConfigPlugin,
         MissionPlugin,
         GameScenePlugin,
@@ -141,6 +131,18 @@ fn main() {
         scene::widget::WidgetPlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));
+
+    #[cfg(debug_assertions)]
+    {
+        use crate::system::DebugAuditPlugin;
+        use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
+
+        app.add_plugins((
+            FrameTimeDiagnosticsPlugin::new(100),
+            EntityCountDiagnosticsPlugin::new(100),
+            DebugAuditPlugin,
+        ));
+    }
 
     #[cfg(all(debug_assertions, feature = "dev"))]
     {

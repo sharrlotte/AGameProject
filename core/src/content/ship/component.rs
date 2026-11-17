@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
-#[cfg(debug_assertions)]
-use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
 use crate::content::selectable::Selectable;
 use crate::content::ship::ai::{AiProfile, AiRuntime};
@@ -140,6 +138,8 @@ impl ShipDesign {
 
         #[cfg(debug_assertions)]
         {
+            use crate::constant::LAYER_SHIP_UI;
+
             let ui_root = commands
                 .spawn((
                     ShipUIRoot { ship: ship_entity },

@@ -1,5 +1,3 @@
-// TODO: Merge #[cfg()] into least block for more readable code
-
 use bevy::post_process::bloom::BloomCompositeMode;
 use bevy::prelude::*;
 use bevy::{
@@ -10,71 +8,6 @@ use bevy::{
 use crate::resource::DeployPayload;
 use crate::save::catalog::ShipCatalog;
 
-#[cfg(debug_assertions)]
-use crate::resource::{PauseState, SceneState, SettingState};
-#[cfg(debug_assertions)]
-use crate::simulation::SimulationSet;
-#[cfg(debug_assertions)]
-use bevy::time::TimerMode;
-
-#[cfg(debug_assertions)]
-pub struct DebugAuditPlugin;
-
-#[cfg(debug_assertions)]
-impl Plugin for DebugAuditPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<SceneAuditTimer>()
-            .add_systems(Update, audit_scene_entities.in_set(SimulationSet::Present));
-    }
-}
-
-#[cfg(debug_assertions)]
-#[derive(Resource)]
-struct SceneAuditTimer(Timer);
-
-#[cfg(debug_assertions)]
-impl Default for SceneAuditTimer {
-    fn default() -> Self {
-        Self(Timer::from_seconds(5.0, TimerMode::Repeating))
-    }
-}
-
-#[cfg(debug_assertions)]
-fn audit_scene_entities(
-    time: Res<Time>,
-    mut timer: ResMut<SceneAuditTimer>,
-    roots: Query<(Entity, &GlobalTransform), (Without<ChildOf>, Without<Camera2d>)>,
-    scene_tagged: Query<&DespawnOnExit<SceneState>>,
-    pause_tagged: Query<&DespawnOnExit<PauseState>>,
-    setting_tagged: Query<&DespawnOnExit<SettingState>>,
-) {
-    if !timer.0.tick(time.delta()).just_finished() {
-        return;
-    }
-
-    let mut tagged = 0usize;
-    let mut untagged = Vec::new();
-
-    for (entity, _) in &roots {
-        if scene_tagged.contains(entity)
-            || pause_tagged.contains(entity)
-            || setting_tagged.contains(entity)
-        {
-            tagged += 1;
-        } else {
-            untagged.push(entity);
-        }
-    }
-
-    if !untagged.is_empty() {
-        warn!(
-            "scene audit: {} state-scoped roots, {} untagged roots: {:?}",
-            tagged,
-            untagged.len(),
-            untagged
-        );
-    }
-}
 
 pub fn setup_camera(mut commands: Commands) {
     commands.spawn((
@@ -102,5 +35,70 @@ pub fn load_current_ship(mut state: ResMut<DeployPayload>) {
 
     if let Some(ship) = ships.first() {
         state.current_ship = Some(ship.clone());
+    }
+}
+
+#[cfg(debug_assertions)]
+pub use debug_audit::DebugAuditPlugin;
+
+#[cfg(debug_assertions)]
+mod debug_audit {
+    use super::*;
+    use crate::resource::{PauseState, SceneState, SettingState};
+    use crate::simulation::SimulationSet;
+    use bevy::time::TimerMode;
+
+    pub struct DebugAuditPlugin;
+
+    impl Plugin for DebugAuditPlugin {
+        fn build(&self, app: &mut App) {
+            app.init_resource::<SceneAuditTimer>()
+                .add_systems(Update, audit_scene_entities.in_set(SimulationSet::Present));
+        }
+    }
+
+    #[derive(Resource)]
+    struct SceneAuditTimer(Timer);
+
+    impl Default for SceneAuditTimer {
+        fn default() -> Self {
+            Self(Timer::from_seconds(5.0, TimerMode::Repeating))
+        }
+    }
+
+    fn audit_scene_entities(
+        time: Res<Time>,
+        mut timer: ResMut<SceneAuditTimer>,
+        roots: Query<(Entity, &GlobalTransform), (Without<ChildOf>, Without<Camera2d>)>,
+        scene_tagged: Query<&DespawnOnExit<SceneState>>,
+        pause_tagged: Query<&DespawnOnExit<PauseState>>,
+        setting_tagged: Query<&DespawnOnExit<SettingState>>,
+    ) {
+        if !timer.0.tick(time.delta()).just_finished() {
+            return;
+        }
+
+        let mut tagged = 0usize;
+        let mut untagged = Vec::new();
+
+        for (entity, _) in &roots {
+            if scene_tagged.contains(entity)
+                || pause_tagged.contains(entity)
+                || setting_tagged.contains(entity)
+            {
+                tagged += 1;
+            } else {
+                untagged.push(entity);
+            }
+        }
+
+        if !untagged.is_empty() {
+            warn!(
+                "scene audit: {} state-scoped roots, {} untagged roots: {:?}",
+                tagged,
+                untagged.len(),
+                untagged
+            );
+        }
     }
 }

@@ -1,18 +1,10 @@
-use super::{Death, ShipDestroyed};
-use crate::simulation::SimulationSet;
+use super::ShipDestroyed;
 use bevy::prelude::*;
 
 pub struct DeathPlugin;
 
 impl Plugin for DeathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<ShipDestroyed>()
-            .add_systems(FixedLast, despawn_dead.in_set(SimulationSet::Cleanup));
-    }
-}
-
-pub fn despawn_dead(mut commands: Commands, query: Query<Entity, With<Death>>) {
-    for entity in query.iter() {
-        commands.entity(entity).despawn();
+        app.add_message::<ShipDestroyed>();
     }
 }
