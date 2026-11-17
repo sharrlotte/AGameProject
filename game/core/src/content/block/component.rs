@@ -137,7 +137,25 @@ pub enum ShootPattern {
     PullingBeam(PullingBeamPattern),
 }
 
+impl ShootingProjectile {
+    /// Speed used for lead prediction. Beams are instantaneous.
+    pub fn speed(&self) -> f32 {
+        match self {
+            Self::Bullet { speed, .. } | Self::Missile { speed, .. } => *speed,
+            Self::Laser { .. } => f32::INFINITY,
+        }
+    }
+}
+
 impl ShootPattern {
+    pub fn projectile_speed(&self) -> f32 {
+        match self {
+            Self::Single(pattern) => pattern.projectile.speed(),
+            Self::Burst(pattern) => pattern.projectile.speed(),
+            Self::LaserBeam(_) | Self::PullingBeam(_) => f32::INFINITY,
+        }
+    }
+
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         match self {
             ShootPattern::Single(s) => {

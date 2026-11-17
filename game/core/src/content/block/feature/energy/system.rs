@@ -39,7 +39,7 @@ impl Plugin for EnergyPlugin {
 /// consumer runs at `clamp(share / its_demand, 0, 1)`. A ship with no consumers
 /// or enough production runs everything at full efficiency.
 pub fn update_power_efficiency(
-    mut ships: Query<&mut ShipStats>,
+    mut ships: Query<(Entity, &mut ShipStats)>,
     mut blocks: Query<(
         &BlockOwner,
         Option<&EnergyConsumer>,
@@ -112,5 +112,88 @@ pub fn update_power_efficiency(
 
     for (entity, mut stats) in &mut ships {
         stats.power_used = used.get(&entity).copied().unwrap_or(0.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app_with(production: f32, rates: &[f32]) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_systems(Update, update_power_efficiency);
+
+        let ship = app.world_mut().spawn(ShipStats::default()).id();
+        if production > 0.0 {
+            app.world_mut().spawn((
+                BlockOwner { ship },
+                PowerProducer {
+                    output: production,
+                },
+            ));
+        }
+        for rate in rates {
+            app.world_mut().spawn((
+                BlockOwner { ship },
+                EnergyConsumer { rate: *rate },
+                PowerEfficiency::default(),
+            ));
+        }
+        (app, ship)
+    }
+
+    #[test]
+    fn no_consumers_runs_at_full_efficiency() {
+        let (mut app, ship) = app_with(10.0, &[]);
+        app.update();
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.power_production, 10.0);
+        assert_eq!(stats.power_demand, 0.0);
+        assert_eq!(stats.power_used, 0.0);
+        assert_eq!(stats.efficiency, 1.0);
+    }
+
+    #[test]
+    fn surplus_production_runs_everything_at_full_efficiency() {
+        let (mut app, ship) = app_with(20.0, &[5.0, 4.0]);
+        app.update();
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.efficiency, 1.0);
+        assert_eq!(stats.power_used, 9.0);
+    }
+
+    #[test]
+    fn deficit_is_split_equally_not_by_demand() {
+        let (mut app, ship) = app_with(6.0, &[4.0, 6.0]);
+        app.update();
+
+        let efficiencies: Vec<f32> = {
+            let mut query = app.world_mut().query::<&PowerEfficiency>();
+            query.iter(app.world()).map(|e| e.value()).collect()
+        };
+        assert_eq!(efficiencies.len(), 2);
+        // share = 6 / 2 = 3; 3/4 = 0.75 and 3/6 = 0.5.
+        assert!((efficiencies[0] - 0.75).abs() < 1e-5, "{efficiencies:?}");
+        assert!((efficiencies[1] - 0.5).abs() < 1e-5, "{efficiencies:?}");
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert!((stats.power_used - 6.0).abs() < 1e-5);
+        assert!((stats.efficiency - 0.6).abs() < 1e-5);
+    }
+
+    #[test]
+    fn zero_production_disables_all_consumers() {
+        let (mut app, ship) = app_with(0.0, &[5.0]);
+        app.update();
+
+        let mut query = app.world_mut().query::<&PowerEfficiency>();
+        let efficiency = query.single(app.world()).unwrap().value();
+        assert_eq!(efficiency, 0.0);
+
+        let stats = app.world().get::<ShipStats>(ship).unwrap();
+        assert_eq!(stats.power_used, 0.0);
+        assert_eq!(stats.efficiency, 0.0);
     }
 }

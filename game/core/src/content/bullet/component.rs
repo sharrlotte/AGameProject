@@ -1,6 +1,16 @@
 use bevy::prelude::*;
 use crate::content::team::Team;
 
+/// Team that fired a projectile. Used for point-defense targeting.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+pub struct ProjectileOwner {
+    pub team: u8,
+}
+
+/// Marks projectiles that point defense may intercept. Lasers are excluded.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+pub struct Interceptable;
+
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct Bullet {
     pub range: f32,

@@ -49,14 +49,14 @@
 
 ## 5. Phase 4 — Power
 
-- [ ] 5.1 Add single serde/component `PowerProducer { output }` and `EnergyConsumer { rate }`; delete old power types
-- [ ] 5.2 Add `reactor` to `block.ron` and power fields to core, turrets, and thrusters
-- [ ] 5.3 Implement equal-share production/demand/efficiency math and per-block `PowerEfficiency`
-- [ ] 5.4 Apply efficiency to turret fire rate and thruster force/torque; disable features at `<= 0.01`
-- [ ] 5.5 Add the power HUD and editor stats panel; update on change, not per frame
-- [ ] 5.6 Add `feature_set!` and `make_ship_stat!`; migrate feature mapping and power/stat pipelines
-- [ ] 5.7 Add power validation for output, rate, core producer, and missing producer warnings
-- [ ] 5.8 Add formula, scaling, HUD, macro, and validation tests
+- [x] 5.1 Add single serde/component `PowerProducer { output }` and `EnergyConsumer { rate }`; delete old power types
+- [x] 5.2 Add `reactor` to `block.ron` and power fields to core, turrets, and thrusters
+- [x] 5.3 Implement equal-share production/demand/efficiency math and per-block `PowerEfficiency`
+- [x] 5.4 Apply efficiency to turret fire rate and thruster force/torque; disable features at `<= 0.01`
+- [x] 5.5 Add the power HUD and editor stats panel; update on change, not per frame
+- [x] 5.6 Add `feature_set!` and `make_ship_stat!`; migrate feature mapping and power/stat pipelines
+- [x] 5.7 Add power validation for output, rate, core producer, and missing producer warnings
+- [x] 5.8 Add formula, scaling, HUD, macro, and validation tests
 - [ ] 5.9 Playtest core-only, reactor, deficit, and zero-production ships
 
 ## 6. Phase 5 — Targeting and combat

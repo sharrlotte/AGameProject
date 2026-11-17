@@ -114,6 +114,8 @@ impl BlockSnapshot {
             commands.entity(block).insert(TurretState {
                 active: turret.active,
                 target: None,
+                aim_point: turret.shoot_at.unwrap_or_default(),
+                can_fire: false,
                 shoot_at: turret.shoot_at,
             });
         }

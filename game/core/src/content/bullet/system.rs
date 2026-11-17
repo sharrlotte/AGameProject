@@ -8,6 +8,7 @@ use super::*;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::config::GameConfigValue;
 use crate::content::block::feature::ammo::AmmoState;
+use crate::content::block::feature::energy::PowerEfficiency;
 use crate::content::block::feature::turret::{Turret, TurretBarrel, TurretSprite, TurretState};
 use crate::content::block::radar::Radar;
 use crate::content::block::{
@@ -42,6 +43,10 @@ impl Plugin for BulletPlugin {
             )
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Weapons),
+        )
+        .add_systems(
+            FixedUpdate,
+            handle_point_defense_hits.in_set(SimulationSet::Weapons),
         )
         .add_systems(
             FixedPostUpdate,
@@ -142,6 +147,7 @@ pub fn handle_single_shot(
         &Team,
         Option<&mut AmmoState>,
         &TurretBarrel,
+        Option<&PowerEfficiency>,
     )>,
     config: Res<GameConfigValue>,
 ) {
@@ -153,9 +159,19 @@ pub fn handle_single_shot(
         team,
         mut ammo_state,
         barrel_ref,
+        power_efficiency,
     ) in query.iter_mut()
     {
         if !turret_state.active {
+            continue;
+        }
+
+        // Only powered turrets are gated. A turret with no EnergyConsumer has
+        // no PowerEfficiency and fires at its full configured rate. A powered
+        // turret that is not fully supplied cannot fire at all.
+        if let Some(eff) = power_efficiency
+            && eff.value() < 0.999
+        {
             continue;
         }
 
@@ -179,7 +195,10 @@ pub fn handle_single_shot(
                     *barrel_position,
                     *range,
                     &shoot_pattern.projectile,
-                    turret_state.target,
+                    match turret_state.target {
+                        Some(crate::content::block::feature::turret::TurretTarget::Ship(entity)) => Some(entity),
+                        _ => None,
+                    },
                     &config,
                 );
             }
@@ -200,6 +219,7 @@ pub fn handle_burst_shot(
         &Team,
         Option<&mut AmmoState>,
         &TurretBarrel,
+        Option<&PowerEfficiency>,
     )>,
     config: Res<GameConfigValue>,
 ) {
@@ -211,9 +231,16 @@ pub fn handle_burst_shot(
         team,
         mut ammo_state,
         barrel_ref,
+        power_efficiency,
     ) in query.iter_mut()
     {
         if !turret_state.active {
+            continue;
+        }
+
+        if let Some(eff) = power_efficiency
+            && eff.value() < 0.999
+        {
             continue;
         }
 
@@ -259,7 +286,10 @@ pub fn handle_burst_shot(
                     barrel_position,
                     *range,
                     &shoot_pattern.projectile,
-                    turret_state.target,
+                    match turret_state.target {
+                        Some(crate::content::block::feature::turret::TurretTarget::Ship(entity)) => Some(entity),
+                        _ => None,
+                    },
                     &config,
                 );
 
@@ -301,6 +331,7 @@ pub fn handle_laser_beam(
         &mut LaserBeamPatternState,
         &Team,
         &TurretBarrel,
+        Option<&PowerEfficiency>,
     )>,
     mut events: MessageWriter<DamageEvent>,
 ) {
@@ -308,12 +339,27 @@ pub fn handle_laser_beam(
         return;
     };
 
-    for (entity, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team, barrel_ref) in
-        query.iter_mut()
+    for (
+        _entity,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut shoot_pattern_state,
+        team,
+        barrel_ref,
+        power_efficiency,
+    ) in query.iter_mut()
     {
+        if let Some(eff) = power_efficiency
+            && eff.value() < 0.999
+        {
+            continue;
+        }
+
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
-        };        let Turret { barrels, range, .. } = turret;
+        };
+        let Turret { barrels, range, .. } = turret;
 
         match &mut shoot_pattern_state.shooting {
             LaserBeamPatternShootingState::Shooting { start_time } => {
@@ -392,7 +438,9 @@ pub fn handle_laser_beam(
                         .id();
 
                     shoot_pattern_state.beam = Some(beam);
-                    commands.entity(entity).add_child(beam);
+                    // Parent to the rotating barrel so the visual direction
+                    // always matches the raycast hitbox direction.
+                    commands.entity(barrel_ref.0).add_child(beam);
                 }
             }
             LaserBeamPatternShootingState::Cooldown { last_fired_at } => {
@@ -425,6 +473,7 @@ pub fn handle_pulling_beam(
         &mut PullingBeamPatternState,
         &Team,
         &TurretBarrel,
+        Option<&PowerEfficiency>,
     )>,
 ) {
     const PULL_SPEED: f32 = 500.0;
@@ -433,9 +482,22 @@ pub fn handle_pulling_beam(
         return;
     };
 
-    for (entity, turret, turret_state, shoot_pattern, mut state, team, barrel_ref) in
-        query.iter_mut()
+    for (
+        entity,
+        turret,
+        turret_state,
+        shoot_pattern,
+        mut state,
+        team,
+        barrel_ref,
+        power_efficiency,
+    ) in query.iter_mut()
     {
+        if let Some(eff) = power_efficiency
+            && eff.value() < 0.999
+        {
+            continue;
+        }
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
         };        let Turret { barrels, range, .. } = turret;
@@ -503,7 +565,8 @@ pub fn handle_pulling_beam(
                 .id();
 
             state.beam = Some(beam);
-            commands.entity(entity).add_child(beam);
+            // Parent to the rotating barrel; the hitbox uses its transform.
+            commands.entity(barrel_ref.0).add_child(beam);
         }
     }
 }
@@ -543,6 +606,8 @@ pub fn spawn_bullet(
                         velocity: dir * *speed,
                     },
                     Damage { damage: *damage },
+                    ProjectileOwner { team: team.id },
+                    Interceptable,
                     Sprite {
                         color: team.color(5.0),
                         custom_size: Some(Vec2::new(*width, *length)),
@@ -595,6 +660,8 @@ pub fn spawn_bullet(
                 .spawn((
                                         DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
+                    ProjectileOwner { team: team.id },
+                    Interceptable,
                     Missile {
                         shooted_at: spawn_position.truncate(),
                         lock_range: *lock_range,
@@ -695,7 +762,7 @@ pub fn handle_laser(
                     Transform {
                         translation: origin.extend(LAYER_BULLET)
                             + *rotation
-                                * Vec2::new(*width / 2.0, laser_length / 2.0).extend(LAYER_BULLET),
+                                * Vec2::new(0.0, laser_length / 2.0).extend(LAYER_BULLET),
                         rotation: *rotation,
                         ..default()
                     },

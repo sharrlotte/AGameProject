@@ -79,10 +79,21 @@ pub struct Turret {
     pub shooting_pattern: ShootPattern,
 }
 
+/// What a turret is aiming at. Ship targets are homed; projectile targets are
+/// point-defense intercepts and are never persisted.
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TurretTarget {
+    Ship(Entity),
+    Projectile(Entity),
+}
+
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize, Default)]
 pub struct TurretState {
     pub active: bool,
-    pub target: Option<Entity>,
+    #[serde(skip)]
+    pub target: Option<TurretTarget>,
+    pub aim_point: Vec2,
+    pub can_fire: bool,
     pub shoot_at: Option<Vec2>,
 }
 
@@ -91,6 +102,8 @@ impl TurretState {
         Self {
             active: false,
             target: None,
+            aim_point: Vec2::ZERO,
+            can_fire: false,
             shoot_at: None,
         }
     }

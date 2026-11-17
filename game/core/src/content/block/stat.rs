@@ -20,7 +20,13 @@ macro_rules! make_stat_system {
                     .or_else(|| efficiency_effect.map(|e| e.value()))
                     .unwrap_or(1.0);
 
-                let mut val = ($op)(base.value(), eff);
+                // A starved feature is disabled rather than running at a
+                // negligible fraction of its base value.
+                let mut val = if eff <= 0.01 {
+                    0.0
+                } else {
+                    ($op)(base.value(), eff)
+                };
 
                 if let Some(effects) = effects {
                     for effect in &effects.0 {
