@@ -26,6 +26,13 @@ pub struct LoadWorldEvent {
     pub slot: u8,
 }
 
+/// Save outcome reported to the UI without mixing `&World` and `ResMut` in
+/// the same system (Bevy B0002). Written through `Commands`, read next frame.
+#[derive(Resource, Default)]
+pub struct SaveResult {
+    pub message: Option<String>,
+}
+
 pub fn slot_path(slot: u8) -> PathBuf {
     data_dir().join("saves").join(format!("slot_{slot}.ron"))
 }
@@ -77,11 +84,11 @@ fn parse_outcome(text: &Option<String>) -> Option<BattleOutcome> {
 
 pub fn handle_save_world_event(
     mut events: MessageReader<SaveWorldEvent>,
+    mut commands: Commands,
     world: &World,
     time: Res<Time>,
     battle: Res<BattleResult>,
     game_rng: Res<GameRng>,
-    mut notice: ResMut<AppNotice>,
 ) {
     for event in events.read() {
         let slot = event.slot.clamp(1, SAVE_SLOTS as u8);
@@ -100,10 +107,19 @@ pub fn handle_save_world_event(
         };
         let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
 
-        match write_document(&slot_path(slot), &save) {
-            Ok(()) => notice.show(format!("Saved slot {slot}")),
-            Err(e) => notice.show(format!("Save failed: {e}")),
-        }
+        let message = match write_document(&slot_path(slot), &save) {
+            Ok(()) => format!("Saved slot {slot}"),
+            Err(e) => format!("Save failed: {e}"),
+        };
+        commands.insert_resource(SaveResult {
+            message: Some(message),
+        });
+    }
+}
+
+pub fn report_save_result(mut result: ResMut<SaveResult>, mut notice: ResMut<AppNotice>) {
+    if let Some(message) = result.message.take() {
+        notice.show(message);
     }
 }
 
@@ -206,12 +222,14 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<SaveWorldEvent>()
             .add_message::<LoadWorldEvent>()
+            .init_resource::<SaveResult>()
             .init_resource::<PendingLoad>()
             .add_systems(
                 Update,
                 (
                     handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
                     handle_load_request.run_if(on_message::<LoadWorldEvent>),
+                    report_save_result,
                 )
                     .in_set(SimulationSet::Present),
             )

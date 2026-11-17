@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use crate::content::block::{
     BlockOwner,
     feature::{
-        energy::PowerUsageComputed,
         storage::{Storage, StorageState},
         thruster::{RotateSpeedComputed, ThrustPowerComputed},
     },
@@ -81,7 +80,6 @@ pub fn update_stats(
     blocks: Query<(
         Entity,
         &BlockOwner,
-        Option<&PowerUsageComputed>,
         Option<&ThrustPowerComputed>,
         Option<&RotateSpeedComputed>,
         Option<&Storage>,
@@ -95,14 +93,11 @@ pub fn update_stats(
         stats.cargo_used = 0;
     }
 
-    for (entity, owner, power, thrust, rotate, storage, storage_state) in &blocks {
+    for (entity, owner, thrust, rotate, storage, storage_state) in &blocks {
         let Ok(mut stats) = ships.get_mut(owner.ship) else {
             continue;
         };
 
-        if let Some(p) = power {
-            stats.power_used += p.value();
-        }
         if let Some(t) = thrust {
             stats.thrust_power += t.value();
         }

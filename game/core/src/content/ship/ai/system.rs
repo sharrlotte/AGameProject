@@ -214,7 +214,7 @@ pub fn wander_behavior(
     mut game_rng: ResMut<GameRng>,
     mut commands: Commands,
 ) {
-    let mut rng = game_rng.rng_mut();
+    let rng = game_rng.rng_mut();
     for (entity, mut timer, transform, _ship, stats, bbox) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;

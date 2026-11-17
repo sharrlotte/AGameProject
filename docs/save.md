@@ -1,115 +1,112 @@
-# Persistence Spec — Schematics and World Saves
+# Persistence Spec — Designs and World Slots (v2)
 
 ## Locations
 
-`save_dir()` = `directories::ProjectDirs::from("com", "somerandomdev", "agameproject").data_dir()`
-(e.g. on Windows: `%APPDATA%\somerandomdev\agameproject\data`).
-Sub-directories: `schematics/` (ship blueprints, RON) and `world/` (RON world saves).
+`data_dir()` = `directories::ProjectDirs::from("com", "somerandomdev", "agameproject").data_dir()`
+(e.g. on Windows: `%APPDATA%\somerandomdev\agameproject\data`). Sub-directories:
 
-## Schematic format (editor)
+```
+<data_dir>/designs/*.ron        one self-contained ship design per file
+<data_dir>/saves/slot_1.ron … slot_5.ron
+```
 
-`<filename>.ron`:
+Old `schematics/*.json`, `schematics/*.ron`, and `world/` are ignored and
+untouched. There is no JSON reader, no v1 world reader, no phantom-ship
+fabrication, and no "repair ships with <= 2 blocks".
+
+## Design format (editor)
+
+`designs/<name>.ron`, written by `ShipCatalog::save`:
 
 ```ron
 (
+  version: 1,
   id: "<uuid-v7>",
-  filename: "my-ship",
   name: "My Ship",
   blocks: [
     (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
   ],
+  ai: Default,
 )
 ```
 
-`position` is grid-space (`IVec2`). `block_type` is a plain `String` id.
-
-On load, `load_saved_schematics()`:
-1. Reads `schematics/`, parses `*.ron` into `SchematicData`, overriding `filename`.
-2. Pads up to 5 placeholder ships when fewer exist (name `ship_N`, one Core + one
-   Laser Turret if a schematic has ≤ 2 blocks — in memory only).
-3. `SchematicData::to_ship_data()` clones blocks and assigns **new UUIDs** to every block
-   on spawn.
+`position` is grid-space (`IVec2`); `block_type` is a plain `String` id. The file
+stem is derived from `name` by `ShipCatalog::file_name`. On first run, bundled
+starter designs (`interceptor.ron`, `raider.ron`) are copied into `designs/`.
+Missions and the editor both consume `ShipDesign` directly; there is no
+separate schematic struct or `load_saved_schematics()`.
 
 ## Document API
 
-`save/document.rs` owns every versioned RON read/write path:
-`RonDocument` (`VERSION`, `KIND`), `Versioned<T>`, `parse_document`,
-`read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`, the
-previous file is copied to `.bak`, then the temporary file is renamed over the
-target. Unknown versions are rejected before gameplay data is trusted.
-`ron_document!` implements the trait for `WorldSave` and `ShipSave`; designs join
-in the save-v2 phase.
+`save/document.rs` owns every versioned RON read/write path: `RonDocument`
+(`VERSION`, `KIND`), `Versioned<T>`, `parse_document`, `read_document`,
+`write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is
+copied to `.bak`, then the temporary file is renamed over the target. Unknown
+versions are rejected before gameplay data is trusted. `ron_document!`
+implements the trait for `WorldSave` (version 2) and `ShipDesign` (version 1).
 
-## World save format (Slice 6, ship-relative RON)
+## World slot format (`SAVE_SCHEMA_VERSION = 2`)
 
-Pause → **Save** writes two kinds of file under `world/`:
-
-```
-world/
-  world.ron
-  ships/<ship-uuid>.ron   (one per ship)
-```
-
-`world.ron` — world-level stamp only:
+`SaveWorldEvent { slot }` writes `saves/slot_N.ron`. Each slot is self-contained;
+all ships are embedded. There are **no per-ship files** and no `ship_ids`.
 
 ```ron
 (
-    version: 1,
-    teams: [0, 1],
-    elapsed_secs: 12.5,
-    ship_ids: ["<uuid>", ...],
+  version: 2,
+  slot: 1,
+  saved_at_unix_ms: 1700000000000,
+  battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: Some("Victory")),
+  camera: (x: 12.0, y: -4.0, zoom: 3.0),
+  ships: [
+    (
+      id: "<uuid>", team: 0,
+      transform: (x: 0.0, y: 0.0, rotation: 0.0),
+      velocity: (x: 0.0, y: 0.0, angvel: 0.0),
+      ai: Aggressive,
+      ai_runtime: (behavior: "Idle", timer_secs: 0.25),
+      blocks: [
+        (
+          placement: (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
+          health: 5000.0, max_health: 5000.0,
+          turret: None, ammo: None,
+          single_pattern: None, burst_pattern: None,
+          laser_pattern: None, pulling_pattern: false,
+        ),
+      ],
+    ),
+  ],
+  drops: [
+    (position: (10.0, 2.0), item_type: "steel", amount: 10, remaining_secs: 30.0),
+  ],
+  rng: (seed: 1234),
 )
 ```
 
-`ships/<uuid>.ron` — one ship, blocks relative to the ship (no UUID cross-refs):
+Everything that affects a continuing battle is captured: ship transforms and
+Rapier velocities, block health/ammo/turret/pattern state, AI profile and
+runtime behavior, battle timer and outcome, drops with remaining lifetime,
+camera, and the seeded `GameRng`.
 
-```ron
-(
-    version: 1,
-    id: "<uuid>",
-    team: 0,
-    blocks: [
-        (
-            position: (0, 0),
-            block_type: "core",
-            rotation: 0,
-            health: 5000.0,
-            max_health: 5000.0,
-            turret_state: None,
-            single_pattern: None,
-            burst_pattern: None,
-        ),
-        (
-            position: (1, 3),
-            block_type: "laser_turret",
-            rotation: 0,
-            health: 1600.0,
-            max_health: 1600.0,
-            turret_state: Some((active: false, shoot_at: None)),
-            single_pattern: None,
-            burst_pattern: Some((shooting: Cooldown(last_fired_at: 0.0))),
-        ),
-    ],
-)
+Never serialized: projectiles, lasers, pulling beams, damage text, and transient
+VFX. They are tagged `DespawnOnExit(SceneState::Game)`, so exiting the old scene
+clears them before the snapshot is spawned. Turret targets are also omitted and
+reacquired after load.
+
+`capture`/`restore` live in `save/snapshot.rs` behind the `CaptureSnapshot` and
+`RestoreSnapshot` traits. Entity references are never persisted.
+
+## Load flow
+
+```
+SaveWorldEvent/LoadWorldEvent { slot }
+  → PendingLoad { slot }
+  → NextState<SceneState>::Loading
+  → exit Game (DespawnOnExit clears the old scene)
+  → enter Game (spawn_loaded_world restores the embedded ships)
+  → setup_battle skips while PendingLoad is set
 ```
 
-Notes:
-- `WORLD_SCHEMA_VERSION = 1` is written at the top of both files. `read_document()`
-  rejects unknown versions loudly, naming expected and found versions.
-- Block positions are grid-relative to the ship; there are no UUIDs at rest inside a ship
-  file, and no two-pass uuid→Entity linker on load.
-- Turret state is saved without entity references (a loaded world has no acquired targets).
-- Single/burst pattern states are preserved with their existing struct shapes.
-- **Nothing else is persisted**: no missiles, lasers, drops, beams, lifetimes, damage text,
-  camera, or selection state. On load all `Save`-marked effect entities are despawned, so a
-  loaded world cannot leak them.
-- Ship files are named by a UUID derived from the ship entity at save time (stable for the
-  entity's lifetime); stale files from earlier saves are not deleted in 0.1.0.
-- Old `saves/test.json` files do not load — no migration, fresh start expected.
-
-## Save API
-
-`SaveWorldEvent`, `LoadWorldEvent` — unit messages (no path); `handle_save_world_event` /
-`handle_load_world_event` run in `Update`, `on_message` gated, in `SimulationSet::Apply`.
-`spawn_ship_from_save` is the single entry point for recreating a ship from a `ShipSave`.
-`save_schematic(&SchematicData)` remains callable directly by the editor.
+The Home and Pause screens both show a five-slot panel (`scene/slot_panel.rs`)
+with mission name, ship count, elapsed time, and a relative save timestamp.
+Load failures post an `AppNotice` and return to Home; no partial world is left
+behind.

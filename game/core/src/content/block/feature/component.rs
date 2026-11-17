@@ -5,7 +5,7 @@ use crate::content::{
     block::{
         component::BlockDef,
         feature::{
-            efficiency::EfficiencyProvider, energy::EnergyConsumer, sprite::Texture,
+            efficiency::EfficiencyProvider, energy::{EnergyConsumer, PowerProducer}, sprite::Texture,
             storage::Storage, thruster::Thruster, turret::TurretComponent,
         },
     },
@@ -17,6 +17,7 @@ pub enum Feature {
     Texture(Texture),
     Turret(TurretComponent),
     EnergyConsumer(EnergyConsumer),
+    PowerProducer(PowerProducer),
     Thruster(Thruster),
     EfficiencyProvider(EfficiencyProvider),
     Storage(Storage),
@@ -36,6 +37,7 @@ impl Feature {
             Self::Turret(turret) => turret.insert(commands, base, def),
             Self::Thruster(thruster) => thruster.insert(commands, base, config),
             Self::EnergyConsumer(consumer) => consumer.insert(commands, base),
+            Self::PowerProducer(producer) => producer.insert(commands, base),
             Self::Storage(storage) => storage.insert(commands, base),
             Self::EfficiencyProvider(provider) => {
                 commands.entity(base).insert(*provider);

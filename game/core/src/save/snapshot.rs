@@ -415,3 +415,101 @@ impl RestoreSnapshot for WorldSave {
         Ok(Entity::PLACEHOLDER)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::GameConfig;
+    use crate::content::block::{BlockShape, ItemDrop};
+
+    fn registry() -> BlockRegistry {
+        let mut registry = BlockRegistry::default();
+        for (key, group, mass, health) in [
+            ("core", "core", 50.0, 5000.0),
+            ("plate", "base", 10.0, 1000.0),
+        ] {
+            registry.register(
+                key,
+                crate::content::block::BlockDef {
+                    name: key.to_string(),
+                    block_type: key.to_string(),
+                    block_group: group.to_string(),
+                    mass,
+                    health,
+                    shape: BlockShape::default(),
+                    cost: 1,
+                    features: Vec::new(),
+                    drops: vec![DropComponent::Item(ItemDrop {
+                        item_type: "steel".to_string(),
+                        amount: 10,
+                    })],
+                },
+            );
+        }
+        registry
+    }
+
+    #[test]
+    fn embedded_world_snapshot_roundtrip() {
+        let design = ShipDesign::new(vec![
+            BlockPlacement::new(IVec2::ZERO, "core", 0),
+            BlockPlacement::new(IVec2::X, "plate", 0),
+        ]);
+
+        let mut source = App::new();
+        source
+            .insert_resource(registry())
+            .insert_resource(GameConfigValue(GameConfig::default()))
+            .add_systems(Startup, {
+                let design = design.clone();
+                move |mut commands: Commands,
+                      reg: Res<BlockRegistry>,
+                      cfg: Res<GameConfigValue>| {
+                    design.spawn(
+                        &mut commands,
+                        &reg,
+                        Team::new(0),
+                        Transform::from_xyz(12.0, -4.0, 0.0),
+                        &cfg,
+                    );
+                }
+            });
+        source.update();
+
+        let ctx = CaptureContext {
+            world: source.world(),
+            slot: 3,
+            mission: "roundtrip-test",
+            elapsed_secs: 17.5,
+            outcome: Some("Victory".to_string()),
+            saved_at_unix_ms: 1_700_000_000_000,
+            seed: 4242,
+        };
+        let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
+        assert_eq!(save.slot, 3);
+        assert_eq!(save.ships.len(), 1);
+        assert_eq!(save.ships[0].blocks.len(), 2);
+        assert_eq!(save.battle.elapsed_secs, 17.5);
+        assert_eq!(save.ships[0].transform.x, 12.0);
+
+        let mut restored = App::new();
+        let restore_save = save.clone();
+        restored
+            .insert_resource(registry())
+            .insert_resource(GameConfigValue(GameConfig::default()))
+            .add_systems(Startup, move |mut commands: Commands,
+                                         reg: Res<BlockRegistry>,
+                                         cfg: Res<GameConfigValue>| {
+                restore_save
+                    .clone()
+                    .restore(&mut commands, &reg, &cfg, Team::new(0), None)
+                    .expect("snapshot restores");
+            });
+        restored.update();
+
+        let mut grids = restored.world_mut().query::<&ShipGrid>();
+        assert_eq!(grids.iter(restored.world()).count(), 1);
+        let grid = grids.single(restored.world()).unwrap();
+        assert_eq!(grid.blocks.len(), 2);
+    }
+}

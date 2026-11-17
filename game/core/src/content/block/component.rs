@@ -178,11 +178,6 @@ pub struct Health {
     pub max_health: f32,
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct PowerProducer {
-    pub output: f32,
-}
-
 /// Spawn one block entity for a placement, attaching runtime state and features.
 pub fn spawn_block_entity(
     commands: &mut Commands,
@@ -453,6 +448,9 @@ impl BlockRegistry {
                     }
                     Feature::EnergyConsumer(consumer) => {
                         stats.power_demand += consumer.rate();
+                    }
+                    Feature::PowerProducer(producer) => {
+                        stats.power_production += producer.output;
                     }
                     Feature::Storage(storage) => {
                         stats.cargo_capacity += storage.capacity();

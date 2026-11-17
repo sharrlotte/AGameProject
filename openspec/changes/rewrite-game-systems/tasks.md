@@ -35,17 +35,17 @@
 
 ## 4. Phase 3 — RON save v2
 
-- [ ] 4.1 Add `ShipDesign`, `WorldSave`, `ShipSnapshot`, `BlockSnapshot`, `BattleSave`, `CameraSave`, `DropSave`, and `RngSave`; set `SAVE_SCHEMA_VERSION = 2`
-- [ ] 4.2 Add `ShipCatalog`; load and save designs as RON; delete JSON schematics and `load_saved_schematics`
-- [ ] 4.3 Add starter `interceptor.ron` and `raider.ron`; copy them to `designs/` on first run
-- [ ] 4.4 Implement five-slot save/load UI in Home and Pause with timestamp, mission, ship count, and elapsed time
-- [ ] 4.5 Implement `CaptureSnapshot` and `RestoreSnapshot` for `WorldSave`, `ShipSnapshot`, `BlockSnapshot`, and `ItemDrop`
-- [ ] 4.6 Embed all ships in `WorldSave.ships`; remove `ship_ids`, `ShipSave`, `ships/*.ron`, and per-ship IO
-- [ ] 4.7 Save transforms, velocities, health, ammo, turret/pattern state, AI/runtime, battle timer/outcome, drops, camera, and RNG
-- [ ] 4.8 Exclude and clear projectiles, lasers, beams, damage text, and transient VFX on load
-- [ ] 4.9 Implement `.tmp` → `.bak` → rename writes and strict version rejection with UI errors
-- [ ] 4.10 Add design/embedded-world round-trip, version, atomic-write, slot, and starter tests
-- [ ] 4.11 Confirm no per-ship file is opened during save or load
+- [x] 4.1 Add `ShipDesign`, `WorldSave`, `ShipSnapshot`, `BlockSnapshot`, `BattleSave`, `CameraSave`, `DropSave`, and `RngSave`; set `SAVE_SCHEMA_VERSION = 2`
+- [x] 4.2 Add `ShipCatalog`; load and save designs as RON; delete JSON schematics and `load_saved_schematics`
+- [x] 4.3 Add starter `interceptor.ron` and `raider.ron`; copy them to `designs/` on first run
+- [x] 4.4 Implement five-slot save/load UI in Home and Pause with timestamp, mission, ship count, and elapsed time
+- [x] 4.5 Implement `CaptureSnapshot` and `RestoreSnapshot` for `WorldSave`, `ShipSnapshot`, `BlockSnapshot`, and `ItemDrop`
+- [x] 4.6 Embed all ships in `WorldSave.ships`; remove `ship_ids`, `ShipSave`, `ships/*.ron`, and per-ship IO
+- [x] 4.7 Save transforms, velocities, health, ammo, turret/pattern state, AI/runtime, battle timer/outcome, drops, camera, and RNG
+- [x] 4.8 Exclude and clear projectiles, lasers, beams, damage text, and transient VFX on load
+- [x] 4.9 Implement `.tmp` → `.bak` → rename writes and strict version rejection with UI errors
+- [x] 4.10 Add design/embedded-world round-trip, version, atomic-write, slot, and starter tests
+- [x] 4.11 Confirm no per-ship file is opened during save or load
 
 ## 5. Phase 4 — Power
 

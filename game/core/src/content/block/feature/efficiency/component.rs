@@ -40,6 +40,12 @@ impl BlockEfficiency {
             self.value = buffed;
         }
     }
+
+    /// Multiply the base efficiency by a power-supply factor. Used by the
+    /// equal-share power solver; values below 0.01 disable the feature.
+    pub fn apply_power(&mut self, power: f32) {
+        self.value = self.base * power;
+    }
 }
 
 impl Default for BlockEfficiency {

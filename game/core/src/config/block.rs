@@ -16,7 +16,7 @@ use crate::content::{
             ammo::{Ammo, AmmoBuilder},
             component::Feature,
             efficiency::EfficiencyProvider,
-            energy::EnergyConsumer,
+            energy::{EnergyConsumer, PowerProducer},
             sprite::Texture,
             storage::StorageBuilder,
             thruster::Thruster,
@@ -49,6 +49,7 @@ pub enum FeatureConfig {
     Texture(TextureConfig),
     Turret(TurretComponentConfig),
     EnergyConsumer(EnergyConsumer),
+    PowerProducer(PowerProducer),
     Thruster(Thruster),
     EfficiencyProvider(EfficiencyProvider),
     Storage(StorageConfig),
@@ -132,6 +133,7 @@ impl FeatureConfig {
                 ammo: config.ammo.map(|ammo| ammo.into_ammo(assets)),
             }),
             FeatureConfig::EnergyConsumer(consumer) => Feature::EnergyConsumer(consumer),
+            FeatureConfig::PowerProducer(producer) => Feature::PowerProducer(producer),
             FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster),
             FeatureConfig::EfficiencyProvider(provider) => {
                 Feature::EfficiencyProvider(provider)
