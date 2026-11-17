@@ -2,60 +2,50 @@
 
 ## Root
 
-`core/assets` — relative to the `core` crate working directory (Bevy default). There is
-no `assets/` directory at the workspace root and `core/config/` does not exist; the asset
-root is the only place assets are loaded from or written back to (settings write-back
-uses `BEVY_ASSET_ROOT`, defaulting to `assets` relative to CWD).
+`core/assets` — relative to the `core` crate working directory (Bevy default).
+The workspace-root `assets/` tree is not used and contains no shipped assets.
 
 ## Layout
 
 ```
 assets/
-  audio/bullet/       shoot-spectre.ogg
-  config/base/        game.ron, block.ron
-  config/mission/     quick-battle.ron
-  config/starter/     interceptor.ron, raider.ron
-  config/setting.ron  volume + bloom (written back on change)
-  texture/block/      block + turret + core + wall sprites (PNG)
+  audio/bullet/      shoot-spectre.ogg
+  config/base/       game.ron, block.ron
+  config/mission/    quick-battle.ron
+  config/starter/    interceptor.ron, raider.ron
+  config/            setting.ron
+  texture/block/     block + turret + core + wall sprites (PNG)
 ```
+
+The procedural background in `scene/background.rs` loads no textures, so `texture/background/` does not exist.
 
 Bevy paths used in block/item registration are relative to this root, e.g.
 `texture/block/block-2.png`, resolved as `AssetServer::load("texture/{…}")`.
 
 ## Conventions
 
-- **Case-sensitive** filenames; `block-steel.PNG` (mixed case) is not found when
-  addressed as `block-steel.png` — open defect, see defects.md.
+- Filenames SHALL use lowercase kebab-case with a lowercase extension, e.g. `block-steel.png`, `shoot-spectre.ogg`.
+- Mixed case, PascalCase, UUID stems, and uppercase extensions SHALL NOT be used.
+- Bevy paths in `.ron` configs are case-sensitive and must match the on-disk filenames exactly.
 - Sprites are square `GRID_SIZE`-aligned where feasible; block sprites render at
   `def.get_pixel_size()` (shape × `64 px`).
-- Team-colored variants are drawn as full-size overlay sprites tinted via `team.color()`
-  or HDR color multipliers for bloom.
+- Team-colored variants are drawn as full-size overlay sprites tinted via `team.color()` or HDR color multipliers for bloom.
 - Sound effects are spatialized (`PlaybackSettings::REMOVE.with_spatial(true)`), scale
   `AUDIO_SCALE = 1/8000`.
 - Block audio hookup is per-shot (`shoot-spectre.ogg`); no other blocks have sounds.
 
-## Unused assets present
+## Validation
 
-Never referenced by code or any `.ron` — safe deletion candidates:
+A dev-only `AssetCheckPlugin` in `core/src/asset/` walks the asset tree at startup and warns for each filename that violates the convention. It is registered only under the `dev` feature in `main.rs` and never ships in production builds. Warnings do not fail startup.
 
-- `texture/background/027078b0-a55c-4139-bd9c-c17709b26df7.png`
-- `texture/background/background1.png`
-- `texture/background/background2.png`
-- `texture/block/block-scrap.png`
-- `texture/block/Nebula1.png`
-- `texture/block/Nebula2.png`
-- `texture/block/Nebula3.png`
-- `texture/block/ripple.png`
-- `texture/block/Stars.png`
+## Used Assets
 
-Backgrounds are never loaded; the parallax starfield is procedural solid-color sprites
-(`scene/background.rs`).
-`titanium-wall-large.png` (`battery`) and `shielded-wall.png` (`booster`) ARE referenced
-by `block.ron` and are in use.
+Referenced by `config/base/block.ron` and code:
 
-## Missing / soft references
+- `texture/block/`: `block-2`, `block-iron`, `block-steel`, `colaris`, `core-nucleus`, `core-nucleus-team`, `foreshadow`, `lancer`, `meltdown`, `shielded-wall`, `spectre`, `surge-wall-large`, `swarmer`, `thruster`, `titanium-wall-large` (all `.png`)
+- `audio/bullet/shoot-spectre.ogg`
+- `config/base/game.ron`, `config/base/block.ron`, `config/setting.ron`, `config/mission/quick-battle.ron`, `config/starter/{interceptor,raider}.ron`
 
-- `block-steel.PNG` → rename to `block-steel.png` to match `block.ron` (see defects.md).
-- `texture/block/core-nucleus-team.png` referenced by Core registration — present.
-- `audio/bullet/shoot-spectre.ogg` — present.
-- No font assets (UI uses default font).
+`colaris.png` is shared by the `colaris` and `parallax` blocks; `docs/defects.md` #21 tracks this separately.
+
+No font assets (UI uses the default font).

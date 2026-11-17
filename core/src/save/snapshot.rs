@@ -8,7 +8,7 @@ use crate::constant::LAYER_DROP;
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::turret::TurretState;
 use crate::content::block::{
-    BlockPlacement, BlockRef, BlockRegistry, BurstShootPatternState, DropComponent, Health,
+    BlockPlacement, BlockRef, BlockRegistry, BurstShootPatternState, Health, Loot,
     ItemDrop, LaserBeamPatternState, PullingBeamPatternState, SingleShootPatternState,
     spawn_block_entity,
 };
@@ -308,10 +308,10 @@ impl CaptureSnapshot for WorldSave {
             .iter_entities()
             .filter_map(|entity| {
                 let transform = entity.get::<Transform>()?;
-                let drop = entity.get::<DropComponent>()?;
+                let drop = entity.get::<Loot>()?;
                 let lifetime = entity.get::<Lifetime>()?;
                 match drop {
-                    DropComponent::Item(item) => Some(DropSave {
+                    Loot::Item(item) => Some(DropSave {
                         position: transform.translation.truncate(),
                         item_type: item.item_type.clone(),
                         amount: item.amount,
@@ -370,7 +370,7 @@ impl RestoreSnapshot for WorldSave {
         for drop in self.drops {
             let duration = drop.remaining_secs.max(0.0);
             commands.spawn((
-                DropComponent::Item(ItemDrop {
+                Loot::Item(ItemDrop {
                     item_type: drop.item_type,
                     amount: drop.amount,
                 }),
@@ -407,7 +407,7 @@ mod tests {
                     shape: BlockShape::default(),
                     cost: 1,
                     features: Vec::new(),
-                    drops: vec![DropComponent::Item(ItemDrop {
+                    drops: vec![Loot::Item(ItemDrop {
                         item_type: "steel".to_string(),
                         amount: 10,
                     })],

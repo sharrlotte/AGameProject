@@ -175,7 +175,7 @@ fn config_failed(state: Res<State<ConfigState>>) -> bool {
 struct ConfigErrorScreen;
 
 #[derive(Component)]
-struct ConfigErrorText;
+struct ErrorText;
 
 fn spawn_config_error_screen(
     mut commands: Commands,
@@ -220,7 +220,7 @@ fn spawn_config_error_screen(
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                ConfigErrorText,
+                ErrorText,
             ));
             root.spawn((
                 Text::new("Fix the file and restart the game."),
@@ -235,7 +235,7 @@ fn spawn_config_error_screen(
 
 fn refresh_config_error_text(
     state: Res<State<ConfigState>>,
-    mut text: Query<&mut Text, With<ConfigErrorText>>,
+    mut text: Query<&mut Text, With<ErrorText>>,
 ) {
     let ConfigState::Error(error) = state.get() else {
         return;

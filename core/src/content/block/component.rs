@@ -301,13 +301,13 @@ pub struct ItemDrop {
 }
 
 #[derive(Component, Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
-pub enum DropComponent {
+pub enum Loot {
     Item(ItemDrop),
 }
 
 #[derive(Message, Clone, PartialEq, Reflect)]
 pub struct DropEvent {
-    pub drop: DropComponent,
+    pub drop: Loot,
     pub position: Vec2,
 }
 
@@ -321,7 +321,7 @@ pub struct BlockDef {
     pub shape: BlockShape,
     pub cost: u32,
     pub features: Vec<Feature>,
-    pub drops: Vec<DropComponent>,
+    pub drops: Vec<Loot>,
 }
 
 impl BlockDef {

@@ -115,7 +115,7 @@ pub fn handle_drop(
 ) {
     for event in events.read() {
         let rarity = match &event.drop {
-            DropComponent::Item(item) => item_registry.get(&item.item_type).map(|f| f.rarity),
+            Loot::Item(item) => item_registry.get(&item.item_type).map(|f| f.rarity),
         };
 
         commands.spawn((

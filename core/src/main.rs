@@ -1,3 +1,4 @@
+mod asset;
 mod config;
 mod constant;
 mod content;
@@ -8,6 +9,8 @@ mod scene;
 mod simulation;
 mod system;
 
+#[cfg(feature = "dev")]
+use crate::asset::AssetCheckPlugin;
 use crate::config::{ConfigPlugin, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
 use crate::content::plugin::ContentPlugin;
@@ -148,7 +151,11 @@ fn main() {
 
     #[cfg(feature = "dev")]
     {
-        app.add_plugins((RemotePlugin::default(), BrpExtrasPlugin));
+        app.add_plugins((
+            RemotePlugin::default(),
+            BrpExtrasPlugin,
+            AssetCheckPlugin,
+        ));
     }
 
     app.run();

@@ -8,7 +8,7 @@ use serde::Deserialize;
 use crate::content::block::{
     BlockRegistry, BlockShape,
     component::{
-        BlockDef, BurstShootPattern, DropComponent, LaserBeamPattern, PullingBeamPattern,
+        BlockDef, BurstShootPattern, LaserBeamPattern, Loot, PullingBeamPattern,
         ShootPattern, ShootingProjectile, SingleShootPattern, TargetingStrategy,
     },
     feature::{
@@ -37,7 +37,7 @@ pub struct BlockDefConfig {
     pub cost: u32,
     pub shape: BlockShape,
     pub features: Vec<FeatureConfig>,
-    pub drops: Vec<DropComponent>,
+    pub drops: Vec<Loot>,
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]

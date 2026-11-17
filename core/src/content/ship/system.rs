@@ -11,7 +11,7 @@ use crate::constant::DROP_PICKUP_RADIUS;
 use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::stat::StatsUpdateSet;
-use crate::content::block::{BlockOwner, DropComponent};
+use crate::content::block::{BlockOwner, Loot};
 use crate::content::ship::ai::AiPlugin;
 #[cfg(debug_assertions)]
 use crate::content::ship::ai::AiRuntime;
@@ -509,14 +509,14 @@ fn wrap_angle(mut a: f32) -> f32 {
 
 pub fn collect_drop(
     mut commands: Commands,
-    mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
+    mut drops: Query<(Entity, &mut Transform, &Loot)>,
     mut ships: Query<(Entity, &mut ShipStats, &GlobalTransform, &Team)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
 ) {
     for (drop_entity, mut drop_transform, drop_component) in &mut drops {
         let drop_position = drop_transform.translation.truncate();
-        let DropComponent::Item(item) = drop_component;
+        let Loot::Item(item) = drop_component;
 
         let nearest = ships
             .iter_mut()
@@ -603,7 +603,7 @@ mod tests {
         let (mut app, ship) = app_with_cargo(5);
         app.world_mut().spawn((
             Transform::default(),
-            DropComponent::Item(crate::content::block::ItemDrop {
+            Loot::Item(crate::content::block::ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 6,
             }),
@@ -620,7 +620,7 @@ mod tests {
         let (mut app, ship) = app_with_cargo(10);
         app.world_mut().spawn((
             Transform::default(),
-            DropComponent::Item(crate::content::block::ItemDrop {
+            Loot::Item(crate::content::block::ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 4,
             }),
@@ -652,7 +652,7 @@ mod tests {
             .id();
         app.world_mut().spawn((
             Transform::default(),
-            DropComponent::Item(crate::content::block::ItemDrop {
+            Loot::Item(crate::content::block::ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 4,
             }),

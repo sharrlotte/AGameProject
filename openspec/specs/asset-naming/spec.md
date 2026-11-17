@@ -1,4 +1,10 @@
-## ADDED Requirements
+# Asset Naming
+
+## Purpose
+
+Shipped assets follow one filename convention, the asset tree contains only referenced assets, and development builds warn about naming violations without failing startup.
+
+## Requirements
 
 ### Requirement: Asset filenames use lowercase kebab-case
 
