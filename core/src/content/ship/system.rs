@@ -13,7 +13,7 @@ use crate::content::ship::ai::AiPlugin;
 use crate::content::ship::indicator::IndicatorsPlugin;
 use crate::content::ship::stat::{ShipChanged, ShipStats, rebuild_cargo_capacity, update_stats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlMode, ControlledShip, SceneState};
+use crate::resource::{ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
 
 use super::*;
@@ -340,6 +340,7 @@ pub fn collect_drop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resource::{CameraTarget, ControlMode};
 
     fn app_with_player_ship() -> (App, Entity) {
         let mut app = App::new();
