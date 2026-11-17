@@ -45,6 +45,8 @@ use bevy::input::common_conditions::input_toggle_active;
 
 #[cfg(all(debug_assertions, feature = "dev"))]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+
+// TODO: To big, seperate into smaller function that register things in group
 fn main() {
     let mut app = App::new();
 

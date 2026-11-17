@@ -24,8 +24,9 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
 2. `poll_mission_loaded` spawns the mission when the asset read finishes (~1 frame; the
    asset is cached afterward).
 3. Player ship = `DeployPayload.current_ship` if the editor Deployed one, otherwise the
-   `ship_0` schematic (a fresh Core + LazerTurret hull). Enemies = `ship_1`, `ship_2` from
-   their absolute spawn positions, team 1.
+   `Interceptor` starter design. Enemies = the `Raider` starter design from their absolute
+   spawn positions, team 1. (`find_schematic` falls back to the first available design when
+   a name is missing — see defects.md.)
 4. Core loss in `apply_ship_mutations` emits `ShipDestroyed` and marks the ship `Death`.
 5. The outcome system consumes `ShipDestroyed` in `FixedPostUpdate` after the mutation
    pipeline, queries remaining ships by team, and sets
@@ -36,8 +37,8 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
    respawn, mission reload). **Home** → Home, battle stays over until next entry.
 7. Re-entering Game resets `BattlePhase` to `Loading` in `setup_battle` — mission always
    re-spawns clean.
-8. `SceneEntity(Game)` cleanup removes all battle entities on scene exit, as everywhere
-   else.
+8. `DespawnOnExit(SceneState::Game)` cleanup removes all battle entities on scene exit,
+   as everywhere else.
 
 ## Data files
 
@@ -47,10 +48,10 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
 (
     name: "Quick Battle",
     briefing: "Two Hive lances hold the frontier. Break their Cores.",
-    player: (team: 0, position: (0.0, 0.0), schematic_name: "ship_0"),
+    player: (team: 0, position: (0.0, 0.0), schematic_name: "Interceptor"),
     enemies: [
-        (team: 1, position: (6000.0, 0.0), schematic_name: "ship_1"),
-        (team: 1, position: (-6000.0, 0.0), schematic_name: "ship_2"),
+        (team: 1, position: (6000.0, 0.0), schematic_name: "Raider"),
+        (team: 1, position: (-6000.0, 0.0), schematic_name: "Raider"),
     ],
     objective: DestroyEnemyCore,
 )
@@ -60,24 +61,25 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
 `ShipSpawn { team: u8, position: Vec2, schematic_name: String }` and
 `MissionObjective` (only `DestroyEnemyCore` valid today).
 
-Schematic name lookup: `find_schematic` resolves by `name` (placeholders are
-`ship_0..ship_4` on fresh installs); `schematic.to_ship_data()` generates fresh UUIDs
-as usual. Empty/missing schematics spawn nothing and log a warning.
+Schematic name lookup: `find_schematic` resolves by `name` (starter designs are
+`Interceptor` and `Raider`, seeded by `ShipCatalog::load_or_seed`). A missing name falls
+back to the first available design — see defects.md. `ShipDesign::spawn` generates fresh
+UUIDs as usual. Empty/missing schematics spawn nothing and log a warning.
 
 ## Guarantees and invariants
 
 - Mission spawn path is the **only** ship spawn path in Game — the old top-up spawner
   (`check_ship`) is deleted; `MAX_FACTIONS` deleted; `SchematicCache`, `mark_schematics_dirty`
   deleted; `utils::random_vec2_step` deleted.
-- Player fallback order: Deploy → `ship_0` → (missing) first available schematic.
+- Player fallback order: Deploy → `Interceptor` → (missing) first available schematic.
 - The mission asset is cached after first read; Retry/Home re-entry re-uses it.
 - Outcome detection is event-driven: `ShipDestroyed` is emitted only when a ship's core
   is lost; scene teardown does not emit it. Counting uses only `Ship` entities —
   blocks/bullets/lasers/missiles don't count toward attrition.
 - Outcome detection, mission loading, and overlay buttons run only in `SceneState::Game`.
 - `BattlePhase` is a `States`; `Idle` is the default; exiting Game resets the phase and
-  `BattleResult`. `Ended` overlay and buttons are `SceneEntity(Game)` — they despawn on
-  scene exit.
+  `BattleResult`. `Ended` overlay and buttons are `DespawnOnExit(SceneState::Game)` — they
+  despawn on scene exit.
 - `handle_pause_input` is unchanged — Escape toggles pause during battle as before
   (the overlay does not block the pause menu; deliberate: battle stays accessible).
 

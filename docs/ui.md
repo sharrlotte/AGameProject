@@ -1,7 +1,7 @@
 # UI Spec — HUD and Panels
 
 All HUD elements are UI nodes (not world-space canvases) except the per-ship debug label
-(`ShipUIRoot`, `Text2d` in-world) and damage numbers (`Text2d` at z = 1,000,000).
+(`ShipUIRoot`, `Text2d` in-world) and damage numbers (`Text2d` at `LAYER_DAMAGE_TEXT = 400`).
 
 ## Game scene HUD
 
@@ -22,7 +22,8 @@ All HUD elements are UI nodes (not world-space canvases) except the per-ship deb
 
 ## Per-ship in-world label
 
-`ShipUIRoot` child of the ship; contains a `Text2d` rebuilt every fixed tick:
+`ShipUIRoot` child of the ship; contains a `Text2d` rebuilt every fixed tick
+(debug builds only — `#[cfg(debug_assertions)]`):
 
 ```
 Ship: <Entity id>
@@ -34,11 +35,12 @@ S: <ShipStats debug>
 ```
 
 Reverse-rotated to face screen upright (`global_transform.rotation().inverse()`),
-z = `LAYER_SHIP_UI = 300`. This is a development visual leaking into release builds.
+z = `LAYER_SHIP_UI = 300`. Compiled out of release builds.
 
 ## Damage / warning icons
 
-- Damage floating text: red `Text2d`, lifetime 1.5 s.
+- Damage floating text: red `Text2d`, rendered through the `DamageTextPool` (64 slots),
+  lifetime `damage_number_lifetime` (`game.ron`, 1.5 s).
 - No-ammo warning: 3-mesh triangle + exclamation (border triangle black, inner triangle
   yellow, exclamation black) hovering above the block, `LAYER_BLOCK_ICON + offsets`,
   removed when ammo > 0.

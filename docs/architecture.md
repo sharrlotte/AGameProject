@@ -3,7 +3,7 @@
 ## Workspace layout
 
 ```
-game/                        Cargo workspace (resolver = "3")
+AGameProject/                Cargo workspace (resolver = "3")
   core/                      single crate, bin target (host application)
     assets/                  assets (root of asset lookup; see assets.md)
     src/
@@ -16,9 +16,8 @@ game/                        Cargo workspace (resolver = "3")
       scene/                 UI/state scenes
         editor.rs            editor module root: state, components, plugin wiring
         editor/{ui,input,grid,save,ship_list,ai_panel}.rs  editor feature modules
-        slot_panel.rs        shared five-slot save/load panel
         layout.rs            shared UI layout constants
-      mission/               battle-core scaffolding (mission.ron, overlay)
+      mission/               battle-core scaffolding (quick-battle.ron, overlay)
       config/                ron config boot gate
       save/                  serialization (`document.rs`, `io.rs`, `schema.rs`, `catalog.rs`, `snapshot.rs`)
 ```
@@ -35,7 +34,7 @@ Five state machines, all Bevy 0.20 states:
 | `SceneState` | `resource.rs` | `Loading`, `Home`, `Game`, `ShipEditor` | `Loading` |
 | `PauseState` | `resource.rs` | `Playing`, `Paused` | `Playing` |
 | `SettingState` | `resource.rs` | `Closed`, `Open` | `Closed` |
-| `BattlePhase` | `mission/mod.rs` | `Loading`, `Active`, `Ended` | `Loading` |
+| `BattlePhase` | `mission/state.rs` | `Idle`, `Loading`, `Active`, `Ended` | `Idle` |
 | `ConfigState` | `config/mod.rs` | `Loading`, `Ready`, `Error(ConfigError)` | `Loading` |
 
 `SettingState` is registered inside `SettingScenePlugin`, the others in `main.rs`.
@@ -55,17 +54,16 @@ full-screen error instead of panicking. Mission load failures post an
 
 | Resource | Contents |
 |---|---|
-| `DeployPayload` | `current_ship: Option<SchematicData>` — Deploy payload consumed by mission spawn |
+| `DeployPayload` | `current_ship: Option<ShipDesign>` — Deploy payload consumed by mission spawn |
 | `CameraTarget` | `following: Option<Entity>` — camera-follow ship |
 | `ControlledShip` | `controlling: Option<Entity>` — ship receiving player input |
 | `ControlMode` | `Pilot` (WASD flies the controlled ship, camera follows) or `FreeLook` (WASD pans, thrust paused); `F` toggles, middle-mouse drags the camera in either mode |
-| `PendingLoad` | `slot: Option<u8>` — set by `handle_load_request`, consumed on `SceneState::Game` entry |
+| `PendingLoad` | `active: bool` — set by `handle_load_request`, consumed on `SceneState::Game` entry |
 | `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops) |
 
 ## Simulation-set contract
 
-The authoritative contract is the doc comment on `SimulationSet` in
-`simulation.rs`; set ordering is configured per schedule in `main.rs`.
+The simulation-set ordering contract is stated here; set ordering is configured per schedule in `main.rs`.
 
 | Schedule | Set | Contents |
 |---|---|---|
@@ -153,7 +151,7 @@ config/          ConfigPlugin: ron loader, boot gate, GameConfig/BlocksConfig/Ga
 
 ## Lints
 
-Workspace lints are configured in `game/Cargo.toml` (`[workspace.lints]`) and inherited by `game/core/Cargo.toml` via `[lints] workspace = true`:
+Workspace lints are configured in the root `Cargo.toml` (`[workspace.lints]`) and inherited by `core/Cargo.toml` via `[lints] workspace = true`:
 
 - `rust::unused_variables = "deny"`
 - `rust::unused_imports = "deny"`

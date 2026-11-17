@@ -35,7 +35,7 @@ The codebase SHALL use the canonical types from the design consolidation table a
 
 ### Requirement: RON document IO is centralized
 
-The system SHALL provide `RonDocument`, `Versioned<T>`, `read_document`, `write_document`, and `atomic_write`, and SHALL use them for world saves and ship designs. Per-type `fs::read_to_string`, `ron::from_str`, and duplicate version checks SHALL NOT exist.
+The system SHALL provide `RonDocument`, `read_document`, `write_document`, and `atomic_write`, and SHALL use them for world saves and ship designs. Per-type `fs::read_to_string`, `ron::from_str`, and duplicate version checks SHALL NOT exist.
 
 #### Scenario: One document path
 - **WHEN** a design is read or written

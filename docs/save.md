@@ -27,24 +27,26 @@ fabrication, and no "repair ships with <= 2 blocks".
   blocks: [
     (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
   ],
-  ai: Default,
+  ai: (initial: Chase(target: NearestEnemy), rules: []),
 )
 ```
 
 `position` is grid-space (`IVec2`); `block_type` is a plain `String` id. The file
-stem is derived from `name` by `ShipCatalog::file_name`. On first run, bundled
-starter designs (`interceptor.ron`, `raider.ron`) are copied into `designs/`.
+stem is derived from `name` by `ShipCatalog::file_name`. On every run, bundled
+starter designs (`interceptor.ron`, `raider.ron`) are rewritten into `designs/`;
+user-created designs are left untouched.
 Missions and the editor both consume `ShipDesign` directly; there is no
 separate schematic struct or `load_saved_schematics()`.
 
 ## Document API
 
 `save/document.rs` owns every versioned RON read/write path: `RonDocument`
-(`VERSION`, `KIND`), `Versioned<T>`, `parse_document`, `read_document`,
-`write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is
-copied to `.bak`, then the temporary file is renamed over the target. Unknown
-versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 3), `CampaignSave`
-(version 1), and `ShipDesign` (version 1).
+(`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and
+`atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then
+the temporary file is renamed over the target. Unknown versions are rejected
+before gameplay data is trusted. `ron_document!` implements the trait for
+`WorldSave` (version 3), `CampaignSave` (version 1), and `ShipDesign`
+(version 1).
 
 ## World battle format (`SAVE_SCHEMA_VERSION = 3`)
 

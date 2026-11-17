@@ -6,8 +6,8 @@
 - `GridBlock` — one live block in a grid (`placement` + `entity`).
 - `BlockRef` / `BlockOwner` — identity and ownership components on block entities.
 - `ShipGrid { blocks: HashMap<Uuid, GridBlock>, cells: HashMap<IVec2, Uuid> }` —
-  authoritative placement and identity. `cells` is derived via `rebuild_from_layout`
-  and `refresh_cells`.
+  authoritative placement and identity. `cells` is derived from `blocks` on every
+  `rebuild_from_layout` (including collider rebuilds).
 - `ShipStats` — single aggregate per ship (mass, health, ranges, power, cargo,
   thrust). Derived by `BlockRegistry::stats_from_grid` on every `ShipChanged`.
 

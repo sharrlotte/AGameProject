@@ -15,16 +15,17 @@ No game entities exist here.
 
 `SceneState::Game`. Content:
 
-- HUD root (`SceneEntity(Game)`): top bar (debug-only FPS + camera coords), middle row
+- HUD root (`DespawnOnExit(SceneState::Game)`): top bar (debug-only FPS + camera coords), middle row
   (ship list — left scroll panel rebuilt every 200 ms, re-showing *player* ships with
   per-block health color: green > 0.75, yellow > 0.5, red ≤ 0.5), bottom bar (selection
   echo panel, `SelectablePanel`).
 - Background parallax starfields: far/mid/near colored sprites wrapped around the camera,
-  tagged `SceneEntity(Game)` (despawn on scene exit).
+  tagged `DespawnOnExit(SceneState::Game)` (despawn on scene exit).
 - Battle-core (see mission.md): mission loads async; ship spawns driven by the mission
   def; outcome is win/lose; overlay on `Ended`. Top-up spawner deleted; `check_ship`
   gone.
-- `check_rebuild_ship_collider` (ship) watches `BlockDestroyedEvent`s.
+- Ship mutations rebuild stats, bounds, and the collider from `ShipGrid.cells` and emit
+  `ShipChanged`; `update_stats` (`ShipChanged`, `OnMessage`) recomputes `ShipStats`.
 - `ShipUIRoot` child of each ship (debug builds only): `Text2d` debug dump.
 
 Selection requires `Ctrl` + left-drag; `Home`/`Game` do not scroll-select.
@@ -50,15 +51,16 @@ Mechanics:
   (`check_placement_validity`), except an empty grid accepts anything.
 - **Right-click deletes** blocks at cursor.
 - Save triggers: any block add/remove writes `ShipSaveChanged` (`handle_ship_saving`),
-  which requires ≥ 2 blocks and ≥ 1 Core; it writes `<filename>.json` in the schematics
-  directory (see save.md) and emits `ShipSavesChanged` to refresh the ship list UI.
+  which requires ≥ 2 blocks and exactly one Core (`BlockRegistry::validate_ship`);
+  it writes `designs/<file_name>.ron` via `ShipCatalog::save` (see save.md) and emits
+  `ShipSavesChanged` to refresh the ship list UI.
 - Blocks listed in the editor are `Block` entities spawned without physics; they are
-  tagged `SceneEntity(ShipEditor)`.
-- Editor does not place `Ammo`/`Storage`/`Energy`/`Thruster` feature children — only
+  tagged `DespawnOnExit(SceneState::ShipEditor)`.
+- Editor does not place `Ammo`/`Storage`/power/`Thruster` feature children — only
   `Texture` and `Turret` sprite layers are reproduced; everything else is dropped.
 
-Ship list: `refresh_ship_list` reads `save_dir()/schematics/*.json` and rebuilds the UI on
-`ShipSavesChanged` (and `OnEnter(ShipEditor)`).
+Ship list: `refresh_ship_list` reads `designs/*.ron` via `ShipCatalog::load_or_seed` and
+rebuilds the UI on `ShipSavesChanged` (and `OnEnter(ShipEditor)`).
 
 Deletion nuance: `handle_block_deletion` deletes the block whose grid-anchor matches the
 cursor; `remove_block_at` removes all voxels of that block.
@@ -77,11 +79,15 @@ Application exit is available only from **Home**.
 Global settings UI (`SettingState::Open`), available from Home and Pause; modal absolute
 panel (opacity 0.8). Controls:
 
-- Volume — ±10 % linear (`GlobalVolume`), persists for the session only.
-- Bloom — toggles `Bloom.intensity` between `0.3` (default) and `0.0` (OFF).
+- Volume — ±10 % linear (`GlobalVolume`); persisted to `config/setting.ron` by
+  `save_setting_on_change` (0.5 s debounce after the change settles).
+- Bloom — toggles `Bloom.intensity` between `0.3` (default) and `0.0` (OFF); also
+  persisted to `config/setting.ron`.
 - Data (Home only) — **Reset Mission / Campaign** with 2-step confirmation (**Confirm Reset** /
   **Cancel**); deletes `battle.ron` and `campaign.ron` while keeping `designs/*.ron` intact,
   and refreshes Home's **Continue** label back to **Play** on close.
 - Close.
 
-Values are not written to disk; all-reset on restart.
+`volume` and `bloom` are written to `config/setting.ron` and hot-reloaded on edit (dev
+builds with the `file_watcher` feature; production applies settings via the UI or on
+restart). All other state is in-memory only.

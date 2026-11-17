@@ -1,3 +1,5 @@
+// TODO: Merge #[cfg()] into least block for more readable code
+
 use bevy::post_process::bloom::BloomCompositeMode;
 use bevy::prelude::*;
 use bevy::{

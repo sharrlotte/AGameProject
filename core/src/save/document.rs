@@ -10,13 +10,6 @@ pub trait RonDocument: Serialize + DeserializeOwned {
     const KIND: &'static str;
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
-pub struct Versioned<T> {
-    pub version: u32,
-    pub data: T,
-}
-
 #[derive(Debug)]
 pub enum DocumentError {
     Io(io::Error),
