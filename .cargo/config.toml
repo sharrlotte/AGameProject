@@ -1,0 +1,10 @@
+# Use LLVM's rust-lld (bundled with Rust) for significantly faster linking on Windows MSVC.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+
+# Convenient aliases for fast incremental dev builds and runs (uses Bevy dynamic linking).
+[alias]
+dev = "run --features dev"
+db = "build --features dev"
+dc = "check --features dev"
+
