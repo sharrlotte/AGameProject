@@ -109,7 +109,7 @@ Home → Continue (when battle.ron exists)
 
 Auto-save triggers in `BattleMode::Campaign`:
 - Periodic timer during `BattlePhase::Active` + `PauseState::Playing` (`auto_save_interval_secs` in `game.ron`).
-- On `Pause` **Back to Home** or **Exit** (`PendingExitAction` flushes after `SaveWorldEvent` completes).
+- On `Pause` **Back to Home** (`PendingExitAction::Home` flushes after `SaveWorldEvent` completes).
 - On `BattlePhase::Ended`: `battle.ron` is cleared; `Victory` records the mission in `campaign.ron`.
 
 Main Menu **Settings → Data → Reset Mission / Campaign** (2-step confirmation) deletes

@@ -67,10 +67,10 @@ cursor; `remove_block_at` removes all voxels of that block.
 
 `SceneState::Game` or `ShipEditor`, toggled by `Escape`, mapped to
 `PauseState::{Playing, Paused}` (`OnEnter(Paused)` pauses `Time<Virtual>`, `OnExit`
-unpauses). Menu: **Resume**, **Settings**, **Back to Home**, **Exit**.
-In `SceneState::Game` with `BattleMode::Campaign`, **Back to Home** and **Exit** trigger
-`SaveWorldEvent` and defer scene exit / app exit via `PendingExitAction` until capture
-completes.
+unpauses). Menu: **Resume**, **Settings**, **Back to Home**.
+In `SceneState::Game` with `BattleMode::Campaign`, **Back to Home** triggers `SaveWorldEvent`
+and defers the scene transition via `PendingExitAction::Home` until capture completes.
+Application exit is available only from **Home**.
 
 ## Settings
 

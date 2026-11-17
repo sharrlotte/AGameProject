@@ -29,7 +29,6 @@ pub enum PendingExitAction {
     #[default]
     None,
     Home,
-    Exit,
 }
 
 #[derive(Resource, Default)]
@@ -168,17 +167,12 @@ pub fn handle_save_world_event(
 fn flush_pending_exit_action(
     mut action: ResMut<PendingExitAction>,
     mut next_scene: ResMut<NextState<SceneState>>,
-    mut exit: MessageWriter<AppExit>,
 ) {
     match *action {
         PendingExitAction::None => {}
         PendingExitAction::Home => {
             *action = PendingExitAction::None;
             next_scene.set(SceneState::Home);
-        }
-        PendingExitAction::Exit => {
-            *action = PendingExitAction::None;
-            exit.write(AppExit::Success);
         }
     }
 }

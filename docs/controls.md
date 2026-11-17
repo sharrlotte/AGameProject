@@ -35,7 +35,7 @@
 | Input | Action |
 |---|---|
 | `Escape` | resume |
-| Resume / Settings / Save / Load / Home / Exit | buttons |
+| Resume / Settings / Back to Home | buttons |
 
 ## Turret control (keyboard)
 

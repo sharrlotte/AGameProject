@@ -86,31 +86,6 @@ fn on_home(
     }
 }
 
-#[derive(Component)]
-struct ExitButton;
-
-fn on_exit(
-    click: On<PointerClick>,
-    buttons: Query<&ExitButton>,
-    scene_state: Res<State<SceneState>>,
-    mode: Res<BattleMode>,
-    mut pause: ResMut<NextState<PauseState>>,
-    mut saves: MessageWriter<SaveWorldEvent>,
-    mut pending_exit: ResMut<PendingExitAction>,
-    mut exit: MessageWriter<AppExit>,
-) {
-    if !buttons.contains(click.event().entity) {
-        return;
-    }
-    pause.set(PauseState::Playing);
-    if *scene_state.get() == SceneState::Game && *mode == BattleMode::Campaign {
-        saves.write(SaveWorldEvent);
-        *pending_exit = PendingExitAction::Exit;
-    } else {
-        exit.write(AppExit::Success);
-    }
-}
-
 fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
     time.pause();
 
@@ -170,16 +145,6 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 Color::WHITE,
                 HomeButton,
                 on_home,
-                ButtonVisuals::dark(),
-            );
-            spawn_button(
-                parent,
-                button_node(),
-                "Exit",
-                20.0,
-                Color::WHITE,
-                ExitButton,
-                on_exit,
                 ButtonVisuals::dark(),
             );
         });
