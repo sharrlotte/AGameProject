@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::CollisionEvent;
 
 use crate::config::GameConfigValue;
 use crate::{content::block::Health, content::lifetime::Lifetime};
-use crate::resource::{SceneEntity, SceneState};
+use crate::resource::{SceneState};
 use crate::simulation::SimulationSet;
 use super::*;
 
@@ -14,11 +14,11 @@ impl Plugin for DamagePlugin {
         app.add_message::<DamageEvent>()
             .add_systems(
                 FixedUpdate,
-                handle_damage_collisions.in_set(SimulationSet::Simulate),
+                handle_damage_collisions.in_set(SimulationSet::Damage),
             )
             .add_systems(
                 FixedPostUpdate,
-                handle_damage_events.in_set(SimulationSet::Apply),
+                handle_damage_events.in_set(SimulationSet::Damage),
             );
     }
 }
@@ -36,7 +36,7 @@ pub fn handle_damage_events(
             commands.spawn((
                 Transform::from_translation(transform.translation().truncate().extend(1000000.0)),
                 Lifetime::seconds(config.0.damage_number_lifetime),
-                SceneEntity(SceneState::Game),
+                DespawnOnExit(SceneState::Game),
                 Text2d::new(event.damage.to_string()),
                 TextFont {
                     font_size: FontSize::Px(20.0),

@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
-use crate::SceneState;
-use crate::resource::SceneEntity;
+use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
 
 pub struct BackgroundPlugin;
@@ -13,7 +12,7 @@ impl Plugin for BackgroundPlugin {
                 Update,
                 parallax_follow
                     .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Present),
             );
     }
 }
@@ -57,7 +56,7 @@ fn spawn_parallax_layer(
                 ..default()
             },
             Transform::default(),
-            SceneEntity(SceneState::Game),
+            DespawnOnExit(SceneState::Game),
         ));
     }
 }

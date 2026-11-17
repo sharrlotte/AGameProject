@@ -11,15 +11,15 @@ use uuid::Uuid;
 use crate::config::GameConfigValue;
 use crate::content::{
     block::{
-        component::{
-            Block, BlockData, BlockRegistry, BurstShootPatternState, Health,
-            SingleShootPatternState,
-        },
+        BlockPlacement, BlockRef, BlockRegistry, BurstShootPatternState, Health,
+        SingleShootPatternState,
         feature::turret::TurretState,
     },
-    ship::{ShipData, ShipState},
+    ship::{ShipDesign, ShipGrid},
     team::Team,
 };
+use crate::mission::{BattlePhase, BattleResult};
+use crate::resource::{CameraTarget, ControlledShip, PendingLoad, SceneState};
 use crate::save::document::{read_document, write_document};
 use crate::save::schema::{
     BlockSaveData, ShipSave, TurretSaveState, WorldSave, WORLD_SCHEMA_VERSION,
@@ -35,8 +35,8 @@ pub struct SchematicBlockData {
 }
 
 impl SchematicBlockData {
-    pub fn to_block_data(&self) -> BlockData {
-        BlockData {
+    pub fn to_placement(&self) -> BlockPlacement {
+        BlockPlacement {
             id: self.id,
             position: self.position,
             block_type: self.block_type.clone(),
@@ -54,28 +54,30 @@ pub struct SchematicData {
 }
 
 impl SchematicData {
-    pub fn to_ship_data(&self) -> ShipData {
-        ShipData {
+    pub fn to_design(&self) -> ShipDesign {
+        ShipDesign {
+            version: 1,
             id: self.id,
+            name: self.name.clone(),
             blocks: self
                 .blocks
                 .clone()
                 .into_iter()
-                .map(|b| b.to_block_data())
+                .map(|b| b.to_placement())
                 .collect(),
         }
-        .new()
     }
 }
-
-#[derive(Component, Default)]
-pub struct Save {}
 
 #[derive(Message)]
 pub struct SaveWorldEvent;
 
+/// Request a world load. Handled as a state transition so the outgoing scene
+/// is despawned by `DespawnOnExit` before the snapshot is spawned.
 #[derive(Message)]
-pub struct LoadWorldEvent;
+pub struct LoadWorldEvent {
+    pub slot: u8,
+}
 
 pub fn save_dir() -> PathBuf {
     ProjectDirs::from("com", "somerandomdev", "agameproject")
@@ -161,23 +163,25 @@ pub fn spawn_ship_from_save(
     registry: &BlockRegistry,
     config: &GameConfigValue,
 ) -> Option<Entity> {
-    let blocks: Vec<BlockData> = save
-        .blocks
-        .iter()
-        .map(|b| BlockData {
-            id: Uuid::now_v7(),
-            position: b.position,
-            block_type: b.block_type.clone(),
-            rotation: b.rotation,
-        })
-        .collect();
+    let design = ShipDesign {
+        version: 1,
+        id: save.id,
+        name: String::new(),
+        blocks: save
+            .blocks
+            .iter()
+            .map(|b| BlockPlacement {
+                id: Uuid::now_v7(),
+                position: b.position,
+                block_type: b.block_type.clone(),
+                rotation: b.rotation,
+            })
+            .collect(),
+    };
 
     let team = Team::new(save.team);
-    let (ship, block_entities) = ShipData {
-        id: save.id,
-        blocks,
-    }
-    .spawn(commands, registry, team, Transform::default(), config)?;
+    let (ship, block_entities) =
+        design.spawn(commands, registry, team, Transform::default(), config)?;
 
     for (entity, saved) in block_entities.iter().zip(save.blocks.iter()) {
         commands.entity(*entity).insert(Health {
@@ -207,12 +211,11 @@ pub fn spawn_ship_from_save(
 
 pub fn handle_save_world_event(
     mut events: MessageReader<SaveWorldEvent>,
-    ships: Query<(Entity, &ShipState, &Team)>,
-    blocks: Query<(Entity, &Block, &Health)>,
+    ships: Query<(Entity, &ShipGrid, &Team)>,
+    blocks: Query<(&BlockRef, &Health)>,
     turrets: Query<&TurretState>,
     singles: Query<&SingleShootPatternState>,
     bursts: Query<&BurstShootPatternState>,
-    parents: Query<&ChildOf>,
     battle_time: Res<crate::mission::BattleResult>,
 ) {
     for _ in events.read() {
@@ -221,7 +224,7 @@ pub fn handle_save_world_event(
         let mut ship_ids = Vec::new();
         let mut teams = Vec::new();
 
-        for (ship_entity, _, team) in &ships {
+        for (ship_entity, grid, team) in &ships {
             let id = ship_entity.to_bits();
             let ship_uuid = Uuid::from_u128(id as u128);
             ship_ids.push(ship_uuid);
@@ -230,15 +233,11 @@ pub fn handle_save_world_event(
             }
 
             let mut block_saves = Vec::new();
-            for (block_entity, block, health) in &blocks {
-                let is_child_of_ship = parents
-                    .get(block_entity)
-                    .map(|p| p.parent() == ship_entity)
-                    .unwrap_or(false);
-                if !is_child_of_ship {
+            for grid_block in grid.blocks() {
+                let block_entity = grid_block.entity;
+                let Ok((_, health)) = blocks.get(block_entity) else {
                     continue;
-                }
-
+                };
                 let turret_state = turrets.get(block_entity).ok().map(|s| TurretSaveState {
                     active: s.active,
                     shoot_at: s.shoot_at,
@@ -247,9 +246,9 @@ pub fn handle_save_world_event(
                 let burst = bursts.get(block_entity).ok().cloned();
 
                 block_saves.push(BlockSaveData {
-                    position: block.position,
-                    block_type: block.block_type.clone(),
-                    rotation: block.rotation,
+                    position: grid_block.placement.position,
+                    block_type: grid_block.placement.block_type.clone(),
+                    rotation: grid_block.placement.rotation,
                     health: health.health,
                     max_health: health.max_health,
                     turret_state,
@@ -282,41 +281,77 @@ pub fn handle_save_world_event(
     }
 }
 
-pub fn handle_load_world_event(
-    mut commands: Commands,
+/// Convert a load request into a scene transition. The snapshot is spawned on
+/// the next `SceneState::Game` entry, after the outgoing scene has been torn
+/// down by `DespawnOnExit(SceneState::Game)`.
+pub fn handle_load_request(
     mut events: MessageReader<LoadWorldEvent>,
+    mut pending: ResMut<PendingLoad>,
+    mut next_scene: ResMut<NextState<SceneState>>,
+) {
+    for event in events.read() {
+        pending.request(event.slot);
+        next_scene.set(SceneState::Loading);
+    }
+}
+
+/// Move from `Loading` into `Game` once a load has been requested.
+pub fn begin_loaded_game(
+    pending: Res<PendingLoad>,
+    mut next_scene: ResMut<NextState<SceneState>>,
+) {
+    if pending.is_pending() {
+        next_scene.set(SceneState::Game);
+    }
+}
+
+/// Spawn the requested snapshot when `Game` is entered. Runs alongside
+/// `setup_battle`, which skips itself while a load is pending.
+pub fn spawn_loaded_world(
+    mut commands: Commands,
+    pending: Res<PendingLoad>,
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
-    effects: Query<Entity, With<Save>>,
+    time: Res<Time>,
+    mut result: ResMut<BattleResult>,
+    mut phase: ResMut<NextState<BattlePhase>>,
 ) {
-    for _ in events.read() {
-        let dir = world_save_dir();
-        let world: WorldSave = match read_document(&dir.join("world.ron")) {
-            Ok(world) => world,
+    if !pending.is_pending() {
+        return;
+    }
+
+    // Deferred so other OnEnter(Game) systems still observe the pending flag
+    // this frame and skip mission setup.
+    commands.insert_resource(PendingLoad::default());
+    commands.insert_resource(CameraTarget::default());
+    commands.insert_resource(ControlledShip::default());
+
+    let dir = world_save_dir();
+    let world: WorldSave = match read_document(&dir.join("world.ron")) {
+        Ok(world) => world,
+        Err(e) => {
+            warn!("Failed to read world save: {e}");
+            return;
+        }
+    };
+
+    for id in world.ship_ids {
+        let ship: ShipSave = match read_document(&dir.join("ships").join(format!("{id}.ron"))) {
+            Ok(ship) => ship,
             Err(e) => {
-                warn!("Failed to read world save: {e}");
+                warn!("Failed to read ship save {id}: {e}");
                 continue;
             }
         };
-
-        // Effect-like entities are not in the schema; remove all of them so a
-        // loaded world cannot leak missiles/lasers/drops/damage text.
-        for entity in &effects {
-            commands.entity(entity).despawn();
-        }
-
-        for id in world.ship_ids {
-            let ship: ShipSave = match read_document(&dir.join("ships").join(format!("{id}.ron")))
-            {
-                Ok(ship) => ship,
-                Err(e) => {
-                    warn!("Failed to read ship save {id}: {e}");
-                    continue;
-                }
-            };
-            spawn_ship_from_save(&mut commands, &ship, &registry, &config);
-        }
+        spawn_ship_from_save(&mut commands, &ship, &registry, &config);
     }
+
+    *result = BattleResult {
+        started_at: Some(time.elapsed_secs()),
+        outcome: None,
+        duration_secs: 0.0,
+    };
+    phase.set(BattlePhase::Active);
 }
 
 pub struct SavePlugin;
@@ -325,14 +360,22 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<SaveWorldEvent>()
             .add_message::<LoadWorldEvent>()
+            .init_resource::<PendingLoad>()
             .add_systems(
                 Update,
                 (
                     handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
-                    handle_load_world_event.run_if(on_message::<LoadWorldEvent>),
+                    handle_load_request.run_if(on_message::<LoadWorldEvent>),
                 )
-                    .in_set(SimulationSet::Apply),
-            );
+                    .in_set(SimulationSet::Present),
+            )
+            .add_systems(
+                Update,
+                begin_loaded_game
+                    .run_if(in_state(SceneState::Loading))
+                    .in_set(SimulationSet::Present),
+            )
+            .add_systems(OnEnter(SceneState::Game), spawn_loaded_world);
     }
 }
 

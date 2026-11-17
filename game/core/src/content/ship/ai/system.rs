@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
-use crate::content::ship::{BoundingBox, Ship, ShipBehavior};
+use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
@@ -46,7 +46,7 @@ impl Plugin for AiPlugin {
             )
                 .chain()
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Ai),
         );
     }
 }
@@ -116,6 +116,7 @@ pub fn idle_behavior(
             &mut BehaviorTimer,
             &Transform,
             &Ship,
+            &ShipStats,
             &BoundingBox,
             &Team,
         ),
@@ -127,11 +128,11 @@ pub fn idle_behavior(
     config: Res<GameConfigValue>,
     mut commands: Commands,
 ) {
-    for (entity, mut timer, transform, ship, bbox, team) in &mut ships {
+    for (entity, mut timer, transform, _ship, stats, bbox, team) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;
         }
-        let range = in_range(&index, team.id, transform.translation.truncate(), ship.max_range);
+        let range = in_range(&index, team.id, transform.translation.truncate(), stats.max_range);
         if let Some(enemy) = range.first() {
             set_behavior!(commands, entity, BehaviorChase { target: enemy.entity });
         } else {
@@ -151,6 +152,7 @@ pub fn chase_behavior(
             &mut BehaviorTimer,
             &Transform,
             &Ship,
+            &ShipStats,
         ),
         With<BehaviorChase>,
     >,
@@ -161,7 +163,7 @@ pub fn chase_behavior(
     config: Res<GameConfigValue>,
     mut commands: Commands,
 ) {
-    for (entity, mut timer, transform, ship) in &mut ships {
+    for (entity, mut timer, transform, _ship, stats) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;
         }
@@ -177,15 +179,15 @@ pub fn chase_behavior(
             continue;
         };
         let position = target_transform.translation.truncate();
-        if transform.translation.distance(position.extend(0.0)) >= ship.min_range {
+        if transform.translation.distance(position.extend(0.0)) >= stats.min_range {
             commands.entity(entity).insert(ShipBehavior::Approach {
                 position,
-                radius: ship.min_range * config.0.ai_min_range_factor,
+                radius: stats.min_range * config.0.ai_min_range_factor,
             });
         } else {
             commands.entity(entity).insert(ShipBehavior::GoAround {
                 position,
-                radius: ship.min_range * config.0.ai_min_range_factor,
+                radius: stats.min_range * config.0.ai_min_range_factor,
             });
         }
     }
@@ -199,6 +201,7 @@ pub fn wander_behavior(
             &mut BehaviorTimer,
             &Transform,
             &Ship,
+            &ShipStats,
             &BoundingBox,
         ),
         With<BehaviorWander>,
@@ -211,7 +214,7 @@ pub fn wander_behavior(
     mut commands: Commands,
 ) {
     let mut rng = rand::rng();
-    for (entity, mut timer, transform, ship, bbox) in &mut ships {
+    for (entity, mut timer, transform, _ship, stats, bbox) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;
         }
@@ -228,7 +231,7 @@ pub fn wander_behavior(
             &index,
             team.id,
             transform.translation.truncate(),
-            ship.max_range,
+            stats.max_range,
         )
         .is_empty();
 
@@ -275,6 +278,7 @@ pub fn kiting_behavior(
             &mut BehaviorTimer,
             &Transform,
             &Ship,
+            &ShipStats,
         ),
         With<BehaviorKiting>,
     >,
@@ -285,14 +289,14 @@ pub fn kiting_behavior(
     config: Res<GameConfigValue>,
     mut commands: Commands,
 ) {
-    for (entity, mut timer, transform, ship) in &mut ships {
+    for (entity, mut timer, transform, _ship, stats) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;
         }
         let Ok(team) = teams.get(entity) else {
             continue;
         };
-        let desired = ship.max_range * config.0.ai_min_range_factor;
+        let desired = stats.max_range * config.0.ai_min_range_factor;
         let position = transform.translation.truncate();
 
         let nearest = index
@@ -301,7 +305,7 @@ pub fn kiting_behavior(
             .map(|list| {
                 list.iter()
                     .copied()
-                    .filter(|other| other.position.distance(position) <= ship.max_range)
+                    .filter(|other| other.position.distance(position) <= stats.max_range)
                     .min_by(|a, b| {
                         a.position
                             .distance_squared(position)
@@ -316,7 +320,7 @@ pub fn kiting_behavior(
                 if distance < desired {
                     let away = (position - enemy.position).normalize_or_zero();
                     commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: enemy.position + away * ship.max_range,
+                        position: enemy.position + away * stats.max_range,
                         radius: desired,
                     });
                 } else {

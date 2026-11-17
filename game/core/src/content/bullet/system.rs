@@ -18,9 +18,9 @@ use crate::content::block::{
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::death::Death;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::{Blocks, Ship};
+use crate::content::ship::{Ship, ShipGrid};
 use crate::content::team::Team;
-use crate::resource::{SceneEntity, SceneState};
+use crate::resource::{SceneState};
 use crate::simulation::SimulationSet;
 
 pub struct BulletPlugin;
@@ -41,13 +41,13 @@ impl Plugin for BulletPlugin {
                 handle_collisions,
             )
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Weapons),
         )
         .add_systems(
             FixedPostUpdate,
             (handle_laser)
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Apply),
+                .in_set(SimulationSet::Damage),
         );
     }
 }
@@ -79,7 +79,7 @@ pub fn destroy_out_of_range_bullet(
 
 pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform), Without<Death>>,
-    targets: Query<(&GlobalTransform, &Blocks)>,
+    targets: Query<(&GlobalTransform, &ShipGrid)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
 ) {
@@ -95,13 +95,13 @@ pub fn handle_missiles(
 
         if let Some(target) = missile.target {
             if let Ok((target_gt, target_blocks)) = targets.get(target) {
-                if target_blocks.blocks.is_empty() {
+                let Some(target_block) = target_blocks.blocks().next() else {
                     continue;
-                }
+                };
 
                 let to_target = target_gt
                     .transform_point(
-                        (target_blocks.blocks[0].position_pixel() + GRID_SIZE / 2.0).extend(0.0),
+                        (target_block.placement.position_pixel() + GRID_SIZE / 2.0).extend(0.0),
                     )
                     .truncate()
                     - global.translation().truncate();
@@ -466,11 +466,11 @@ pub fn handle_pulling_beam(
                         return true;
                     };
 
-                    if owner.id == entity {
+                    if owner.ship == entity {
                         return true;
                     }
 
-                    if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.id) {
+                    if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.ship) {
                         let direction =
                             (origin - ship_transform.translation().truncate()).normalize_or_zero();
                         velocity.linear += direction * PULL_SPEED * time.delta_secs();
@@ -534,7 +534,7 @@ pub fn spawn_bullet(
         } => {
             let bullet = commands
                 .spawn((
-                                        SceneEntity(SceneState::Game),
+                                        DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Bullet {
                         shooted_at: spawn_position.truncate(),
@@ -567,7 +567,7 @@ pub fn spawn_bullet(
         ShootingProjectile::Laser { damage, width, .. } => {
             let bullet = commands
                 .spawn((
-                                        SceneEntity(SceneState::Game),
+                                        DespawnOnExit(SceneState::Game),
                     Laser::Init {
                         width: *width,
                         length: range,
@@ -593,7 +593,7 @@ pub fn spawn_bullet(
         } => {
             let missile = commands
                 .spawn((
-                                        SceneEntity(SceneState::Game),
+                                        DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
                     Missile {
                         shooted_at: spawn_position.truncate(),

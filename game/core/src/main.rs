@@ -21,7 +21,7 @@ use crate::scene::home::HomeScenePlugin;
 use crate::scene::notice::NoticePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
-use crate::system::{clean_state_item, load_current_ship, setup_camera};
+use crate::system::{load_current_ship, setup_camera};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::audio::{AudioPlugin, SpatialScale};
@@ -83,14 +83,26 @@ fn main() {
     .init_resource::<ControlledShip>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
-    .configure_sets(FixedFirst, SimulationSet::Simulate)
-    .configure_sets(FixedPreUpdate, SimulationSet::Simulate)
-    .configure_sets(FixedUpdate, SimulationSet::Simulate)
-    .configure_sets(FixedPostUpdate, SimulationSet::Apply)
+    .configure_sets(PreUpdate, SimulationSet::Input)
+    .configure_sets(FixedFirst, SimulationSet::Stats)
+    .configure_sets(FixedPreUpdate, SimulationSet::Stats)
+    .configure_sets(
+        FixedUpdate,
+        (
+            SimulationSet::Ai,
+            SimulationSet::Control,
+            SimulationSet::Weapons,
+            SimulationSet::Cleanup,
+        )
+            .chain(),
+    )
+    .configure_sets(
+        FixedPostUpdate,
+        (SimulationSet::Damage, SimulationSet::Death).chain(),
+    )
     .configure_sets(FixedLast, SimulationSet::Cleanup)
-    .configure_sets(PreUpdate, SimulationSet::Cleanup)
-    .configure_sets(Update, SimulationSet::Input)
-    .configure_sets(PostUpdate, SimulationSet::Simulate)
+    .configure_sets(Update, (SimulationSet::Input, SimulationSet::Present).chain())
+    .configure_sets(PostUpdate, SimulationSet::Present)
     .add_systems(Startup, (setup_camera, load_current_ship))
     .add_plugins((
         #[cfg(debug_assertions)]
@@ -109,8 +121,7 @@ fn main() {
         SettingScenePlugin,
         NoticePlugin,
     ))
-    .insert_resource(Time::<Fixed>::from_hz(60.0))
-    .add_systems(PreUpdate, clean_state_item);
+    .insert_resource(Time::<Fixed>::from_hz(60.0));
 
     #[cfg(all(debug_assertions, feature = "dev"))]
     {

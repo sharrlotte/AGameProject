@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::{component::Component, entity::Entity, resource::Resource},
+    ecs::{entity::Entity, resource::Resource},
     state::state::States,
 };
 
@@ -13,9 +13,6 @@ pub enum SceneState {
     Game,
     ShipEditor,
 }
-
-#[derive(Component, Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
-pub struct SceneEntity(pub SceneState);
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
 pub enum PauseState {
@@ -34,6 +31,26 @@ pub enum SettingState {
 #[derive(Resource, Default, Debug)]
 pub struct DeployPayload {
     pub current_ship: Option<SchematicData>,
+}
+
+/// A world load that has been requested but not yet applied.
+///
+/// Set by `handle_load_request`, then consumed when `SceneState::Game` is
+/// entered so the old scene is torn down by `DespawnOnExit` before the snapshot
+/// is spawned.
+#[derive(Resource, Default, Debug)]
+pub struct PendingLoad {
+    pub slot: Option<u8>,
+}
+
+impl PendingLoad {
+    pub fn request(&mut self, slot: u8) {
+        self.slot = Some(slot);
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.slot.is_some()
+    }
 }
 
 #[derive(Resource, Default, Debug)]

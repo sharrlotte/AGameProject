@@ -2,7 +2,6 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::{
-    content::{bullet::Bullet, ship::Ship},
     resource::{PauseState, SceneState, SettingState},
     save::io::{LoadWorldEvent, SaveWorldEvent},
     simulation::SimulationSet,
@@ -73,6 +72,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 ..default()
             },
             PauseScreen,
+            DespawnOnExit(PauseState::Paused),
         ))
         .with_children(|parent| {
             // Title
@@ -268,9 +268,6 @@ fn handle_pause_buttons(
     mut exit: MessageWriter<AppExit>,
     mut save_events: MessageWriter<SaveWorldEvent>,
     mut load_events: MessageWriter<LoadWorldEvent>,
-    mut commands: Commands,
-    ships: Query<Entity, With<Ship>>,
-    bullets: Query<Entity, With<Bullet>>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
@@ -296,16 +293,8 @@ fn handle_pause_buttons(
                     }
                     PauseButton::Load => {
                         game_state.set(PauseState::Playing);
-
-                        for entity in &bullets {
-                            commands.entity(entity).despawn();
-                        }
-
-                        for entity in &ships {
-                            commands.entity(entity).despawn();
-                        }
-
-                        load_events.write(LoadWorldEvent);
+                        // Scene teardown is handled by `DespawnOnExit(SceneState::Game)`.
+                        load_events.write(LoadWorldEvent { slot: 1 });
                     }
                 }
             }
@@ -319,13 +308,7 @@ fn handle_pause_buttons(
     }
 }
 
-fn cleanup_pause(
-    mut commands: Commands,
-    query: Query<Entity, With<PauseScreen>>,
-    mut time: ResMut<Time<Virtual>>,
-) {
+fn cleanup_pause(mut time: ResMut<Time<Virtual>>) {
     time.unpause();
-    for entity in &query {
-        commands.entity(entity).despawn();
-    }
+    // UI entities are removed by `DespawnOnExit(PauseState::Paused)`.
 }

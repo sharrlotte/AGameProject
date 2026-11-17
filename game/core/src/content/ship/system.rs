@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
-use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::constant::DROP_PICKUP_RADIUS;
@@ -13,19 +12,14 @@ use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::feature::storage::{Storage, StorageState};
 use crate::content::block::stat::StatsUpdateSet;
-use crate::content::block::{
-    Block, BlockDestroyedEvent, BlockOwner, BlockRegistry, DropComponent, DropEvent,
-    ShipCalculatedStat,
-};
-use crate::content::death::Death;
+use crate::content::block::{BlockOwner, DropComponent};
 use crate::content::ship::ai::{
     behavior_label, AiPlugin, BehaviorAttack, BehaviorChase, BehaviorFlee, BehaviorFollow,
     BehaviorGuard, BehaviorIdle, BehaviorKamikaze, BehaviorKiting, BehaviorPatrol, BehaviorRegroup,
     BehaviorWander,
 };
-use crate::content::ship::grid::ShipGrid;
 use crate::content::ship::indicator::IndicatorsPlugin;
-use crate::content::ship::stat::{ComputedShipStats, update_stats};
+use crate::content::ship::stat::{ShipStats, update_stats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
@@ -36,115 +30,40 @@ pub struct ShipPlugin;
 
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<ComputedShipStats>();
+        app.register_type::<ShipStats>();
         #[cfg(debug_assertions)]
         app.add_systems(
             FixedUpdate,
             update_ship_ui
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Input),
+                .in_set(SimulationSet::Present),
         );
         app.add_systems(
                 PostUpdate,
                 update_ship_behavior
                     .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Present),
             )
             .add_systems(
                 FixedPreUpdate,
                 update_stats
                     .after(StatsUpdateSet)
                     .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Stats),
             )
             .add_systems(
                 FixedUpdate,
-                (
-                    check_rebuild_ship_collider,
-                    player_control_ship,
-                )
+                player_control_ship
                     .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Control),
             )
             .add_systems(
                 FixedUpdate,
                 collect_drop
                     .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Control),
             )
-            .add_plugins((IndicatorsPlugin, AiPlugin));
-    }
-}
-
-pub fn check_rebuild_ship_collider(
-    mut commands: Commands,
-    mut events: MessageReader<BlockDestroyedEvent>,
-    mut ships: Query<(Entity, &mut Blocks, &mut ShipGrid, &GlobalTransform, &Team)>,
-    ship_blocks: Query<(Entity, &Block, &BlockOwner)>,
-    registry: Res<BlockRegistry>,
-    mut drop_writer: MessageWriter<DropEvent>,
-) {
-    for event in events.read() {
-        let Ok((entity, mut ship_block, mut grid, transform, team)) = ships.get_mut(event.ship)
-        else {
-            continue;
-        };
-
-        ship_block.blocks.retain(|f| &f.id != &event.block_id);
-        grid.remove_block(event.block_id);
-
-        let ShipCalculatedStat { ship, fragments } =
-            registry.blocks_stats(&ship_block.blocks, &grid);
-
-        let delete_blocks: HashSet<Uuid> = fragments
-            .iter()
-            .flat_map(|f| f.blocks.iter().map(|b| b.id))
-            .collect();
-
-        ship_block.blocks.retain(|f| !delete_blocks.contains(&f.id));
-
-        if let Some(block) = registry.get(&event.block_type) {
-            if block.block_type == "core" {
-                commands.entity(entity).insert(Death);
-            }
-        }
-
-        if let Some(ship) = ship {
-            let collider = registry.build_ship_voxel_collider_2d(&grid);
-
-            commands.entity(entity).remove::<Collider>().insert((
-                ship.data.clone(),
-                collider,
-                ColliderMassProperties::Mass(ship.data.mass),
-            ));
-        }
-
-        for (block_entity, block, owner) in ship_blocks.iter() {
-            if delete_blocks.contains(&block.id) && owner.id == entity {
-                commands.entity(block_entity).insert(Death);
-            }
-        }
-
-        if !team.is_player() {
-            for fragment in fragments {
-                for block in &fragment.blocks {
-                    let Some(def) = registry.get(&block.block_type) else {
-                        continue;
-                    };
-
-                    let position = transform
-                        .transform_point(block.position_pixel().extend(0.0))
-                        .truncate();
-
-                    for drop in &def.drops {
-                        drop_writer.write(DropEvent {
-                            position: position,
-                            drop: drop.clone(),
-                        });
-                    }
-                }
-            }
-        }
+            .add_plugins((IndicatorsPlugin, AiPlugin, ShipMutationPlugin));
     }
 }
 
@@ -167,7 +86,7 @@ pub fn update_ship_ui(
         Option<&BehaviorKamikaze>,
         Option<&ShipBehavior>,
         &GlobalTransform,
-        &ComputedShipStats,
+        &ShipStats,
     )>,
     mut blocks: Query<(&BlockOwner, Option<&Ammo>, Option<&AmmoState>)>,
 ) {
@@ -185,7 +104,7 @@ pub fn update_ship_ui(
         }
 
         if !string.is_empty() {
-            data.entry(owner.id)
+            data.entry(owner.ship)
                 .and_modify(|f| f.push_str(string.as_str()))
                 .or_insert(string);
         }
@@ -235,7 +154,7 @@ pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut ships: Query<
-        (&mut ExternalForce, &Transform, &Ship, &ComputedShipStats),
+        (&mut ExternalForce, &Transform, &Ship, &ShipStats),
         Without<Camera2d>,
     >,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
@@ -373,7 +292,7 @@ pub fn update_ship_behavior(
         &Transform,
         &mut ExternalForce,
         &mut Velocity,
-        &ComputedShipStats,
+        &ShipStats,
     )>,
     controlled: Res<ControlledShip>,
     #[cfg_attr(not(debug_assertions), allow(unused_variables))]

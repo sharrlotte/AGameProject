@@ -9,8 +9,11 @@ use crate::config::GameConfigValue;
 use crate::{
     constant::GRID_SIZE,
     content::{
-        block::feature::{component::Feature, turret::TurretComponent},
-        ship::{grid::ShipGrid, Ship, ShipFragment},
+        block::{
+            BlockOwner, BlockPlacement, BlockRef,
+            feature::component::Feature,
+        },
+        ship::{BoundingBox, Ship, ShipBuildResult, ShipFragment, ShipStats, grid::ShipGrid},
         team::Team,
     },
 };
@@ -169,25 +172,6 @@ impl ShootPattern {
     }
 }
 
-#[derive(Component, Clone, PartialEq)]
-pub struct Block {
-    pub id: Uuid,
-    pub rotation: u8,
-    pub position: IVec2,
-    pub block_type: String,
-}
-
-#[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BlockState {
-    pub block_type: String,
-}
-
-#[derive(Component, Clone, PartialEq)]
-pub struct BlockOwner {
-    // Ship entity
-    pub id: Entity,
-}
-
 #[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]
 pub struct Health {
     pub health: f32,
@@ -199,107 +183,70 @@ pub struct PowerProducer {
     pub output: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlockData {
-    pub id: Uuid,
-    pub position: IVec2,
-    pub block_type: String,
-    pub rotation: u8,
-}
+/// Spawn one block entity for a placement, attaching runtime state and features.
+pub fn spawn_block_entity(
+    commands: &mut Commands,
+    placement: &BlockPlacement,
+    def: &BlockDef,
+    ship: Entity,
+    team: Team,
+    config: &GameConfigValue,
+) -> Entity {
+    let half_size = def.get_pixel_size() / 2.0;
+    let mut transform = def.to_transform(placement.position);
 
-impl BlockData {
-    pub fn new(&self) -> Self {
-        Self {
-            id: Uuid::now_v7(),
-            position: self.position,
-            block_type: self.block_type.clone(),
-            rotation: self.rotation,
-        }
+    // Use the first texture's z as the block sprite's render layer so the
+    // collapsed sprite keeps its original visual stacking.
+    if let Some(z) = def
+        .features
+        .iter()
+        .find_map(|f| f.extra_texture().map(|t| t.z))
+    {
+        transform.translation.z = z;
     }
 
-    pub fn position_pixel(&self) -> Vec2 {
-        self.position.as_vec2() * GRID_SIZE
-    }
+    let block = commands
+        .spawn((
+            transform,
+            team,
+            Visibility::Visible,
+            ActiveEvents::COLLISION_EVENTS,
+            Collider::cuboid(half_size.x, half_size.y),
+            CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
+            ColliderMassProperties::Mass(0.0),
+            Sensor,
+            BlockRef { id: placement.id },
+            BlockOwner { ship },
+            Health {
+                health: def.health,
+                max_health: def.health,
+            },
+        ))
+        .id();
 
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        def: &BlockDef,
-        ship: Entity,
-        team: Team,
-        config: &GameConfigValue,
-    ) -> Entity {
-        let half_size = def.get_pixel_size() / 2.0;
-        let mut transform = def.to_transform(self.position);
+    commands.entity(ship).add_child(block);
 
-        // Use the first texture's z as the block sprite's render layer so the
-        // collapsed sprite keeps its original visual stacking.
-        if let Some(z) = def
-            .features
-            .iter()
-            .find_map(|f| f.extra_texture().map(|t| t.z))
-        {
-            transform.translation.z = z;
-        }
-
-        let block = commands
+    let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
+    textures.next(); // primary texture is attached to the block entity
+    for extra in textures {
+        let layer = commands
             .spawn((
-                transform,
-                team,
-                Visibility::Visible,
-                ActiveEvents::COLLISION_EVENTS,
-                Collider::cuboid(half_size.x, half_size.y),
-                CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
-                ColliderMassProperties::Mass(0.0),
-                Sensor,
-                Block {
-                    id: self.id,
-                    block_type: self.block_type.clone(),
-                    rotation: self.rotation,
-                    position: self.position,
+                Transform::from_translation(extra.offset.extend(extra.z)),
+                Sprite {
+                    image: extra.image.clone(),
+                    custom_size: Some(def.get_pixel_size()),
+                    ..default()
                 },
-                BlockState {
-                    block_type: self.block_type.clone(),
-                },
-                Health {
-                    health: def.health,
-                    max_health: def.health,
-                },
-                BlockOwner { id: ship },
             ))
             .id();
-
-        commands.entity(ship).add_child(block);
-
-        let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
-        textures.next(); // primary texture is attached to the block entity
-        for extra in textures {
-            let layer = commands
-                .spawn((
-                    Transform::from_translation(extra.offset.extend(extra.z)),
-                    Sprite {
-                        image: extra.image.clone(),
-                        custom_size: Some(def.get_pixel_size()),
-                        ..default()
-                    },
-                ))
-                .id();
-            commands.entity(block).add_child(layer);
-        }
-
-        for feature in &def.features {
-            feature.insert(commands, block, def, &team, config);
-        }
-
-        block
+        commands.entity(block).add_child(layer);
     }
-}
 
-#[derive(Message, Debug, Clone)]
-pub struct BlockDestroyedEvent {
-    pub block_type: String,
-    pub block_id: Uuid,
-    pub ship: Entity,
+    for feature in &def.features {
+        feature.insert(commands, block, def, &team, config);
+    }
+
+    block
 }
 
 pub const FACE_RIGHT: u8 = 0b0001; // +X
@@ -398,17 +345,6 @@ pub struct BlockRegistry {
     pub(crate) by_name: HashMap<String, String>,
 }
 
-pub struct ShipCalculatedData {
-    pub data: Ship,
-    pub size: Vec2,
-    pub blocks: Vec<BlockData>,
-}
-
-pub struct ShipCalculatedStat {
-    pub ship: Option<ShipCalculatedData>,
-    pub fragments: Vec<ShipFragment>,
-}
-
 impl BlockRegistry {
     pub fn register(&mut self, key: &str, def: BlockDef) {
         if self.map.contains_key(&def.block_type) {
@@ -423,6 +359,10 @@ impl BlockRegistry {
     pub fn get(&self, key: &str) -> Option<&BlockDef> {
         let sym = self.by_name.get(key)?;
         self.map.get(sym)
+    }
+
+    pub fn get_symbol(&self, key: &str) -> Option<&BlockDef> {
+        self.map.get(key)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&String, &BlockDef)> {
@@ -444,119 +384,231 @@ impl BlockRegistry {
 
         Collider::voxels_from_points(Vec2::new(GRID_SIZE, GRID_SIZE), &points)
     }
-    pub fn blocks_stats(&self, blocks: &[BlockData], grid: &ShipGrid) -> ShipCalculatedStat {
-        let mut visited: HashSet<Uuid> = HashSet::new();
-        let mut ship: Option<ShipCalculatedData> = None;
-        let mut fragments: Vec<ShipFragment> = Vec::new();
 
-        for block in blocks {
-            if visited.contains(&block.id) {
+    /// Axis-aligned bounds of every occupied cell, in ship-local pixels.
+    pub fn bounds_from_grid(&self, grid: &ShipGrid) -> Option<BoundingBox> {
+        if grid.cells.is_empty() {
+            return None;
+        }
+
+        let mut min = IVec2::splat(i32::MAX);
+        let mut max = IVec2::splat(i32::MIN);
+
+        for cell in grid.cells.keys() {
+            min = min.min(*cell);
+            max = max.max(*cell + IVec2::ONE);
+        }
+
+        let min = min.as_vec2() * GRID_SIZE;
+        let max = max.as_vec2() * GRID_SIZE;
+
+        Some(BoundingBox {
+            min,
+            max,
+            size: max - min,
+            center: (min + max) / 2.0,
+        })
+    }
+
+    /// Locate the single core block. Returns its id and ship-local centre.
+    pub fn core_of(&self, grid: &ShipGrid) -> Option<(Uuid, Vec2)> {
+        for block in grid.blocks() {
+            let def = self.get_symbol(&block.placement.block_type)?;
+            if def.block_group == "core" {
+                let offset = def.shape.size.as_vec2() * GRID_SIZE * 0.5;
+                return Some((
+                    block.placement.id,
+                    block.placement.position.as_vec2() * GRID_SIZE + offset,
+                ));
+            }
+        }
+        None
+    }
+
+    /// Structural stats derived from the live grid. Returns `None` without a core.
+    pub fn stats_from_grid(&self, grid: &ShipGrid) -> Option<ShipStats> {
+        self.core_of(grid)?;
+
+        let mut stats = ShipStats::default();
+
+        for block in grid.blocks() {
+            let Some(def) = self.get_symbol(&block.placement.block_type) else {
+                warn!("Block type {:?} not found in registry", block.placement.block_type);
                 continue;
-            }
+            };
 
-            let mut mass: f32 = 0.0;
-            let mut core_position = None;
+            stats.mass += def.mass;
+            stats.health += def.health;
+            stats.max_health += def.health;
 
-            let mut max_x: i32 = 0;
-            let mut max_y: i32 = 0;
-            let mut min_x: i32 = 0;
-            let mut min_y: i32 = 0;
-
-            let mut min_range: f32 = 10000.0;
-            let mut max_range: f32 = 1000.0;
-
-            let mut queue: Vec<&BlockData> = Vec::new();
-            let mut current_blocks: Vec<BlockData> = Vec::new();
-
-            queue.push(block);
-
-            while let Some(block) = queue.pop() {
-                if visited.contains(&block.id) {
-                    continue;
-                }
-
-                current_blocks.push(block.clone());
-                visited.insert(block.id);
-
-                let Some(def) = self.get(&block.block_type) else {
-                    warn!("Block type {:?} not found in registry", block.block_type);
-                    continue;
-                };
-
-                let size = def.shape.size;
-
-                for y in [-1, size.y] {
-                    for x in 0..size.x {
-                        let cell = IVec2::new(x, y) + block.position;
-                        let Some(neighbor) = grid.block_at(cell) else {
-                            continue;
+            for feature in &def.features {
+                match feature {
+                    Feature::Turret(turret) => {
+                        stats.min_range = if stats.min_range <= 0.0 {
+                            turret.range
+                        } else {
+                            stats.min_range.min(turret.range)
                         };
-
-                        queue.push(neighbor);
+                        stats.max_range = stats.max_range.max(turret.range);
                     }
-                }
-
-                for x in [-1, size.x] {
-                    for y in 0..size.y {
-                        let cell = IVec2::new(x, y) + block.position;
-                        let Some(neighbor) = grid.block_at(cell) else {
-                            continue;
-                        };
-
-                        queue.push(neighbor);
+                    Feature::EnergyConsumer(consumer) => {
+                        stats.power_demand += consumer.rate();
                     }
-                }
-
-                max_x = max_x.max(block.position.x + size.x);
-                max_y = max_y.max(block.position.y + size.y);
-
-                min_x = min_x.min(block.position.x);
-                min_y = min_y.min(block.position.y);
-
-                mass += def.mass;
-
-                if def.block_group == "core" {
-                    let size = def.shape.size.as_vec2();
-                    let offset = size * GRID_SIZE * 0.5;
-                    core_position = Some(block.position.as_vec2() * GRID_SIZE + offset);
-                }
-
-                for feature in &def.features {
-                    match feature {
-                        Feature::Turret(TurretComponent { range, .. }) => {
-                            min_range = min_range.min(*range);
-                            max_range = max_range.max(*range);
-                        }
-                        _ => {}
+                    Feature::Storage(storage) => {
+                        stats.cargo_capacity += storage.capacity();
                     }
-                }
-            }
-
-            if let Some(core_position) = core_position {
-                ship = Some(ShipCalculatedData {
-                    size: Vec2::new(
-                        (max_x - min_x) as f32 * GRID_SIZE,
-                        (max_y - min_y) as f32 * GRID_SIZE,
-                    ),
-                    data: Ship {
-                        id: block.id,
-                        core_position,
-                        max_range,
-                        min_range,
-                        mass,
-                    },
-                    blocks: current_blocks,
-                });
-            } else {
-                if current_blocks.len() > 0 {
-                    fragments.push(ShipFragment {
-                        blocks: current_blocks,
-                    });
+                    Feature::Thruster(thruster) => {
+                        stats.thrust_power += thruster.force();
+                        stats.rotate_speed += thruster.torque();
+                    }
+                    _ => {}
                 }
             }
         }
 
-        return ShipCalculatedStat { ship, fragments };
+        stats.efficiency = 1.0;
+        Some(stats)
+    }
+
+    /// Derive the ship, stats, and bounds. A core-less layout becomes one fragment.
+    pub fn build_ship_result(&self, grid: &ShipGrid) -> ShipBuildResult {
+        let Some((core_id, core_position)) = self.core_of(grid) else {
+            return ShipBuildResult {
+                fragments: vec![ShipFragment {
+                    placements: grid
+                        .blocks()
+                        .map(|block| block.placement.clone())
+                        .collect(),
+                }],
+                ..default()
+            };
+        };
+
+        let Some(stats) = self.stats_from_grid(grid) else {
+            return default();
+        };
+        let Some(bounds) = self.bounds_from_grid(grid) else {
+            return default();
+        };
+
+        ShipBuildResult {
+            ship: Some(Ship {
+                id: core_id,
+                core_position,
+            }),
+            stats: Some(stats),
+            bounds: Some(bounds),
+            fragments: Vec::new(),
+        }
+    }
+
+    /// Validate a static layout before spawning it as a ship.
+    pub fn validate_ship(&self, layout: &[BlockPlacement]) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        let mut grid = ShipGrid::new();
+        grid.rebuild_from_layout(layout, self);
+
+        let mut core_count = 0;
+        for block in grid.blocks() {
+            let Some(def) = self.get_symbol(&block.placement.block_type) else {
+                errors.push(format!(
+                    "unknown block type {:?}",
+                    block.placement.block_type
+                ));
+                continue;
+            };
+            if def.block_group == "core" {
+                core_count += 1;
+            }
+            for feature in &def.features {
+                if let Feature::Turret(turret) = feature
+                    && turret.barrels.is_empty()
+                {
+                    errors.push(format!(
+                        "turret {:?} has no barrels",
+                        block.placement.block_type
+                    ));
+                }
+            }
+        }
+
+        if core_count != 1 {
+            errors.push(format!("expected exactly one core, found {core_count}"));
+        }
+
+        // Overlap: a cell claimed twice means two block ids.
+        let mut seen: HashMap<IVec2, Uuid> = HashMap::new();
+        for block in grid.blocks() {
+            let Some(def) = self.get_symbol(&block.placement.block_type) else {
+                continue;
+            };
+            for y in 0..def.shape.size.y {
+                for x in 0..def.shape.size.x {
+                    let cell = block.placement.position + IVec2::new(x, y);
+                    if let Some(existing) = seen.insert(cell, block.placement.id)
+                        && existing != block.placement.id
+                    {
+                        errors.push(format!(
+                            "overlapping blocks at cell {:?} ({existing} and {})",
+                            cell, block.placement.id
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Connectivity: every block must be reachable from the core.
+        if core_count == 1 {
+            let core = grid
+                .blocks()
+                .find(|block| {
+                    self.get_symbol(&block.placement.block_type)
+                        .map(|def| def.block_group == "core")
+                        .unwrap_or(false)
+                })
+                .map(|block| block.placement.id);
+
+            if let Some(core) = core {
+                let mut visited = HashSet::new();
+                let mut queue = vec![core];
+                while let Some(id) = queue.pop() {
+                    if !visited.insert(id) {
+                        continue;
+                    }
+                    let Some(block) = grid.block(id) else {
+                        continue;
+                    };
+                    let Some(def) = self.get_symbol(&block.placement.block_type) else {
+                        continue;
+                    };
+                    for y in 0..def.shape.size.y {
+                        for x in 0..def.shape.size.x {
+                            let cell = block.placement.position + IVec2::new(x, y);
+                            for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+                                if let Some(neighbor) = grid.cells.get(&(cell + dir))
+                                    && !visited.contains(neighbor)
+                                {
+                                    queue.push(*neighbor);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if visited.len() != grid.blocks.len() {
+                    errors.push(format!(
+                        "layout has {} disconnected block(s)",
+                        grid.blocks.len() - visited.len()
+                    ));
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }
 

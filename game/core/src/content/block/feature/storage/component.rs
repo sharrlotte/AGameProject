@@ -18,6 +18,10 @@ impl StorageBuilder {
 }
 
 impl Storage {
+    pub fn capacity(&self) -> u32 {
+        self.capacity
+    }
+
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             Storage {

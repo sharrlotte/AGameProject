@@ -13,7 +13,7 @@ use crate::content::block::BlockRegistry;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::config::ConfigState;
-use crate::resource::{AppNotice, DeployPayload, SceneEntity, SceneState};
+use crate::resource::{AppNotice, DeployPayload, PendingLoad, SceneState};
 
 use crate::mission::state::spawn_mission;
 use crate::simulation::SimulationSet;
@@ -45,7 +45,7 @@ impl Plugin for MissionPlugin {
                 poll_mission_loaded
                     .run_if(in_state(BattlePhase::Loading))
                     .run_if(in_state(ConfigState::Ready))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Present),
             )
             .add_systems(
                 Update,
@@ -55,13 +55,13 @@ impl Plugin for MissionPlugin {
             )
             .add_systems(
                 OnEnter(SceneState::Home),
-                resume_battle_on_restart.in_set(SimulationSet::Simulate),
+                resume_battle_on_restart.in_set(SimulationSet::Input),
             )
             .add_systems(
                 FixedUpdate,
                 check_battle_outcome
                     .run_if(in_state(BattlePhase::Active))
-                    .in_set(SimulationSet::Simulate),
+                    .in_set(SimulationSet::Damage),
             );
     }
 }
@@ -69,8 +69,14 @@ impl Plugin for MissionPlugin {
 fn setup_battle(
     mut commands: Commands,
     assets: Res<AssetServer>,
+    pending: Res<PendingLoad>,
     mut phase: ResMut<NextState<BattlePhase>>,
 ) {
+    // A snapshot load takes over this Game entry; mission setup must not
+    // overwrite it with a fresh battle.
+    if pending.is_pending() {
+        return;
+    }
     commands.insert_resource(MissionAsset(assets.load("config/mission/quick-battle.ron")));
     commands.insert_resource(BattleResult::default());
     phase.set(BattlePhase::Loading);
@@ -177,7 +183,7 @@ fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             GlobalZIndex(100),
-            SceneEntity(SceneState::Game),
+            DespawnOnExit(SceneState::Game),
         ))
         .with_children(|parent| {
             parent.spawn((

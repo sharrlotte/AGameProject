@@ -1,7 +1,7 @@
 use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
-use crate::resource::{SceneEntity, SceneState, SettingState};
+use crate::resource::{SceneState, SettingState};
 use crate::simulation::SimulationSet;
 
 pub struct HomeScenePlugin;
@@ -43,7 +43,7 @@ fn setup_home(mut commands: Commands) {
                 ..default()
             },
             HomeScreen,
-            SceneEntity(SceneState::Home),
+            DespawnOnExit(SceneState::Home),
         ))
         .with_children(|parent| {
             // Play Button

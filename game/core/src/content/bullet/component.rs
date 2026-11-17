@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use crate::content::team::Team;
-use crate::save::io::Save;
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
 pub struct Bullet {
     pub range: f32,
     pub shooted_at: Vec2,
@@ -12,7 +10,6 @@ pub struct Bullet {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
 pub enum Laser {
     Init {
         width: f32,
@@ -26,7 +23,6 @@ pub enum Laser {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[require(Save)]
 pub struct Missile {
     pub lock_range: f32,
     pub shooted_at: Vec2,

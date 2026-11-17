@@ -57,7 +57,7 @@ fn spawn_ship(
         return;
     };
 
-    schematic.to_ship_data().spawn(
+    schematic.to_design().spawn(
         commands,
         registry,
         Team::new(spawn.team),
@@ -77,7 +77,7 @@ pub fn spawn_mission(
 
     match &state.current_ship {
         Some(deployed) => {
-            deployed.to_ship_data().spawn(
+            deployed.to_design().spawn(
                 commands,
                 registry,
                 Team::new(DEFAULT_TEAM_ID),

@@ -8,7 +8,7 @@ pub struct NoticePlugin;
 impl Plugin for NoticePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AppNotice>()
-            .add_systems(Update, (update_notice_ui, tick_notice).chain().in_set(SimulationSet::Apply));
+            .add_systems(Update, (update_notice_ui, tick_notice).chain().in_set(SimulationSet::Present));
     }
 }
 

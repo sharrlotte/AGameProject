@@ -2,27 +2,44 @@ use bevy::prelude::*;
 
 /// Ordering contract for gameplay systems.
 ///
-/// The target schedule map (implemented across phases 0–3) is:
+/// Each variant is a system set used to express intra-schedule ordering. The
+/// same set may appear in more than one schedule; ordering is configured per
+/// schedule in [`crate::main`].
 ///
-/// | Schedule        | Set       | Contents                                                 |
-/// |-----------------|-----------|----------------------------------------------------------|
-/// | `PreUpdate`     | `Input`   | keyboard/mouse, UI buttons, pause toggle, editor input     |
-/// | `FixedPreUpdate`| `Stats`   | power, efficiency, thrust/rotate stats, cargo aggregation  |
-/// | `FixedUpdate`   | `Ai`      | AI think/steering at `ai_think_rate_hz`                    |
-/// | `FixedUpdate`   | `Control` | player forces, camera follow target                        |
-/// | `FixedUpdate`   | `Weapons` | turret targeting/tracking, shooting, projectiles, radar    |
-/// | `FixedUpdate`   | `Physics` | Rapier step (engine)                                       |
-/// | `FixedPostUpdate`| `Damage` | collision events → damage events → health                  |
-/// | `FixedPostUpdate`| `Death`  | block destruction → `ShipMutation` → drops                 |
-/// | `PostUpdate`    | `Present` | camera, HUD, indicators, damage text                       |
-/// | `Last`          | `Cleanup` | deferred despawns                                          |
+/// | Schedule         | Set       | Contents                                              |
+/// |------------------|-----------|-------------------------------------------------------|
+/// | `PreUpdate`      | `Input`   | keyboard/mouse, UI buttons, pause toggle, editor input |
+/// | `FixedFirst`     | `Stats`   | efficiency, power usage, reactor output                |
+/// | `FixedPreUpdate` | `Stats`   | thrust/rotate stats, ship stat aggregation, cargo      |
+/// | `FixedUpdate`    | `Ai`      | AI think/steering at `ai_think_rate_hz`                |
+/// | `FixedUpdate`    | `Control` | player forces, camera follow target, drop collection   |
+/// | `FixedUpdate`    | `Weapons` | turret targeting/tracking, shooting, projectiles, radar|
+/// | `FixedUpdate`    | `Cleanup` | lifetime countdown                                     |
+/// | `FixedPostUpdate`| `Damage`  | collision events → damage events → health, lasers      |
+/// | `FixedPostUpdate`| `Death`   | block destruction → `ShipMutation` → drops             |
+/// | `PostUpdate`     | `Present` | camera, HUD, indicators, damage text, parallax         |
+/// | `Last`           | `Cleanup` | deferred despawns                                      |
 ///
-/// Damage → Death → `ShipMutation` is chained explicitly inside one fixed tick;
-/// message persistence across frames is never assumed.
+/// `Damage → Death → ShipMutation` is chained explicitly inside one fixed
+/// tick; message persistence across frames is never assumed.
 #[derive(SystemSet, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimulationSet {
+    /// Player input, UI buttons, and editor interactions.
     Input,
-    Simulate,
-    Apply,
+    /// Derived per-ship/block statistics (power, efficiency, thrust, cargo).
+    Stats,
+    /// AI behavior selection and steering.
+    Ai,
+    /// Player-controlled ship forces and camera target updates.
+    Control,
+    /// Turret tracking, shooting, projectiles, and radar scans.
+    Weapons,
+    /// Damage events, health mutation, and laser hit resolution.
+    Damage,
+    /// Block destruction, ship mutations, and world drops.
+    Death,
+    /// Camera, HUD, indicators, and other frame presentation.
+    Present,
+    /// Lifetime countdown and deferred despawns.
     Cleanup,
 }

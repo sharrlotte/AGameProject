@@ -29,7 +29,6 @@ impl Plugin for SettingScenePlugin {
         app.init_state::<SettingState>()
             .init_resource::<GameSetting>()
             .add_systems(OnEnter(SettingState::Open), setup_setting_ui)
-            .add_systems(OnExit(SettingState::Open), cleanup_setting_ui)
             .add_systems(
                 Update,
                 (
@@ -60,6 +59,7 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             SettingRoot,
+            DespawnOnExit(SettingState::Open),
             GlobalZIndex(100),
         ))
         .with_children(|parent| {
@@ -197,12 +197,6 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                     btn.spawn(Text::new("Close"));
                 });
         });
-}
-
-pub fn cleanup_setting_ui(mut commands: Commands, query: Query<Entity, With<SettingRoot>>) {
-    for entity in &query {
-        commands.entity(entity).despawn();
-    }
 }
 
 pub fn handle_close_button(

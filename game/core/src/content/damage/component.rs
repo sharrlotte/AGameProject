@@ -1,8 +1,6 @@
 use bevy::prelude::*;
-use crate::save::io::Save;
 
 #[derive(Component, Debug)]
-#[require(Save)]
 pub struct Damage {
     pub damage: f32,
 }

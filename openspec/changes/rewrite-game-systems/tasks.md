@@ -5,26 +5,26 @@
 - [x] 1.3 Add `RonDocument`, `Versioned<T>`, `read_document`, `write_document`, `atomic_write`, and `ron_document!`
 - [x] 1.4 Add `ConfigState::Error(ConfigError)` and an error screen; replace config and mission `panic!` paths
 - [x] 1.5 Delete `PowerConsumer`, `PowerStorage`, and the duplicate `#[cfg(debug_assertions)]`
-- [ ] 1.6 Add test modules and a `cargo test` baseline; keep checks to phase gates
+- [x] 1.6 Add test modules and a `cargo test` baseline; keep checks to phase gates
 - [x] 1.7 Document the schedule map from the design in code and `docs/architecture.md`
 - [x] 1.8 Verify `grep` finds no `lasso`, `serde_json`, `Symbol`, or `Symbols` in `game/core`
 
 ## 2. Phase 1 — Ship grid and type consolidation
 
-- [ ] 2.1 Add `BlockPlacement`, `GridBlock`, `BlockRef`, `BlockOwner`, `ShipStats`, and `ShipBuildResult`
-- [ ] 2.2 Rewrite `ShipGrid` to `blocks: HashMap<Uuid, GridBlock>` plus `cells: HashMap<IVec2, Uuid>`
-- [ ] 2.3 Delete `BlockData`, `Block`, `BlockState`, `Blocks`, `ShipData`, `ShipState`, `ShipCalculatedStat`, `ShipCalculatedData`, `ShipFragment`, and `ComputedShipStats`
-- [ ] 2.4 Add `ShipMutation` and `apply_ship_mutations`; batch per ship and order removals, components, fragments, core death, stats, collider, event
-- [ ] 2.5 Implement `stats_from_grid`: core identity and position, bounds from extremes, mass, health, ranges, power, cargo, thrust
-- [ ] 2.6 Rebuild the collider from `ShipGrid.cells` only; remove `check_rebuild_ship_collider`
-- [ ] 2.7 Route ship spawn and editor placement through `rebuild_from_layout` and `validate_ship`
-- [ ] 2.8 Add grid, stats, mutation, and spawn-with-destruction integration tests
+- [x] 2.1 Add `BlockPlacement`, `GridBlock`, `BlockRef`, `BlockOwner`, `ShipStats`, and `ShipBuildResult`
+- [x] 2.2 Rewrite `ShipGrid` to `blocks: HashMap<Uuid, GridBlock>` plus `cells: HashMap<IVec2, Uuid>`
+- [x] 2.3 Delete `BlockData`, `Block`, `BlockState`, `Blocks`, `ShipData`, `ShipState`, `ShipCalculatedStat`, `ShipCalculatedData`, `ShipFragment`, and `ComputedShipStats`
+- [x] 2.4 Add `ShipMutation` and `apply_ship_mutations`; batch per ship and order removals, components, fragments, core death, stats, collider, event
+- [x] 2.5 Implement `stats_from_grid`: core identity and position, bounds from extremes, mass, health, ranges, power, cargo, thrust
+- [x] 2.6 Rebuild the collider from `ShipGrid.cells` only; remove `check_rebuild_ship_collider`
+- [x] 2.7 Route ship spawn and editor placement through `rebuild_from_layout` and `validate_ship`
+- [x] 2.8 Add grid, stats, mutation, and spawn-with-destruction integration tests
 - [ ] 2.9 Remove every remaining `BlockData`/`Blocks` reference and confirm the game still spawns and destroys blocks
 
 ## 3. Phase 2 — Scene lifecycle and schedules
 
-- [ ] 3.1 Replace `SceneEntity` and `clean_state_item` with `DespawnOnExit` on all game, home, editor, pause, and settings roots
-- [ ] 3.2 Delete `SceneEntity`, the `Save` marker, `ShipState`, and manual cleanup loops
+- [x] 3.1 Replace `SceneEntity` and `clean_state_item` with `DespawnOnExit` on all game, home, editor, pause, and settings roots
+- [x] 3.2 Delete `SceneEntity`, the `Save` marker, `ShipState`, and manual cleanup loops
 - [ ] 3.3 Implement the `Input`, `Stats`, `Ai`, `Control`, `Weapons`, `Damage`, `Death`, `Present`, and `Cleanup` sets
 - [ ] 3.4 Chain damage → death → `ShipMutation` within the fixed tick; remove cross-frame message reliance
 - [ ] 3.5 Implement `PendingLoad` → `Loading` → `Game` load as a state transition

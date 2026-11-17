@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{
     constant::LAYER_BLOCK_ICON,
     content::block::feature::ammo::AmmoState,
-    resource::{SceneEntity, SceneState},
+    resource::{SceneState},
     simulation::SimulationSet,
 };
 
@@ -14,8 +14,8 @@ impl Plugin for AmmoPlugin {
         app.add_systems(
             FixedUpdate,
             (
-                update_ammo.in_set(SimulationSet::Simulate),
-                update_no_ammo_warning.in_set(SimulationSet::Simulate),
+                update_ammo.in_set(SimulationSet::Weapons),
+                update_no_ammo_warning.in_set(SimulationSet::Present),
             ),
         )
         .add_systems(Startup, setup_assets);
@@ -87,7 +87,7 @@ fn update_ammo(
                 NoAmmoWarningUI(entity),
                 Transform::default(),
                 Visibility::Inherited,
-                SceneEntity(SceneState::Game),
+                DespawnOnExit(SceneState::Game),
             ))
             .with_children(|parent| {
                 parent.spawn((

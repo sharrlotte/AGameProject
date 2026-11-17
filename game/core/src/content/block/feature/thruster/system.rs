@@ -16,7 +16,7 @@ impl Plugin for ThrusterPlugin {
             FixedPreUpdate,
             (update_thrust_power_stats, update_rotate_speed_stats)
                 .in_set(StatsUpdateSet)
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Stats),
         );
     }
 }

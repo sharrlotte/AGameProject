@@ -5,11 +5,12 @@ use super::*;
 use crate::simulation::SimulationSet;
 use crate::content::{
     block::{
-        component::{BlockOwner, PowerProducer},
+        BlockOwner,
+        component::PowerProducer,
         feature::efficiency::{BlockEfficiency, EfficiencyEffect, EfficiencyUpdateSet},
         stat::make_stat_system,
     },
-    ship::stat::ComputedShipStats,
+    ship::stat::ShipStats,
 };
 
 pub struct EnergyPlugin;
@@ -24,7 +25,7 @@ impl Plugin for EnergyPlugin {
             )
                 .chain()
                 .after(EfficiencyUpdateSet)
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Stats),
         );
     }
 }
@@ -32,7 +33,7 @@ impl Plugin for EnergyPlugin {
 make_stat_system!(update_power_usage_stats, PowerUsageBase, PowerUsageComputed, PowerUsageEffects, |base, eff| if eff > 0.0001 { base / eff } else { base });
 
 pub fn update_efficiency_base_on_power_usage(
-    mut ships: Query<(Entity, &mut ComputedShipStats)>,
+    mut ships: Query<(Entity, &mut ShipStats)>,
     blocks: Query<(
         &BlockOwner,
         Option<&PowerUsageComputed>,
@@ -41,14 +42,15 @@ pub fn update_efficiency_base_on_power_usage(
 ) {
     // Reset ship stats
     for (_, mut stats) in &mut ships {
-        stats.power_usage = 0.0;
+        stats.power_used = 0.0;
+        stats.power_production = 0.0;
         stats.efficiency = 1.0;
     }
 
     let mut power_map = HashMap::<Entity, (f32, f32)>::new();
 
     for (owner, usage, producer) in &blocks {
-        let entry = power_map.entry(owner.id).or_insert((0.0, 0.0));
+        let entry = power_map.entry(owner.ship).or_insert((0.0, 0.0));
         if let Some(u) = usage {
             entry.0 += u.value();
         }
@@ -59,7 +61,8 @@ pub fn update_efficiency_base_on_power_usage(
 
     for (entity, mut stats) in &mut ships {
         if let Some((usage, production)) = power_map.get(&entity) {
-            stats.power_usage = *usage;
+            stats.power_used = *usage;
+            stats.power_production = *production;
 
             if *usage > 0.0001 {
                 if *production >= *usage {

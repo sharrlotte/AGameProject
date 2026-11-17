@@ -4,7 +4,7 @@ use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::Quer
 use super::*;
 use crate::content::{
     block::BlockOwner,
-    ship::stat::ComputedShipStats,
+    ship::stat::ShipStats,
     team::Team,
 };
 use crate::simulation::SimulationSet;
@@ -18,18 +18,18 @@ impl Plugin for EfficiencyPlugin {
             (update_block_efficiency_base, apply_efficiency_buffs)
                 .chain()
                 .in_set(EfficiencyUpdateSet)
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Stats),
         );
     }
 }
 
 pub fn update_block_efficiency_base(
     mut blocks: Query<(&BlockOwner, &mut BlockEfficiency)>,
-    ships: Query<&ComputedShipStats>,
+    ships: Query<&ShipStats>,
 ) {
     for (owner, mut efficiency) in &mut blocks {
         // Reset value to base before applying buffs
-        if let Ok(ship_stats) = ships.get(owner.id) {
+        if let Ok(ship_stats) = ships.get(owner.ship) {
             efficiency.set(ship_stats.efficiency);
         } else {
             efficiency.set(1.0);

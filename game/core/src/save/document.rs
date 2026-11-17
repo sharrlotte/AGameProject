@@ -14,6 +14,7 @@ pub trait RonDocument: Serialize + DeserializeOwned {
 
 /// Explicit version/data envelope for documents that do not store a `version`
 /// field inline.
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
 pub struct Versioned<T> {
     pub version: u32,

@@ -9,7 +9,7 @@ impl Plugin for LifetimePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
-            update_lifetime.in_set(SimulationSet::Apply),
+            update_lifetime.in_set(SimulationSet::Cleanup),
         );
     }
 }

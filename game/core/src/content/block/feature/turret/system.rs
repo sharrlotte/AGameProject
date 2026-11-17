@@ -4,8 +4,8 @@ use std::f32::consts::PI;
 use super::{Turret, TurretBarrel, TurretSprite, TurretState};
 use crate::{
     content::{
-        block::{BlockData, component::TargetingStrategy, radar::Radar},
-        ship::{Blocks, Ship},
+        block::{component::TargetingStrategy, radar::Radar},
+        ship::{Ship, ShipGrid},
         team::Team,
     },
     resource::SceneState,
@@ -20,13 +20,13 @@ impl Plugin for TurretPlugin {
             FixedUpdate,
             (turret_tracking, update_turret_target)
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Simulate),
+                .in_set(SimulationSet::Weapons),
         );
     }
 }
 
 pub fn update_turret_target(
-    ships: Query<(&GlobalTransform, &Ship, &Blocks)>,
+    ships: Query<(&GlobalTransform, &Ship, &ShipGrid)>,
     mut turrets: Query<(&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel)>,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
 ) {
@@ -34,7 +34,7 @@ pub fn update_turret_target(
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
         };
-        let mut best_target: Option<(Entity, BlockData)> = None;
+        let mut best_target: Option<(Entity, Vec2)> = None;
         let mut closest_dist_sq = turret.range.squared();
 
         for &entity in radar.targets.iter() {
@@ -43,13 +43,12 @@ pub fn update_turret_target(
                 continue;
             };
 
-            if blocks.blocks.is_empty() {
+            let Some(block) = blocks.blocks().next() else {
                 continue;
-            }
+            };
 
-            let block = blocks.blocks[0].clone();
             let target_pos_actual =
-                target_transform.translation().truncate() + block.position_pixel();
+                target_transform.translation().truncate() + block.placement.position_pixel();
             let turret_position = transform.translation().truncate();
             let dist_sq = turret_position.distance_squared(target_pos_actual);
 
@@ -61,31 +60,27 @@ pub fn update_turret_target(
                 TargetingStrategy::Closest => {
                     if dist_sq < closest_dist_sq {
                         closest_dist_sq = dist_sq;
-                        best_target = Some((entity, block));
+                        best_target = Some((entity, target_pos_actual));
                     }
                 }
                 TargetingStrategy::MostHP => {
                     // Placeholder logic
                     if dist_sq < closest_dist_sq {
                         closest_dist_sq = dist_sq;
-                        best_target = Some((entity, block));
+                        best_target = Some((entity, target_pos_actual));
                     }
                 }
                 TargetingStrategy::EnemyBullet => {
                     // Placeholder logic
                     if dist_sq < closest_dist_sq {
                         closest_dist_sq = dist_sq;
-                        best_target = Some((entity, block));
+                        best_target = Some((entity, target_pos_actual));
                     }
                 }
             }
         }
 
-        if let Some((entity, block)) = best_target
-            && let Ok((target_transform, _, _)) = ships.get(entity)
-        {
-            let target_pos_actual =
-                target_transform.translation().truncate() + block.position_pixel();
+        if let Some((entity, target_pos_actual)) = best_target {
             let to_target = target_pos_actual - transform.translation().truncate();
             let target_dir = to_target.normalize_or_zero();
             let forward: Vec2 = transform.up().truncate();

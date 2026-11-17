@@ -10,7 +10,7 @@ impl Plugin for RadarPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            radar_scan.in_set(SimulationSet::Simulate),
+            radar_scan.in_set(SimulationSet::Weapons),
         );
     }
 }

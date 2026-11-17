@@ -31,7 +31,6 @@ pub struct ConfigError {
 pub enum ConfigFile {
     Game,
     Blocks,
-    Settings,
 }
 
 impl ConfigError {
@@ -43,7 +42,6 @@ impl ConfigError {
         match self.failed {
             ConfigFile::Game => "config/base/game.ron failed to load",
             ConfigFile::Blocks => "config/base/block.ron failed to load",
-            ConfigFile::Settings => "config/setting.ron failed to load",
         }
     }
 }
@@ -71,7 +69,7 @@ impl Plugin for ConfigPlugin {
                 Update,
                 check_config_ready
                     .run_if(in_state(ConfigState::Loading))
-                    .in_set(SimulationSet::Apply),
+                    .in_set(SimulationSet::Present),
             )
             .add_systems(
                 Update,
@@ -82,7 +80,7 @@ impl Plugin for ConfigPlugin {
                     setting::save_setting_on_change,
                 )
                     .run_if(in_state(ConfigState::Ready))
-                    .in_set(SimulationSet::Apply),
+                    .in_set(SimulationSet::Present),
             )
             .add_systems(
                 Update,

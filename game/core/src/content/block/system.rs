@@ -8,8 +8,8 @@ use crate::content::damage::DamageEvent;
 use crate::content::death::Death;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
-use crate::content::team::Team;
-use crate::resource::{SceneEntity, SceneState};
+use crate::content::ship::{ShipGrid, ShipMutation};
+use crate::resource::{SceneState};
 use crate::simulation::SimulationSet;
 use crate::config::GameConfigValue;
 
@@ -18,17 +18,21 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BlockRegistry>()
-            .add_message::<BlockDestroyedEvent>()
             .add_message::<DropEvent>()
             .add_systems(
                 FixedPostUpdate,
                 (
                     handle_block_damage_event,
                     handle_flash_overlay,
-                    handle_drop,
                     handle_block_destroy,
                 )
-                    .in_set(SimulationSet::Apply),
+                    .in_set(SimulationSet::Death),
+            )
+            .add_systems(
+                FixedPostUpdate,
+                handle_drop
+                    .after(crate::content::ship::mutation::apply_ship_mutations)
+                    .in_set(SimulationSet::Death),
             )
             .add_plugins((RadarPlugin, ComponentPlugin));
     }
@@ -36,39 +40,21 @@ impl Plugin for BlockPlugin {
 
 pub fn handle_block_destroy(
     mut commands: Commands,
-    mut writer: MessageWriter<BlockDestroyedEvent>,
-    mut drop_writer: MessageWriter<DropEvent>,
+    mut writer: MessageWriter<ShipMutation>,
     mut query: Query<(
         Entity,
         &Health,
-        &Block,
+        &BlockRef,
         &BlockOwner,
-        &GlobalTransform,
-        &Team,
     )>,
-    registry: Res<BlockRegistry>,
 ) {
-    for (entity, health, block, owner, transform, team) in query.iter_mut() {
+    for (entity, health, block, owner) in query.iter_mut() {
         if health.health <= 0.0 {
-            writer.write(BlockDestroyedEvent {
-                block_type: block.block_type.clone(),
+            writer.write(ShipMutation::DestroyBlock {
+                ship: owner.ship,
                 block_id: block.id,
-                ship: owner.id,
             });
             commands.entity(entity).insert(Death);
-
-            let Some(def) = registry.get(&block.block_type) else {
-                continue;
-            };
-
-            if !team.is_player() {
-                for drop in def.drops.iter() {
-                    drop_writer.write(DropEvent {
-                        drop: drop.clone(),
-                        position: transform.translation().truncate(),
-                    });
-                }
-            }
         }
     }
 }
@@ -76,15 +62,21 @@ pub fn handle_block_destroy(
 pub fn handle_block_damage_event(
     mut events: MessageReader<DamageEvent>,
     mut commands: Commands,
-    blocks: Query<&Block>,
+    blocks: Query<(&BlockRef, &BlockOwner)>,
+    grids: Query<&ShipGrid>,
     registry: Res<BlockRegistry>,
 ) {
     for event in events.read() {
-        let Ok(block) = blocks.get(event.target) else {
+        let Ok((block, owner)) = blocks.get(event.target) else {
             continue;
         };
-
-        let Some(def) = registry.get(&block.block_type) else {
+        let Ok(grid) = grids.get(owner.ship) else {
+            continue;
+        };
+        let Some(grid_block) = grid.block(block.id) else {
+            continue;
+        };
+        let Some(def) = registry.get_symbol(&grid_block.placement.block_type) else {
             continue;
         };
 
@@ -132,7 +124,7 @@ pub fn handle_drop(
 
         commands.spawn((
             event.drop.clone(),
-            SceneEntity(SceneState::Game),
+            DespawnOnExit(SceneState::Game),
             Transform::from_translation(event.position.extend(LAYER_DROP)),
             Sprite {
                 color: rarity

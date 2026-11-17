@@ -3,12 +3,13 @@ use std::time::Duration;
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
-        block::{Block, BlockOwner, BlockRegistry, Health},
+        block::{BlockRegistry, Health},
         selectable::EntitySelectEvent,
         ship::component::{BoundingBox, Ship},
+        ship::ShipGrid,
         team::Team,
     },
-    resource::{CameraTarget, ControlledShip, SceneEntity, SceneState},
+    resource::{CameraTarget, ControlledShip, SceneState},
     scene::background::BackgroundPlugin,
     simulation::SimulationSet,
 };
@@ -70,7 +71,7 @@ fn setup(mut commands: Commands) {
                 overflow: Overflow::hidden(),
                 ..Default::default()
             },
-            SceneEntity(SceneState::Game),
+            DespawnOnExit(SceneState::Game),
         ))
         .with_children(|game_ui| {
             #[cfg(debug_assertions)]
@@ -220,8 +221,8 @@ fn handle_ship_button_click(
 fn update_ship_list(
     mut commands: Commands,
     mut ship_list: Query<Entity, With<ShipList>>,
-    ships: Query<(Entity, &Ship, &BoundingBox, &Team)>,
-    block_list: Query<(Entity, &Block, &Health, &BlockOwner)>,
+    ships: Query<(Entity, &Ship, &BoundingBox, &Team, &ShipGrid)>,
+    healths: Query<&Health>,
     state: Res<ControlledShip>,
     camera_target: Res<CameraTarget>,
     registry: Res<BlockRegistry>,
@@ -234,12 +235,12 @@ fn update_ship_list(
 
     let mut player_ships = ships
         .iter()
-        .filter(|(_, _, _, team)| team.is_player())
+        .filter(|(_, _, _, team, _)| team.is_player())
         .collect::<Vec<_>>();
 
     player_ships.sort_by(|a, b| a.1.id.cmp(&b.1.id));
 
-    for (entity, _, bbox, _) in player_ships.iter() {
+    for (entity, _, bbox, _, grid) in player_ships.iter() {
         commands.entity(ship_list).with_children(|container| {
             let color: Color = if let Some(controlling) = state.controlling
                 && controlling == *entity
@@ -279,24 +280,22 @@ fn update_ship_list(
                             let mut offset_x = 0;
                             let mut offset_y = 0;
 
-                            for (_, block, _, _) in block_list
-                                .iter()
-                                .filter(|(_, _, _, owner)| owner.id == *entity)
-                            {
-                                if block.position.x < offset_x {
-                                    offset_x = block.position.x;
+                            for block in grid.blocks() {
+                                if block.placement.position.x < offset_x {
+                                    offset_x = block.placement.position.x;
                                 }
 
-                                if block.position.y < offset_y {
-                                    offset_y = block.position.y;
+                                if block.placement.position.y < offset_y {
+                                    offset_y = block.placement.position.y;
                                 }
                             }
 
-                            for (_, block, health, _) in block_list
-                                .iter()
-                                .filter(|(_, _, _, owner)| owner.id == *entity)
-                            {
-                                let Some(def) = registry.get(&block.block_type) else {
+                            for block in grid.blocks() {
+                                let placement = &block.placement;
+                                let Ok(health) = healths.get(block.entity) else {
+                                    continue;
+                                };
+                                let Some(def) = registry.get_symbol(&placement.block_type) else {
                                     continue;
                                 };
 
@@ -316,12 +315,12 @@ fn update_ship_list(
                                     Node {
                                         position_type: PositionType::Absolute,
                                         top: Val::Px(
-                                            ((block.position.y - offset_y) as f32)
+                                            ((placement.position.y - offset_y) as f32)
                                                 * SMALL_GRID_SIZE
                                                 + SMALL_GRID_SIZE,
                                         ),
                                         left: Val::Px(
-                                            ((block.position.x - offset_x) as f32)
+                                            ((placement.position.x - offset_x) as f32)
                                                 * SMALL_GRID_SIZE
                                                 + SMALL_GRID_SIZE,
                                         ),

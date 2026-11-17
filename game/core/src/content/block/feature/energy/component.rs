@@ -38,6 +38,10 @@ impl PowerUsageComputed {
 pub struct PowerUsageEffects(pub Vec<StatEffect>);
 
 impl EnergyConsumer {
+    pub fn rate(&self) -> f32 {
+        self.rate
+    }
+
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             PowerUsageBase { value: self.rate },

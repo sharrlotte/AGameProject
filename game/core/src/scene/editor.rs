@@ -12,13 +12,14 @@ use crate::{
         block::{
             feature::{turret::TurretSprite, Feature},
             component::{
-                Block, BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
+                BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
                 FACE_UP,
             },
+            BlockPlacement, BlockRef,
         },
         ship::ShipGrid,
     },
-    resource::{DeployPayload, SceneEntity, SceneState},
+    resource::{DeployPayload, SceneState},
     save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},
     simulation::SimulationSet,
 };
@@ -220,7 +221,7 @@ pub fn setup_editor_ui(
         ShipBase,
         Visibility::Inherited,
         Transform::default(),
-        SceneEntity(SceneState::ShipEditor),
+        DespawnOnExit(SceneState::ShipEditor),
     ));
 
     commands
@@ -232,7 +233,7 @@ pub fn setup_editor_ui(
                 ..default()
             },
             EditorUiRoot,
-            SceneEntity(SceneState::ShipEditor),
+            DespawnOnExit(SceneState::ShipEditor),
         ))
         .with_children(|parent| {
             // Left Panel (Block Palette & Ships)
@@ -614,18 +615,18 @@ pub fn handle_deploy_button_click(
     mut buttons: Query<(&PickingInteraction, &mut BackgroundColor), With<DeployButton>>,
     mut app_var: ResMut<DeployPayload>,
     editor: Res<EditorState>,
-    blocks: Query<&Block>,
 ) {
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == PickingInteraction::Pressed {
             // Deploy Logic
-            let saved_blocks = blocks
-                .iter()
+            let saved_blocks = editor
+                .grid
+                .blocks()
                 .map(|block| SchematicBlockData {
-                    id: Uuid::now_v7(),
-                    position: block.position,
-                    block_type: block.block_type.clone(),
-                    rotation: block.rotation,
+                    id: block.placement.id,
+                    position: block.placement.position,
+                    block_type: block.placement.block_type.clone(),
+                    rotation: block.placement.rotation,
                 })
                 .collect::<Vec<SchematicBlockData>>();
 
@@ -825,7 +826,6 @@ pub fn check_placement_validity(
     block_type: String,
     grid_position: IVec2,
     _rotation: u8, // Unused for now
-    blocks: &Query<&Block>,
 ) -> bool {
     let Some(def) = registry.get(&block_type) else {
         warn!("No block definition for {:?}", block_type);
@@ -835,7 +835,7 @@ pub fn check_placement_validity(
     // 1. Check for overlap
     for voxel in &def.shape.voxels {
         let target_position = grid_position + voxel.position;
-        if grid.blocks.contains_key(&target_position) {
+        if grid.cells.contains_key(&target_position) {
             return false;
         }
     }
@@ -863,23 +863,24 @@ pub fn check_placement_validity(
             }
 
             let neighbor_position = my_position + dir;
-            if let Some(&neighbor_entity) = grid.blocks.get(&neighbor_position) {
+            if let Some(neighbor_block) = grid.block_at(neighbor_position) {
                 // Found a neighbor. Check if faces match.
-                if let Ok(neighbor_block) = blocks.get(neighbor_entity) {
-                    if let Some(neighbor_def) = registry.get(&neighbor_block.block_type) {
-                        // Find which voxel of the neighbor is at neighbor_pos
-                        let neighbor_local_position = neighbor_position - neighbor_block.position;
+                if let Some(neighbor_def) =
+                    registry.get(&neighbor_block.placement.block_type)
+                {
+                    // Find which voxel of the neighbor is at neighbor_pos
+                    let neighbor_local_position =
+                        neighbor_position - neighbor_block.placement.position;
 
-                        // Find the voxel in neighbor definition
-                        if let Some(neighbor_voxel) = neighbor_def
-                            .shape
-                            .voxels
-                            .iter()
-                            .find(|v| v.position == neighbor_local_position)
-                        {
-                            if (neighbor_voxel.connectable_faces & neighbor_req_face) != 0 {
-                                return true;
-                            }
+                    // Find the voxel in neighbor definition
+                    if let Some(neighbor_voxel) = neighbor_def
+                        .shape
+                        .voxels
+                        .iter()
+                        .find(|v| v.position == neighbor_local_position)
+                    {
+                        if (neighbor_voxel.connectable_faces & neighbor_req_face) != 0 {
+                            return true;
                         }
                     }
                 }
@@ -895,7 +896,6 @@ pub fn update_placement_preview(
     editor: Res<EditorState>,
     registry: Res<BlockRegistry>,
     preview: Query<Entity, With<PlacementPreview>>,
-    blocks: Query<&Block>, // Added query
 ) {
     if let (Some(selected_type), Some(mouse_grid_position)) =
         (editor.selected_block.clone(), editor.hovered_grid_position)
@@ -920,7 +920,6 @@ pub fn update_placement_preview(
             selected_type,
             grid_position,
             0,
-            &blocks,
         );
 
         // Despawn existing preview
@@ -941,7 +940,7 @@ pub fn update_placement_preview(
                 transform,
                 Visibility::Visible,
                 PlacementPreview,
-                SceneEntity(SceneState::ShipEditor),
+                DespawnOnExit(SceneState::ShipEditor),
             ))
             .with_children(|icon_parent| {
                 for feature in &def.features {
@@ -981,7 +980,6 @@ pub fn update_placement_preview(
 
 pub fn handle_placement(
     registry: Res<BlockRegistry>,
-    blocks: Query<&Block>, // Added query
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     mut events: MessageWriter<ShipSaveChanged>,
@@ -1005,18 +1003,17 @@ pub fn handle_placement(
                 selected_type,
                 grid_position,
                 0,
-                &blocks,
             );
 
             if !is_valid {
                 return;
             }
 
-            let base = spawn_placed_block(&mut commands, ship_base.entity(), def, grid_position);
-
-            for voxel in &def.shape.voxels {
-                editor.grid.insert(grid_position + voxel.position, base);
-            }
+            let placement = BlockPlacement::new(grid_position, &def.block_type, 0);
+            let base = spawn_placed_block(&mut commands, ship_base.entity(), def, &placement);
+            editor
+                .grid
+                .insert_block(placement, base, def);
 
             events.write(ShipSaveChanged);
         }
@@ -1027,19 +1024,12 @@ pub fn handle_block_deletion(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    blocks: Query<&Block>,
     mut events: MessageWriter<ShipSaveChanged>,
 ) {
     // Check abstracted input flag instead of raw mouse input
     if editor.delete_req {
         if let Some(grid_position) = editor.hovered_grid_position {
-            remove_block_at(
-                &mut commands,
-                &mut editor,
-                &registry,
-                &blocks,
-                grid_position,
-            );
+            remove_block_at(&mut commands, &mut editor, &registry, grid_position);
             events.write(ShipSaveChanged);
         }
     }
@@ -1109,7 +1099,7 @@ pub fn load_initial_ship(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    placed_blocks: Query<Entity, With<Block>>,
+    placed_blocks: Query<Entity, With<BlockRef>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
     let ship_names = load_saved_schematics();
@@ -1194,22 +1184,24 @@ pub fn refresh_ship_list(
 }
 
 pub fn handle_ship_saving(
-    blocks: Query<&Block>,
     mut ship_saved_event: MessageWriter<ShipSavesChanged>,
     state: Res<EditorState>,
+    registry: Res<BlockRegistry>,
 ) {
-    // Re-validate before saving
-    let mut has_core = false;
-    let mut block_count = 0;
+    // Re-validate before saving; a layout must have exactly one core and be
+    // fully connected.
+    let layout: Vec<BlockPlacement> = state
+        .grid
+        .blocks()
+        .map(|block| block.placement.clone())
+        .collect();
 
-    for block in &blocks {
-        block_count += 1;
-        if block.block_type == "core" {
-            has_core = true;
-        }
+    if layout.len() <= 1 {
+        return;
     }
 
-    if !has_core || block_count <= 1 {
+    if let Err(errors) = registry.validate_ship(&layout) {
+        warn!("Refusing to save invalid ship {:?}: {:?}", state.filename, errors);
         return;
     }
 
@@ -1217,7 +1209,7 @@ pub fn handle_ship_saving(
         Uuid::now_v7(),
         state.filename.clone(),
         state.filename.clone(),
-        &blocks,
+        &state.grid,
         &mut ship_saved_event,
     );
 }
@@ -1226,7 +1218,7 @@ pub fn handle_ship_loading(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    placed_blocks: Query<Entity, With<Block>>,
+    placed_blocks: Query<Entity, With<BlockRef>>,
     mut interaction: Query<(&PickingInteraction, &LoadShipButton), Changed<PickingInteraction>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
@@ -1247,18 +1239,13 @@ pub fn spawn_placed_block(
     commands: &mut Commands,
     base: Entity,
     def: &BlockDef,
-    position: IVec2,
+    placement: &BlockPlacement,
 ) -> Entity {
-    let transform = def.to_transform(position);
+    let transform = def.to_transform(placement.position);
 
     let block = commands
         .spawn((
-            Block {
-                id: Uuid::now_v7(),
-                rotation: 0,
-                position,
-                block_type: def.block_type.clone(),
-            },
+            BlockRef { id: placement.id },
             Visibility::Visible,
             transform,
         ))
@@ -1314,46 +1301,39 @@ pub fn remove_block_at(
     commands: &mut Commands,
     editor: &mut EditorState,
     registry: &BlockRegistry,
-    blocks: &Query<&Block>,
     grid_position: IVec2,
 ) {
-    let Some(&entity) = editor.grid.get(grid_position) else {
+    let Some(grid_block) = editor.grid.block_at(grid_position).cloned() else {
         return;
     };
 
-    let Ok(block) = blocks.get(entity) else {
-        warn!("No block entity {:?}", entity);
+    let placement = grid_block.placement.clone();
+
+    let Some(def) = registry.get(&placement.block_type) else {
+        warn!("No block def {:?}", placement.block_type);
         return;
     };
 
-    let anchor = block.position;
+    editor.grid.remove_block(placement.id);
 
-    let Some(def) = registry.get(&block.block_type) else {
-        warn!("No block def {:?}", block.block_type);
-        return;
-    };
-
-    for voxel in &def.shape.voxels {
-        editor.grid.remove(anchor + voxel.position);
-    }
-
-    commands.entity(entity).despawn();
+    commands.entity(grid_block.entity).despawn();
+    let _ = def;
 }
 
 pub fn perform_save_schematic(
     id: Uuid,
     name: String,
     filename: String,
-    blocks: &Query<&Block>,
+    grid: &ShipGrid,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
-    let saved_blocks = blocks
-        .iter()
+    let saved_blocks = grid
+        .blocks()
         .map(|block| SchematicBlockData {
-            id: Uuid::now_v7(),
-            position: block.position,
-            block_type: block.block_type.clone(),
-            rotation: block.rotation,
+            id: block.placement.id,
+            position: block.placement.position,
+            block_type: block.placement.block_type.clone(),
+            rotation: block.placement.rotation,
         })
         .collect::<Vec<SchematicBlockData>>();
 
@@ -1371,7 +1351,7 @@ pub fn perform_save_schematic(
     }
 }
 
-pub fn despawn_ship(commands: &mut Commands, placed_blocks: &Query<Entity, With<Block>>) {
+pub fn despawn_ship(commands: &mut Commands, placed_blocks: &Query<Entity, With<BlockRef>>) {
     for entity in placed_blocks {
         commands.entity(entity).despawn();
     }
@@ -1400,13 +1380,14 @@ pub fn spawn_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let base = spawn_placed_block(commands, ship_base, def, saved_block.position);
-
-                for voxel in &def.shape.voxels {
-                    editor
-                        .grid
-                        .insert(saved_block.position + voxel.position, base);
-                }
+                let placement = BlockPlacement::new(
+                    saved_block.position,
+                    &saved_block.block_type,
+                    saved_block.rotation,
+                );
+                let base =
+                    spawn_placed_block(commands, ship_base, def, &placement);
+                editor.grid.insert_block(placement, base, def);
             }
         }
     } else {
