@@ -1,29 +1,23 @@
 use bevy::prelude::*;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    error::Error,
-    fmt::Debug,
-    fs,
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
-use crate::simulation::SimulationSet;
-use crate::symbol::{Symbol, Symbols};
 use crate::content::{
     block::{
-        component::{
-            Block, BlockData, BlockRegistry, BlockState, Health, SingleShootPatternState,
-        },
+        component::{Block, BlockData, BlockRegistry, Health, SingleShootPatternState, BurstShootPatternState},
         feature::turret::TurretState,
     },
     ship::{ShipData, ShipState},
     team::Team,
 };
+use crate::save::schema::{
+    read_version, BlockSaveData, ShipSave, TurretSaveState, WorldSave, WORLD_SCHEMA_VERSION,
+};
+use crate::simulation::SimulationSet;
+use crate::symbol::{Symbol, Symbols};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct SchematicBlockData {
@@ -56,72 +50,62 @@ impl SchematicData {
     pub fn to_ship_data(&self) -> ShipData {
         ShipData {
             id: self.id,
-            blocks: self
-                .blocks
-                .clone()
-                .into_iter()
-                .map(|b| b.to_block_data())
-                .collect(),
+            blocks: self.blocks.clone().into_iter().map(|b| b.to_block_data()).collect(),
         }
         .new()
     }
 }
+
 #[derive(Component, Default)]
 pub struct Save {}
 
 #[derive(Message)]
-pub struct SaveWorldEvent {
-    pub path: PathBuf,
-}
+pub struct SaveWorldEvent;
 
 #[derive(Message)]
-pub struct LoadWorldEvent {
-    pub path: PathBuf,
-}
+pub struct LoadWorldEvent;
 
 pub fn save_dir() -> PathBuf {
-    ProjectDirs::from(
-        "com",           // qualifier
-        "somerandomdev", // organization
-        "agameproject",  // application
-    )
-    .map(|dirs| dirs.data_dir().to_path_buf())
-    .unwrap_or_else(|| {
-        error!("Failed to resolve project directory, falling back to local ./agameproject");
-        PathBuf::from("./agameproject")
-    })
+    ProjectDirs::from("com", "somerandomdev", "agameproject")
+        .map(|dirs| dirs.data_dir().to_path_buf())
+        .unwrap_or_else(|| {
+            error!("Failed to resolve project directory, falling back to local ./agameproject");
+            PathBuf::from("./agameproject")
+        })
+}
+
+fn world_save_dir() -> PathBuf {
+    save_dir().join("world")
 }
 
 pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
     let schematics_dir = save_dir().join("schematics");
-
     let mut schematics = Vec::new();
 
     if let Ok(entries) = fs::read_dir(schematics_dir) {
         for entry in entries.flatten() {
-            if let Some(name) = entry.file_name().to_str() {
-                if name.ends_with(".json") {
-                    let path = save_dir().join("schematics").join(name);
-                    if let Ok(json) = fs::read_to_string(path) {
-                        if let Ok(mut ship) = serde_json::from_str::<SchematicData>(&json) {
-                            ship.filename = name.to_string().replace(".json", "");
-                            schematics.push(ship);
-                        }
-                    }
+            if let Some(name) = entry.file_name().to_str()
+                && name.ends_with(".json")
+            {
+                let path = save_dir().join("schematics").join(name);
+                if let Ok(json) = fs::read_to_string(path)
+                    && let Ok(mut ship) = serde_json::from_str::<SchematicData>(&json)
+                {
+                    ship.filename = name.to_string().replace(".json", "");
+                    schematics.push(ship);
                 }
             }
         }
     }
 
     while schematics.len() < 5 {
-        let timetamp = SystemTime::now()
+        let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos().to_string())
             .unwrap_or_else(|_| "0".to_string());
-
         schematics.push(SchematicData {
             id: Uuid::now_v7(),
-            filename: timetamp,
+            filename: timestamp,
             name: format!("ship_{}", schematics.len()),
             blocks: Vec::new(),
         });
@@ -145,218 +129,153 @@ pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
         }
     }
 
-    return schematics;
+    schematics
 }
 
 pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
     let schematics_dir = save_dir().join("schematics");
-    let filename = format!("{}.json", data.filename);
-    let path = schematics_dir.join(&filename);
+    let path = schematics_dir.join(format!("{}.json", data.filename));
+    fs::create_dir_all(&schematics_dir)?;
+    let json = serde_json::to_string_pretty(&data)?;
+    fs::write(path, json)
+}
 
-    // Create schematics directory if it doesn't exist
-    if !schematics_dir.exists() {
-        if let Err(e) = fs::create_dir_all(&schematics_dir) {
-            return Err(e);
+/// Single entry point for spawning a ship from a versioned RON save.
+pub fn spawn_ship_from_save(
+    commands: &mut Commands,
+    save: &ShipSave,
+    registry: &BlockRegistry,
+    config: &GameConfigValue,
+) -> Option<Entity> {
+    let blocks: Vec<BlockData> = save
+        .blocks
+        .iter()
+        .map(|b| BlockData {
+            id: Uuid::now_v7(),
+            position: b.position,
+            block_type: b.block_type.clone(),
+            rotation: b.rotation,
+        })
+        .collect();
+    let team = Team::new(save.team);
+    let (ship, block_entities) = ShipData {
+        id: save.id,
+        blocks,
+    }
+    .spawn(commands, registry, team, Transform::default(), config)?;
+
+    for (entity, saved) in block_entities.iter().zip(save.blocks.iter()) {
+        commands.entity(*entity).insert(Health {
+            health: saved.health,
+            max_health: saved.max_health,
+        });
+        if let Some(turret) = &saved.turret_state {
+            commands.entity(*entity).insert(TurretState {
+                active: turret.active,
+                target: None,
+                shoot_at: turret.shoot_at,
+            });
+        }
+        if let Some(state) = &saved.single_pattern {
+            commands.entity(*entity).insert(state.clone());
+        }
+        if let Some(state) = &saved.burst_pattern {
+            commands.entity(*entity).insert(state.clone());
         }
     }
 
-    match serde_json::to_string_pretty(&data) {
-        Ok(json) => {
-            if let Err(e) = fs::write(&path, json) {
-                return Err(e);
-            } else {
-                return Ok(());
-            }
-        }
-        Err(e) => return Err(e.into()),
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ShipSave {
-    id: Uuid,
-    state: ShipState,
-    team: Team,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BlockSave {
-    id: Uuid,
-    parent: Uuid,
-    block_type: Symbol,
-    position: IVec2,
-    rotation: u8,
-    state: BlockState,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TurretSave {
-    id: Uuid,
-    parent: Uuid,
-    state: TurretState,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ParentWrapper<T: Component + Clone> {
-    parent: Uuid,
-    component: T,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SaveData {
-    ships: Vec<ShipSave>,
-    blocks: Vec<BlockSave>,
-    turrets: Vec<TurretSave>,
-    transforms: Vec<ParentWrapper<Transform>>,
-    healths: Vec<ParentWrapper<Health>>,
-    shoot_patterns: ShootPatternSave,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ShootPatternSave {
-    single: Vec<ParentWrapper<SingleShootPatternState>>,
+    Some(ship)
 }
 
 pub fn handle_save_world_event(
-    transform_query: Query<(Entity, &Transform)>,
-    ship_query: Query<(Entity, &ShipState, &Team)>,
-    block_query: Query<(Entity, &Block, &BlockState)>,
-    turret_query: Query<(Entity, &TurretState)>,
-    health_query: Query<(Entity, &Health)>,
-    single_shoot_pattern_query: Query<(Entity, &SingleShootPatternState)>,
-    parents: Query<(Entity, &ChildOf)>,
     mut events: MessageReader<SaveWorldEvent>,
+    ships: Query<(Entity, &ShipState, &Team)>,
+    blocks: Query<(Entity, &Block, &Health)>,
+    turrets: Query<&TurretState>,
+    singles: Query<&SingleShootPatternState>,
+    bursts: Query<&BurstShootPatternState>,
+    parents: Query<&ChildOf>,
+    battle_time: Res<crate::mission::BattleResult>,
 ) {
-    let mut ids: HashMap<Entity, Uuid> = HashMap::new();
-
-    let get_parent = |ids: &HashMap<Entity, Uuid>, entity: Entity| -> Option<Uuid> {
-        let parent_id = &parents.get(entity).ok()?.1.parent();
-
-        ids.get(parent_id).copied().or_else(|| {
-            warn!(
-                "Parent {:?} of entity {:?} is not in the id map",
-                parent_id, entity
-            );
-            None
-        })
-    };
-
-    let get_id = |ids: &mut HashMap<Entity, Uuid>, entity: Entity| -> Option<Uuid> {
-        if ids.contains_key(&entity) {
-            warn!("Entity {:?} was serialized twice", entity);
-            None
-        } else {
-            let id = Uuid::now_v7();
-            ids.insert(entity, id);
-            Some(id)
-        }
-    };
-
-    fn clone_query<T: Component + Debug + Clone>(
-        ids: &HashMap<Entity, Uuid>,
-        query: &Query<(Entity, &T)>,
-    ) -> Vec<ParentWrapper<T>> {
-        let mut result: Vec<ParentWrapper<T>> = Vec::new();
-
-        for (entity, component) in query.iter() {
-            let Some(&parent) = ids.get(&entity) else {
-                warn!("Entity {} has no parent", entity);
-                continue;
-            };
-
-            result.push(ParentWrapper::<T> {
-                parent,
-                component: component.clone(),
-            });
-        }
-
-        return result;
-    }
-
-    for event in events.read() {
-        let ships = ship_query
-            .iter()
-            .filter_map(|(entity, state, team)| {
-                let id = get_id(&mut ids, entity)?;
-                Some(ShipSave {
-                    id,
-                    state: state.clone(),
-                    team: team.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let blocks = block_query
-            .iter()
-            .filter_map(|(entity, block, state)| {
-                let id = get_id(&mut ids, entity)?;
-                let parent = get_parent(&ids, entity)?;
-                Some(BlockSave {
-                    id,
-                    parent,
-                    block_type: block.block_type.clone(),
-                    position: block.position,
-                    rotation: block.rotation,
-                    state: state.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let turrets = turret_query
-            .iter()
-            .filter_map(|(entity, state)| {
-                let id = get_id(&mut ids, entity)?;
-                let parent = get_parent(&ids, entity)?;
-                Some(TurretSave {
-                    id,
-                    parent,
-                    state: state.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let path = event.path.clone();
-
-        let save = SaveData {
-            ships,
-            blocks,
-            turrets,
-            transforms: clone_query(&ids, &transform_query),
-            healths: clone_query(&ids, &health_query),
-            shoot_patterns: ShootPatternSave {
-                single: clone_query(&ids, &single_shoot_pattern_query),
-            },
-        };
-
-        if let Err(e) = write_world_save(&path, save) {
-            warn!("Failed to write world save: {:?}", e);
-        }
-    }
-}
-
-fn write_world_save(path: &PathBuf, save: SaveData) -> Result<(), Box<dyn Error>> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    let json = serde_json::to_string_pretty(&save)?;
-
-    fs::write(&path, json)?;
-    return Ok(());
-}
-
-fn spawn_components<T: Component + Clone>(
-    commands: &mut Commands,
-    ids: &HashMap<Uuid, Entity>,
-    components: Vec<ParentWrapper<T>>,
-) {
-    for data in components {
-        let Some(entity) = ids.get(&data.parent) else {
-            warn!("Failed to get entity: {:?}", data.parent);
+    for _ in events.read() {
+        let dir = world_save_dir();
+        let ships_dir = dir.join("ships");
+        if let Err(e) = fs::create_dir_all(&ships_dir) {
+            warn!("Failed to create world save dir: {e}");
             continue;
-        };
+        }
 
-        commands.entity(*entity).insert(data.component);
+        let mut ship_ids = Vec::new();
+        let mut teams = Vec::new();
+
+        for (ship_entity, _, team) in &ships {
+            let id = ship_entity.to_bits();
+            let ship_uuid = Uuid::from_u128(id as u128);
+            ship_ids.push(ship_uuid);
+            if !teams.contains(&team.id) {
+                teams.push(team.id);
+            }
+
+            let mut block_saves = Vec::new();
+            for (block_entity, block, health) in &blocks {
+                let is_child_of_ship = parents
+                    .get(block_entity)
+                    .map(|p| p.parent() == ship_entity)
+                    .unwrap_or(false);
+                if !is_child_of_ship {
+                    continue;
+                }
+
+                let turret_state = turrets.get(block_entity).ok().map(|s| TurretSaveState {
+                    active: s.active,
+                    shoot_at: s.shoot_at,
+                });
+                let single = singles.get(block_entity).ok().cloned();
+                let burst = bursts.get(block_entity).ok().cloned();
+
+                block_saves.push(BlockSaveData {
+                    position: block.position,
+                    block_type: block.block_type.clone(),
+                    rotation: block.rotation,
+                    health: health.health,
+                    max_health: health.max_health,
+                    turret_state,
+                    single_pattern: single,
+                    burst_pattern: burst,
+                });
+            }
+
+            let ship_save = ShipSave {
+                version: WORLD_SCHEMA_VERSION,
+                id: ship_uuid,
+                team: team.id,
+                blocks: block_saves,
+            };
+            let path = ships_dir.join(format!("{ship_uuid}.ron"));
+            match ron::ser::to_string_pretty(&ship_save, ron::ser::PrettyConfig::default()) {
+                Ok(text) => {
+                    if let Err(e) = fs::write(path, text) {
+                        warn!("Failed to write ship save: {e}");
+                    }
+                }
+                Err(e) => warn!("Failed to serialize ship save: {e}"),
+            }
+        }
+
+        let world = WorldSave {
+            version: WORLD_SCHEMA_VERSION,
+            teams,
+            elapsed_secs: battle_time.started_at.unwrap_or(0.0),
+            ship_ids,
+        };
+        match ron::ser::to_string_pretty(&world, ron::ser::PrettyConfig::default()) {
+            Ok(text) => {
+                if let Err(e) = fs::write(dir.join("world.ron"), text) {
+                    warn!("Failed to write world.ron: {e}");
+                }
+            }
+            Err(e) => warn!("Failed to serialize world.ron: {e}"),
+        }
     }
 }
 
@@ -365,93 +284,57 @@ pub fn handle_load_world_event(
     mut events: MessageReader<LoadWorldEvent>,
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
+    effects: Query<Entity, With<Save>>,
 ) {
-    for event in events.read() {
-        let path = event.path.clone();
-        let mut ids: HashMap<Uuid, Entity> = HashMap::new();
-
-        let data_string = match fs::read_to_string(&path) {
-            Ok(data) => data,
-            Err(warn) => {
-                warn!("Failed to read world save: {:?} {:?}", path, warn);
+    for _ in events.read() {
+        let dir = world_save_dir();
+        let world_text = match fs::read_to_string(dir.join("world.ron")) {
+            Ok(text) => text,
+            Err(e) => {
+                warn!("Failed to read world save: {e}");
+                continue;
+            }
+        };
+        if let Err(e) = read_version(&world_text) {
+            warn!("{e}");
+            continue;
+        }
+        let world: WorldSave = match ron::from_str(&world_text) {
+            Ok(w) => w,
+            Err(e) => {
+                warn!("Failed to parse world.ron: {e}");
                 continue;
             }
         };
 
-        let save = match serde_json::from_str::<SaveData>(&data_string) {
-            Ok(save) => save,
-            Err(warn) => {
-                warn!("Failed to parse world save: {:?} {:?}", path, warn);
-                continue;
-            }
-        };
+        // Effect-like entities are not in the schema; remove all of them so a
+        // loaded world cannot leak missiles/lasers/drops/damage text.
+        for entity in &effects {
+            commands.entity(entity).despawn();
+        }
 
-        let SaveData {
-            ships,
-            blocks,
-            turrets,
-            healths,
-            shoot_patterns,
-            transforms,
-        } = save;
-
-        for ship_data in ships {
-            let blocks = blocks
-                .iter()
-                .filter(|b| b.parent == ship_data.id)
-                .map(|b| BlockData {
-                    id: b.id,
-                    position: b.position,
-                    block_type: b.block_type.clone(),
-                    rotation: b.rotation,
-                })
-                .collect::<Vec<_>>();
-
-            let data = ShipData {
-                id: ship_data.id,
-                blocks,
-            };
-
-            let ship = data.new().spawn(
-                &mut commands,
-                &registry,
-                ship_data.team,
-                Transform::default(),
-                &config,
-            );
-
-            if let Some(ship) = ship {
-                ids.insert(ship_data.id, ship);
-
-                for block_data in &data.blocks {
-                    let Some(def) = registry.get(&block_data.block_type) else {
-                        warn!("Failed to get block def: {:?}", block_data.block_type);
-                        continue;
-                    };
-
-                    let block = block_data.spawn(&mut commands, def, ship, ship_data.team, &config);
-
-                    ids.insert(block_data.id, block);
+        for id in world.ship_ids {
+            let path = dir.join("ships").join(format!("{id}.ron"));
+            let text = match fs::read_to_string(&path) {
+                Ok(text) => text,
+                Err(e) => {
+                    warn!("Failed to read ship save {id}: {e}");
+                    continue;
                 }
-            }
-        }
-
-        for turret_data in turrets {
-            let Some(parent) = ids.get(&turret_data.parent) else {
-                warn!("Failed to get parent block: {:?}", turret_data.parent);
-                continue;
             };
-
-            commands.entity(*parent).insert(TurretState {
-                active: turret_data.state.active,
-                target: turret_data.state.target,
-                shoot_at: turret_data.state.shoot_at,
-            });
+            if let Err(e) = read_version(&text) {
+                warn!("{e}");
+                continue;
+            }
+            let ship: ShipSave = match ron::from_str(&text) {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("Failed to parse ship save {id}: {e}");
+                    continue;
+                }
+            };
+            spawn_ship_from_save(&mut commands, &ship, &registry, &config);
         }
-
-        spawn_components(&mut commands, &ids, transforms);
-        spawn_components(&mut commands, &ids, healths);
-        spawn_components(&mut commands, &ids, shoot_patterns.single);
     }
 }
 
@@ -464,13 +347,41 @@ impl Plugin for SavePlugin {
             .add_systems(
                 Update,
                 (
-                    handle_save_world_event
-                        .run_if(on_message::<SaveWorldEvent>)
-                        .in_set(SimulationSet::Apply),
-                    handle_load_world_event
-                        .run_if(on_message::<LoadWorldEvent>)
-                        .in_set(SimulationSet::Apply),
-                ),
+                    handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
+                    handle_load_world_event.run_if(on_message::<LoadWorldEvent>),
+                )
+                    .in_set(SimulationSet::Apply),
             );
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::save::schema::*;
+
+    #[test]
+    fn ship_save_roundtrip_and_version() {
+        let save = ShipSave {
+            version: WORLD_SCHEMA_VERSION,
+            id: Uuid::now_v7(),
+            team: 0,
+            blocks: vec![BlockSaveData {
+                position: IVec2::new(2, 3),
+                block_type: Symbol::from("core"),
+                rotation: 0,
+                health: 4000.0,
+                max_health: 5000.0,
+                turret_state: Some(TurretSaveState { active: true, shoot_at: None }),
+                single_pattern: None,
+                burst_pattern: None,
+            }],
+        };
+        let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
+        assert_eq!(read_version(&text).unwrap(), WORLD_SCHEMA_VERSION);
+        let back: ShipSave = ron::from_str(&text).unwrap();
+        assert_eq!(back, save);
+
+        let bad = text.replace("version: 1", "version: 99");
+        assert!(read_version(&bad).is_err());
     }
 }

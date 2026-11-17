@@ -123,3 +123,12 @@ kept as the migration record):
   cleanup covers most; the rest expire by `Lifetime`).
 - Warnings: ~12 dead-code warnings remain (all pre-existing; several retire as the
   mission design fills in).
+- Perf (Slice `blocks-stats-cache`): `blocks_stats` and collider rebuild now read a
+  per-ship `ShipGrid` cache instead of rebuilding a `cell_map` from block data on each
+  destroy event; the cache is populated once at spawn and pruned incrementally on
+  block death, so the previous O(N²) burst path is O(cells near the damage).
+- Slice `save-ship-relative`: world saves are now versioned RON (`world/` with `world.ron`
+  + one `ships/<uuid>.ron` per ship) with ship-relative block data; the JSON `test.json`
+  two-pass uuid→Entity linker and its `ShipSave/BlockSave/TurretSave/...` structs are deleted.
+  `spawn_ship_from_save` is the single load entry point; `Save`-marked effect entities are
+  despawned on load so no missiles/lasers/drops/damage text leak into a loaded world.

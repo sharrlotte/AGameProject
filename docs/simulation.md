@@ -24,7 +24,7 @@
 | `mass`, `health` | Used by ship stat computation and `Health` |
 | `shape: BlockShape` | Size + voxels |
 | `cost: u32` | Not currently enforced anywhere |
-| `features: Vec<Feature>` | Effects spawned as child entities |
+| `features: Vec<Feature>` | Components inserted directly on the block entity; turret barrel is the one render-only child |
 | `drops: Vec<DropComponent>` | Drop events when block is destroyed |
 
 Registry: `BlockRegistry` (resource, `HashMap<Symbol, BlockDef>`), populated
@@ -51,11 +51,14 @@ from the keyed `block.ron` map at config load. Duplicate ids rejected at boot.
 
 ### Block rendering
 
-Blocks spawn as a child-less entity with `Block`, `BlockState`, `Health`, `BlockOwner`,
-`Team`, and drop `Collider` (cuboid, `Sensor`, mass 0) in a
-per-team hitbox layer (`Group::from_bits_truncate(1 << (16 + team_id))`).
-Each feature spawns a child entity owned via `ComponentOwner`.
-Feature entities inherit `Visibility` and carry `Team`. Text labels and flash overlays
+Blocks spawn with all feature components on the same entity: `Block`, `BlockState`,
+`Health`, `BlockOwner`, `Team`, drop `Collider` (cuboid, `Sensor`, mass 0) in a
+per-team hitbox layer (`Group::from_bits_truncate(1 << (16 + team_id))`),
+plus `Sprite`/`Thruster`/`Storage`/`EnergyConsumer`/`EfficiencyProvider`/`Turret`
+as configured. The only child entity is a turret's rotating barrel
+(`TurretSprite` + `Transform` + `Sprite`); the block carries `TurretBarrel`
+pointing to it. Extra texture layers beyond the first also remain render-only
+children so their z-ordering is preserved. Text labels and flash overlays
 are children of the block.
 
 ### Block destruction
@@ -72,11 +75,11 @@ are children of the block.
 
 ### Fragmentation
 
-`blocks_stats` performs a flood fill over `cell_map` cells (`IVec2 → BlockData`) and
-splits into (a) one ship and (b) zero or more fragments. `Fragment` blocks are the ones
-not connected to a Core. Current implementation: the directly-adjacent row/column
-(`y == size.y`, `x == size.x`) is never checked; connectivity is recovered asymmetrically
-from the neighbor's `-1` check. See defects.md.
+`blocks_stats` performs a flood fill over the per-ship `ShipGrid` cache
+(`IVec2 → BlockData` in `ShipGrid.cells`), populated once on ship spawn and updated
+incrementally on block destroy (`grid.remove_block`). No full `HashMap` rebuild
+happens on the normal hot path; `ShipGrid::rebuild` is the correctness fallback used
+at spawn/load. The grid splits into (a) one ship and (b) zero or more fragments.
 
 ## Ships
 
@@ -88,8 +91,8 @@ from the neighbor's `-1` check. See defects.md.
 2. Spawn ship entity with `RigidBody::Dynamic`, voxel collider, collision group
    `GROUP_SHIP`, `ActiveEvents::COLLISION_EVENTS`, `AIShipController::new(Idle)`,
    `Damping { LINEAR_DAMPING = 0.9, ANGULAR_DAMPING = 0.999 }`.
-3. Spawn `Blocks` child blocks (via `BlockData::spawn`), each spawn inserting
-   `BlockOwner { ship }` and `ComponentOwner { block }`.
+3. Spawn `Blocks` child blocks (via `BlockData::spawn`), each inserting
+   `BlockOwner { ship }` plus all feature components directly on the block.
 4. `ShipUIRoot` child is attached holding a `Text2d` debug dump rebuilt every tick
    (FPS + camera coords + behavior/stats).
 

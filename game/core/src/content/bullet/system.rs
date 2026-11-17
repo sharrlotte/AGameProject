@@ -8,7 +8,7 @@ use super::*;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::config::GameConfigValue;
 use crate::content::block::feature::ammo::AmmoState;
-use crate::content::block::feature::turret::{Turret, TurretState};
+use crate::content::block::feature::turret::{Turret, TurretBarrel, TurretSprite, TurretState};
 use crate::content::block::radar::Radar;
 use crate::content::block::{
     BlockOwner, BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
@@ -133,31 +133,35 @@ pub fn handle_missiles(
 pub fn handle_single_shot(
     time: Res<Time>,
     mut commands: Commands,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
     mut query: Query<(
-        &GlobalTransform,
         &Turret,
         &mut TurretState,
         &SingleShootPattern,
         &mut SingleShootPatternState,
         &Team,
         Option<&mut AmmoState>,
+        &TurretBarrel,
     )>,
     config: Res<GameConfigValue>,
 ) {
     for (
-        transform,
         turret,
         turret_state,
         shoot_pattern,
         mut shoot_pattern_state,
         team,
         mut ammo_state,
+        barrel_ref,
     ) in query.iter_mut()
     {
         if !turret_state.active {
             continue;
         }
 
+        let Ok(transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };
         let Turret { barrels, range, .. } = turret;
 
         if time.elapsed_secs() >= shoot_pattern_state.last_fired_at + shoot_pattern.fire_rate {
@@ -187,31 +191,35 @@ pub fn handle_single_shot(
 pub fn handle_burst_shot(
     time: Res<Time>,
     mut commands: Commands,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
     mut query: Query<(
-        &GlobalTransform,
         &Turret,
         &mut TurretState,
         &BurstShootPattern,
         &mut BurstShootPatternState,
         &Team,
         Option<&mut AmmoState>,
+        &TurretBarrel,
     )>,
     config: Res<GameConfigValue>,
 ) {
     for (
-        transform,
         turret,
         turret_state,
         shoot_pattern,
         mut shoot_pattern_state,
         team,
         mut ammo_state,
+        barrel_ref,
     ) in query.iter_mut()
     {
         if !turret_state.active {
             continue;
         }
 
+        let Ok(transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };
         let Turret { barrels, range, .. } = turret;
 
         match &mut shoot_pattern_state.shooting {
@@ -284,14 +292,15 @@ pub fn handle_laser_beam(
     rapier: ReadRapierContext,
     healths: Query<(Entity, &Health)>,
     mut commands: Commands,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
     mut query: Query<(
         Entity,
-        &GlobalTransform,
         &Turret,
         &mut TurretState,
         &LaserBeamPattern,
         &mut LaserBeamPatternState,
         &Team,
+        &TurretBarrel,
     )>,
     mut events: MessageWriter<DamageEvent>,
 ) {
@@ -299,10 +308,12 @@ pub fn handle_laser_beam(
         return;
     };
 
-    for (entity, transform, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team) in
+    for (entity, turret, turret_state, shoot_pattern, mut shoot_pattern_state, team, barrel_ref) in
         query.iter_mut()
     {
-        let Turret { barrels, range, .. } = turret;
+        let Ok(transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };        let Turret { barrels, range, .. } = turret;
 
         match &mut shoot_pattern_state.shooting {
             LaserBeamPatternShootingState::Shooting { start_time } => {
@@ -405,14 +416,15 @@ pub fn handle_pulling_beam(
     time: Res<Time>,
     block_owners: Query<&BlockOwner>,
     mut ships: Query<(&GlobalTransform, &mut Velocity), With<Ship>>,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
     mut query: Query<(
         Entity,
-        &GlobalTransform,
         &Turret,
         &TurretState,
         &PullingBeamPattern,
         &mut PullingBeamPatternState,
         &Team,
+        &TurretBarrel,
     )>,
 ) {
     const PULL_SPEED: f32 = 500.0;
@@ -421,10 +433,12 @@ pub fn handle_pulling_beam(
         return;
     };
 
-    for (entity, transform, turret, turret_state, shoot_pattern, mut state, team) in
+    for (entity, turret, turret_state, shoot_pattern, mut state, team, barrel_ref) in
         query.iter_mut()
     {
-        let Turret { barrels, range, .. } = turret;
+        let Ok(transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };        let Turret { barrels, range, .. } = turret;
 
         if !turret_state.active {
             if let Some(beam) = state.beam {

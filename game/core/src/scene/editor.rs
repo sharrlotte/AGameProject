@@ -10,7 +10,7 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{
-            feature::Feature,
+            feature::{turret::TurretSprite, Feature},
             component::{
                 Block, BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT,
                 FACE_UP,
@@ -1269,39 +1269,48 @@ pub fn spawn_placed_block(
 
     commands.entity(base).add_child(block);
 
-    for feature in &def.features {
-        let c = commands
-            .spawn((Transform::default(), Visibility::Inherited))
+    // Primary texture sprite on the block entity; extra texture layers remain
+    // render-only children to preserve z-ordering.
+    let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
+    if let Some(primary) = textures.next() {
+        commands.entity(block).insert(Sprite {
+            image: primary.image.clone(),
+            custom_size: Some(def.get_pixel_size()),
+            ..default()
+        });
+    }
+    for extra in textures {
+        let layer = commands
+            .spawn((
+                Transform::from_translation(extra.offset.extend(extra.z)),
+                Sprite {
+                    image: extra.image.clone(),
+                    custom_size: Some(def.get_pixel_size()),
+                    ..default()
+                },
+            ))
             .id();
+        commands.entity(block).add_child(layer);
+    }
 
-        commands.entity(block).add_child(c);
-
-        match feature {
-            Feature::Texture(visual) => {
-                commands.entity(c).insert((
+    for feature in &def.features {
+        if let Feature::Turret(visual) = feature {
+            let barrel = commands
+                .spawn((
+                    Transform::from_translation(visual.offset.extend(visual.z)),
                     Sprite {
                         image: visual.image.clone(),
                         custom_size: Some(def.get_pixel_size()),
                         ..default()
                     },
-                    Transform::from_translation(visual.offset.extend(visual.z)),
-                ));
-            }
-            Feature::Turret(visual) => {
-                commands.entity(c).insert((
-                    Sprite {
-                        image: visual.image.clone(),
-                        custom_size: Some(def.get_pixel_size()),
-                        ..default()
-                    },
-                    Transform::from_translation(visual.offset.extend(visual.z)),
-                ));
-            }
-            _ => {}
+                    TurretSprite,
+                ))
+                .id();
+            commands.entity(block).add_child(barrel);
         }
     }
 
-    return block;
+    block
 }
 
 pub fn remove_block_at(

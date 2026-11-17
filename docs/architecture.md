@@ -74,7 +74,7 @@ documented inside each plugin identify members of the pipeline
 | `PreUpdate` (Cleanup) | `clean_state_item` |
 | `FixedFirst` (Simulate) | Efficiency systems (chained, `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
 | `FixedPreUpdate` (Simulate) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
-| `FixedUpdate` (mixed) | Simulate: insert_added_block, turrets, bullets, missiles, fire/laser/pulling beam, ammo warnings, drops; Apply: `update_lifetime` (turns `Lifetime` into `Death`) |
+| `FixedUpdate` (mixed) | Simulate: turrets, bullets, missiles, fire/laser/pulling beam, ammo warnings, drops; Apply: `update_lifetime` (turns `Lifetime` into `Death`) |
 | `FixedPostUpdate` (Apply) | Damage application, block damage flash overlay, block destroy, drop spawn |
 | `FixedLast` (Cleanup) | `death::despawn_dead` |
 | `PostUpdate` (Simulate) | `update_ship_behavior` |

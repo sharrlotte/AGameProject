@@ -1,7 +1,7 @@
 use bevy::{math::FloatPow, prelude::*};
 use std::f32::consts::PI;
 
-use super::{Turret, TurretState};
+use super::{Turret, TurretBarrel, TurretSprite, TurretState};
 use crate::{
     content::{
         block::{BlockData, component::TargetingStrategy, radar::Radar},
@@ -27,10 +27,13 @@ impl Plugin for TurretPlugin {
 
 pub fn update_turret_target(
     ships: Query<(&GlobalTransform, &Ship, &Blocks)>,
-    mut turrets: Query<(&GlobalTransform, &Turret, &mut TurretState, &Team, &Radar)>,
+    mut turrets: Query<(&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel)>,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
 ) {
-    for (transform, turret, mut state, _, radar) in turrets.iter_mut() {
-
+    for (turret, mut state, _, radar, barrel_ref) in turrets.iter_mut() {
+        let Ok(transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };
         let mut best_target: Option<(Entity, BlockData)> = None;
         let mut closest_dist_sq = turret.range.squared();
 
@@ -105,16 +108,22 @@ pub fn update_turret_target(
 }
 
 pub fn turret_tracking(
-    mut query: Query<(&mut Transform, &GlobalTransform, &Turret, &TurretState)>,
+    mut barrel_transforms: Query<&mut Transform, With<TurretSprite>>,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
+    turrets: Query<(&Turret, &TurretState, &TurretBarrel)>,
     time: Res<Time>,
     transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
-    for (mut transform, global_transform, turret, state) in &mut query {
+    for (turret, state, barrel_ref) in &turrets {
         let turn_speed = turret.turn_speed;
 
         if turn_speed == 0. {
             continue;
         }
+
+        let Ok(global_transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };
 
         let mut target_position: Option<Vec2> = None;
 
@@ -150,7 +159,9 @@ pub fn turret_tracking(
             let max_turn = turn_speed * time.delta_secs();
             let turn = angle_error.clamp(-max_turn, max_turn);
 
-            transform.rotate_z(turn);
+            if let Ok(mut transform) = barrel_transforms.get_mut(barrel_ref.0) {
+                transform.rotate_z(turn);
+            }
         }
     }
 }

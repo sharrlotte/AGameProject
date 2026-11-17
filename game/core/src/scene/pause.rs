@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::{
     content::{bullet::Bullet, ship::Ship},
     resource::{PauseState, SceneState, SettingState},
-    save::io::{LoadWorldEvent, SaveWorldEvent, save_dir},
+    save::io::{LoadWorldEvent, SaveWorldEvent},
     simulation::SimulationSet,
 };
 
@@ -292,9 +292,7 @@ fn handle_pause_buttons(
                         exit.write(AppExit::Success);
                     }
                     PauseButton::Save => {
-                        save_events.write(SaveWorldEvent {
-                            path: save_dir().join("saves").join("test.json"),
-                        });
+                        save_events.write(SaveWorldEvent);
                     }
                     PauseButton::Load => {
                         game_state.set(PauseState::Playing);
@@ -307,9 +305,7 @@ fn handle_pause_buttons(
                             commands.entity(entity).despawn();
                         }
 
-                        load_events.write(LoadWorldEvent {
-                            path: save_dir().join("saves").join("test.json"),
-                        });
+                        load_events.write(LoadWorldEvent);
                     }
                 }
             }

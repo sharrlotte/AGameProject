@@ -1,4 +1,6 @@
-## ADDED Requirements
+# Collapsed Features
+
+## Requirements
 
 ### Requirement: Every feature is a component on the block entity
 

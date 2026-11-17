@@ -10,7 +10,7 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::feature::{component::Feature, turret::TurretComponent},
-        ship::{Ship, ShipFragment},
+        ship::{grid::ShipGrid, Ship, ShipFragment},
         team::Team,
     },
     symbol::Symbol,
@@ -91,7 +91,7 @@ pub enum BurstShootPatternShootingState {
     },
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct BurstShootPatternState {
     pub shooting: BurstShootPatternShootingState,
 }
@@ -189,12 +189,6 @@ pub struct BlockOwner {
     pub id: Entity,
 }
 
-#[derive(Component, Clone, PartialEq)]
-pub struct ComponentOwner {
-    // Block entity
-    pub id: Entity,
-}
-
 #[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]
 pub struct Health {
     pub health: f32,
@@ -249,9 +243,19 @@ impl BlockData {
         config: &GameConfigValue,
     ) -> Entity {
         let half_size = def.get_pixel_size() / 2.0;
-        let transform = def.to_transform(self.position);
+        let mut transform = def.to_transform(self.position);
 
-        let child = commands
+        // Use the first texture's z as the block sprite's render layer so the
+        // collapsed sprite keeps its original visual stacking.
+        if let Some(z) = def
+            .features
+            .iter()
+            .find_map(|f| f.extra_texture().map(|t| t.z))
+        {
+            transform.translation.z = z;
+        }
+
+        let block = commands
             .spawn((
                 transform,
                 def.block_group.clone(),
@@ -279,13 +283,29 @@ impl BlockData {
             ))
             .id();
 
-        commands.entity(ship).add_child(child);
+        commands.entity(ship).add_child(block);
 
-        for feature in &def.features {
-            feature.spawn(commands, child, def, &team, config);
+        let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
+        textures.next(); // primary texture is attached to the block entity
+        for extra in textures {
+            let layer = commands
+                .spawn((
+                    Transform::from_translation(extra.offset.extend(extra.z)),
+                    Sprite {
+                        image: extra.image.clone(),
+                        custom_size: Some(def.get_pixel_size()),
+                        ..default()
+                    },
+                ))
+                .id();
+            commands.entity(block).add_child(layer);
         }
 
-        return child;
+        for feature in &def.features {
+            feature.insert(commands, block, def, &team, config);
+        }
+
+        block
     }
 }
 
@@ -431,59 +451,21 @@ impl BlockRegistry {
         return value.into_iter();
     }
 
-    pub fn blocks_to_voxel_points(&self, blocks: &[BlockData]) -> Vec<Vec2> {
-        let mut points = Vec::new();
-
-        for block in blocks {
-            let Some(def) = self.get_symbol(block.block_type.clone()) else {
-                warn!("Block type {:?} not found in registry", block.block_type);
-                continue;
-            };
-            let size = def.shape.size;
-
-            // base grid position
-            let base_x = block.position.x as f32;
-            let base_y = block.position.y as f32;
-
-            // fill rectangle
-            for y in 0..size.y {
-                for x in 0..size.x {
-                    let px = (base_x + x as f32) * GRID_SIZE;
-                    let py = (base_y + y as f32) * GRID_SIZE;
-
-                    points.push(Vec2::new(px, py));
-                }
-            }
-        }
-
-        points
+    pub fn blocks_to_voxel_points(&self, grid: &ShipGrid) -> Vec<Vec2> {
+        grid.occupied_cells()
+            .map(|(cell, _)| cell.as_vec2() * GRID_SIZE)
+            .collect()
     }
 
-    pub fn build_ship_voxel_collider_2d(&self, blocks: &[BlockData]) -> Collider {
-        let points = self.blocks_to_voxel_points(blocks);
+    pub fn build_ship_voxel_collider_2d(&self, grid: &ShipGrid) -> Collider {
+        let points = self.blocks_to_voxel_points(grid);
 
         Collider::voxels_from_points(Vec2::new(GRID_SIZE, GRID_SIZE), &points)
     }
-
-    pub fn blocks_stats(&self, blocks: &[BlockData]) -> ShipCalculatedStat {
+    pub fn blocks_stats(&self, blocks: &[BlockData], grid: &ShipGrid) -> ShipCalculatedStat {
         let mut visited: HashSet<Uuid> = HashSet::new();
-        let mut cell_map: HashMap<IVec2, &BlockData> = HashMap::new();
         let mut ship: Option<ShipCalculatedData> = None;
         let mut fragments: Vec<ShipFragment> = Vec::new();
-
-        for block in blocks {
-            let Some(def) = self.get_symbol(block.block_type.clone()) else {
-                warn!("Block type {:?} not found in registry", block.block_type);
-                continue;
-            };
-
-            for y in 0..def.shape.size.y {
-                for x in 0..def.shape.size.x {
-                    let cell = IVec2::new(x, y) + block.position;
-                    cell_map.entry(cell).insert_entry(block);
-                }
-            }
-        }
 
         for block in blocks {
             if visited.contains(&block.id) {
@@ -524,22 +506,22 @@ impl BlockRegistry {
                 for y in [-1, size.y] {
                     for x in 0..size.x {
                         let cell = IVec2::new(x, y) + block.position;
-                        let Some(neighbor) = cell_map.get(&cell) else {
+                        let Some(neighbor) = grid.block_at(cell) else {
                             continue;
                         };
 
-                        queue.push(*neighbor);
+                        queue.push(neighbor);
                     }
                 }
 
                 for x in [-1, size.x] {
                     for y in 0..size.y {
                         let cell = IVec2::new(x, y) + block.position;
-                        let Some(neighbor) = cell_map.get(&cell) else {
+                        let Some(neighbor) = grid.block_at(cell) else {
                             continue;
                         };
 
-                        queue.push(*neighbor);
+                        queue.push(neighbor);
                     }
                 }
 

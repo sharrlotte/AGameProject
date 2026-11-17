@@ -53,7 +53,7 @@ block_group: "core",
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
-        "lazer_turret": (
+        "laser_turret": (
             name: "Laser Turret",
 block_group: "turret",
             mass: 7.0,
@@ -201,7 +201,7 @@ block_group: "turret",
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
-        "meldown": (
+        "meltdown": (
             name: "Meltdown Turret",
 block_group: "turret",
             mass: 20.0,
@@ -349,7 +349,7 @@ block_group: "turret",
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
-        "paralax": (
+        "parallax": (
             name: "Parallax Turret",
 block_group: "turret",
             mass: 50.0,

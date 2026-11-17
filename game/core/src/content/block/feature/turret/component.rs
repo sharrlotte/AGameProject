@@ -22,7 +22,14 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    /// Insert all turret logic onto the block entity; the rotating barrel
+    /// sprite is the one deliberate child entity (Transform + Sprite only).
+    pub fn insert(
+        &self,
+        commands: &mut Commands,
+        base: Entity,
+        def: &BlockDef,
+    ) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -34,12 +41,6 @@ impl TurretComponent {
             BlockEfficiency::default(),
             TurretState::default(),
             Radar::new(self.range, 1.0),
-            Sprite {
-                image: self.image.clone(),
-                custom_size: Some(def.get_pixel_size()),
-                ..default()
-            },
-            Transform::from_translation(self.offset.extend(self.z)),
         ));
 
         self.shooting_pattern.insert(commands, base);
@@ -47,8 +48,31 @@ impl TurretComponent {
         if let Some(ammo) = &self.ammo {
             ammo.insert(commands, base);
         }
+
+        let barrel = commands
+            .spawn((
+                Transform::from_translation(self.offset.extend(self.z)),
+                Sprite {
+                    image: self.image.clone(),
+                    custom_size: Some(def.get_pixel_size()),
+                    ..default()
+                },
+                TurretSprite,
+            ))
+            .id();
+        commands.entity(base).add_child(barrel);
+        commands.entity(base).insert(TurretBarrel(barrel));
     }
 }
+
+/// Marker for the single child entity of a turret block: the barrel sprite.
+/// Carries only `Transform` + `Sprite`; no logic or ownership components.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+pub struct TurretSprite;
+
+/// Reference from a turret block entity to its barrel child entity.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+pub struct TurretBarrel(pub Entity);
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]

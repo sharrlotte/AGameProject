@@ -23,34 +23,31 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub fn spawn(
+   pub fn insert(
         &self,
         commands: &mut Commands,
         base: Entity,
         def: &BlockDef,
-        team: &Team,
+        _team: &Team,
         config: &GameConfigValue,
     ) {
-        let component = commands
-            .spawn((
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::Inherited,
-                *team,
-            ))
-            .id();
-
-        commands.entity(base).add_child(component);
-
         match self {
-            Self::Texture(sprite) => sprite.insert(commands, component, def),
-            Self::Turret(turret) => turret.insert(commands, component, def),
-            Self::Thruster(thruster) => thruster.insert(commands, component, config),
-            Self::EnergyConsumer(consumer) => consumer.insert(commands, component),
-            Self::Storage(storage) => storage.insert(commands, component),
+            Self::Texture(sprite) => sprite.insert(commands, base, def),
+            Self::Turret(turret) => turret.insert(commands, base, def),
+            Self::Thruster(thruster) => thruster.insert(commands, base, config),
+            Self::EnergyConsumer(consumer) => consumer.insert(commands, base),
+            Self::Storage(storage) => storage.insert(commands, base),
             Self::EfficiencyProvider(provider) => {
-                commands.entity(component).insert(*provider);
+                commands.entity(base).insert(*provider);
             }
+        }
+    }
+
+    /// Extra texture layers that cannot share the block's single `Sprite`.
+    pub fn extra_texture(&self) -> Option<&Texture> {
+        match self {
+            Self::Texture(t) => Some(t),
+            _ => None,
         }
     }
 }

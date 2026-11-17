@@ -1,5 +1,5 @@
 (
-    thrust_power_factor: 50.0,
+    thrust_power_factor: 100.0,
     turn_speed_factor: 9000.0,
     linear_damping: 0.9,
     angular_damping: 0.999,

@@ -2,7 +2,6 @@ use bevy::input::mouse::MouseWheel;
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use uuid::Uuid;
@@ -19,6 +18,12 @@ use crate::content::block::{
     ShipCalculatedStat,
 };
 use crate::content::death::Death;
+use crate::content::ship::ai::{
+    behavior_label, AiPlugin, BehaviorAttack, BehaviorChase, BehaviorFlee, BehaviorFollow,
+    BehaviorGuard, BehaviorIdle, BehaviorKamikaze, BehaviorKiting, BehaviorPatrol, BehaviorRegroup,
+    BehaviorWander,
+};
+use crate::content::ship::grid::ShipGrid;
 use crate::content::ship::indicator::IndicatorsPlugin;
 use crate::content::ship::stat::{ComputedShipStats, update_stats};
 use crate::content::team::Team;
@@ -55,7 +60,6 @@ impl Plugin for ShipPlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    control_ship,
                     check_rebuild_ship_collider,
                     player_control_ship,
                 )
@@ -68,26 +72,29 @@ impl Plugin for ShipPlugin {
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Simulate),
             )
-            .add_plugins(IndicatorsPlugin);
+            .add_plugins((IndicatorsPlugin, AiPlugin));
     }
 }
 
 pub fn check_rebuild_ship_collider(
     mut commands: Commands,
     mut events: MessageReader<BlockDestroyedEvent>,
-    mut ships: Query<(Entity, &mut Blocks, &GlobalTransform, &Team)>,
+    mut ships: Query<(Entity, &mut Blocks, &mut ShipGrid, &GlobalTransform, &Team)>,
     ship_blocks: Query<(Entity, &Block, &BlockOwner)>,
     registry: Res<BlockRegistry>,
     mut drop_writer: MessageWriter<DropEvent>,
 ) {
     for event in events.read() {
-        let Ok((entity, mut ship_block, transform, team)) = ships.get_mut(event.ship) else {
+        let Ok((entity, mut ship_block, mut grid, transform, team)) = ships.get_mut(event.ship)
+        else {
             continue;
         };
 
         ship_block.blocks.retain(|f| &f.id != &event.block_id);
+        grid.remove_block(event.block_id);
 
-        let ShipCalculatedStat { ship, fragments } = registry.blocks_stats(&ship_block.blocks);
+        let ShipCalculatedStat { ship, fragments } =
+            registry.blocks_stats(&ship_block.blocks, &grid);
 
         let delete_blocks: HashSet<Uuid> = fragments
             .iter()
@@ -103,7 +110,7 @@ pub fn check_rebuild_ship_collider(
         }
 
         if let Some(ship) = ship {
-            let collider = registry.build_ship_voxel_collider_2d(&ship_block.blocks);
+            let collider = registry.build_ship_voxel_collider_2d(&grid);
 
             commands.entity(entity).remove::<Collider>().insert((
                 ship.data.clone(),
@@ -142,13 +149,23 @@ pub fn check_rebuild_ship_collider(
 }
 
 #[cfg(debug_assertions)]
+#[cfg(debug_assertions)]
 pub fn update_ship_ui(
     mut commands: Commands,
     mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
     ships: Query<(
-        Entity,
         &Ship,
-        &AIShipController,
+        Option<&BehaviorIdle>,
+        Option<&BehaviorWander>,
+        Option<&BehaviorKiting>,
+        Option<&BehaviorRegroup>,
+        Option<&BehaviorChase>,
+        Option<&BehaviorAttack>,
+        Option<&BehaviorPatrol>,
+        Option<&BehaviorFlee>,
+        Option<&BehaviorGuard>,
+        Option<&BehaviorFollow>,
+        Option<&BehaviorKamikaze>,
         Option<&ShipBehavior>,
         &GlobalTransform,
         &ComputedShipStats,
@@ -176,31 +193,45 @@ pub fn update_ship_ui(
     }
 
     for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
-        match ships.get(ui_root.ship) {
-            Ok((ship, _, controller, behavior, global_transform, stats)) => {
-                let current = controller.current();
+        if let Ok((
+            ship,
+            idle,
+            wander,
+            kiting,
+            regroup,
+            chase,
+            attack,
+            patrol,
+            flee,
+            guard,
+            follow,
+            kamikaze,
+            behavior,
+            global_transform,
+            stats,
+        )) = ships.get(ui_root.ship)
+        {
+            let current = behavior_label(
+                idle, wander, kiting, regroup, chase, attack, patrol, flee, guard, follow,
+                kamikaze,
+            );
+            let empty = String::new();
+            let string = data.get(&ui_root.ship).unwrap_or(&empty);
 
-                let empty = String::new();
-                let string = data.get(&ui_root.ship).unwrap_or(&empty);
-
-                commands.entity(ui_entity).insert((
-                    Text2d::new(format!(
-                        "Ship: {ship}\nC: {:#?}\nB: {:#?}\nS: {:#?}\n{string}",
-                        current, behavior, stats
-                    )),
-                    TextFont {
-                        font_size: FontSize::Px(30.0),
-                        ..default()
-                    },
-                    Transform::from_rotation(global_transform.rotation().inverse())
-                        .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
-                ));
-            }
-            Err(_) => {}
+            commands.entity(ui_entity).insert((
+                Text2d::new(format!(
+                    "Ship: {ship:?}\nC: {current}\nB: {behavior:?}\nS: {stats:?}\n{string}",
+                )),
+                TextFont {
+                    font_size: FontSize::Px(30.0),
+                    ..default()
+                },
+                Transform::from_rotation(global_transform.rotation().inverse())
+                    .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
+            ));
         }
     }
 }
-
 pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -331,288 +362,6 @@ pub fn player_control_ship(
             }
         }
     } else {
-    }
-}
-
-pub fn control_ship(
-    time: Res<Time>,
-    ships: Query<
-        (
-            Entity,
-            &mut AIShipController,
-            &mut ExternalForce,
-            &Transform,
-            &Ship,
-            &BoundingBox,
-            &Team,
-        ),
-        Without<Camera2d>,
-    >,
-    ships2: Query<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>,
-    global_transforms: Query<&Transform, Without<Camera2d>>,
-    camera_target: Res<CameraTarget>,
-    controlled: Res<ControlledShip>,
-    mut commands: Commands,
-    config: Res<GameConfigValue>,
-) {
-    let mut teams: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>> =
-        HashMap::new();
-    let mut enemies: HashMap<u8, Vec<(Entity, &GlobalTransform, &Ship, &BoundingBox, &Team)>> =
-        HashMap::new();
-
-    let mut rng = rand::rng();
-
-    for ship in ships2 {
-        let value = teams.get_mut(&ship.4.id);
-
-        if let Some(team) = value {
-            team.push(ship);
-        } else {
-            teams.insert(ship.4.id, vec![ship]);
-        }
-    }
-
-    for (team_id, _) in teams.iter() {
-        let mut enemy = Vec::new();
-
-        for (_, enemy_team) in teams.iter().filter(|f| f.0 != team_id) {
-            enemy.extend(enemy_team.iter());
-        }
-
-        enemies.insert(*team_id, enemy);
-    }
-
-    for (entity, mut controller, _, transform, ship, bbox, team) in ships {
-        if !controller.timer.tick(time.delta()).just_finished() {
-            continue;
-        }
-
-        if let Some(following) = camera_target.following
-            && following == entity
-        {
-            continue;
-        }
-
-        if let Some(controlling) = controlled.controlling
-            && controlling == entity
-        {
-            continue;
-        }
-
-        let Some(ally_ships) = teams.get(&team.id) else {
-            continue;
-        };
-
-        let ally = ally_ships
-            .iter()
-            .filter(|other| other.0 != entity)
-            .collect::<Vec<_>>();
-
-        let mut in_range = enemies
-            .get(&team.id)
-            .cloned()
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|other| {
-                other
-                    .1
-                    .translation()
-                    .truncate()
-                    .distance(transform.translation.truncate())
-                    <= ship.max_range
-            });
-
-        match controller.current() {
-            AIShipBehavior::Kiting => {
-                // Hold weapon range and orbit the nearest enemy while turrets engage.
-                let desired = ship.max_range * config.0.ai_min_range_factor;
-
-                let mut nearest: Option<(Entity, Vec2, f32)> = None;
-
-                for other in enemies.get(&team.id).cloned().unwrap_or_default() {
-                    let position = other.1.translation().truncate();
-                    let distance = transform.translation.truncate().distance(position);
-
-                    if distance > ship.max_range {
-                        continue;
-                    }
-
-                    match nearest {
-                        Some((_, _, best)) if best <= distance => {}
-                        _ => nearest = Some((other.0, position, distance)),
-                    }
-                }
-
-                match nearest {
-                    Some((_, enemy_position, distance)) => {
-                        if distance < desired {
-                            let away = (transform.translation.truncate() - enemy_position)
-                                .normalize_or_zero();
-                            commands.entity(entity).insert(ShipBehavior::Approach {
-                                position: enemy_position + away * ship.max_range,
-                                radius: desired,
-                            });
-                        } else {
-                            commands.entity(entity).insert(ShipBehavior::GoAround {
-                                position: enemy_position,
-                                radius: desired,
-                            });
-                        }
-                    }
-                    None => {
-                        controller.next(AIShipBehavior::Idle);
-                    }
-                }
-            }
-            AIShipBehavior::Regroup => {
-                if let Some(a) = ally.last() {
-                    let is_in_range = transform
-                        .translation
-                        .truncate()
-                        .distance(a.1.translation().truncate())
-                        <= (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier;
-
-                    if is_in_range {
-                        controller.next(AIShipBehavior::Wander);
-                    } else {
-                        commands.entity(entity).insert(ShipBehavior::Approach {
-                            position: a.1.transform_point((a.3.size / 2.0).extend(0.0)).truncate(),
-                            radius: (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier,
-                        });
-                    }
-                } else {
-                    controller.next(AIShipBehavior::Idle);
-                }
-            }
-            AIShipBehavior::Idle => {
-                if let Some(e) = in_range.next() {
-                    controller.next(AIShipBehavior::Chase { target: e.0 });
-                } else {
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: Vec2::ZERO,
-                        radius: bbox.size.length() * config.0.ai_group_range_multiplier,
-                    });
-                }
-            }
-            AIShipBehavior::Chase { target } => {
-                if target == entity {
-                    warn!("AI ship {:?} had itself as chase target, idling", entity);
-                    controller.next(AIShipBehavior::Idle);
-                    continue;
-                }
-
-                let global_position = global_transforms
-                    .get(target)
-                    .map(|transform| transform.translation.truncate());
-
-                if let Ok(position) = global_position {
-                    if transform.translation.distance(position.extend(0.0)) >= ship.min_range {
-                        commands.entity(entity).insert(ShipBehavior::Approach {
-                            position: position,
-                            radius: ship.min_range * config.0.ai_min_range_factor,
-                        });
-                    } else {
-                        commands.entity(entity).insert(ShipBehavior::GoAround {
-                            position: position,
-                            radius: ship.min_range * config.0.ai_min_range_factor,
-                        });
-                    }
-                } else {
-                    controller.next(AIShipBehavior::Idle);
-                }
-            }
-            AIShipBehavior::Wander => {
-                if rng.random_bool(config.0.ai_wander_attack_chance as f64) && in_range.next().is_some() {
-                    controller.next(AIShipBehavior::Kiting);
-                } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
-                    controller.next(AIShipBehavior::Attack {
-                        target_position: Vec2::ZERO,
-                    });
-                } else if rng.random_bool(config.0.ai_wander_guard_chance as f64) {
-                    if let Some(a) = ally.last() {
-                        controller.next(AIShipBehavior::Guard {
-                            target: a.0,
-                            radius: (a.3.size.length() + bbox.size.length()) * config.0.ai_group_range_multiplier,
-                        });
-                    }
-                } else {
-                    controller.next(AIShipBehavior::Patrol {
-                        around_position: Vec2::ZERO,
-                        radius: bbox.size.length() * config.0.ai_wander_patrol_radius_multiplier,
-                    });
-                }
-            }
-            AIShipBehavior::Attack { target_position } => {
-                commands.entity(entity).insert(ShipBehavior::Approach {
-                    position: target_position,
-                    radius: bbox.size.length(),
-                });
-            }
-            AIShipBehavior::Flee { from } => {
-                let position = global_transforms
-                    .get(from)
-                    .map(|transform| transform.translation.truncate());
-
-                if let Ok(position) = position {
-                    let direction =
-                        (transform.translation.truncate() - position).normalize_or_zero();
-
-                    let op_direction = direction * -1.0;
-                    let op_position = transform.translation.truncate() + op_direction * config.0.ai_flee_distance;
-
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: op_position,
-                        radius: bbox.size.length(),
-                    });
-                }
-            }
-            AIShipBehavior::Patrol {
-                around_position,
-                radius,
-            } => {
-                commands.entity(entity).insert(ShipBehavior::Approach {
-                    position: around_position,
-                    radius,
-                });
-            }
-            AIShipBehavior::Guard { target, radius } => {
-                if let Ok(position) = global_transforms.get(target) {
-                    let target_pos_actual = position.translation.truncate();
-
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: target_pos_actual,
-                        radius,
-                    });
-                } else {
-                    controller.previous();
-                }
-            }
-            AIShipBehavior::Follow { target, radius } => {
-                if let Ok(position) = global_transforms.get(target) {
-                    let target_pos_actual = position.translation.truncate();
-
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: target_pos_actual,
-                        radius,
-                    });
-                } else {
-                    controller.previous();
-                }
-            }
-            AIShipBehavior::Kamikaze { target } => {
-                // Kamikaze at the target
-                if let Ok(position) = global_transforms.get(target) {
-                    let target_pos_actual = position.translation.truncate();
-
-                    commands.entity(entity).insert(ShipBehavior::Approach {
-                        position: target_pos_actual,
-                        radius: bbox.size.length(),
-                    });
-                } else {
-                    controller.previous();
-                }
-            }
-        }
     }
 }
 

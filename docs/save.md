@@ -3,10 +3,10 @@
 ## Locations
 
 `save_dir()` = `directories::ProjectDirs::from("com", "somerandomdev", "agameproject").data_dir()`
-(e.g. on Windows: `%APPDATA%\somerandomdev\agameproject\data`) — created lazily on save.
-Sub-directories: `schematics/` (ship blueprints) and `saves/` (world saves).
+(e.g. on Windows: `%APPDATA%\somerandomdev\agameproject\data`).
+Sub-directories: `schematics/` (ship blueprints, JSON) and `world/` (RON world saves).
 
-## Schematic format
+## Schematic format (editor, unchanged)
 
 `<filename>.json`:
 
@@ -16,63 +16,91 @@ Sub-directories: `schematics/` (ship blueprints) and `saves/` (world saves).
   "filename": "my-ship",
   "name": "My Ship",
   "blocks": [
-    { "id": "<uuid>", "position": { "x": 0, "y": 0 }, "block_type": "Core", "rotation": 0 }
+    { "id": "<uuid>", "position": { "x": 0, "y": 0 }, "block_type": "core", "rotation": 0 }
   ]
 }
 ```
 
-`position` is grid-space (`IVec2`), anchored bottom-left. `rotation` is a `u8` flag byte
-(0 = unrotated everywhere in practice). `block_type` is now an interned `Symbol` id
-string (e.g. `"core"`, `"laser_turret"`, `"block_steel"`); legacy enum-name
-schematics fail to load with an incompatibility error (Slice 2 breakage).
+`position` is grid-space (`IVec2`). `block_type` is an interned `Symbol` id string.
+Editor schematic save/load stays JSON (Slice 6 keeps this format focused on world saves).
 
 On load, `load_saved_schematics()`:
 1. Reads `schematics/`, parses `*.json` into `SchematicData`, overriding `filename`.
 2. Pads up to 5 placeholder ships when fewer exist (name `ship_N`, one Core + one
-   LaserTurret added if a schematic has ≤ 2 blocks — in memory only).
+   Laser Turret if a schematic has ≤ 2 blocks — in memory only).
 3. `SchematicData::to_ship_data()` clones blocks and assigns **new UUIDs** to every block
-   on spawn, so loaded schematics differ from saved ones.
+   on spawn.
 
-Schematics are consumed by:
-- Ship Editor (load/list/save/delete),
-- `check_ship` (top-up spawning; reads the whole directory every 100 ms — see defects.md),
-- `load_current_ship` (startup: picks `schematics[0]`).
+## World save format (Slice 6, ship-relative RON)
 
-## World save format
+Pause → **Save** writes two kinds of file under `world/`:
 
-Pause → **Save** writes `saves/test.json`:
+```
+world/
+  world.ron
+  ships/<ship-uuid>.ron   (one per ship)
+```
 
-```json
-{
-  "ships":          [ { "id": "…", "state": {}, "team": { "id": 0, "color": … } } ],
-  "blocks":         [ { "id": "…", "parent": "…", "block_type": "…", "position": {…}, "rotation": 0,
-                        "state": { "block_type": "…" } } ],
-  "turrets":        [ { "id": "…", "parent": "…", "state": { "active": false,
-                        "target": null, "shoot_at": null } } ],
-  "transforms":     [ { "parent": "…", "component": { … } } ],
-  "healths":        [ { "parent": "…", "component": { "health": 5000.0, "max_health": 5000.0 } } ],
-  "shoot_patterns": { "single": [ { "parent": "…",
-                                   "component": { "last_fired_at": 0.0 } } ] }
-}
+`world.ron` — world-level stamp only:
+
+```ron
+(
+    version: 1,
+    teams: [0, 1],
+    elapsed_secs: 12.5,
+    ship_ids: ["<uuid>", ...],
+)
+```
+
+`ships/<uuid>.ron` — one ship, blocks relative to the ship (no UUID cross-refs):
+
+```ron
+(
+    version: 1,
+    id: "<uuid>",
+    team: 0,
+    blocks: [
+        (
+            position: (0, 0),
+            block_type: "core",
+            rotation: 0,
+            health: 5000.0,
+            max_health: 5000.0,
+            turret_state: None,
+            single_pattern: None,
+            burst_pattern: None,
+        ),
+        (
+            position: (1, 3),
+            block_type: "laser_turret",
+            rotation: 0,
+            health: 1600.0,
+            max_health: 1600.0,
+            turret_state: Some((active: false, shoot_at: None)),
+            single_pattern: None,
+            burst_pattern: Some((shooting: Cooldown(last_fired_at: 0.0))),
+        ),
+    ],
+)
 ```
 
 Notes:
-- Save walks **every** `Ship`, `Block`, `TurretState`, `Transform`, `Health`, `SingleShootPatternState`
-  in the world. `get_parent` panics on entities without a parent (e.g. scene-independent
-  ships).
-- `Transform` is saved verbatim via `bevy`'s `Serialize` impl and restored verbatim.
-- Load path: pause menu → despawn all ships/bullets → `LoadWorldEvent` → `handle_load_world_event`
-  spawns blocks at recorded positions, re-inserts turret state, then **overrides Transform,
-  Health and single-shot timing** through `ParentWrapper` reconstruction.
-- Restored ships get fresh `AIShipController` (Idle), fresh colliders, default
-  `ComputedShipStats`; saved `Transform` is applied after spawn.
-- Nothing else is persisted: **no drops, lasers, missiles, beams, lifetimes — and no
-  player camera/selection state.**
-- `Load` after `Save` is not idempotent in the presence of game-notifications — see defects.md.
+- `WORLD_SCHEMA_VERSION = 1` is written at the top of both files. `read_version()`
+  rejects unknown versions loudly, naming expected and found versions.
+- Block positions are grid-relative to the ship; there are no UUIDs at rest inside a ship
+  file, and no two-pass uuid→Entity linker on load.
+- Turret state is saved without entity references (a loaded world has no acquired targets).
+- Single/burst pattern states are preserved with their existing struct shapes.
+- **Nothing else is persisted**: no missiles, lasers, drops, beams, lifetimes, damage text,
+  camera, or selection state. On load all `Save`-marked effect entities are despawned, so a
+  loaded world cannot leak them.
+- Ship files are named by a UUID derived from the ship entity at save time (stable for the
+  entity's lifetime); stale files from earlier saves are not deleted in 0.1.0.
+- Old `saves/test.json` files do not load — no migration, fresh start expected.
 
 ## Save API
 
-`SaveWorldEvent { path: PathBuf }`, `LoadWorldEvent { path: PathBuf }` — messages;
-`handle_save_world_event` / `handle_load_world_event` run in `Update`,
-`on_message` gated.
-`save_schematic(&SchematicData)` is also callable directly by the editor.
+`SaveWorldEvent`, `LoadWorldEvent` — unit messages (no path); `handle_save_world_event` /
+`handle_load_world_event` run in `Update`, `on_message` gated, in `SimulationSet::Apply`.
+`spawn_ship_from_save` is the single entry point for recreating a ship from a `ShipSave`.
+`save_schematic(&SchematicData)` remains callable directly by the editor.

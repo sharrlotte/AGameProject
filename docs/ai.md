@@ -2,32 +2,44 @@
 
 ## Components
 
-`AIShipController { last_behavior, behavior, initial_behavior: AIShipBehavior,
-timer: Repeating(1/15 s) }`. Inserted on every ship by `ShipData::spawn` with `Idle`.
-
-`Timer` gates all transitions — AI evaluates 15× per second.
-
-## `AIShipBehavior`
+Each AI behavior is its own marker component in `content/ship/ai/component.rs`:
 
 ```
-Idle | Wander | Attack { target_position: Vec2 } | Patrol { around_position: Vec2, radius: f32 }
-Chase { target: Entity } | Flee { from: Entity } | Guard { target: Entity, radius: f32 }
-Follow { target: Entity, radius: f32 } | Kamikaze { target: Entity } | Regroup | Kiting
+BehaviorIdle | BehaviorWander | BehaviorKiting | BehaviorRegroup
+BehaviorChase { target: Entity } | BehaviorAttack { target_position: Vec2 }
+BehaviorPatrol { around_position: Vec2, radius: f32 }
+BehaviorFlee { from: Entity } | BehaviorGuard { target: Entity, radius: f32 }
+BehaviorFollow { target: Entity, radius: f32 } | BehaviorKamikaze { target: Entity }
 ```
 
-**Behavior transitions (current implementation, evaluated in `FixedUpdate::control_ship`):**
+`ShipData::spawn` inserts `BehaviorTimer::new(config.ai_think_rate_hz)` and
+`BehaviorIdle` on every ship. Each ship carries exactly one behavior marker;
+transition systems remove all markers and insert the new one in one deferred
+command, so `Query<&BehaviorChase>` (or `With<BehaviorChase>`) is the single
+source of truth for the current behavior.
 
-| State | Transitions |
+`BehaviorTimer` gates all transitions — AI evaluates 15× per second. Each
+behavior system ticks the timer (only one system matches a given ship per
+tick) and reads `ShipIndex`, a shared resource of per-team ship snapshots
+rebuilt once per fixed tick by `build_ship_index`.
+
+`AIShipController` and the `AIShipBehavior` enum no longer exist.
+
+**Behavior transitions** (one system per behavior in
+`content/ship/ai/system.rs`, registered in `AiPlugin`, all in
+`SimulationSet::Simulate` and chained after `build_ship_index`):
+
+| Component / system | Transitions |
 |---|---|
-| `Regroup` | if allies collected (`teams` map filtered by team) within `(ally.size + own.size) * 2` → `Wander`; else inserts `ShipBehavior::Approach { position: ally_pos, radius: (ally.size + own.size) * 2 }`. If no allies → `Idle` |
-| `Idle` | if an enemy is within `ship.max_range` → `Chase { target: enemy }`; else Approach world-origin with radius `size*2` |
-| `Chase` | if target lost → `Idle`. Inserts `Approach { radius: min_range*0.9 }` if far, else `GoAround { radius: min_range*0.9 }` |
-| `Wander` | RNG: 50% `Attack{0}`, else 50% `Guard` on last ally, else `Patrol{0, radius: size*10}` |
-| `Attack` | inserts `Approach { position: target_position, radius: size }` |
-| `Flee` | inserts `Approach` away from `from` by 1000 px |
-| `Patrol` | `Approach { around_position, radius }` |
-| `Guard` / `Follow` / `Kamikaze` | if target valid → `Approach`; else `previous()` (back to previous behavior) |
-| `Kiting` | **`todo!()` — panics** if reached. Nothing transitions into `Kiting` in current code. |
+| `BehaviorRegroup` | ally within `(ally.size + own.size) * ai_group_range_multiplier` → `Wander`; else `Approach { ally_pos, radius }`. No allies → `Idle` |
+| `BehaviorIdle` | enemy within `ship.max_range` → `Chase { target }`; else `Approach { Vec2::ZERO, radius: size * ai_group_range_multiplier }` |
+| `BehaviorChase` | target lost or self → `Idle`. Inserts `Approach { radius: min_range * ai_min_range_factor }` if far, else `GoAround` |
+| `BehaviorWander` | RNG: `ai_wander_attack_chance` + enemy in range → `Kiting`; then `ai_wander_guard_chance` → `Attack { 0 }`; then same chance → `Guard` on last ally; else `Patrol { 0, radius: size * ai_wander_patrol_radius_multiplier }` |
+| `BehaviorKiting` | nearest enemy within `max_range`: `Approach` away if closer than `max_range * ai_min_range_factor`, else `GoAround` at that radius; no enemy → `Idle` |
+| `BehaviorAttack` | inserts `Approach { position: target_position, radius: size }` |
+| `BehaviorFlee` | inserts `Approach` away from `from` by `ai_flee_distance` |
+| `BehaviorPatrol` | `Approach { around_position, radius }` |
+| `BehaviorGuard` / `BehaviorFollow` / `BehaviorKamikaze` | target valid → `Approach`; else `Idle` (previously `previous()` — see decision.md) |
 
 `Idle`/`Chase` use `ship.min_range` (= `10000.0` seed lowered only by turret features)
 and `ship.max_range` (= `1000.0` seed raised by turret feature ranges).
@@ -35,9 +47,11 @@ and `ship.max_range` (= `1000.0` seed raised by turret feature ranges).
 Skipped conditions: ships being followed (`CameraTarget.following`) or controlled
 (`ControlledShip.controlling`) are skipped by AI.
 
-Only teams 0 (player) and 1 are ever spawned (`for i in 0..2` in `check_ship`).
-Schematics for AI ships come from `load_saved_schematics()` at random and are spawned
-at a uniform random position in `[-10000, 10000]²` on `1000.0 px` grid steps.
+The debug HUD (`update_ship_ui`, debug builds) reads the behavior marker via
+`behavior_label(...)` and displays the behavior name without any controller enum.
+
+Only teams 0 (player) and 1 are ever spawned. Schematics for AI ships come from
+`load_saved_schematics()` and are spawned at mission-defined positions.
 
 ## Movement application
 
@@ -51,7 +65,7 @@ at a uniform random position in `[-10000, 10000]²` on `1000.0 px` grid steps.
   torque logic; forces away from target when inside ring.
 
 `ShipBehavior` is an `Approach`/`GoAround { position, radius }` component written by AI
-state logic. It is never removed intentionally; overwritten on next transition.
+behavior systems. It is never removed intentionally; overwritten on next transition.
 
 Player-controlled ships skip `update_ship_behavior`.
 
@@ -65,9 +79,8 @@ smoothly lerps toward the followed ship's core position
 ## Selection
 
 `SelectablePlugin`: `Ctrl`+`Left-drag` selects player ships within the drag box;
-`SelectableState::Selecting` tracks start pos; `Selection` takes entity under the box via
-`BoundingBox` test + translation test (may double-count — see defects.md), and emits
-`EntitySelectEvent { Vec<Entity> }`.
+`SelectableState::Selecting` tracks start pos; selection takes entity under the box via
+`BoundingBox` test + translation test, and emits `EntitySelectEvent { Vec<Entity> }`.
 
-Consumers: Game HUD `update_select_panel` (dumps `"<TYPE>: <n>"` entries into the
-selection panel).
+Consumers: Game HUD `update_select_panel` dumps `"Selected: <n>"` into the
+selection panel.

@@ -1,4 +1,6 @@
-## ADDED Requirements
+# AI Behavior FSM
+
+## Requirements
 
 ### Requirement: Each AI behavior is a distinct component
 

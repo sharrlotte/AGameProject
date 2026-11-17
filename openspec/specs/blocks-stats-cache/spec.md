@@ -1,4 +1,6 @@
-## ADDED Requirements
+# Blocks Stats Cache
+
+## Requirements
 
 ### Requirement: A per-ship cell grid is the source of truth for block occupancy
 
