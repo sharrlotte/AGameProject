@@ -3,7 +3,8 @@ use bevy::{audio::Volume, post_process::bloom::Bloom, prelude::*};
 use crate::config::GameSetting;
 use crate::mission::BattleResult;
 use crate::resource::{AppNotice, PendingLoad, SceneState, SettingState};
-use crate::save::io::reset_campaign_data;
+use crate::save::battle::{BattleSaveState, reset_campaign_data};
+use crate::save::campaign::CampaignSave;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 use crate::simulation::SimulationSet;
 
@@ -166,6 +167,8 @@ fn on_confirm_reset(
     buttons: Query<&ConfirmResetButton>,
     sections: Query<Entity, With<DataSection>>,
     mut commands: Commands,
+    mut campaign: ResMut<CampaignSave>,
+    mut battle_save: ResMut<BattleSaveState>,
     mut pending: ResMut<PendingLoad>,
     mut battle: ResMut<BattleResult>,
     mut notice: ResMut<AppNotice>,
@@ -174,6 +177,8 @@ fn on_confirm_reset(
         return;
     }
     reset_campaign_data();
+    campaign.reset();
+    battle_save.has_save = false;
     *pending = PendingLoad::default();
     *battle = BattleResult::default();
     notice.show("Campaign data reset");

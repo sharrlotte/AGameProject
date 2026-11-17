@@ -1,9 +1,35 @@
+use bevy::prelude::{error, warn};
+use directories::ProjectDirs;
 use std::error::Error;
 use std::io;
+use std::path::PathBuf;
 use std::{fmt, fs, path::Path};
 
 use ron::ser::{PrettyConfig, to_string_pretty};
 use serde::{Serialize, de::DeserializeOwned};
+
+pub fn data_dir() -> PathBuf {
+    ProjectDirs::from("com", "somerandomdev", "agameproject")
+        .map(|dirs| dirs.data_dir().to_path_buf())
+        .unwrap_or_else(|| {
+            error!("Failed to resolve project directory, falling back to local ./agameproject");
+            PathBuf::from("./agameproject")
+        })
+}
+
+pub fn remove_with_backup(path: &Path) {
+    if let Err(err) = fs::remove_file(path)
+        && err.kind() != io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove {}: {err}", path.display());
+    }
+    let bak = path.with_extension("ron.bak");
+    if let Err(err) = fs::remove_file(&bak)
+        && err.kind() != io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove {}: {err}", bak.display());
+    }
+}
 
 pub trait RonDocument: Serialize + DeserializeOwned {
     const VERSION: u32;

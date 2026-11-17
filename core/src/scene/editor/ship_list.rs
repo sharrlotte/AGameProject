@@ -6,12 +6,11 @@ pub fn load_initial_ship(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
+    catalog: Res<ShipCatalog>,
     placed_blocks: Query<Entity, With<BlockRef>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    let designs = ShipCatalog::load_or_seed();
-
-    let Some(design) = designs.first() else {
+    let Some(design) = catalog.designs().first() else {
         return;
     };
 
@@ -23,6 +22,7 @@ pub fn load_initial_ship(
         &mut commands,
         &mut editor,
         &registry,
+        &catalog,
         &filename,
         ship_base.entity(),
     );
@@ -45,9 +45,10 @@ fn on_load_ship(
 pub fn refresh_ship_list(
     mut commands: Commands,
     mut available_ships: ResMut<EditorState>,
+    catalog: Res<ShipCatalog>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    available_ships.ships = ShipCatalog::load_or_seed();
+    available_ships.ships = catalog.designs().to_vec();
 
     commands.entity(ship_list_panel.entity()).despawn_children();
 
@@ -98,6 +99,7 @@ pub fn handle_ship_loading(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
+    catalog: Res<ShipCatalog>,
     placed_blocks: Query<Entity, With<BlockRef>>,
     mut selections: MessageReader<LoadShipSelected>,
     ship_base: Single<Entity, With<ShipBase>>,
@@ -108,6 +110,7 @@ pub fn handle_ship_loading(
             &mut commands,
             &mut editor,
             &registry,
+            &catalog,
             &selection.filename,
             ship_base.entity(),
         );
@@ -207,19 +210,21 @@ pub fn spawn_ship(
     commands: &mut Commands,
     editor: &mut EditorState,
     registry: &BlockRegistry,
+    catalog: &ShipCatalog,
     filename: &str,
     ship_base: Entity,
 ) {
-    let ships = ShipCatalog::load_or_seed();
-
     editor.grid = ShipGrid::new();
     editor.filename = filename.to_string();
 
-    if let Some(ship_to_load) = ships
-        .into_iter()
+    if let Some(ship_to_load) = catalog
+        .designs()
+        .iter()
         .find(|ship| ShipCatalog::file_name(ship) == filename)
+        .cloned()
     {
         editor.filename = ship_to_load.name.clone();
+        editor.ai_profile = ship_to_load.ai.clone();
 
         if ship_to_load.blocks.is_empty() {
             warn!("Ship {} is empty", editor.filename);

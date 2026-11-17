@@ -7,7 +7,7 @@ use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ShipDesign;
 use crate::resource::DeployPayload;
-use crate::save::catalog::ShipCatalog;
+use crate::save::design::ShipCatalog;
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum BattlePhase {
@@ -72,8 +72,9 @@ pub fn spawn_mission(
     config: &GameConfigValue,
     mission: &MissionDef,
     state: &DeployPayload,
+    catalog: &ShipCatalog,
 ) {
-    let schematics = ShipCatalog::load_or_seed();
+    let schematics = catalog.designs();
 
     match &state.current_ship {
         Some(deployed) => {
@@ -86,11 +87,11 @@ pub fn spawn_mission(
             );
         }
         None => {
-            spawn_ship(commands, registry, config, &schematics, &mission.player);
+            spawn_ship(commands, registry, config, schematics, &mission.player);
         }
     }
 
     for enemy in &mission.enemies {
-        spawn_ship(commands, registry, config, &schematics, enemy);
+        spawn_ship(commands, registry, config, schematics, enemy);
     }
 }

@@ -157,6 +157,7 @@ pub fn handle_single_shot(
     )>,
     config: Res<GameConfigValue>,
 ) {
+    let dt = time.delta_secs();
     for (
         turret,
         turret_state,
@@ -169,7 +170,10 @@ pub fn handle_single_shot(
         boost,
     ) in query.iter_mut()
     {
-        if !turret_state.active {
+        shoot_pattern_state.cooldown_remaining =
+            (shoot_pattern_state.cooldown_remaining - dt).max(0.0);
+
+        if !turret_state.active || shoot_pattern_state.cooldown_remaining > 0.0 {
             continue;
         }
 
@@ -180,9 +184,6 @@ pub fn handle_single_shot(
 
         let boost_val = boost.map_or(1.0, Boost::value).max(1.0);
         let cooldown = shoot_pattern.fire_rate / boost_val;
-        if time.elapsed_secs() < shoot_pattern_state.last_fired_at + cooldown {
-            continue;
-        }
 
         if let Some((TurretPower::Charge { capacity, .. }, ref charge)) = turret_power
             && charge.value < *capacity - 1e-5
@@ -211,7 +212,7 @@ pub fn handle_single_shot(
                 &config,
             );
         }
-        shoot_pattern_state.last_fired_at = time.elapsed_secs();
+        shoot_pattern_state.cooldown_remaining = cooldown;
         if let Some((TurretPower::Charge { .. }, ref mut charge)) = turret_power {
             charge.value = 0.0;
         }
@@ -235,6 +236,7 @@ pub fn handle_burst_shot(
     )>,
     config: Res<GameConfigValue>,
 ) {
+    let dt = time.delta_secs();
     for (
         turret,
         turret_state,
@@ -247,36 +249,40 @@ pub fn handle_burst_shot(
         boost,
     ) in query.iter_mut()
     {
-        if !turret_state.active {
-            continue;
-        }
-
-        let Ok(transform) = barrels.get(barrel_ref.0) else {
-            continue;
-        };
-        let Turret { barrels, range, .. } = turret;
         let boost_val = boost.map_or(1.0, Boost::value).max(1.0);
+        let cooldown = shoot_pattern.fire_rate / boost_val;
 
         match &mut shoot_pattern_state.shooting {
             BurstShootPatternShootingState::Shooting {
                 current_barrel,
-                last_barrel_fired_at,
+                barrel_delay_remaining,
                 current_amount,
             } => {
+                *barrel_delay_remaining = (*barrel_delay_remaining - dt).max(0.0);
+
+                if !turret_state.active {
+                    continue;
+                }
+
+                let Ok(transform) = barrels.get(barrel_ref.0) else {
+                    continue;
+                };
+                let Turret { barrels, range, .. } = turret;
+
                 if *current_amount <= 0 {
                     shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
-                        last_fired_at: time.elapsed_secs(),
+                        cooldown_remaining: cooldown,
                     };
                     continue;
                 }
 
-                if time.elapsed_secs() < *last_barrel_fired_at + shoot_pattern.delay {
+                if *barrel_delay_remaining > 0.0 {
                     continue;
                 }
 
                 if barrels.is_empty() {
                     shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
-                        last_fired_at: time.elapsed_secs(),
+                        cooldown_remaining: cooldown,
                     };
                     continue;
                 }
@@ -287,7 +293,7 @@ pub fn handle_burst_shot(
                     && !ammo.take()
                 {
                     shoot_pattern_state.shooting = BurstShootPatternShootingState::Cooldown {
-                        last_fired_at: time.elapsed_secs(),
+                        cooldown_remaining: cooldown,
                     };
                     continue;
                 }
@@ -313,13 +319,16 @@ pub fn handle_burst_shot(
                     ));
                 }
 
-                *last_barrel_fired_at = time.elapsed_secs();
+                *barrel_delay_remaining = shoot_pattern.delay;
                 *current_amount -= 1;
                 *current_barrel += 1;
             }
-            BurstShootPatternShootingState::Cooldown { last_fired_at } => {
-                let cooldown = shoot_pattern.fire_rate / boost_val;
-                if time.elapsed_secs() >= *last_fired_at + cooldown {
+            BurstShootPatternShootingState::Cooldown { cooldown_remaining } => {
+                *cooldown_remaining = (*cooldown_remaining - dt).max(0.0);
+                if !turret_state.active {
+                    continue;
+                }
+                if *cooldown_remaining <= 0.0 {
                     if let Some((TurretPower::Charge { capacity, .. }, ref mut charge)) =
                         turret_power
                     {
@@ -330,7 +339,7 @@ pub fn handle_burst_shot(
                     }
                     shoot_pattern_state.shooting = BurstShootPatternShootingState::Shooting {
                         current_barrel: 0,
-                        last_barrel_fired_at: 0.0,
+                        barrel_delay_remaining: 0.0,
                         current_amount: shoot_pattern.amount,
                     };
                 }
@@ -362,6 +371,7 @@ pub fn handle_laser_beam(
         return;
     };
 
+    let dt = time.delta_secs();
     for (
         _entity,
         turret,
@@ -383,12 +393,11 @@ pub fn handle_laser_beam(
         let Turret { barrels, range, .. } = turret;
 
         match &mut shoot_pattern_state.shooting {
-            LaserBeamPatternShootingState::Shooting { start_time } => {
-                if supply_val <= STARVATION_THRESHOLD
-                    || time.elapsed_secs() >= *start_time + shoot_pattern.duration
-                {
+            LaserBeamPatternShootingState::Shooting { elapsed } => {
+                *elapsed += dt;
+                if supply_val <= STARVATION_THRESHOLD || *elapsed >= shoot_pattern.duration {
                     shoot_pattern_state.shooting = LaserBeamPatternShootingState::Cooldown {
-                        last_fired_at: time.elapsed_secs(),
+                        cooldown_remaining: shoot_pattern.cooldown / boost_val,
                     };
 
                     if let Some(beam) = shoot_pattern_state.beam {
@@ -398,9 +407,9 @@ pub fn handle_laser_beam(
                     continue;
                 }
 
-                let intensitive = ((time.elapsed_secs() - *start_time)
+                let intensitive = ((*elapsed)
                     .min(1.0)
-                    .min((*start_time + shoot_pattern.duration - time.elapsed_secs()).min(1.0))
+                    .min((shoot_pattern.duration - *elapsed).min(1.0))
                     * 10.0)
                     .max(0.5);
 
@@ -466,16 +475,15 @@ pub fn handle_laser_beam(
                     commands.entity(barrel_ref.0).add_child(beam);
                 }
             }
-            LaserBeamPatternShootingState::Cooldown { last_fired_at } => {
+            LaserBeamPatternShootingState::Cooldown { cooldown_remaining } => {
+                *cooldown_remaining = (*cooldown_remaining - dt).max(0.0);
                 if !turret_state.active || supply_val <= STARVATION_THRESHOLD {
                     continue;
                 }
 
-                let cooldown = shoot_pattern.cooldown / boost_val;
-                if time.elapsed_secs() >= *last_fired_at + cooldown {
-                    shoot_pattern_state.shooting = LaserBeamPatternShootingState::Shooting {
-                        start_time: time.elapsed_secs(),
-                    };
+                if *cooldown_remaining <= 0.0 {
+                    shoot_pattern_state.shooting =
+                        LaserBeamPatternShootingState::Shooting { elapsed: 0.0 };
                 }
             }
         };

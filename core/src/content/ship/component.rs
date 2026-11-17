@@ -17,6 +17,7 @@ use crate::resource::SceneState;
 #[require(Throttle)]
 pub struct Ship {
     pub id: Uuid,
+    pub core_id: Uuid,
     pub core_position: Vec2,
 }
 
@@ -76,11 +77,31 @@ impl ShipDesign {
         transform: Transform,
         config: &GameConfigValue,
     ) -> Option<(Entity, Vec<Entity>)> {
+        self.spawn_with_id(
+            commands,
+            registry,
+            team,
+            transform,
+            config,
+            Uuid::now_v7(),
+        )
+    }
+
+    pub fn spawn_with_id(
+        &self,
+        commands: &mut Commands,
+        registry: &BlockRegistry,
+        team: Team,
+        transform: Transform,
+        config: &GameConfigValue,
+        ship_id: Uuid,
+    ) -> Option<(Entity, Vec<Entity>)> {
         let mut grid = ShipGrid::new();
         grid.rebuild_from_layout(&self.blocks, registry);
 
         let build = registry.build_ship_result(&grid);
-        let ship = build.ship?;
+        let mut ship = build.ship?;
+        ship.id = ship_id;
         let stats = build.stats?;
         let bounds = build.bounds?;
         let mass = stats.mass;

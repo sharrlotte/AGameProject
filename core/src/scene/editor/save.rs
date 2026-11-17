@@ -4,6 +4,7 @@ pub fn handle_ship_saving(
     mut ship_saved_event: MessageWriter<ShipSavesChanged>,
     state: Res<EditorState>,
     registry: Res<BlockRegistry>,
+    mut catalog: ResMut<ShipCatalog>,
 ) {
     let layout: Vec<BlockPlacement> = state
         .grid
@@ -28,6 +29,7 @@ pub fn handle_ship_saving(
         state.filename.clone(),
         &state.grid,
         &state.ai_profile,
+        &mut catalog,
         &mut ship_saved_event,
     );
 }
@@ -37,17 +39,18 @@ pub fn perform_save_schematic(
     name: String,
     grid: &ShipGrid,
     profile: &AiProfile,
+    catalog: &mut ShipCatalog,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let design = ShipDesign {
-        version: 1,
+        version: DESIGN_SCHEMA_VERSION,
         id,
         name,
         blocks: grid.blocks().map(|b| b.placement.clone()).collect(),
         ai: profile.clone(),
     };
 
-    if let Err(e) = ShipCatalog::save(&design) {
+    if let Err(e) = catalog.save_design(&design) {
         error!("Fail to save ship: {:?}", e)
     } else {
         ship_saved_event.write(ShipSavesChanged);

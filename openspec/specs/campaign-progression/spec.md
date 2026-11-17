@@ -7,15 +7,15 @@ Single-save campaign progression with automatic battle snapshots, stateless Quic
 ## Requirements
 
 ### Requirement: Campaign progression is persisted separately from active battle state
-The system SHALL persist campaign progression in `<data_dir>/saves/campaign.ron` as a versioned RON document (`CampaignSave`), distinct from the active mid-battle snapshot `<data_dir>/saves/battle.ron`.
+The system SHALL persist campaign progression in `<data_dir>/saves/campaign.ron` as a versioned RON document (`CampaignSave`) backed by an in-memory `CampaignSave` Bevy `Resource`, distinct from the active mid-battle snapshot `<data_dir>/saves/battle.ron` tracked by the `BattleSaveState` Bevy `Resource`.
 
 #### Scenario: Victory records mission completion
 - **WHEN** a `Campaign` battle reaches `BattlePhase::Ended` with `BattleOutcome::Victory`
-- **THEN** the mission is recorded in `campaign.ron` and `battle.ron` is removed
+- **THEN** the mission is recorded in the `CampaignSave` resource and persisted to `campaign.ron`, `battle.ron` is removed, and `BattleSaveState` marks no active battle save
 
 #### Scenario: Defeat clears active battle snapshot
 - **WHEN** a `Campaign` battle reaches `BattlePhase::Ended` with `BattleOutcome::Defeat`
-- **THEN** `battle.ron` is removed so the player starts the mission fresh next time
+- **THEN** `battle.ron` is removed and `BattleSaveState` marks no active battle save so the player starts the mission fresh next time
 
 ### Requirement: Campaign battles auto-save automatically
 When `BattleMode::Campaign` is active in `SceneState::Game`, the system SHALL automatically write `battle.ron` without manual save UI.
@@ -36,14 +36,14 @@ When `BattleMode::Campaign` is active in `SceneState::Game`, the system SHALL au
 - **THEN** neither `battle.ron` nor `campaign.ron` is created, modified, or deleted
 
 ### Requirement: Home menu adapts Play vs Continue to active battle save
-The `Home` menu SHALL display **Continue** when `battle.ron` exists and **Play** when no active battle save exists, while keeping **Quick Battle** as a separate button.
+The `Home` menu SHALL display **Continue** when `BattleSaveState` indicates an active `battle.ron` exists and **Play** when no active battle save exists, while keeping **Quick Battle** as a separate button.
 
 #### Scenario: Active battle save exists on Home entry
-- **WHEN** `SceneState::Home` is entered and `battle.ron` exists on disk
+- **WHEN** `SceneState::Home` is entered and `BattleSaveState` indicates `battle.ron` exists
 - **THEN** the primary launch button displays `Continue` and clicking it loads `battle.ron` into `SceneState::Game` in `BattleMode::Campaign`
 
 #### Scenario: No active battle save exists on Home entry
-- **WHEN** `SceneState::Home` is entered and `battle.ron` does not exist
+- **WHEN** `SceneState::Home` is entered and `BattleSaveState` indicates `battle.ron` does not exist
 - **THEN** the primary launch button displays `Play` and clicking it starts a fresh `Campaign` mission in `SceneState::Game`
 
 ### Requirement: Main Menu Settings includes a Data reset section
@@ -55,7 +55,7 @@ When `SettingState::Open` is entered from `SceneState::Home`, the Settings UI SH
 
 #### Scenario: Confirming reset clears progress but preserves ship designs
 - **WHEN** the player confirms the reset in Main Menu Settings
-- **THEN** `battle.ron` and `campaign.ron` are deleted, in-memory campaign state is reset, `Home` updates `Continue` back to `Play`, and player ship designs in `designs/*.ron` remain untouched
+- **THEN** `battle.ron` and `campaign.ron` are deleted, the `CampaignSave` and `BattleSaveState` resources are reset in memory, `Home` updates `Continue` back to `Play`, and player ship designs in `designs/*.ron` and `ShipCatalog` remain untouched
 
 #### Scenario: Data section hidden outside Home
 - **WHEN** the player opens Settings from the Pause menu in `SceneState::Game`

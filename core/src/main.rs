@@ -20,7 +20,7 @@ use crate::mission::MissionPlugin;
 use crate::resource::{
     DeployPayload, GameRng, PauseState, SceneState,
 };
-use crate::save::io::SavePlugin;
+use crate::save::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;

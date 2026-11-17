@@ -18,7 +18,9 @@ use crate::content::ship::mutation::apply_ship_mutations;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::resource::{AppNotice, BattleMode, DeployPayload, PauseState, PendingLoad, SceneState};
-use crate::save::io::{SaveWorldEvent, clear_battle_save, load_campaign, save_campaign};
+use crate::save::battle::{BattleSaveState, SaveWorldEvent, clear_battle_save};
+use crate::save::campaign::CampaignSave;
+use crate::save::design::ShipCatalog;
 
 use crate::mission::state::spawn_mission;
 use crate::scene::widget::{ButtonVisuals, spawn_button};
@@ -126,19 +128,21 @@ fn tick_auto_save(
     }
 }
 
-fn record_campaign_outcome(mode: Res<BattleMode>, result: Res<BattleResult>) {
+fn record_campaign_outcome(
+    mode: Res<BattleMode>,
+    result: Res<BattleResult>,
+    mut campaign: ResMut<CampaignSave>,
+    mut battle_save: ResMut<BattleSaveState>,
+) {
     if *mode != BattleMode::Campaign {
         return;
     }
     clear_battle_save();
-    if result.outcome == Some(BattleOutcome::Victory) {
-        let mut campaign = load_campaign();
-        if !campaign.completed_missions.contains(&result.mission_name) {
-            campaign.completed_missions.push(result.mission_name.clone());
-        }
-        if let Err(err) = save_campaign(&campaign) {
-            warn!("Failed to save campaign progress: {err}");
-        }
+    battle_save.has_save = false;
+    if result.outcome == Some(BattleOutcome::Victory)
+        && let Err(err) = campaign.record_victory(&result.mission_name)
+    {
+        warn!("Failed to save campaign progress: {err}");
     }
 }
 
@@ -150,6 +154,7 @@ fn poll_mission_loaded(
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
     state: Res<DeployPayload>,
+    catalog: Res<ShipCatalog>,
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
     mut notice: ResMut<AppNotice>,
@@ -171,7 +176,7 @@ fn poll_mission_loaded(
         return;
     };
 
-    spawn_mission(&mut commands, &registry, &config, &mission, &state);
+    spawn_mission(&mut commands, &registry, &config, &mission, &state, &catalog);
 
     result.started_at = Some(time.elapsed_secs());
     result.outcome = None;

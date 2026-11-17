@@ -177,7 +177,7 @@ pub fn apply_ship_mutations(
         }
 
         let build = registry.build_ship_result(&grid);
-        let (Some(new_ship), Some(new_stats), Some(new_bounds)) =
+        let (Some(mut new_ship), Some(new_stats), Some(new_bounds)) =
             (build.ship, build.stats, build.bounds)
         else {
             commands.entity(ship_entity).despawn();
@@ -189,6 +189,7 @@ pub fn apply_ship_mutations(
             continue;
         };
 
+        new_ship.id = ship.id;
         *ship = new_ship;
         *stats = new_stats;
         *bounds = new_bounds;

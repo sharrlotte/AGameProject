@@ -42,7 +42,7 @@ pub fn update_ai_preview(
         return;
     };
     let Ok(ron) = to_string_pretty(&editor.ai_profile, PrettyConfig::default()) else {
-        return;
+         return;
     };
     text.0 = ron;
 }

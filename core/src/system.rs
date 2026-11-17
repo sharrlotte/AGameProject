@@ -6,7 +6,7 @@ use bevy::{
 };
 
 use crate::resource::DeployPayload;
-use crate::save::catalog::ShipCatalog;
+use crate::save::design::ShipCatalog;
 
 
 pub fn setup_camera(mut commands: Commands) {
@@ -30,10 +30,8 @@ pub fn setup_camera(mut commands: Commands) {
     ));
 }
 
-pub fn load_current_ship(mut state: ResMut<DeployPayload>) {
-    let ships = ShipCatalog::load_or_seed();
-
-    if let Some(ship) = ships.first() {
+pub fn load_current_ship(mut state: ResMut<DeployPayload>, catalog: Res<ShipCatalog>) {
+    if let Some(ship) = catalog.designs().first() {
         state.current_ship = Some(ship.clone());
     }
 }

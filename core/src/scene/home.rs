@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::resource::{BattleMode, SceneState, SettingState};
-use crate::save::io::{LoadWorldEvent, has_battle_save};
+use crate::save::battle::{BattleSaveState, LoadWorldEvent};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 
@@ -23,6 +23,7 @@ struct PlayButton;
 fn on_play(
     click: On<PointerClick>,
     buttons: Query<&PlayButton>,
+    battle_save: Res<BattleSaveState>,
     mut mode: ResMut<BattleMode>,
     mut loads: MessageWriter<LoadWorldEvent>,
     mut scene: ResMut<NextState<SceneState>>,
@@ -31,7 +32,7 @@ fn on_play(
         return;
     }
     *mode = BattleMode::Campaign;
-    if has_battle_save() {
+    if battle_save.has_save {
         loads.write(LoadWorldEvent);
     } else {
         scene.set(SceneState::Game);
@@ -92,8 +93,8 @@ fn on_exit(
     }
 }
 
-fn primary_play_label() -> &'static str {
-    if has_battle_save() {
+fn primary_play_label(has_save: bool) -> &'static str {
+    if has_save {
         "Continue"
     } else {
         "Play"
@@ -101,10 +102,11 @@ fn primary_play_label() -> &'static str {
 }
 
 fn refresh_play_label(
+    battle_save: Res<BattleSaveState>,
     buttons: Query<&Children, With<PlayButton>>,
     mut texts: Query<&mut Text>,
 ) {
-    let label = primary_play_label();
+    let label = primary_play_label(battle_save.has_save);
     for children in &buttons {
         for child in children.iter() {
             if let Ok(mut text) = texts.get_mut(child) {
@@ -114,7 +116,8 @@ fn refresh_play_label(
     }
 }
 
-fn setup_home(mut commands: Commands) {
+fn setup_home(mut commands: Commands, battle_save: Res<BattleSaveState>) {
+    let play_label = primary_play_label(battle_save.has_save);
     commands
         .spawn((
             Node {
@@ -132,7 +135,7 @@ fn setup_home(mut commands: Commands) {
             spawn_button(
                 parent,
                 button_node(),
-                primary_play_label(),
+                play_label,
                 20.0,
                 Color::WHITE,
                 PlayButton,

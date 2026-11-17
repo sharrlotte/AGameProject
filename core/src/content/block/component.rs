@@ -64,9 +64,9 @@ pub struct SingleShootPattern {
     pub projectile: ShootingProjectile,
 }
 
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Default, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct SingleShootPatternState {
-    pub last_fired_at: f32,
+    pub cooldown_remaining: f32,
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
@@ -82,11 +82,11 @@ pub struct BurstShootPattern {
 pub enum BurstShootPatternShootingState {
     Shooting {
         current_barrel: usize,
-        last_barrel_fired_at: f32,
+        barrel_delay_remaining: f32,
         current_amount: i8,
     },
     Cooldown {
-        last_fired_at: f32,
+        cooldown_remaining: f32,
     },
 }
 
@@ -105,8 +105,8 @@ pub struct LaserBeamPattern {
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum LaserBeamPatternShootingState {
-    Shooting { start_time: f32 },
-    Cooldown { last_fired_at: f32 },
+    Shooting { elapsed: f32 },
+    Cooldown { cooldown_remaining: f32 },
 }
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
@@ -155,15 +155,20 @@ impl ShootPattern {
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         match self {
             ShootPattern::Single(s) => {
-                commands
-                    .entity(base)
-                    .insert((s.clone(), SingleShootPatternState { last_fired_at: 0.0 }));
+                commands.entity(base).insert((
+                    s.clone(),
+                    SingleShootPatternState {
+                        cooldown_remaining: 0.0,
+                    },
+                ));
             }
             ShootPattern::Burst(s) => {
                 commands.entity(base).insert((
                     s.clone(),
                     BurstShootPatternState {
-                        shooting: BurstShootPatternShootingState::Cooldown { last_fired_at: 0.0 },
+                        shooting: BurstShootPatternShootingState::Cooldown {
+                            cooldown_remaining: 0.0,
+                        },
                     },
                 ));
             }
@@ -173,7 +178,9 @@ impl ShootPattern {
                     LaserBeamPatternState {
                         targets: Vec::new(),
                         beam: None,
-                        shooting: LaserBeamPatternShootingState::Cooldown { last_fired_at: 0.0 },
+                        shooting: LaserBeamPatternShootingState::Cooldown {
+                            cooldown_remaining: 0.0,
+                        },
                     },
                 ));
             }
@@ -505,7 +512,8 @@ impl BlockRegistry {
 
         ShipBuildResult {
             ship: Some(Ship {
-                id: core_id,
+                id: Uuid::now_v7(),
+                core_id,
                 core_position,
             }),
             stats: Some(stats),

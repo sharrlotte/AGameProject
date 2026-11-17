@@ -1,4 +1,17 @@
-# Persistence Spec — Designs and World Slots (v2)
+# Persistence Spec — Designs, Campaign, and World Save (v4)
+
+## Module Layout
+
+`core/src/save/` is organized by domain following the `mod.rs`, `component.rs`, `system.rs`, `lib.rs` structure:
+
+```
+core/src/save/
+├── mod.rs          SavePlugin (registers DesignSavePlugin, CampaignSavePlugin, BattleSavePlugin)
+├── document.rs     RonDocument trait, DocumentError, parse/read/write_document, atomic_write, data_dir
+├── design/         DesignSavePlugin, ShipCatalog (Resource), starter seeding, design file I/O
+├── campaign/       CampaignSavePlugin, CampaignSave (Resource), campaign progression & reset
+└── battle/         BattleSavePlugin, BattleSaveState (Resource), WorldSave (v4), capture & restore
+```
 
 ## Locations
 
@@ -11,13 +24,19 @@
 <data_dir>/saves/campaign.ron   campaign/mission progression document
 ```
 
-Old `schematics/*.json`, `schematics/*.ron`, `saves/slot_*.ron`, and `world/` are ignored
-and untouched. There is no JSON reader, no v1/v2 slot reader, no phantom-ship
-fabrication, and no "repair ships with <= 2 blocks".
+User settings (`config/setting.ron`) remain in `assets/config/setting.ron` for Bevy `AssetServer` hot-reloading.
+Old `schematics/*.json`, `schematics/*.ron`, `saves/slot_*.ron`, and `world/` are ignored and untouched.
 
-## Design format (editor)
+## Resource-Backed Caching
 
-`designs/<name>.ron`, written by `ShipCatalog::save`:
+All persistent save domains are cached in ECS memory as Bevy `Resource`s initialized in `PreStartup`:
+- `ShipCatalog` (`save::design::ShipCatalog`): seeded and loaded once at startup; updated in memory and on disk via `ShipCatalog::save_design`. Consumed by `load_current_ship`, `MissionPlugin`, and `ShipEditorPlugin` without repeated disk reads.
+- `CampaignSave` (`save::campaign::CampaignSave`): loaded once at startup; updated via `CampaignSave::record_victory` and `CampaignSave::reset`.
+- `BattleSaveState` (`save::battle::BattleSaveState`): tracks `has_save: bool` in memory so `Home` and `Settings` never poll the filesystem on UI updates.
+
+## Design Format (`DESIGN_SCHEMA_VERSION = 1`)
+
+`designs/<name>.ron`, written by `ShipCatalog::save_design`:
 
 ```ron
 (
@@ -27,54 +46,61 @@ fabrication, and no "repair ships with <= 2 blocks".
   blocks: [
     (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
   ],
-  ai: (initial: Chase(target: NearestEnemy), rules: []),
+  ai: (
+    initial: Idle,
+    rules: [],
+  ),
 )
 ```
 
-`position` is grid-space (`IVec2`); `block_type` is a plain `String` id. The file
-stem is derived from `name` by `ShipCatalog::file_name`. On every run, bundled
-starter designs (`interceptor.ron`, `raider.ron`) are rewritten into `designs/`;
-user-created designs are left untouched.
-Missions and the editor both consume `ShipDesign` directly; there is no
-separate schematic struct or `load_saved_schematics()`.
+When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesign::spawn_with_id`), `Ship.id` holds a unique ship instance `Uuid` (preserved across block mutations and save/load), while `Ship.core_id` holds the core block's `BlockPlacement.id` in `ShipGrid`.
 
 ## Document API
 
-`save/document.rs` owns every versioned RON read/write path: `RonDocument`
-(`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and
-`atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then
-the temporary file is renamed over the target. Unknown versions are rejected
-before gameplay data is trusted. `ron_document!` implements the trait for
-`WorldSave` (version 3), `CampaignSave` (version 1), and `ShipDesign`
-(version 1).
+`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 4), `CampaignSave` (version 1), and `ShipDesign` (version 1).
 
-## World battle format (`SAVE_SCHEMA_VERSION = 3`)
+## World Battle Format (`SAVE_SCHEMA_VERSION = 4`)
 
-`SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active.
-`BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
-The save is self-contained; all ships are embedded. There are **no per-ship files**,
-no `slot`, and no `ship_ids`.
+`SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active. `BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
 
 ```ron
 (
-  version: 3,
+  version: 4,
   saved_at_unix_ms: 1700000000000,
-  battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: Some("Victory")),
-  camera: (x: 12.0, y: -4.0, zoom: 3.0),
+  battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: None),
+  camera: (x: 12.0, y: -4.0, zoom: 3.0, following: Some("<ship-uuid>")),
+  control: (controlling: Some("<ship-uuid>"), pilot_mode: true),
   ships: [
     (
-      id: "<uuid>", team: 0,
+      id: "<ship-instance-uuid>",
+      team: 0,
       transform: (x: 0.0, y: 0.0, rotation: 0.0),
       velocity: (x: 0.0, y: 0.0, angvel: 0.0),
-      ai: Aggressive,
-      ai_runtime: (behavior: "Idle", timer_secs: 0.25),
+      cargo: (used: 10, items: {"steel": 10}),
+      ai: (initial: Idle, rules: []),
+      ai_runtime: (
+        current: Attack(target: Some("<target-ship-uuid>")),
+        spawn_position: (0.0, 0.0),
+        rule_cooldowns: [0.0],
+        timer_secs: 0.25,
+      ),
       blocks: [
         (
-          placement: (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
-          health: 5000.0, max_health: 5000.0,
-          turret: None, ammo: None,
-          single_pattern: None, burst_pattern: None,
-          laser_pattern: None, pulling_pattern: false,
+          placement: (id: "<block-uuid>", position: (0, 0), block_type: "core", rotation: 0),
+          health: 5000.0,
+          max_health: 5000.0,
+          battery_charge: Some(100.0),
+          turret: Some((
+            active: true,
+            shoot_at: Some((100.0, 50.0)),
+            barrel_rotation: 0.5,
+            charge: Some(20.0),
+          )),
+          ammo: None,
+          single_pattern: Some((cooldown_remaining: 0.25)),
+          burst_pattern: None,
+          laser_pattern: None,
+          pulling_pattern: false,
         ),
       ],
     ),
@@ -86,34 +112,10 @@ no `slot`, and no `ship_ids`.
 )
 ```
 
-Everything that affects a continuing battle is captured: ship transforms and
-Rapier velocities, block health/ammo/turret/pattern state, AI profile and
-runtime behavior, battle timer and outcome, drops with remaining lifetime,
-camera, and the seeded `GameRng`.
+### Capture & Restore Architecture
 
-Never serialized: projectiles, lasers, pulling beams, damage text, and transient
-VFX. They are tagged `DespawnOnExit(SceneState::Game)`, so exiting the old scene
-clears them before the snapshot is spawned. Turret targets are also omitted and
-reacquired after load.
-
-`capture`/`restore` live in `save/snapshot.rs` behind the `CaptureSnapshot` and
-`RestoreSnapshot` traits. Entity references are never persisted.
-
-## Auto-save, Load & Reset flow
-
-```
-Home → Continue (when battle.ron exists)
-  → LoadWorldEvent → PendingLoad { active: true }
-  → NextState<SceneState>::Loading
-  → exit outgoing scene → enter Game (spawn_loaded_world restores battle.ron)
-  → setup_battle skips while PendingLoad is set
-```
-
-Auto-save triggers in `BattleMode::Campaign`:
-- Periodic timer during `BattlePhase::Active` + `PauseState::Playing` (`auto_save_interval_secs` in `game.ron`).
-- On `Pause` **Back to Home** (`PendingExitAction::Home` flushes after `SaveWorldEvent` completes).
-- On `BattlePhase::Ended`: `battle.ron` is cleared; `Victory` records the mission in `campaign.ron`.
-
-Main Menu **Settings → Data → Reset Mission / Campaign** (2-step confirmation) deletes
-`battle.ron` and `campaign.ron` (and `.bak` files) while keeping `designs/*.ron` intact.
-Load failures post an `AppNotice` and return to Home; no partial world is left behind.
+- **Direct Hierarchical Capture ($O(1)$ Block Lookup)**: `WorldSave::capture` → `ShipSnapshot::capture` → `BlockSnapshot::capture(world, grid_block)` reads directly from `&GridBlock` without scanning `world.iter_entities()`.
+- **Two-Pass Restore**:
+  1. **Pass 1**: Spawns all ships with their saved instance `Ship.id`, restores velocity, `ShipStats` cargo (`cargo_used`, `cargo_items`), and block state (`Health`, battery `Charge`, `TurretState`, `TurretCharge`, barrel rotation on `TurretBarrel`, `AmmoState`, and session-independent relative weapon pattern timers), and builds `ship_map: HashMap<Uuid, Entity>`.
+  2. **Pass 2**: Resolves `Option<Uuid>` references through `ship_map` to restore `AiRuntime` (`AiBehavior` target `Entity`, `spawn_position`, `rule_cooldowns`, `think_timer`), `CameraTarget`, `ControlledShip`, and `ControlMode`.
+- **Drops & Battle Outcome**: Restored item drops include a visible `Sprite` (colored by `ItemRegistry` rarity and sized by `config.0.drop_size`). When `save.battle.outcome` is `Some(...)`, `spawn_loaded_world` restores `BattlePhase::Ended` so the outcome overlay is displayed.

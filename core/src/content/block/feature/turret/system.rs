@@ -139,7 +139,7 @@ pub fn lead_point(origin: Vec2, target: Vec2, velocity: Vec2, projectile_speed: 
 }
 
 fn has_core(grid: &ShipGrid, ship: &Ship) -> bool {
-    grid.block(ship.id).is_some()
+    grid.block(ship.core_id).is_some()
 }
 
 #[derive(Clone, Copy)]
@@ -373,7 +373,9 @@ mod tests {
                 LaserBeamPatternState {
                     targets: Vec::new(),
                     beam: None,
-                    shooting: LaserBeamPatternShootingState::Cooldown { last_fired_at: 0.0 },
+                    shooting: LaserBeamPatternShootingState::Cooldown {
+                        cooldown_remaining: 0.0,
+                    },
                 },
             ))
             .id();
@@ -384,7 +386,7 @@ mod tests {
         app.world_mut()
             .get_mut::<LaserBeamPatternState>(beam)
             .unwrap()
-            .shooting = LaserBeamPatternShootingState::Shooting { start_time: 0.0 };
+            .shooting = LaserBeamPatternShootingState::Shooting { elapsed: 0.0 };
         app.update();
         assert_eq!(app.world().get::<Demand>(beam).unwrap().value, 10.0);
     }
