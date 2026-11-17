@@ -2,6 +2,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 use crate::resource::{SceneState, SettingState};
+use crate::scene::slot_panel::SlotPanel;
 use crate::simulation::SimulationSet;
 
 pub struct HomeScenePlugin;
@@ -184,6 +185,20 @@ fn setup_home(mut commands: Commands) {
                         },
                         TextColor(Color::WHITE),
                     ));
+                });
+
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(4.0),
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    SlotPanel { allow_save: false },
+                ))
+                .with_children(|panel| {
+                    crate::scene::slot_panel::build_slot_panel(panel, false);
                 });
         });
 }

@@ -13,14 +13,19 @@ use crate::config::ConfigPlugin;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
 use crate::simulation::SimulationSet;
-use crate::resource::{CameraTarget, ControlledShip, DeployPayload, PauseState, SceneState};
+use crate::resource::{
+    CameraTarget, ControlledShip, ControlMode, DeployPayload, GameRng, PauseState, SceneState,
+};
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
 use crate::scene::notice::NoticePlugin;
+use crate::scene::slot_panel::SlotPanelPlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
+#[cfg(debug_assertions)]
+use crate::system::DebugAuditPlugin;
 use crate::system::{load_current_ship, setup_camera};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
@@ -81,6 +86,8 @@ fn main() {
     .init_resource::<DeployPayload>()
     .init_resource::<CameraTarget>()
     .init_resource::<ControlledShip>()
+    .init_resource::<ControlMode>()
+    .init_resource::<GameRng>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .configure_sets(PreUpdate, SimulationSet::Input)
@@ -109,6 +116,8 @@ fn main() {
         FrameTimeDiagnosticsPlugin::new(100),
         #[cfg(debug_assertions)]
         EntityCountDiagnosticsPlugin::new(100),
+        #[cfg(debug_assertions)]
+        DebugAuditPlugin,
         ConfigPlugin,
         MissionPlugin,
         GameScenePlugin,
@@ -120,6 +129,7 @@ fn main() {
         ContentPlugin,
         SettingScenePlugin,
         NoticePlugin,
+        SlotPanelPlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));
 

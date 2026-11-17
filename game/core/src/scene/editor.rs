@@ -17,10 +17,10 @@ use crate::{
             },
             BlockPlacement, BlockRef,
         },
-        ship::ShipGrid,
+        ship::{ShipDesign, ShipGrid},
     },
     resource::{DeployPayload, SceneState},
-    save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},
+    save::catalog::ShipCatalog,
     simulation::SimulationSet,
 };
 
@@ -124,7 +124,7 @@ pub struct EditorState {
     pub drag_accumulator: f32,
     pub filename: String,
     pub grid: ShipGrid,
-    pub ships: Vec<SchematicData>,
+    pub ships: Vec<ShipDesign>,
 }
 
 pub fn send_scroll_events(
@@ -619,25 +619,19 @@ pub fn handle_deploy_button_click(
     for (interaction, mut bg_color) in &mut buttons {
         if *interaction == PickingInteraction::Pressed {
             // Deploy Logic
-            let saved_blocks = editor
+            let saved_blocks: Vec<BlockPlacement> = editor
                 .grid
                 .blocks()
-                .map(|block| SchematicBlockData {
-                    id: block.placement.id,
-                    position: block.placement.position,
-                    block_type: block.placement.block_type.clone(),
-                    rotation: block.placement.rotation,
-                })
-                .collect::<Vec<SchematicBlockData>>();
+                .map(|block| block.placement.clone())
+                .collect();
 
-            let ship_data = SchematicData {
+            app_var.current_ship = Some(ShipDesign {
+                version: 1,
                 id: Uuid::now_v7(),
                 name: editor.filename.clone(),
-                filename: editor.filename.clone(),
                 blocks: saved_blocks,
-            };
-
-            app_var.current_ship = Some(ship_data);
+                ai: crate::content::ship::ai::AiProfile::Default,
+            });
         }
 
         match interaction {
@@ -654,7 +648,7 @@ pub fn handle_deploy_button(
     editor: Res<EditorState>,
 ) {
     let is_deployed = if let Some(current) = &app_var.current_ship {
-        current.filename == editor.filename
+        current.name == editor.filename
     } else {
         false
     };
@@ -1102,13 +1096,13 @@ pub fn load_initial_ship(
     placed_blocks: Query<Entity, With<BlockRef>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    let ship_names = load_saved_schematics();
+    let designs = ShipCatalog::load_or_seed();
 
-    if ship_names.is_empty() {
+    let Some(design) = designs.first() else {
         return;
-    }
+    };
 
-    let filename = &ship_names[0].filename;
+    let filename = ShipCatalog::file_name(design);
 
     despawn_ship(&mut commands, &placed_blocks);
 
@@ -1126,7 +1120,7 @@ pub fn refresh_ship_list(
     mut available_ships: ResMut<EditorState>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    available_ships.ships = load_saved_schematics();
+    available_ships.ships = ShipCatalog::load_or_seed();
 
     // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
@@ -1161,13 +1155,13 @@ pub fn refresh_ship_list(
                             },
                             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                             LoadShipButton {
-                                filename: ship.filename.clone(),
+                                filename: ShipCatalog::file_name(ship),
                             },
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new(if ship.name.is_empty() {
-                                    ship.filename.clone()
+                                    ShipCatalog::file_name(ship)
                                 } else {
                                     ship.name.clone()
                                 }),
@@ -1207,7 +1201,6 @@ pub fn handle_ship_saving(
 
     perform_save_schematic(
         Uuid::now_v7(),
-        state.filename.clone(),
         state.filename.clone(),
         &state.grid,
         &mut ship_saved_event,
@@ -1323,28 +1316,18 @@ pub fn remove_block_at(
 pub fn perform_save_schematic(
     id: Uuid,
     name: String,
-    filename: String,
     grid: &ShipGrid,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
-    let saved_blocks = grid
-        .blocks()
-        .map(|block| SchematicBlockData {
-            id: block.placement.id,
-            position: block.placement.position,
-            block_type: block.placement.block_type.clone(),
-            rotation: block.placement.rotation,
-        })
-        .collect::<Vec<SchematicBlockData>>();
-
-    let ship_data = SchematicData {
+    let design = ShipDesign {
+        version: 1,
         id,
-        filename,
         name,
-        blocks: saved_blocks,
+        blocks: grid.blocks().map(|b| b.placement.clone()).collect(),
+        ai: crate::content::ship::ai::AiProfile::Default,
     };
 
-    if let Err(e) = save_schematic(&ship_data) {
+    if let Err(e) = ShipCatalog::save(&design) {
         error!("Fail to save ship: {:?}", e)
     } else {
         ship_saved_event.write(ShipSavesChanged);
@@ -1364,13 +1347,16 @@ pub fn spawn_ship(
     filename: &str,
     ship_base: Entity,
 ) {
-    let ships = load_saved_schematics();
+    let ships = ShipCatalog::load_or_seed();
 
     editor.grid = ShipGrid::new();
     editor.filename = filename.to_string();
 
-    if let Some(ship_to_load) = ships.into_iter().find(|ship| ship.filename == filename) {
-        editor.filename = ship_to_load.filename;
+    if let Some(ship_to_load) = ships
+        .into_iter()
+        .find(|ship| ShipCatalog::file_name(ship) == filename)
+    {
+        editor.filename = ship_to_load.name.clone();
 
         if ship_to_load.blocks.is_empty() {
             warn!("Ship {} is empty", editor.filename);
@@ -1380,11 +1366,7 @@ pub fn spawn_ship(
         // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
-                let placement = BlockPlacement::new(
-                    saved_block.position,
-                    &saved_block.block_type,
-                    saved_block.rotation,
-                );
+                let placement = saved_block;
                 let base =
                     spawn_placed_block(commands, ship_base, def, &placement);
                 editor.grid.insert_block(placement, base, def);

@@ -1,76 +1,23 @@
 use bevy::prelude::*;
 use directories::ProjectDirs;
-use serde::{Deserialize, Serialize};
 use std::{
-    fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
-use uuid::Uuid;
 
 use crate::config::GameConfigValue;
-use crate::content::{
-    block::{
-        BlockPlacement, BlockRef, BlockRegistry, BurstShootPatternState, Health,
-        SingleShootPatternState,
-        feature::turret::TurretState,
-    },
-    ship::{ShipDesign, ShipGrid},
-    team::Team,
-};
-use crate::mission::{BattlePhase, BattleResult};
-use crate::resource::{CameraTarget, ControlledShip, PendingLoad, SceneState};
+use crate::content::block::BlockRegistry;
+use crate::mission::{BattleOutcome, BattlePhase, BattleResult};
+use crate::resource::{AppNotice, CameraTarget, ControlledShip, GameRng, PendingLoad, SceneState};
 use crate::save::document::{read_document, write_document};
-use crate::save::schema::{
-    BlockSaveData, ShipSave, TurretSaveState, WorldSave, WORLD_SCHEMA_VERSION,
-};
+use crate::save::schema::*;
+use crate::save::snapshot::{CaptureContext, CaptureSnapshot, RestoreSnapshot};
 use crate::simulation::SimulationSet;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
-pub struct SchematicBlockData {
-    pub id: Uuid,
-    pub position: IVec2,
-    pub block_type: String,
-    pub rotation: u8,
-}
-
-impl SchematicBlockData {
-    pub fn to_placement(&self) -> BlockPlacement {
-        BlockPlacement {
-            id: self.id,
-            position: self.position,
-            block_type: self.block_type.clone(),
-            rotation: self.rotation,
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct SchematicData {
-    pub id: Uuid,
-    pub filename: String,
-    pub name: String,
-    pub blocks: Vec<SchematicBlockData>,
-}
-
-impl SchematicData {
-    pub fn to_design(&self) -> ShipDesign {
-        ShipDesign {
-            version: 1,
-            id: self.id,
-            name: self.name.clone(),
-            blocks: self
-                .blocks
-                .clone()
-                .into_iter()
-                .map(|b| b.to_placement())
-                .collect(),
-        }
-    }
-}
-
 #[derive(Message)]
-pub struct SaveWorldEvent;
+pub struct SaveWorldEvent {
+    pub slot: u8,
+}
 
 /// Request a world load. Handled as a state transition so the outgoing scene
 /// is despawned by `DespawnOnExit` before the snapshot is spawned.
@@ -79,7 +26,11 @@ pub struct LoadWorldEvent {
     pub slot: u8,
 }
 
-pub fn save_dir() -> PathBuf {
+pub fn slot_path(slot: u8) -> PathBuf {
+    data_dir().join("saves").join(format!("slot_{slot}.ron"))
+}
+
+pub fn data_dir() -> PathBuf {
     ProjectDirs::from("com", "somerandomdev", "agameproject")
         .map(|dirs| dirs.data_dir().to_path_buf())
         .unwrap_or_else(|| {
@@ -88,195 +39,70 @@ pub fn save_dir() -> PathBuf {
         })
 }
 
-fn world_save_dir() -> PathBuf {
-    save_dir().join("world")
+/// Metadata for all five slots, read from the same document used for loading.
+pub fn list_slots() -> Vec<SlotInfo> {
+    (1..=SAVE_SLOTS as u8)
+        .map(|slot| match read_document::<WorldSave>(&slot_path(slot)) {
+            Ok(save) => SlotInfo {
+                slot,
+                occupied: true,
+                saved_at_unix_ms: save.saved_at_unix_ms,
+                mission: save.battle.mission,
+                ship_count: save.ships.len(),
+                elapsed_secs: save.battle.elapsed_secs,
+            },
+            Err(_) => SlotInfo {
+                slot,
+                occupied: false,
+                ..default()
+            },
+        })
+        .collect()
 }
 
-pub fn load_saved_schematics() -> Vec<SchematicData> {
-    let schematics_dir = save_dir().join("schematics");
-    let mut schematics = Vec::new();
-
-    if let Ok(entries) = fs::read_dir(&schematics_dir) {
-        for entry in entries.flatten() {
-            if let Some(name) = entry.file_name().to_str()
-                && name.ends_with(".ron")
-            {
-                let path = schematics_dir.join(name);
-                if let Ok(text) = fs::read_to_string(path)
-                    && let Ok(mut ship) = ron::from_str::<SchematicData>(&text)
-                {
-                    ship.filename = name.trim_end_matches(".ron").to_string();
-                    schematics.push(ship);
-                }
-            }
-        }
-    }
-
-    while schematics.len() < 5 {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos().to_string())
-            .unwrap_or_else(|_| "0".to_string());
-
-        schematics.push(SchematicData {
-            id: Uuid::now_v7(),
-            filename: timestamp,
-            name: format!("ship_{}", schematics.len()),
-            blocks: Vec::new(),
-        });
-    }
-
-    for ship in &mut schematics {
-        if ship.blocks.len() <= 2 {
-            ship.blocks.clear();
-            ship.blocks.push(SchematicBlockData {
-                id: Uuid::now_v7(),
-                block_type: "core".to_string(),
-                position: IVec2::new(0, 0),
-                rotation: 0,
-            });
-            ship.blocks.push(SchematicBlockData {
-                id: Uuid::now_v7(),
-                block_type: "laser_turret".to_string(),
-                position: IVec2::new(1, 3),
-                rotation: 0,
-            });
-        }
-    }
-
-    schematics
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
-pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
-    let schematics_dir = save_dir().join("schematics");
-    let path = schematics_dir.join(format!("{}.ron", data.filename));
-    fs::create_dir_all(&schematics_dir)?;
-    let text = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
-        .map_err(std::io::Error::other)?;
-    fs::write(path, text)
-}
-
-/// Single entry point for spawning a ship from a versioned RON save.
-pub fn spawn_ship_from_save(
-    commands: &mut Commands,
-    save: &ShipSave,
-    registry: &BlockRegistry,
-    config: &GameConfigValue,
-) -> Option<Entity> {
-    let design = ShipDesign {
-        version: 1,
-        id: save.id,
-        name: String::new(),
-        blocks: save
-            .blocks
-            .iter()
-            .map(|b| BlockPlacement {
-                id: Uuid::now_v7(),
-                position: b.position,
-                block_type: b.block_type.clone(),
-                rotation: b.rotation,
-            })
-            .collect(),
-    };
-
-    let team = Team::new(save.team);
-    let (ship, block_entities) =
-        design.spawn(commands, registry, team, Transform::default(), config)?;
-
-    for (entity, saved) in block_entities.iter().zip(save.blocks.iter()) {
-        commands.entity(*entity).insert(Health {
-            health: saved.health,
-            max_health: saved.max_health,
-        });
-
-        if let Some(turret) = &saved.turret_state {
-            commands.entity(*entity).insert(TurretState {
-                active: turret.active,
-                target: None,
-                shoot_at: turret.shoot_at,
-            });
-        }
-
-        if let Some(state) = &saved.single_pattern {
-            commands.entity(*entity).insert(state.clone());
-        }
-
-        if let Some(state) = &saved.burst_pattern {
-            commands.entity(*entity).insert(state.clone());
-        }
+fn parse_outcome(text: &Option<String>) -> Option<BattleOutcome> {
+    match text.as_deref() {
+        Some("Victory") => Some(BattleOutcome::Victory),
+        Some("Defeat") => Some(BattleOutcome::Defeat),
+        _ => None,
     }
-
-    Some(ship)
 }
 
 pub fn handle_save_world_event(
     mut events: MessageReader<SaveWorldEvent>,
-    ships: Query<(Entity, &ShipGrid, &Team)>,
-    blocks: Query<(&BlockRef, &Health)>,
-    turrets: Query<&TurretState>,
-    singles: Query<&SingleShootPatternState>,
-    bursts: Query<&BurstShootPatternState>,
-    battle_time: Res<crate::mission::BattleResult>,
+    world: &World,
+    time: Res<Time>,
+    battle: Res<BattleResult>,
+    game_rng: Res<GameRng>,
+    mut notice: ResMut<AppNotice>,
 ) {
-    for _ in events.read() {
-        let dir = world_save_dir();
-        let ships_dir = dir.join("ships");
-        let mut ship_ids = Vec::new();
-        let mut teams = Vec::new();
-
-        for (ship_entity, grid, team) in &ships {
-            let id = ship_entity.to_bits();
-            let ship_uuid = Uuid::from_u128(id as u128);
-            ship_ids.push(ship_uuid);
-            if !teams.contains(&team.id) {
-                teams.push(team.id);
-            }
-
-            let mut block_saves = Vec::new();
-            for grid_block in grid.blocks() {
-                let block_entity = grid_block.entity;
-                let Ok((_, health)) = blocks.get(block_entity) else {
-                    continue;
-                };
-                let turret_state = turrets.get(block_entity).ok().map(|s| TurretSaveState {
-                    active: s.active,
-                    shoot_at: s.shoot_at,
-                });
-                let single = singles.get(block_entity).ok().cloned();
-                let burst = bursts.get(block_entity).ok().cloned();
-
-                block_saves.push(BlockSaveData {
-                    position: grid_block.placement.position,
-                    block_type: grid_block.placement.block_type.clone(),
-                    rotation: grid_block.placement.rotation,
-                    health: health.health,
-                    max_health: health.max_health,
-                    turret_state,
-                    single_pattern: single,
-                    burst_pattern: burst,
-                });
-            }
-
-            let ship_save = ShipSave {
-                version: WORLD_SCHEMA_VERSION,
-                id: ship_uuid,
-                team: team.id,
-                blocks: block_saves,
-            };
-            if let Err(e) = write_document(&ships_dir.join(format!("{ship_uuid}.ron")), &ship_save)
-            {
-                warn!("Failed to write ship save: {e}");
-            }
-        }
-
-        let world = WorldSave {
-            version: WORLD_SCHEMA_VERSION,
-            teams,
-            elapsed_secs: battle_time.started_at.unwrap_or(0.0),
-            ship_ids,
+    for event in events.read() {
+        let slot = event.slot.clamp(1, SAVE_SLOTS as u8);
+        let elapsed_secs = battle
+            .started_at
+            .map(|start| (time.elapsed_secs() - start).max(0.0))
+            .unwrap_or(battle.duration_secs);
+        let ctx = CaptureContext {
+            world,
+            slot,
+            mission: &battle.mission_name,
+            elapsed_secs,
+            outcome: battle.outcome.map(|o| format!("{o:?}")),
+            saved_at_unix_ms: now_unix_ms(),
+            seed: game_rng.seed(),
         };
-        if let Err(e) = write_document(&dir.join("world.ron"), &world) {
-            warn!("Failed to write world.ron: {e}");
+        let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
+
+        match write_document(&slot_path(slot), &save) {
+            Ok(()) => notice.show(format!("Saved slot {slot}")),
+            Err(e) => notice.show(format!("Save failed: {e}")),
         }
     }
 }
@@ -290,7 +116,7 @@ pub fn handle_load_request(
     mut next_scene: ResMut<NextState<SceneState>>,
 ) {
     for event in events.read() {
-        pending.request(event.slot);
+        pending.slot = Some(event.slot.clamp(1, SAVE_SLOTS as u8));
         next_scene.set(SceneState::Loading);
     }
 }
@@ -313,12 +139,16 @@ pub fn spawn_loaded_world(
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
     time: Res<Time>,
-    mut result: ResMut<BattleResult>,
+    mut battle: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
+    mut notice: ResMut<AppNotice>,
+    mut scene_state: ResMut<NextState<SceneState>>,
+    mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    transients: Query<Entity, With<DespawnOnExit<SceneState>>>,
 ) {
-    if !pending.is_pending() {
+    let Some(slot) = pending.slot else {
         return;
-    }
+    };
 
     // Deferred so other OnEnter(Game) systems still observe the pending flag
     // this frame and skip mission setup.
@@ -326,32 +156,48 @@ pub fn spawn_loaded_world(
     commands.insert_resource(CameraTarget::default());
     commands.insert_resource(ControlledShip::default());
 
-    let dir = world_save_dir();
-    let world: WorldSave = match read_document(&dir.join("world.ron")) {
-        Ok(world) => world,
+    let save: WorldSave = match read_document(&slot_path(slot)) {
+        Ok(save) => save,
         Err(e) => {
-            warn!("Failed to read world save: {e}");
+            warn!("Failed to read slot {slot}: {e}");
+            notice.show(format!("Load failed: {e}"));
+            scene_state.set(SceneState::Home);
             return;
         }
     };
 
-    for id in world.ship_ids {
-        let ship: ShipSave = match read_document(&dir.join("ships").join(format!("{id}.ron"))) {
-            Ok(ship) => ship,
-            Err(e) => {
-                warn!("Failed to read ship save {id}: {e}");
-                continue;
-            }
-        };
-        spawn_ship_from_save(&mut commands, &ship, &registry, &config);
+    // Projectiles, beams, damage text and VFX are never serialized. They are
+    // tagged `DespawnOnExit(SceneState::Game)` and are already gone when this
+    // system runs; this clears any stragglers defensively.
+    for entity in &transients {
+        commands.entity(entity).despawn();
     }
 
-    *result = BattleResult {
-        started_at: Some(time.elapsed_secs()),
-        outcome: None,
-        duration_secs: 0.0,
+    let team = crate::content::team::Team::new(crate::content::team::DEFAULT_TEAM_ID);
+    if let Err(e) = save.clone().restore(&mut commands, &registry, &config, team, None) {
+        warn!("Failed to restore slot {slot}: {e}");
+        notice.show(format!("Load failed: {e}"));
+        scene_state.set(SceneState::Home);
+        return;
+    }
+
+    for (mut transform, mut projection) in &mut camera {
+        transform.translation.x = save.camera.x;
+        transform.translation.y = save.camera.y;
+        if let Projection::Orthographic(ortho) = &mut *projection {
+            ortho.scale = save.camera.zoom.clamp(config.0.min_zoom, config.0.max_zoom);
+        }
+    }
+
+    commands.insert_resource(GameRng::new(save.rng.seed));
+    *battle = BattleResult {
+        started_at: Some(time.elapsed_secs() - save.battle.elapsed_secs),
+        outcome: parse_outcome(&save.battle.outcome),
+        duration_secs: save.battle.elapsed_secs,
+        mission_name: save.battle.mission,
     };
     phase.set(BattlePhase::Active);
+    notice.show(format!("Loaded slot {slot}"));
 }
 
 pub struct SavePlugin;
@@ -383,51 +229,54 @@ impl Plugin for SavePlugin {
 mod tests {
     use super::*;
     use crate::save::document::parse_document;
-    use crate::save::schema::*;
 
-    #[test]
-    fn ship_save_roundtrip_and_version() {
-        let save = ShipSave {
-            version: WORLD_SCHEMA_VERSION,
-            id: Uuid::now_v7(),
-            team: 0,
-            blocks: vec![BlockSaveData {
-                position: IVec2::new(2, 3),
-                block_type: "core".to_string(),
-                rotation: 0,
-                health: 4000.0,
-                max_health: 5000.0,
-                turret_state: Some(TurretSaveState {
-                    active: true,
-                    shoot_at: None,
-                }),
-                single_pattern: None,
-                burst_pattern: None,
-            }],
-        };
-        let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
-        let back: ShipSave = parse_document(&text).unwrap();
-        assert_eq!(back, save);
-
-        let bad = text.replace("version: 1", "version: 99");
-        assert!(parse_document::<ShipSave>(&bad).is_err());
+    fn sample_save(slot: u8) -> WorldSave {
+        WorldSave {
+            version: SAVE_SCHEMA_VERSION,
+            slot,
+            saved_at_unix_ms: 1_700_000_000_000,
+            battle: BattleSave {
+                mission: "quick-battle".to_string(),
+                elapsed_secs: 42.5,
+                outcome: Some("Victory".to_string()),
+            },
+            camera: CameraSave {
+                x: 12.0,
+                y: -4.0,
+                zoom: 3.0,
+            },
+            ships: Vec::new(),
+            drops: Vec::new(),
+            rng: RngSave { seed: 1234 },
+        }
     }
 
     #[test]
-    fn schematic_ron_roundtrip() {
-        let schematic = SchematicData {
-            id: Uuid::now_v7(),
-            filename: "test".to_string(),
-            name: "Test".to_string(),
-            blocks: vec![SchematicBlockData {
-                id: Uuid::now_v7(),
-                position: IVec2::new(1, 2),
-                block_type: "core".to_string(),
-                rotation: 0,
-            }],
-        };
-        let text = ron::ser::to_string(&schematic).unwrap();
-        let back: SchematicData = ron::from_str(&text).unwrap();
-        assert_eq!(back.blocks[0].block_type, "core");
+    fn world_save_roundtrip_and_version() {
+        let save = sample_save(2);
+        let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
+        let back: WorldSave = parse_document(&text).unwrap();
+        assert_eq!(back, save);
+
+        let bad = text.replace("version: 2", "version: 99");
+        assert!(parse_document::<WorldSave>(&bad).is_err());
+    }
+
+    #[test]
+    fn slots_are_one_to_five() {
+        assert_eq!(SAVE_SLOTS, 5);
+        for slot in 1..=5 {
+            let path = slot_path(slot);
+            assert!(path.ends_with(format!("slot_{slot}.ron")));
+            assert!(path.to_string_lossy().contains("saves"));
+        }
+    }
+
+    #[test]
+    fn no_per_ship_paths_exist() {
+        let save = sample_save(1);
+        let text = ron::ser::to_string(&save).unwrap();
+        assert!(!text.contains("ship_ids"));
+        assert!(!text.contains("ships/"));
     }
 }

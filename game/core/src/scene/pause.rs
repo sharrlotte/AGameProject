@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::{
     resource::{PauseState, SceneState, SettingState},
     save::io::{LoadWorldEvent, SaveWorldEvent},
+    scene::slot_panel::{RefreshSlotPanel, SlotPanel},
     simulation::SimulationSet,
 };
 
@@ -254,6 +255,20 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                         TextColor(Color::WHITE),
                     ));
                 });
+
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(4.0),
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    SlotPanel { allow_save: true },
+                ))
+                .with_children(|panel| {
+                    crate::scene::slot_panel::build_slot_panel(panel, true);
+                });
         });
 }
 
@@ -268,6 +283,7 @@ fn handle_pause_buttons(
     mut exit: MessageWriter<AppExit>,
     mut save_events: MessageWriter<SaveWorldEvent>,
     mut load_events: MessageWriter<LoadWorldEvent>,
+    mut refresh: MessageWriter<crate::scene::slot_panel::RefreshSlotPanel>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
@@ -289,7 +305,8 @@ fn handle_pause_buttons(
                         exit.write(AppExit::Success);
                     }
                     PauseButton::Save => {
-                        save_events.write(SaveWorldEvent);
+                        save_events.write(SaveWorldEvent { slot: 1 });
+                        refresh.write(RefreshSlotPanel);
                     }
                     PauseButton::Load => {
                         game_state.set(PauseState::Playing);

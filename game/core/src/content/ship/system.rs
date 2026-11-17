@@ -1,4 +1,4 @@
-use bevy::input::mouse::MouseWheel;
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
@@ -21,7 +21,7 @@ use crate::content::ship::ai::{
 use crate::content::ship::indicator::IndicatorsPlugin;
 use crate::content::ship::stat::{ShipStats, update_stats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlledShip, SceneState};
+use crate::resource::{CameraTarget, ControlledShip, ControlMode, SceneState};
 use crate::simulation::SimulationSet;
 
 use super::*;
@@ -56,6 +56,12 @@ impl Plugin for ShipPlugin {
                 player_control_ship
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Control),
+            )
+            .add_systems(
+                Update,
+                toggle_control_mode
+                    .run_if(in_state(SceneState::Game))
+                    .in_set(SimulationSet::Input),
             )
             .add_systems(
                 FixedUpdate,
@@ -153,16 +159,20 @@ pub fn update_ship_ui(
 pub fn player_control_ship(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut ships: Query<
         (&mut ExternalForce, &Transform, &Ship, &ShipStats),
         Without<Camera2d>,
     >,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
+    mut mouse_motion: MessageReader<MouseMotion>,
     mut camera_target: ResMut<CameraTarget>,
     mut controlled: ResMut<ControlledShip>,
+    mode: Res<ControlMode>,
     config: Res<GameConfigValue>,
 ) {
+    // Zoom is available in both modes.
     for event in mouse_wheel_events.read() {
         if let Ok((_, mut projection)) = camera.single_mut() {
             if let Projection::Orthographic(ortho) = &mut *projection {
@@ -173,7 +183,28 @@ pub fn player_control_ship(
         }
     }
 
-    if let Some(following) = camera_target.following {
+    // Middle-mouse drag pans the camera in either mode and temporarily
+    // overrides ship following.
+    let panning = mouse_button_input.pressed(MouseButton::Middle);
+    let drag_delta = if panning {
+        mouse_motion
+            .read()
+            .fold(Vec2::ZERO, |acc, event| acc + event.delta)
+    } else {
+        Vec2::ZERO
+    };
+
+    if panning {
+        if let Ok((mut camera_transform, projection)) = camera.single_mut() {
+            let scale = if let Projection::Orthographic(ortho) = &*projection {
+                ortho.scale
+            } else {
+                1.0
+            };
+            camera_transform.translation.x -= drag_delta.x * scale;
+            camera_transform.translation.y -= drag_delta.y * scale;
+        }
+    } else if let Some(following) = camera_target.following {
         match ships.get(following) {
             Ok((_, transform, ship, _)) => {
                 let target = transform
@@ -195,7 +226,7 @@ pub fn player_control_ship(
                 camera_target.following = None;
             }
         }
-    } else {
+    } else if *mode == ControlMode::FreeLook {
         if let Ok((mut camera_transform, projection)) = camera.single_mut() {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale
@@ -229,57 +260,100 @@ pub fn player_control_ship(
         }
     }
 
-    if let Some(controlling) = controlled.controlling {
-        match ships.get_mut(controlling) {
-            Ok((mut force, transform, _, stats)) => {
-                let thrust_power = stats.thrust_power;
-                let turn_speed = stats.rotate_speed;
+    // Ship thrust is only applied in Pilot mode; FreeLook pauses control.
+    if *mode == ControlMode::Pilot {
+        if let Some(controlling) = controlled.controlling {
+            match ships.get_mut(controlling) {
+                Ok((mut force, transform, _, stats)) => {
+                    let thrust_power = stats.thrust_power;
+                    let turn_speed = stats.rotate_speed;
 
-                let mut linear_force = Vec2::ZERO;
-                let mut torque = 0.0;
+                    let mut linear_force = Vec2::ZERO;
+                    let mut torque = 0.0;
 
-                let forward = transform.local_y().truncate(); // Assuming +Y is forward
-                let right = transform.local_x().truncate();
+                    let forward = transform.local_y().truncate(); // +Y is forward
+                    let right = transform.local_x().truncate();
 
-                if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp)
-                {
-                    linear_force += forward * thrust_power;
+                    if keyboard_input.pressed(KeyCode::KeyW)
+                        || keyboard_input.pressed(KeyCode::ArrowUp)
+                    {
+                        linear_force += forward * thrust_power;
+                    }
+
+                    if keyboard_input.pressed(KeyCode::KeyS)
+                        || keyboard_input.pressed(KeyCode::ArrowDown)
+                    {
+                        linear_force -= forward * thrust_power;
+                    }
+
+                    if keyboard_input.pressed(KeyCode::KeyA)
+                        || keyboard_input.pressed(KeyCode::ArrowLeft)
+                    {
+                        torque += turn_speed;
+                    }
+
+                    if keyboard_input.pressed(KeyCode::KeyD)
+                        || keyboard_input.pressed(KeyCode::ArrowRight)
+                    {
+                        torque -= turn_speed;
+                    }
+
+                    // Strafe
+                    if keyboard_input.pressed(KeyCode::KeyQ) {
+                        linear_force -= right * thrust_power;
+                    }
+                    if keyboard_input.pressed(KeyCode::KeyE) {
+                        linear_force += right * thrust_power;
+                    }
+
+                    force.force = linear_force;
+                    force.torque = torque;
                 }
-
-                if keyboard_input.pressed(KeyCode::KeyS)
-                    || keyboard_input.pressed(KeyCode::ArrowDown)
-                {
-                    linear_force -= forward * thrust_power;
+                Err(_) => {
+                    controlled.controlling = None;
                 }
-
-                if keyboard_input.pressed(KeyCode::KeyA)
-                    || keyboard_input.pressed(KeyCode::ArrowLeft)
-                {
-                    torque += turn_speed;
-                }
-
-                if keyboard_input.pressed(KeyCode::KeyD)
-                    || keyboard_input.pressed(KeyCode::ArrowRight)
-                {
-                    torque -= turn_speed;
-                }
-
-                // Strafe
-                if keyboard_input.pressed(KeyCode::KeyQ) {
-                    linear_force -= right * thrust_power;
-                }
-                if keyboard_input.pressed(KeyCode::KeyE) {
-                    linear_force += right * thrust_power;
-                }
-
-                force.force = linear_force;
-                force.torque = torque;
-            }
-            Err(_) => {
-                controlled.controlling = None;
             }
         }
-    } else {
+    } else if let Some(controlling) = controlled.controlling {
+        // Clear any force left over from Pilot mode so the ship coasts.
+        if let Ok((mut force, _, _, _)) = ships.get_mut(controlling) {
+            force.force = Vec2::ZERO;
+            force.torque = 0.0;
+        }
+    }
+}
+
+/// `F` toggles between piloting the followed ship and free camera movement.
+pub fn toggle_control_mode(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut mode: ResMut<ControlMode>,
+    mut camera_target: ResMut<CameraTarget>,
+    mut controlled: ResMut<ControlledShip>,
+    ships: Query<(Entity, &Team), With<Ship>>,
+) {
+    if !keyboard.just_pressed(KeyCode::KeyF) {
+        return;
+    }
+
+    match *mode {
+        ControlMode::Pilot => {
+            *mode = ControlMode::FreeLook;
+            controlled.controlling = None;
+            camera_target.following = None;
+        }
+        ControlMode::FreeLook => {
+            let target = camera_target.following.or_else(|| {
+                ships
+                    .iter()
+                    .find(|(_, team)| team.is_player())
+                    .map(|(entity, _)| entity)
+            });
+            if let Some(target) = target {
+                controlled.controlling = Some(target);
+                camera_target.following = Some(target);
+                *mode = ControlMode::Pilot;
+            }
+        }
     }
 }
 
@@ -474,5 +548,62 @@ pub fn collect_drop(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app_with_player_ship() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ControlMode>()
+            .init_resource::<CameraTarget>()
+            .init_resource::<ControlledShip>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .add_systems(Update, toggle_control_mode);
+
+        let ship = app
+            .world_mut()
+            .spawn((Ship::default(), Team::new(0)))
+            .id();
+        (app, ship)
+    }
+
+    /// `F` toggles between piloting the followed ship and free look, and
+    /// switching to free look releases ship control.
+    #[test]
+    fn f_toggles_pilot_and_free_look() {
+        let (mut app, ship) = app_with_player_ship();
+
+        assert_eq!(
+            *app.world().resource::<ControlMode>(),
+            ControlMode::FreeLook
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyF);
+        app.update();
+
+        assert_eq!(*app.world().resource::<ControlMode>(), ControlMode::Pilot);
+        assert_eq!(
+            app.world().resource::<ControlledShip>().controlling,
+            Some(ship)
+        );
+        assert_eq!(app.world().resource::<CameraTarget>().following, Some(ship));
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyF);
+        app.update();
+
+        assert_eq!(
+            *app.world().resource::<ControlMode>(),
+            ControlMode::FreeLook
+        );
+        assert_eq!(app.world().resource::<ControlledShip>().controlling, None);
+        assert_eq!(app.world().resource::<CameraTarget>().following, None);
     }
 }

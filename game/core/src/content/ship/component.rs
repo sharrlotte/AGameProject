@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::constant::LAYER_SHIP_UI;
 use crate::config::GameConfigValue;
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
-use crate::content::ship::ai::{BehaviorIdle, BehaviorTimer};
+use crate::content::ship::ai::{AiProfile, BehaviorIdle, BehaviorTimer};
 use crate::content::ship::grid::ShipGrid;
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
@@ -66,6 +66,8 @@ pub struct ShipDesign {
     #[serde(default)]
     pub name: String,
     pub blocks: Vec<BlockPlacement>,
+    #[serde(default)]
+    pub ai: AiProfile,
 }
 
 fn default_version() -> u32 {
@@ -79,6 +81,7 @@ impl ShipDesign {
             id: Uuid::now_v7(),
             name: String::new(),
             blocks,
+            ai: AiProfile::default(),
         }
     }
 
@@ -123,8 +126,11 @@ impl ShipDesign {
                 ColliderMassProperties::Mass(mass),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveCollisionTypes::all(),
+            ))
+            .insert((
                 BehaviorTimer::new(config.0.ai_think_rate_hz),
                 BehaviorIdle,
+                self.ai,
                 Damping {
                     linear_damping: config.0.linear_damping,
                     angular_damping: config.0.angular_damping,

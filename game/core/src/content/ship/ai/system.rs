@@ -6,7 +6,7 @@ use super::component::*;
 use crate::config::GameConfigValue;
 use crate::content::ship::{BoundingBox, Ship, ShipBehavior, ShipStats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlledShip, SceneState};
+use crate::resource::{CameraTarget, ControlledShip, GameRng, SceneState};
 use crate::simulation::SimulationSet;
 
 /// Snapshot of a ship used by behavior systems; avoids borrowing ECS queries
@@ -211,9 +211,10 @@ pub fn wander_behavior(
     camera: Res<CameraTarget>,
     controlled: Res<ControlledShip>,
     config: Res<GameConfigValue>,
+    mut game_rng: ResMut<GameRng>,
     mut commands: Commands,
 ) {
-    let mut rng = rand::rng();
+    let mut rng = game_rng.rng_mut();
     for (entity, mut timer, transform, _ship, stats, bbox) in &mut ships {
         if !tick(&mut timer, &time, entity, &camera, &controlled) {
             continue;

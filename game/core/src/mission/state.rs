@@ -6,7 +6,8 @@ use super::def::{MissionDef, ShipSpawn};
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::resource::DeployPayload;
-use crate::save::io::{SchematicData, load_saved_schematics};
+use crate::content::ship::ShipDesign;
+use crate::save::catalog::ShipCatalog;
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum BattlePhase {
@@ -27,15 +28,16 @@ pub struct BattleResult {
     pub started_at: Option<f32>,
     pub outcome: Option<BattleOutcome>,
     pub duration_secs: f32,
+    pub mission_name: String,
 }
 
 #[derive(Resource, Default)]
 pub struct BattleRestart(pub bool);
 
 pub fn find_schematic<'a>(
-    schematics: &'a [SchematicData],
+    schematics: &'a [ShipDesign],
     name: &str,
-) -> Option<&'a SchematicData> {
+) -> Option<&'a ShipDesign> {
     schematics
         .iter()
         .find(|s| s.name == name)
@@ -46,7 +48,7 @@ fn spawn_ship(
     commands: &mut Commands,
     registry: &BlockRegistry,
     config: &GameConfigValue,
-    schematics: &[SchematicData],
+    schematics: &[ShipDesign],
     spawn: &ShipSpawn,
 ) {
     let Some(schematic) = find_schematic(schematics, &spawn.schematic_name) else {
@@ -57,7 +59,7 @@ fn spawn_ship(
         return;
     };
 
-    schematic.to_design().spawn(
+    schematic.spawn(
         commands,
         registry,
         Team::new(spawn.team),
@@ -73,11 +75,11 @@ pub fn spawn_mission(
     mission: &MissionDef,
     state: &DeployPayload,
 ) {
-    let schematics = load_saved_schematics();
+    let schematics = ShipCatalog::load_or_seed();
 
     match &state.current_ship {
         Some(deployed) => {
-            deployed.to_design().spawn(
+            deployed.spawn(
                 commands,
                 registry,
                 Team::new(DEFAULT_TEAM_ID),

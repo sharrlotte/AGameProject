@@ -4,6 +4,13 @@ members = [
    "core"
 ]
 
+[workspace.lints.rust]
+unused_variables = "deny"
+unused_imports = "deny"
+
+[workspace.lints.clippy]
+absolute_paths = "deny"
+
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

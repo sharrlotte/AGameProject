@@ -9,7 +9,7 @@ use crate::{
         ship::ShipGrid,
         team::Team,
     },
-    resource::{CameraTarget, ControlledShip, SceneState},
+    resource::{CameraTarget, ControlledShip, ControlMode, SceneState},
     scene::background::BackgroundPlugin,
     simulation::SimulationSet,
 };
@@ -196,6 +196,7 @@ fn handle_ship_button_click(
     mut interaction: Query<(&PickingInteraction, &ShipButton), Changed<PickingInteraction>>,
     mut camera_target: ResMut<CameraTarget>,
     mut controlled: ResMut<ControlledShip>,
+    mut mode: ResMut<ControlMode>,
 ) {
     for (interaction, ship_button) in interaction.iter_mut() {
         if *interaction == PickingInteraction::Pressed {
@@ -207,12 +208,15 @@ fn handle_ship_button_click(
                 {
                     camera_target.following = None;
                     controlled.controlling = None;
+                    *mode = ControlMode::FreeLook;
                 } else {
                     controlled.controlling = Some(ship_button.0);
+                    *mode = ControlMode::Pilot;
                 }
             } else {
                 camera_target.following = Some(ship_button.0);
                 controlled.controlling = None;
+                *mode = ControlMode::FreeLook;
             }
         }
     }
@@ -335,5 +339,113 @@ fn update_ship_list(
                         });
                 });
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Gameplay roots tagged for `SceneState::Game` must not survive leaving
+    /// the scene — this is the invariant behind `DespawnOnExit`.
+    #[test]
+    fn game_roots_are_despawned_on_scene_exit() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .init_state::<SceneState>()
+            .add_systems(OnEnter(SceneState::Game), |mut commands: Commands| {
+                commands.spawn((
+                    DespawnOnExit(SceneState::Game),
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ));
+            });
+
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Game);
+        app.update();
+
+        let mut tagged = app.world_mut().query::<&DespawnOnExit<SceneState>>();
+        assert_eq!(tagged.iter(app.world()).count(), 1);
+
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Home);
+        app.update();
+
+        let mut tagged = app.world_mut().query::<&DespawnOnExit<SceneState>>();
+        assert_eq!(tagged.iter(app.world()).count(), 0);
+    }
+
+    /// Block entities are children of the ship root; they must be removed with
+    /// it so no gameplay entity survives leaving `Game`.
+    #[test]
+    fn children_of_game_roots_are_despawned_too() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .init_state::<SceneState>()
+            .add_systems(OnEnter(SceneState::Game), |mut commands: Commands| {
+                commands
+                    .spawn((DespawnOnExit(SceneState::Game), Transform::default()))
+                    .with_children(|parent| {
+                        parent.spawn((Ship::default(), Transform::default()));
+                    });
+            });
+
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Game);
+        app.update();
+
+        let mut ships = app.world_mut().query::<&Ship>();
+        assert_eq!(ships.iter(app.world()).count(), 1);
+
+        app.world_mut()
+            .resource_mut::<NextState<SceneState>>()
+            .set(SceneState::Home);
+        app.update();
+
+        let mut ships = app.world_mut().query::<&Ship>();
+        assert_eq!(ships.iter(app.world()).count(), 0);
+    }
+
+    #[derive(Resource, Default)]
+    struct OrderLog(Vec<&'static str>);
+
+    fn mark_damage(mut log: ResMut<OrderLog>) {
+        log.0.push("damage");
+    }
+
+    fn mark_death(mut log: ResMut<OrderLog>) {
+        log.0.push("death");
+    }
+
+    /// The fixed-tick chain must hold without message persistence: damage is
+    /// resolved before destruction and mutation.
+    #[test]
+    fn damage_runs_before_death_in_fixed_post_update() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<OrderLog>()
+            .configure_sets(
+                FixedPostUpdate,
+                (SimulationSet::Damage, SimulationSet::Death).chain(),
+            )
+            .add_systems(
+                FixedPostUpdate,
+                (
+                    mark_damage.in_set(SimulationSet::Damage),
+                    mark_death.in_set(SimulationSet::Death),
+                ),
+            );
+
+        app.world_mut().run_schedule(FixedPostUpdate);
+        assert_eq!(
+            app.world().resource::<OrderLog>().0,
+            vec!["damage", "death"]
+        );
     }
 }

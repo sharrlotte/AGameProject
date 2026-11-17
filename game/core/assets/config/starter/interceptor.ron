@@ -1,0 +1,12 @@
+(
+    version: 1,
+    id: "5f1c0a20-7b4e-4a11-9c3d-1e5f6a7b8c90",
+    name: "Interceptor",
+    blocks: [
+        (id: "5f1c0a21-7b4e-4a11-9c3d-1e5f6a7b8c90", position: (0, 0), block_type: "core", rotation: 0),
+        (id: "5f1c0a22-7b4e-4a11-9c3d-1e5f6a7b8c90", position: (3, 1), block_type: "hull", rotation: 0),
+        (id: "5f1c0a23-7b4e-4a11-9c3d-1e5f6a7b8c90", position: (4, 1), block_type: "thruster_small", rotation: 0),
+        (id: "5f1c0a24-7b4e-4a11-9c3d-1e5f6a7b8c90", position: (2, 3), block_type: "laser_turret", rotation: 0),
+    ],
+    ai: Aggressive,
+)

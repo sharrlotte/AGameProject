@@ -50,6 +50,17 @@ pub struct AmmoState {
 }
 
 impl AmmoState {
+    pub fn new(current: u32) -> Self {
+        Self { current }
+    }
+
+    pub fn current(&self) -> u32 {
+        self.current
+    }
+
+    pub fn set_current(&mut self, current: u32) {
+        self.current = current;
+    }
 
     pub fn take(&mut self) -> bool {
         if self.current > 0 {

@@ -78,7 +78,10 @@ fn setup_battle(
         return;
     }
     commands.insert_resource(MissionAsset(assets.load("config/mission/quick-battle.ron")));
-    commands.insert_resource(BattleResult::default());
+    commands.insert_resource(BattleResult {
+        mission_name: "quick-battle".to_string(),
+        ..default()
+    });
     phase.set(BattlePhase::Loading);
 }
 

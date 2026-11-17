@@ -25,13 +25,13 @@
 
 - [x] 3.1 Replace `SceneEntity` and `clean_state_item` with `DespawnOnExit` on all game, home, editor, pause, and settings roots
 - [x] 3.2 Delete `SceneEntity`, the `Save` marker, `ShipState`, and manual cleanup loops
-- [ ] 3.3 Implement the `Input`, `Stats`, `Ai`, `Control`, `Weapons`, `Damage`, `Death`, `Present`, and `Cleanup` sets
-- [ ] 3.4 Chain damage → death → `ShipMutation` within the fixed tick; remove cross-frame message reliance
-- [ ] 3.5 Implement `PendingLoad` → `Loading` → `Game` load as a state transition
-- [ ] 3.6 Split `Pilot` and `FreeLook` control; add `F` follow toggle and middle-mouse pan
-- [ ] 3.7 Add the debug-only untagged-entity audit
-- [ ] 3.8 Add scene-exit entity-count, ordering, and input-mode tests
-- [ ] 3.9 Verify no gameplay entity survives leaving `Game` or loading a slot
+- [x] 3.3 Implement the `Input`, `Stats`, `Ai`, `Control`, `Weapons`, `Damage`, `Death`, `Present`, and `Cleanup` sets
+- [x] 3.4 Chain damage → death → `ShipMutation` within the fixed tick; remove cross-frame message reliance
+- [x] 3.5 Implement `PendingLoad` → `Loading` → `Game` load as a state transition
+- [x] 3.6 Split `Pilot` and `FreeLook` control; add `F` follow toggle and middle-mouse pan
+- [x] 3.7 Add the debug-only untagged-entity audit
+- [x] 3.8 Add scene-exit entity-count, ordering, and input-mode tests
+- [x] 3.9 Verify no gameplay entity survives leaving `Game` or loading a slot
 
 ## 4. Phase 3 — RON save v2
 

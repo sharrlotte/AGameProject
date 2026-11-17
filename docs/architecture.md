@@ -35,9 +35,12 @@ Five state machines, all Bevy 0.20 states:
 | `ConfigState` | `config/mod.rs` | `Loading`, `Ready`, `Error(ConfigError)` | `Loading` |
 
 `SettingState` is registered inside `SettingScenePlugin`, the others in `main.rs`.
-Scene-scoped entities are tagged `SceneEntity(SceneState)`; `clean_state_item`
-(`system.rs`) despawns them on every `SceneState` exit transition (`Cleanup`).
-Entities without the tag survive scene transitions.
+Scene-scoped entities are tagged with Bevy's `DespawnOnExit(S)`, one per owning
+state: `SceneState::Game/Home/ShipEditor`, `PauseState::Paused`, and
+`SettingState::Open`. Bevy despawns the tagged root and all of its children on
+the matching state exit; no manual cleanup loop exists. A debug-only audit in
+`system.rs` samples root entities every five seconds and warns about any that
+lack a `DespawnOnExit` tag.
 
 Config load failures move `ConfigState` to `Error(ConfigError)` and show a
 full-screen error instead of panicking. Mission load failures post an
@@ -51,44 +54,33 @@ full-screen error instead of panicking. Mission load failures post an
 | `DeployPayload` | `current_ship: Option<SchematicData>` — Deploy payload consumed by mission spawn |
 | `CameraTarget` | `following: Option<Entity>` — camera-follow ship |
 | `ControlledShip` | `controlling: Option<Entity>` — ship receiving player input |
+| `ControlMode` | `Pilot` (WASD flies the controlled ship, camera follows) or `FreeLook` (WASD pans, thrust paused); `F` toggles, middle-mouse drags the camera in either mode |
+| `PendingLoad` | `slot: Option<u8>` — set by `handle_load_request`, consumed on `SceneState::Game` entry |
 | `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops) |
 
 ## Simulation-set contract
 
-The target schedule contract (implemented incrementally; see
-`openspec/changes/rewrite-game-systems/design.md` §3 and the doc comment on
-`SimulationSet`):
+The authoritative contract is the doc comment on `SimulationSet` in
+`simulation.rs`; set ordering is configured per schedule in `main.rs`.
 
 | Schedule | Set | Contents |
 |---|---|---|
 | `PreUpdate` | `Input` | keyboard/mouse, UI buttons, pause toggle, editor input |
-| `FixedPreUpdate` | `Stats` | power, efficiency, thrust/rotate stats, cargo aggregation |
-| `FixedUpdate` | `Ai` | AI think/steering at `ai_think_rate_hz` |
-| `FixedUpdate` | `Control` | player forces, camera follow target |
-| `FixedUpdate` | `Weapons` | turret targeting/tracking, shooting, projectile movement, radar |
-| `FixedUpdate` | `Physics` | Rapier step (engine) |
-| `FixedPostUpdate` | `Damage` | collision events → damage events → health |
+| `FixedFirst` | `Stats` | efficiency (chained) then power usage |
+| `FixedPreUpdate` | `Stats` | thrust/rotate stats (`StatsUpdateSet`), then `ship::update_stats` |
+| `FixedUpdate` | `Ai` | AI think/steering |
+| `FixedUpdate` | `Control` | player forces, camera follow target, drop collection |
+| `FixedUpdate` | `Weapons` | turret targeting/tracking, shooting, projectiles, radar, ammo |
+| `FixedUpdate` | `Cleanup` | lifetime countdown |
+| `FixedPostUpdate` | `Damage` | collisions → damage events → health, laser hit resolution |
 | `FixedPostUpdate` | `Death` | block destruction → `ShipMutation` → drops |
-| `PostUpdate` | `Present` | camera, HUD, indicators, damage text |
+| `PostUpdate` | `Present` | camera, HUD, indicators, damage text, parallax |
 | `Last` | `Cleanup` | deferred despawns |
 
-`Damage → Death → ShipMutation` is chained inside the same fixed tick; message
+`Damage → Death → ShipMutation` is chained inside one fixed tick: `Damage`
+precedes `Death` via `configure_sets`, `apply_ship_mutations` runs after
+`handle_block_destroy`, and `handle_drop` runs after the mutation. Message
 persistence across frames is never assumed.
-
-Until the split lands, `simulation.rs` exports `Input`, `Simulate`, `Apply`,
-`Cleanup`; every ordering-sensitive system belongs to exactly one set.
-
-| Set | Meaning |
-|---|---|
-| `Input` | poll devices/UI; fire on user actions (selection, editor placement, pause, zoom) |
-| `Simulate` | think, integrate, collide, derive state (AI, turrets, radar, lifetimes, camera, stats) |
-| `Apply` | turn events into lasting state (damage, drops, fragmentation, deaths, scene save) |
-| `Cleanup` | despawn-dead, scene teardown hygiene |
-
-Bevy's schedules run in order (`FixedFirst → FixedPreUpdate → FixedUpdate
-→ FixedPostUpdate → FixedLast`; `PreUpdate → Update → PostUpdate`); sets
-documented inside each plugin identify members of the pipeline
-(`configure_sets(FixedFirst, SimulationSet::Simulate)`, etc.).
 
 ## Schedules and ordering
 
@@ -96,14 +88,19 @@ documented inside each plugin identify members of the pipeline
 |---|---|
 | `PreStartup` | `register_default_items` |
 | `Startup` | `setup_camera`, `load_current_ship`, `AmmoPlugin::setup_assets`, `ConfigPlugin::load_config_handles` |
-| `PreUpdate` (Cleanup) | `clean_state_item` |
-| `FixedFirst` (Simulate) | Efficiency systems (chained, `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
-| `FixedPreUpdate` (Simulate) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
-| `FixedUpdate` (mixed) | Simulate: turrets, bullets, missiles, fire/laser/pulling beam, ammo warnings, drops; Apply: `update_lifetime` (turns `Lifetime` into `Death`) |
-| `FixedPostUpdate` (Apply) | Damage application, block damage flash overlay, block destroy, drop spawn |
-| `FixedLast` (Cleanup) | `death::despawn_dead` |
-| `PostUpdate` (Simulate) | `update_ship_behavior` |
-| `Update` (Input/Simulate) | Handles/scroll/FPS (Input); radar scan, selection-gated simulations, outcome polls, list rebuilds (Simulate unless noted) |
+| `PreUpdate` | input handling; Bevy state transitions |
+| `FixedFirst` (`Stats`) | Efficiency systems (chained, `EfficiencyUpdateSet`), then energy systems (`.after(EfficiencyUpdateSet)`, chained) |
+| `FixedPreUpdate` (`Stats`) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
+| `FixedUpdate` (`Ai` → `Control` → `Weapons` → `Cleanup`) | AI chain, player control/camera, turrets/bullets/ammo, lifetime countdown |
+| `FixedPostUpdate` (`Damage` → `Death`) | Damage events and laser hits; block destruction, mutations, drops |
+| `FixedLast` (`Cleanup`) | `death::despawn_dead` |
+| `PostUpdate` (`Present`) | `update_ship_behavior`, indicators, parallax, UI presentation |
+| `Update` (`Input` → `Present`) | Editor/UI input, then config bridges, save/load requests, mission polling, notices |
+
+World loads are state transitions: `LoadWorldEvent` → `PendingLoad` →
+`SceneState::Loading` → `SceneState::Game`. On `Game` entry,
+`spawn_loaded_world` spawns the snapshot instead of `setup_battle` (which skips
+while a load is pending).
 
 `Time::<Fixed>::from_hz(60.0)`; Rapier runs in the fixed schedule with 2D gravity zero,
 pixels-per-meter 1.0.
@@ -149,3 +146,11 @@ content/
 mission/         MissionDef .ron, BattlePhase state, battle spawn/outcome/overlay
 config/          ConfigPlugin: ron loader, boot gate, GameConfig/BlocksConfig/GameSetting
 ```
+
+## Lints
+
+Workspace lints are configured in `game/Cargo.toml` (`[workspace.lints]`) and inherited by `game/core/Cargo.toml` via `[lints] workspace = true`:
+
+- `rust::unused_variables = "deny"`
+- `rust::unused_imports = "deny"`
+- `clippy::absolute_paths = "deny"`

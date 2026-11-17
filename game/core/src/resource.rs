@@ -2,8 +2,9 @@ use bevy::{
     ecs::{entity::Entity, resource::Resource},
     state::state::States,
 };
+use rand::SeedableRng;
 
-use crate::save::io::SchematicData;
+use crate::content::ship::ShipDesign;
 
 #[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
 pub enum SceneState {
@@ -30,7 +31,48 @@ pub enum SettingState {
 
 #[derive(Resource, Default, Debug)]
 pub struct DeployPayload {
-    pub current_ship: Option<SchematicData>,
+    pub current_ship: Option<ShipDesign>,
+}
+
+/// Seeded RNG shared by systems that affect gameplay. Persisting the seed in a
+/// save slot makes a restored battle continue its exact random sequence.
+#[derive(Resource)]
+pub struct GameRng {
+    seed: u64,
+    rng: rand::rngs::SmallRng,
+}
+
+impl GameRng {
+    pub fn new(seed: u64) -> Self {
+        Self {
+            seed,
+            rng: rand::rngs::SmallRng::seed_from_u64(seed),
+        }
+    }
+
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    pub fn rng_mut(&mut self) -> &mut rand::rngs::SmallRng {
+        &mut self.rng
+    }
+}
+
+impl Default for GameRng {
+    fn default() -> Self {
+        Self::new(0x5EED_1234_5678_9ABC)
+    }
+}
+
+/// How WASD input is interpreted while in the Game scene.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlMode {
+    /// WASD/QE fly the controlled ship and the camera follows it.
+    Pilot,
+    /// WASD pan the camera and ship thrust is paused.
+    #[default]
+    FreeLook,
 }
 
 /// A world load that has been requested but not yet applied.

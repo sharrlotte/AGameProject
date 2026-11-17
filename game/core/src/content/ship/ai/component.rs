@@ -1,4 +1,17 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+
+/// Serializable AI profile attached to a ship design.
+///
+/// Phase 6 expands this into a rule list; for now it selects the default
+/// runtime behavior a spawned ship starts with.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum AiProfile {
+    #[default]
+    Default,
+    Aggressive,
+    Skirmisher,
+}
 
 /// Timer shared by all AI behavior systems. Each behavior system ticks it;
 /// a ship carries exactly one behavior marker, so only one system acts per tick.
