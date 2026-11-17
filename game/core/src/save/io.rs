@@ -1,29 +1,36 @@
 use bevy::prelude::*;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    fs,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::content::{
     block::{
-        component::{Block, BlockData, BlockRegistry, Health, SingleShootPatternState, BurstShootPatternState},
+        component::{
+            Block, BlockData, BlockRegistry, BurstShootPatternState, Health,
+            SingleShootPatternState,
+        },
         feature::turret::TurretState,
     },
     ship::{ShipData, ShipState},
     team::Team,
 };
+use crate::save::document::{read_document, write_document};
 use crate::save::schema::{
-    read_version, BlockSaveData, ShipSave, TurretSaveState, WorldSave, WORLD_SCHEMA_VERSION,
+    BlockSaveData, ShipSave, TurretSaveState, WorldSave, WORLD_SCHEMA_VERSION,
 };
 use crate::simulation::SimulationSet;
-use crate::symbol::{Symbol, Symbols};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Reflect)]
 pub struct SchematicBlockData {
     pub id: Uuid,
     pub position: IVec2,
-    pub block_type: Symbol,
+    pub block_type: String,
     pub rotation: u8,
 }
 
@@ -50,7 +57,12 @@ impl SchematicData {
     pub fn to_ship_data(&self) -> ShipData {
         ShipData {
             id: self.id,
-            blocks: self.blocks.clone().into_iter().map(|b| b.to_block_data()).collect(),
+            blocks: self
+                .blocks
+                .clone()
+                .into_iter()
+                .map(|b| b.to_block_data())
+                .collect(),
         }
         .new()
     }
@@ -78,20 +90,20 @@ fn world_save_dir() -> PathBuf {
     save_dir().join("world")
 }
 
-pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
+pub fn load_saved_schematics() -> Vec<SchematicData> {
     let schematics_dir = save_dir().join("schematics");
     let mut schematics = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(schematics_dir) {
+    if let Ok(entries) = fs::read_dir(&schematics_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str()
-                && name.ends_with(".json")
+                && name.ends_with(".ron")
             {
-                let path = save_dir().join("schematics").join(name);
-                if let Ok(json) = fs::read_to_string(path)
-                    && let Ok(mut ship) = serde_json::from_str::<SchematicData>(&json)
+                let path = schematics_dir.join(name);
+                if let Ok(text) = fs::read_to_string(path)
+                    && let Ok(mut ship) = ron::from_str::<SchematicData>(&text)
                 {
-                    ship.filename = name.to_string().replace(".json", "");
+                    ship.filename = name.trim_end_matches(".ron").to_string();
                     schematics.push(ship);
                 }
             }
@@ -117,13 +129,13 @@ pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
             ship.blocks.clear();
             ship.blocks.push(SchematicBlockData {
                 id: Uuid::now_v7(),
-                block_type: symbols.intern("core"),
+                block_type: "core".to_string(),
                 position: IVec2::new(0, 0),
                 rotation: 0,
             });
             ship.blocks.push(SchematicBlockData {
                 id: Uuid::now_v7(),
-                block_type: symbols.intern("laser_turret"),
+                block_type: "laser_turret".to_string(),
                 position: IVec2::new(1, 3),
                 rotation: 0,
             });
@@ -135,10 +147,11 @@ pub fn load_saved_schematics(symbols: &mut Symbols) -> Vec<SchematicData> {
 
 pub fn save_schematic(data: &SchematicData) -> Result<(), std::io::Error> {
     let schematics_dir = save_dir().join("schematics");
-    let path = schematics_dir.join(format!("{}.json", data.filename));
+    let path = schematics_dir.join(format!("{}.ron", data.filename));
     fs::create_dir_all(&schematics_dir)?;
-    let json = serde_json::to_string_pretty(&data)?;
-    fs::write(path, json)
+    let text = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
+        .map_err(std::io::Error::other)?;
+    fs::write(path, text)
 }
 
 /// Single entry point for spawning a ship from a versioned RON save.
@@ -183,7 +196,7 @@ pub fn spawn_ship_from_save(
         if let Some(state) = &saved.single_pattern {
             commands.entity(*entity).insert(state.clone());
         }
-        
+
         if let Some(state) = &saved.burst_pattern {
             commands.entity(*entity).insert(state.clone());
         }
@@ -205,11 +218,6 @@ pub fn handle_save_world_event(
     for _ in events.read() {
         let dir = world_save_dir();
         let ships_dir = dir.join("ships");
-        if let Err(e) = fs::create_dir_all(&ships_dir) {
-            warn!("Failed to create world save dir: {e}");
-            continue;
-        }
-
         let mut ship_ids = Vec::new();
         let mut teams = Vec::new();
 
@@ -256,14 +264,9 @@ pub fn handle_save_world_event(
                 team: team.id,
                 blocks: block_saves,
             };
-            let path = ships_dir.join(format!("{ship_uuid}.ron"));
-            match ron::ser::to_string_pretty(&ship_save, ron::ser::PrettyConfig::default()) {
-                Ok(text) => {
-                    if let Err(e) = fs::write(path, text) {
-                        warn!("Failed to write ship save: {e}");
-                    }
-                }
-                Err(e) => warn!("Failed to serialize ship save: {e}"),
+            if let Err(e) = write_document(&ships_dir.join(format!("{ship_uuid}.ron")), &ship_save)
+            {
+                warn!("Failed to write ship save: {e}");
             }
         }
 
@@ -273,13 +276,8 @@ pub fn handle_save_world_event(
             elapsed_secs: battle_time.started_at.unwrap_or(0.0),
             ship_ids,
         };
-        match ron::ser::to_string_pretty(&world, ron::ser::PrettyConfig::default()) {
-            Ok(text) => {
-                if let Err(e) = fs::write(dir.join("world.ron"), text) {
-                    warn!("Failed to write world.ron: {e}");
-                }
-            }
-            Err(e) => warn!("Failed to serialize world.ron: {e}"),
+        if let Err(e) = write_document(&dir.join("world.ron"), &world) {
+            warn!("Failed to write world.ron: {e}");
         }
     }
 }
@@ -293,21 +291,10 @@ pub fn handle_load_world_event(
 ) {
     for _ in events.read() {
         let dir = world_save_dir();
-        let world_text = match fs::read_to_string(dir.join("world.ron")) {
-            Ok(text) => text,
+        let world: WorldSave = match read_document(&dir.join("world.ron")) {
+            Ok(world) => world,
             Err(e) => {
                 warn!("Failed to read world save: {e}");
-                continue;
-            }
-        };
-        if let Err(e) = read_version(&world_text) {
-            warn!("{e}");
-            continue;
-        }
-        let world: WorldSave = match ron::from_str(&world_text) {
-            Ok(w) => w,
-            Err(e) => {
-                warn!("Failed to parse world.ron: {e}");
                 continue;
             }
         };
@@ -319,22 +306,11 @@ pub fn handle_load_world_event(
         }
 
         for id in world.ship_ids {
-            let path = dir.join("ships").join(format!("{id}.ron"));
-            let text = match fs::read_to_string(&path) {
-                Ok(text) => text,
+            let ship: ShipSave = match read_document(&dir.join("ships").join(format!("{id}.ron")))
+            {
+                Ok(ship) => ship,
                 Err(e) => {
                     warn!("Failed to read ship save {id}: {e}");
-                    continue;
-                }
-            };
-            if let Err(e) = read_version(&text) {
-                warn!("{e}");
-                continue;
-            }
-            let ship: ShipSave = match ron::from_str(&text) {
-                Ok(s) => s,
-                Err(e) => {
-                    warn!("Failed to parse ship save {id}: {e}");
                     continue;
                 }
             };
@@ -359,9 +335,11 @@ impl Plugin for SavePlugin {
             );
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save::document::parse_document;
     use crate::save::schema::*;
 
     #[test]
@@ -372,21 +350,41 @@ mod tests {
             team: 0,
             blocks: vec![BlockSaveData {
                 position: IVec2::new(2, 3),
-                block_type: Symbol::from("core"),
+                block_type: "core".to_string(),
                 rotation: 0,
                 health: 4000.0,
                 max_health: 5000.0,
-                turret_state: Some(TurretSaveState { active: true, shoot_at: None }),
+                turret_state: Some(TurretSaveState {
+                    active: true,
+                    shoot_at: None,
+                }),
                 single_pattern: None,
                 burst_pattern: None,
             }],
         };
         let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
-        assert_eq!(read_version(&text).unwrap(), WORLD_SCHEMA_VERSION);
-        let back: ShipSave = ron::from_str(&text).unwrap();
+        let back: ShipSave = parse_document(&text).unwrap();
         assert_eq!(back, save);
 
         let bad = text.replace("version: 1", "version: 99");
-        assert!(read_version(&bad).is_err());
+        assert!(parse_document::<ShipSave>(&bad).is_err());
+    }
+
+    #[test]
+    fn schematic_ron_roundtrip() {
+        let schematic = SchematicData {
+            id: Uuid::now_v7(),
+            filename: "test".to_string(),
+            name: "Test".to_string(),
+            blocks: vec![SchematicBlockData {
+                id: Uuid::now_v7(),
+                position: IVec2::new(1, 2),
+                block_type: "core".to_string(),
+                rotation: 0,
+            }],
+        };
+        let text = ron::ser::to_string(&schematic).unwrap();
+        let back: SchematicData = ron::from_str(&text).unwrap();
+        assert_eq!(back.blocks[0].block_type, "core");
     }
 }

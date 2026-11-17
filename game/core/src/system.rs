@@ -7,7 +7,6 @@ use bevy::{
 
 use crate::resource::{DeployPayload, SceneEntity, SceneState};
 use crate::save::io::load_saved_schematics;
-use crate::symbol::Symbols;
 
 pub fn setup_camera(mut commands: Commands) {
     commands.spawn((
@@ -30,8 +29,8 @@ pub fn setup_camera(mut commands: Commands) {
     ));
 }
 
-pub fn load_current_ship(mut state: ResMut<DeployPayload>, mut symbols: ResMut<Symbols>) {
-    let ships = load_saved_schematics(&mut symbols);
+pub fn load_current_ship(mut state: ResMut<DeployPayload>) {
+    let ships = load_saved_schematics();
 
     if let Some(ship) = ships.first() {
         state.current_ship = Some(ship.clone());

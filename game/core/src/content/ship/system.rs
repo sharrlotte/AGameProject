@@ -103,8 +103,8 @@ pub fn check_rebuild_ship_collider(
 
         ship_block.blocks.retain(|f| !delete_blocks.contains(&f.id));
 
-        if let Some(block) = registry.get_symbol(event.block_type.clone()) {
-            if block.block_type.as_str() == "core" {
+        if let Some(block) = registry.get(&event.block_type) {
+            if block.block_type == "core" {
                 commands.entity(entity).insert(Death);
             }
         }
@@ -148,7 +148,6 @@ pub fn check_rebuild_ship_collider(
     }
 }
 
-#[cfg(debug_assertions)]
 #[cfg(debug_assertions)]
 pub fn update_ship_ui(
     mut commands: Commands,

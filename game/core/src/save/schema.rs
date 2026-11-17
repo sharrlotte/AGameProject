@@ -5,7 +5,6 @@ use uuid::Uuid;
 use crate::content::block::{
     component::{BurstShootPatternState, SingleShootPatternState},
 };
-use crate::symbol::Symbol;
 
 pub const WORLD_SCHEMA_VERSION: u32 = 1;
 
@@ -18,7 +17,7 @@ pub struct TurretSaveState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockSaveData {
     pub position: IVec2,
-    pub block_type: Symbol,
+    pub block_type: String,
     pub rotation: u8,
     pub health: f32,
     pub max_health: f32,
@@ -63,3 +62,6 @@ pub fn read_version(data: &str) -> Result<u32, String> {
 
     Ok(parsed.version)
 }
+
+crate::ron_document!(WorldSave, WORLD_SCHEMA_VERSION, "world save");
+crate::ron_document!(ShipSave, WORLD_SCHEMA_VERSION, "ship save");

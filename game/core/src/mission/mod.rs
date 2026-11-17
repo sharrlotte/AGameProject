@@ -13,11 +13,10 @@ use crate::content::block::BlockRegistry;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::config::ConfigState;
-use crate::resource::{DeployPayload, SceneEntity, SceneState};
+use crate::resource::{AppNotice, DeployPayload, SceneEntity, SceneState};
 
 use crate::mission::state::spawn_mission;
 use crate::simulation::SimulationSet;
-use crate::symbol::Symbols;
 
 #[derive(Resource)]
 struct MissionAsset(Handle<MissionDef>);
@@ -85,9 +84,10 @@ fn poll_mission_loaded(
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
     state: Res<DeployPayload>,
-    mut symbols: ResMut<Symbols>,
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
+    mut notice: ResMut<AppNotice>,
+    mut scene_state: ResMut<NextState<SceneState>>,
     time: Res<Time>,
 ) {
     let Some(handle) = handle else {
@@ -98,14 +98,17 @@ fn poll_mission_loaded(
         server.get_load_state(&handle.0),
         Some(LoadState::Failed(_))
     ) {
-        panic!("config/mission/quick-battle.ron failed to load");
+        warn!("config/mission/quick-battle.ron failed to load");
+        notice.show("Mission failed to load; returning home.");
+        scene_state.set(SceneState::Home);
+        return;
     }
 
     let Some(mission) = assets.get(&handle.0).cloned() else {
         return;
     };
 
-    spawn_mission(&mut commands, &registry, &config, &mission, &state, &mut symbols);
+    spawn_mission(&mut commands, &registry, &config, &mission, &state);
 
     result.started_at = Some(time.elapsed_secs());
     result.outcome = None;

@@ -3,12 +3,11 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy::{asset::Handle, image::Image};
 
-use crate::symbol::Symbol;
 
 #[derive(Component, Default, Reflect, Clone, Debug, PartialEq)]
 pub struct Ammo {
     capacity: u32,
-    crafting: HashMap<Symbol, u32>,
+    crafting: HashMap<String, u32>,
     icon: Option<Handle<Image>>,
 }
 
@@ -25,7 +24,7 @@ impl Ammo {
 
 pub struct AmmoBuilder {
     pub capacity: u32,
-    pub crafting: HashMap<Symbol, u32>,
+    pub crafting: HashMap<String, u32>,
     pub icon: Option<Handle<Image>>,
 }
 

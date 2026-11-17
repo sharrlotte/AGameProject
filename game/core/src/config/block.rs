@@ -24,7 +24,6 @@ use crate::content::{
         },
     },
 };
-use crate::symbol::{Symbol, Symbols};
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -36,7 +35,7 @@ pub struct BlocksConfig {
 #[serde(deny_unknown_fields)]
 pub struct BlockDefConfig {
     pub name: String,
-    pub block_group: Symbol,
+    pub block_group: String,
     pub mass: f32,
     pub health: f32,
     pub cost: u32,
@@ -101,7 +100,7 @@ pub struct BurstShootPatternConfig {
 #[serde(deny_unknown_fields)]
 pub struct AmmoConfig {
     pub capacity: u32,
-    pub crafting: HashMap<Symbol, u32>,
+    pub crafting: HashMap<String, u32>,
     pub icon: Option<String>,
 }
 
@@ -178,7 +177,7 @@ impl AmmoConfig {
 }
 
 impl BlockDefConfig {
-    pub fn into_def(self, assets: &AssetServer, block_type: Symbol) -> BlockDef {
+    pub fn into_def(self, assets: &AssetServer, block_type: String) -> BlockDef {
         BlockDef {
             name: self.name,
             block_type,
@@ -202,7 +201,6 @@ pub fn blocks_bridge(
     assets: Res<Assets<BlocksConfig>>,
     server: Res<AssetServer>,
     mut registry: ResMut<BlockRegistry>,
-    mut symbols: ResMut<Symbols>,
 ) {
     for event in events.read() {
         let id = match event {
@@ -214,10 +212,9 @@ pub fn blocks_bridge(
             let mut rebuilt = BlockRegistry::default();
 
             for (key, block) in &config.blocks {
-                let symbol = symbols.intern(key);
                 rebuilt.register(
                     key,
-                    block.clone().into_def(server.as_ref(), symbol),
+                    block.clone().into_def(server.as_ref(), key.clone()),
                 );
             }
 

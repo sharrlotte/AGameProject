@@ -41,6 +41,10 @@
 - Prefer DespawnOnExit
 - We are using bevy 0.20.0, make sure to make use of it new features and do not use old, deprecated features
 
+## Testing
+
+- Run cargo dev after every intergration to make sure no error, run it in the background while you continue to work on the next task
+
 # Files
 
 - Assets folder: game\assets

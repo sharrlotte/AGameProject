@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use crate::symbol::Symbol;
 
 #[derive(Debug, Reflect, Copy, Clone)]
 pub enum Rarity {
@@ -32,12 +31,12 @@ pub enum ItemGroup {
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
 pub struct ItemRegistry {
-    map: HashMap<Symbol, ItemDef>,
+    map: HashMap<String, ItemDef>,
 }
 
 #[derive(Debug, Reflect)]
 pub struct ItemDef {
-    pub item_type: Symbol,
+    pub item_type: String,
     pub item_group: ItemGroup,
     pub rarity: Rarity,
     pub name: String,
@@ -55,7 +54,7 @@ impl ItemRegistry {
         self.map.insert(def.item_type.clone(), def);
     }
 
-    pub fn get(&self, item_type: &Symbol) -> Option<&ItemDef> {
+    pub fn get(&self, item_type: &String) -> Option<&ItemDef> {
         self.map.get(item_type)
     }
 }

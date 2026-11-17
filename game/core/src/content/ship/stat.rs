@@ -10,7 +10,6 @@ use crate::content::{
         },
     },
 };
-use crate::symbol::Symbol;
 use bevy::prelude::*;
 
 #[derive(Component, Clone, Debug, Reflect)]
@@ -20,7 +19,7 @@ pub struct ComputedShipStats {
     pub rotate_speed: f32,
     pub efficiency: f32,
     pub is_full: bool,
-    pub items: HashMap<Symbol, u32>,
+    pub items: HashMap<String, u32>,
     pub storages: Vec<Entity>,
 }
 

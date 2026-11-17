@@ -21,7 +21,6 @@ use crate::{
     resource::{DeployPayload, SceneEntity, SceneState},
     save::io::{SchematicBlockData, SchematicData, load_saved_schematics, save_schematic},
     simulation::SimulationSet,
-    symbol::{Symbol, Symbols},
 };
 
 #[derive(Component)]
@@ -110,10 +109,13 @@ impl Plugin for ShipEditorPlugin {
     }
 }
 
+#[derive(Component, Clone)]
+pub struct BlockSelection(pub String);
+
 #[derive(Resource, Default)]
 pub struct EditorState {
     pub active_tab: EditorTab,
-    pub selected_block: Option<Symbol>,
+    pub selected_block: Option<String>,
     pub hovered_grid_position: Option<IVec2>,
     pub place_req: bool,
     pub delete_req: bool,
@@ -368,7 +370,7 @@ pub fn setup_editor_ui(
                                             ..default()
                                         },
                                         BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                                        block_type.clone(),
+                                        BlockSelection(block_type.clone()),
                                     ))
                                     .with_children(|btn| {
                                         // Block Icon/Sprite
@@ -578,7 +580,7 @@ pub fn setup_editor_ui(
 
 pub fn handle_block_selection(
     mut interaction: Query<
-        (&PickingInteraction, &Symbol, &mut BackgroundColor, &mut Node),
+        (&PickingInteraction, &BlockSelection, &mut BackgroundColor, &mut Node),
         Changed<PickingInteraction>,
     >,
     mut editor: ResMut<EditorState>,
@@ -587,10 +589,10 @@ pub fn handle_block_selection(
         match *interaction {
             PickingInteraction::Pressed => {
                 // Toggle selection
-                if editor.selected_block == Some(block_type.clone()) {
+                if editor.selected_block == Some(block_type.0.clone()) {
                     editor.selected_block = None;
                 } else {
-                    editor.selected_block = Some(block_type.clone());
+                    editor.selected_block = Some(block_type.0.clone());
                 }
             }
             PickingInteraction::Hovered => {
@@ -598,7 +600,7 @@ pub fn handle_block_selection(
             }
             PickingInteraction::None => {
                 // Highlight if selected
-                if editor.selected_block == Some(block_type.clone()) {
+                if editor.selected_block == Some(block_type.0.clone()) {
                     *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
                 } else {
                     *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.2).with_alpha(0.8));
@@ -820,7 +822,7 @@ pub fn draw_grid(mut gizmos: Gizmos) {
 pub fn check_placement_validity(
     grid: &ShipGrid,
     registry: &BlockRegistry,
-    block_type: Symbol,
+    block_type: String,
     grid_position: IVec2,
     _rotation: u8, // Unused for now
     blocks: &Query<&Block>,
@@ -1050,7 +1052,7 @@ pub fn update_block_properties_panel(
 ) {
     if let Some(mut text) = text.iter_mut().next() {
         if let Some(ref block_type) = editor.selected_block {
-            if let Some(def) = registry.get(block_type.as_str()) {
+            if let Some(def) = registry.get(block_type) {
                 **text = format!(
                     "Name: {}\nCost: {}\nMass: {}\nHP: {}\n",
                     def.name, def.cost, def.mass, def.health
@@ -1107,11 +1109,10 @@ pub fn load_initial_ship(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    mut symbols: ResMut<Symbols>,
     placed_blocks: Query<Entity, With<Block>>,
     ship_base: Single<Entity, With<ShipBase>>,
 ) {
-    let ship_names = load_saved_schematics(&mut symbols);
+    let ship_names = load_saved_schematics();
 
     if ship_names.is_empty() {
         return;
@@ -1127,17 +1128,15 @@ pub fn load_initial_ship(
         &registry,
         &filename,
         ship_base.entity(),
-        &mut symbols,
     );
 }
 
 pub fn refresh_ship_list(
     mut commands: Commands,
     mut available_ships: ResMut<EditorState>,
-    mut symbols: ResMut<Symbols>,
     ship_list_panel: Single<Entity, With<ShipListPanel>>,
 ) {
-    available_ships.ships = load_saved_schematics(&mut symbols);
+    available_ships.ships = load_saved_schematics();
 
     // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
@@ -1205,7 +1204,7 @@ pub fn handle_ship_saving(
 
     for block in &blocks {
         block_count += 1;
-        if block.block_type.as_str() == "core" {
+        if block.block_type == "core" {
             has_core = true;
         }
     }
@@ -1227,7 +1226,6 @@ pub fn handle_ship_loading(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
     registry: Res<BlockRegistry>,
-    mut symbols: ResMut<Symbols>,
     placed_blocks: Query<Entity, With<Block>>,
     mut interaction: Query<(&PickingInteraction, &LoadShipButton), Changed<PickingInteraction>>,
     ship_base: Single<Entity, With<ShipBase>>,
@@ -1241,7 +1239,6 @@ pub fn handle_ship_loading(
                 &registry,
                 &load_btn.filename,
                 ship_base.entity(),
-                &mut symbols,
             );
         }
     }
@@ -1386,9 +1383,8 @@ pub fn spawn_ship(
     registry: &BlockRegistry,
     filename: &str,
     ship_base: Entity,
-    symbols: &mut Symbols,
 ) {
-    let ships = load_saved_schematics(symbols);
+    let ships = load_saved_schematics();
 
     editor.grid = ShipGrid::new();
     editor.filename = filename.to_string();

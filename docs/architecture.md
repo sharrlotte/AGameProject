@@ -16,7 +16,7 @@ game/                        Cargo workspace (resolver = "3")
       scene/                 UI/state scenes
       mission/               battle-core scaffolding (mission.ron, overlay)
       config/                ron config boot gate
-      save/                  serialization
+      save/                  serialization (`document.rs` versioned RON IO, `io.rs`, `schema.rs`)
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.
@@ -32,12 +32,17 @@ Five state machines, all Bevy 0.20 states:
 | `PauseState` | `resource.rs` | `Playing`, `Paused` | `Playing` |
 | `SettingState` | `resource.rs` | `Closed`, `Open` | `Closed` |
 | `BattlePhase` | `mission/mod.rs` | `Loading`, `Active`, `Ended` | `Loading` |
-| `ConfigState` | `config/mod.rs` | `Loading`, `Ready` | `Loading` |
+| `ConfigState` | `config/mod.rs` | `Loading`, `Ready`, `Error(ConfigError)` | `Loading` |
 
 `SettingState` is registered inside `SettingScenePlugin`, the others in `main.rs`.
 Scene-scoped entities are tagged `SceneEntity(SceneState)`; `clean_state_item`
 (`system.rs`) despawns them on every `SceneState` exit transition (`Cleanup`).
 Entities without the tag survive scene transitions.
+
+Config load failures move `ConfigState` to `Error(ConfigError)` and show a
+full-screen error instead of panicking. Mission load failures post an
+`AppNotice` and return to `SceneState::Home`. All persisted data is RON;
+`save/document.rs` owns version checks and atomic `.tmp` → `.bak` writes.
 
 ## Typed shared resources
 
@@ -50,8 +55,28 @@ Entities without the tag survive scene transitions.
 
 ## Simulation-set contract
 
-`simulation.rs` exports one `SystemSet` enum: `Input`, `Simulate`, `Apply`,
-`Cleanup`. Every ordering-sensitive system belongs to exactly one set.
+The target schedule contract (implemented incrementally; see
+`openspec/changes/rewrite-game-systems/design.md` §3 and the doc comment on
+`SimulationSet`):
+
+| Schedule | Set | Contents |
+|---|---|---|
+| `PreUpdate` | `Input` | keyboard/mouse, UI buttons, pause toggle, editor input |
+| `FixedPreUpdate` | `Stats` | power, efficiency, thrust/rotate stats, cargo aggregation |
+| `FixedUpdate` | `Ai` | AI think/steering at `ai_think_rate_hz` |
+| `FixedUpdate` | `Control` | player forces, camera follow target |
+| `FixedUpdate` | `Weapons` | turret targeting/tracking, shooting, projectile movement, radar |
+| `FixedUpdate` | `Physics` | Rapier step (engine) |
+| `FixedPostUpdate` | `Damage` | collision events → damage events → health |
+| `FixedPostUpdate` | `Death` | block destruction → `ShipMutation` → drops |
+| `PostUpdate` | `Present` | camera, HUD, indicators, damage text |
+| `Last` | `Cleanup` | deferred despawns |
+
+`Damage → Death → ShipMutation` is chained inside the same fixed tick; message
+persistence across frames is never assumed.
+
+Until the split lands, `simulation.rs` exports `Input`, `Simulate`, `Apply`,
+`Cleanup`; every ordering-sensitive system belongs to exactly one set.
 
 | Set | Meaning |
 |---|---|

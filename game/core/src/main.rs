@@ -6,7 +6,6 @@ mod resource;
 mod save;
 mod scene;
 mod simulation;
-mod symbol;
 mod system;
 
 use crate::constant::AUDIO_SCALE;
@@ -14,12 +13,12 @@ use crate::config::ConfigPlugin;
 use crate::content::plugin::ContentPlugin;
 use crate::mission::MissionPlugin;
 use crate::simulation::SimulationSet;
-use crate::symbol::Symbols;
 use crate::resource::{CameraTarget, ControlledShip, DeployPayload, PauseState, SceneState};
 use crate::save::io::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
 use crate::scene::home::HomeScenePlugin;
+use crate::scene::notice::NoticePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
 use crate::system::{clean_state_item, load_current_ship, setup_camera};
@@ -82,7 +81,6 @@ fn main() {
     .init_resource::<DeployPayload>()
     .init_resource::<CameraTarget>()
     .init_resource::<ControlledShip>()
-    .init_resource::<Symbols>()
     .init_state::<SceneState>()
     .init_state::<PauseState>()
     .configure_sets(FixedFirst, SimulationSet::Simulate)
@@ -109,6 +107,7 @@ fn main() {
         HanabiPlugin,
         ContentPlugin,
         SettingScenePlugin,
+        NoticePlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .add_systems(PreUpdate, clean_state_item);

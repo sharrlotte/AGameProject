@@ -1,6 +1,5 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::symbol::Symbol;
 
 #[derive(Clone, PartialEq, Reflect, Component)]
 pub struct Storage {
@@ -32,15 +31,15 @@ impl Storage {
 #[derive(Component, Default)]
 pub struct StorageState {
     current: u32,
-    items: HashMap<Symbol, u32>,
+    items: HashMap<String, u32>,
 }
 
 impl StorageState {
-    pub fn iter(&self) -> impl Iterator<Item = (&Symbol, &u32)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &u32)> {
         self.items.iter()
     }
 
-    pub fn add(&mut self, storage: &Storage, item_type: Symbol, count: u32) -> bool {
+    pub fn add(&mut self, storage: &Storage, item_type: String, count: u32) -> bool {
         if self.current + count > storage.capacity {
             return false;
         }

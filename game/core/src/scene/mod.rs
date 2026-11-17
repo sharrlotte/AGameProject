@@ -4,3 +4,4 @@ pub mod home;
 pub mod pause;
 pub mod setting;
 pub mod background;
+pub mod notice;

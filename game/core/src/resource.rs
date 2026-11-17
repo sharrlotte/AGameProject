@@ -45,3 +45,16 @@ pub struct CameraTarget {
 pub struct ControlledShip {
     pub controlling: Option<Entity>,
 }
+
+#[derive(Resource, Default, Debug)]
+pub struct AppNotice {
+    pub message: String,
+    pub remaining: f32,
+}
+
+impl AppNotice {
+    pub fn show(&mut self, message: impl Into<String>) {
+        self.message = message.into();
+        self.remaining = 5.0;
+    }
+}

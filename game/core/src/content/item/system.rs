@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use super::*;
-use crate::symbol::Symbols;
 
 pub struct ItemPlugin;
 
@@ -11,9 +10,9 @@ impl Plugin for ItemPlugin {
     }
 }
 
-pub fn register_default_items(mut registry: ResMut<ItemRegistry>, mut symbols: ResMut<Symbols>) {
+pub fn register_default_items(mut registry: ResMut<ItemRegistry>) {
     registry.register(ItemDef {
-        item_type: symbols.intern("steel"),
+        item_type: "steel".to_string(),
         item_group: ItemGroup::Resource,
         rarity: Rarity::Common,
         name: "steel".to_string(),

@@ -59,7 +59,7 @@ impl ShipGrid {
     pub fn rebuild(&mut self, blocks: &[BlockData], registry: &BlockRegistry) {
         self.cells.clear();
         for block in blocks {
-            if let Some(def) = registry.get_symbol(block.block_type.clone()) {
+            if let Some(def) = registry.get(&block.block_type) {
                 self.insert_block(block, def);
             }
         }

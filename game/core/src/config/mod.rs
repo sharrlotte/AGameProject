@@ -13,13 +13,39 @@ use bevy::prelude::*;
 use crate::content::block::BlockRegistry;
 use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
-use crate::symbol::Symbols;
 
 #[derive(States, Clone, Copy, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
     #[default]
     Loading,
     Ready,
+    Error(ConfigError),
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
+pub struct ConfigError {
+    pub failed: ConfigFile,
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
+pub enum ConfigFile {
+    Game,
+    Blocks,
+    Settings,
+}
+
+impl ConfigError {
+    fn new(failed: ConfigFile) -> Self {
+        Self { failed }
+    }
+
+    pub fn message(&self) -> &'static str {
+        match self.failed {
+            ConfigFile::Game => "config/base/game.ron failed to load",
+            ConfigFile::Blocks => "config/base/block.ron failed to load",
+            ConfigFile::Settings => "config/setting.ron failed to load",
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -57,8 +83,14 @@ impl Plugin for ConfigPlugin {
                 )
                     .run_if(in_state(ConfigState::Ready))
                     .in_set(SimulationSet::Apply),
+            )
+            .add_systems(
+                Update,
+                (
+                    spawn_config_error_screen.run_if(config_failed),
+                    refresh_config_error_text.run_if(resource_exists::<ConfigErrorScreen>),
+                ),
             );
-
     }
 }
 
@@ -79,7 +111,6 @@ fn check_config_ready(
     assets: Res<AssetServer>,
     mut config_state: ResMut<NextState<ConfigState>>,
     mut scene_state: ResMut<NextState<SceneState>>,
-    mut symbols: ResMut<Symbols>,
 ) {
     let Some(handles) = handles else {
         return;
@@ -89,14 +120,16 @@ fn check_config_ready(
         assets.get_load_state(&handles.game),
         Some(LoadState::Failed(_))
     ) {
-        panic!("config/base/game.ron failed to load");
+        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Game)));
+        return;
     }
 
     if matches!(
         assets.get_load_state(&handles.blocks),
         Some(LoadState::Failed(_))
     ) {
-        panic!("config/base/block.ron failed to load");
+        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Blocks)));
+        return;
     }
 
     let Some(game) = game_assets.get(&handles.game) else {
@@ -110,8 +143,7 @@ fn check_config_ready(
     let mut registry = BlockRegistry::default();
 
     for (key, block) in &blocks.blocks {
-        let symbol = symbols.intern(key);
-        registry.register(key, block.clone().into_def(assets.as_ref(), symbol));
+        registry.register(key, block.clone().into_def(assets.as_ref(), key.clone()));
     }
 
     if matches!(
@@ -132,4 +164,82 @@ fn check_config_ready(
 
     config_state.set(ConfigState::Ready);
     scene_state.set(SceneState::Home);
+}
+
+fn config_failed(state: Res<State<ConfigState>>) -> bool {
+    matches!(state.get(), ConfigState::Error(_))
+}
+
+#[derive(Resource)]
+struct ConfigErrorScreen;
+
+#[derive(Component)]
+struct ConfigErrorText;
+
+fn spawn_config_error_screen(
+    mut commands: Commands,
+    state: Res<State<ConfigState>>,
+    existing: Option<Res<ConfigErrorScreen>>,
+) {
+    if existing.is_some() {
+        return;
+    }
+
+    let ConfigState::Error(error) = state.get() else {
+        return;
+    };
+
+    commands.insert_resource(ConfigErrorScreen);
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: Val::Px(16.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.08, 0.02, 0.02)),
+        ))
+        .with_children(|root| {
+            root.spawn((
+                Text::new("CONFIGURATION ERROR"),
+                TextFont {
+                    font_size: FontSize::Px(36.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 0.35, 0.35)),
+            ));
+            root.spawn((
+                Text::new(error.message()),
+                TextFont {
+                    font_size: FontSize::Px(18.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                ConfigErrorText,
+            ));
+            root.spawn((
+                Text::new("Fix the file and restart the game."),
+                TextFont {
+                    font_size: FontSize::Px(14.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.7, 0.7)),
+            ));
+        });
+}
+
+fn refresh_config_error_text(
+    state: Res<State<ConfigState>>,
+    mut text: Query<&mut Text, With<ConfigErrorText>>,
+) {
+    let ConfigState::Error(error) = state.get() else {
+        return;
+    };
+    for mut text in &mut text {
+        **text = error.message().to_string();
+    }
 }
