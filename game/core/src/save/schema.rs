@@ -7,10 +7,12 @@ use crate::content::block::{
 };
 use crate::content::ship::ai::AiProfile;
 
-/// Version of the self-contained world slot format. Old v1 world data and
-/// per-ship files are deliberately not read.
-pub const SAVE_SCHEMA_VERSION: u32 = 2;
-pub const SAVE_SLOTS: usize = 5;
+/// Version of the self-contained active battle save format. Old v1/v2 slot
+/// files are deliberately not read.
+pub const SAVE_SCHEMA_VERSION: u32 = 3;
+
+/// Version of the campaign progression format.
+pub const CAMPAIGN_SCHEMA_VERSION: u32 = 1;
 
 /// Version of the standalone ship design format.
 pub const DESIGN_SCHEMA_VERSION: u32 = 1;
@@ -98,12 +100,11 @@ pub struct RngSave {
     pub seed: u64,
 }
 
-/// One self-contained save slot. All ships are embedded; no per-ship files are
-/// read or written anywhere in the save pipeline.
+/// Self-contained active battle snapshot (`saves/battle.ron`). All ships are
+/// embedded; no per-ship files are read or written anywhere in the save pipeline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorldSave {
     pub version: u32,
-    pub slot: u8,
     pub saved_at_unix_ms: u64,
     pub battle: BattleSave,
     pub camera: CameraSave,
@@ -114,14 +115,22 @@ pub struct WorldSave {
 
 crate::ron_document!(WorldSave, SAVE_SCHEMA_VERSION, "world save");
 
-/// Lightweight slot listing for the save/load menus. Read from the same
-/// `WorldSave` document so metadata can never diverge from the real snapshot.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-pub struct SlotInfo {
-    pub slot: u8,
-    pub occupied: bool,
-    pub saved_at_unix_ms: u64,
-    pub mission: String,
-    pub ship_count: usize,
-    pub elapsed_secs: f32,
+/// Durable campaign/mission progression (`saves/campaign.ron`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CampaignSave {
+    pub version: u32,
+    pub current_mission: String,
+    pub completed_missions: Vec<String>,
 }
+
+impl Default for CampaignSave {
+    fn default() -> Self {
+        Self {
+            version: CAMPAIGN_SCHEMA_VERSION,
+            current_mission: "quick-battle".to_string(),
+            completed_missions: Vec::new(),
+        }
+    }
+}
+
+crate::ron_document!(CampaignSave, CAMPAIGN_SCHEMA_VERSION, "campaign save");

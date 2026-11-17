@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use directories::ProjectDirs;
 use std::{
-    path::PathBuf,
+    fs, io,
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -9,22 +10,29 @@ use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::mission::{BattleOutcome, BattlePhase, BattleResult};
-use crate::resource::{AppNotice, CameraTarget, ControlledShip, GameRng, PendingLoad, SceneState};
-use crate::save::document::{read_document, write_document};
+use crate::resource::{
+    AppNotice, BattleMode, CameraTarget, ControlledShip, GameRng, PendingLoad, SceneState,
+};
+use crate::save::document::{DocumentError, read_document, write_document};
 use crate::save::schema::*;
 use crate::save::snapshot::{CaptureContext, CaptureSnapshot, RestoreSnapshot};
 use crate::simulation::SimulationSet;
 
 #[derive(Message)]
-pub struct SaveWorldEvent {
-    pub slot: u8,
-}
+pub struct SaveWorldEvent;
 
 /// Request a world load. Handled as a state transition so the outgoing scene
 /// is despawned by `DespawnOnExit` before the snapshot is spawned.
 #[derive(Message)]
-pub struct LoadWorldEvent {
-    pub slot: u8,
+pub struct LoadWorldEvent;
+
+/// Action to perform immediately after an exit-triggered auto-save completes.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PendingExitAction {
+    #[default]
+    None,
+    Home,
+    Exit,
 }
 
 /// Save outcome reported to the UI without mixing `&World` and `ResMut` in
@@ -32,10 +40,6 @@ pub struct LoadWorldEvent {
 #[derive(Resource, Default)]
 pub struct SaveResult {
     pub message: Option<String>,
-}
-
-pub fn slot_path(slot: u8) -> PathBuf {
-    data_dir().join("saves").join(format!("slot_{slot}.ron"))
 }
 
 pub fn data_dir() -> PathBuf {
@@ -47,25 +51,68 @@ pub fn data_dir() -> PathBuf {
         })
 }
 
-/// Metadata for all five slots, read from the same document used for loading.
-pub fn list_slots() -> Vec<SlotInfo> {
-    (1..=SAVE_SLOTS as u8)
-        .map(|slot| match read_document::<WorldSave>(&slot_path(slot)) {
-            Ok(save) => SlotInfo {
-                slot,
-                occupied: true,
-                saved_at_unix_ms: save.saved_at_unix_ms,
-                mission: save.battle.mission,
-                ship_count: save.ships.len(),
-                elapsed_secs: save.battle.elapsed_secs,
-            },
-            Err(_) => SlotInfo {
-                slot,
-                occupied: false,
-                ..default()
-            },
-        })
-        .collect()
+pub fn battle_save_path() -> PathBuf {
+    battle_save_path_in(&data_dir())
+}
+
+pub fn campaign_save_path() -> PathBuf {
+    campaign_save_path_in(&data_dir())
+}
+
+pub fn battle_save_path_in(base: &Path) -> PathBuf {
+    base.join("saves").join("battle.ron")
+}
+
+pub fn campaign_save_path_in(base: &Path) -> PathBuf {
+    base.join("saves").join("campaign.ron")
+}
+
+pub fn has_battle_save() -> bool {
+    battle_save_path().is_file()
+}
+
+pub fn load_campaign() -> CampaignSave {
+    load_campaign_in(&data_dir())
+}
+
+pub fn load_campaign_in(base: &Path) -> CampaignSave {
+    read_document::<CampaignSave>(&campaign_save_path_in(base)).unwrap_or_default()
+}
+
+pub fn save_campaign(campaign: &CampaignSave) -> Result<(), DocumentError> {
+    write_document(&campaign_save_path(), campaign)
+}
+
+fn remove_with_backup(path: &Path) {
+    if let Err(err) = fs::remove_file(path)
+        && err.kind() != io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove {}: {err}", path.display());
+    }
+    let bak = path.with_extension("ron.bak");
+    if let Err(err) = fs::remove_file(&bak)
+        && err.kind() != io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove {}: {err}", bak.display());
+    }
+}
+
+pub fn clear_battle_save() {
+    clear_battle_save_in(&data_dir());
+}
+
+pub fn clear_battle_save_in(base: &Path) {
+    remove_with_backup(&battle_save_path_in(base));
+}
+
+pub fn reset_campaign_data() {
+    reset_campaign_data_in(&data_dir());
+}
+
+/// Removes active battle and campaign progress files while keeping `designs/*.ron` intact.
+pub fn reset_campaign_data_in(base: &Path) {
+    remove_with_backup(&battle_save_path_in(base));
+    remove_with_backup(&campaign_save_path_in(base));
 }
 
 fn now_unix_ms() -> u64 {
@@ -90,31 +137,55 @@ pub fn handle_save_world_event(
     time: Res<Time>,
     battle: Res<BattleResult>,
     game_rng: Res<GameRng>,
+    mode: Res<BattleMode>,
 ) {
-    for event in events.read() {
-        let slot = event.slot.clamp(1, SAVE_SLOTS as u8);
-        let elapsed_secs = battle
-            .started_at
-            .map(|start| (time.elapsed_secs() - start).max(0.0))
-            .unwrap_or(battle.duration_secs);
-        let ctx = CaptureContext {
-            world,
-            slot,
-            mission: &battle.mission_name,
-            elapsed_secs,
-            outcome: battle.outcome.map(|o| format!("{o:?}")),
-            saved_at_unix_ms: now_unix_ms(),
-            seed: game_rng.seed(),
-        };
-        let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
+    if events.read().next().is_none() {
+        return;
+    }
+    if *mode != BattleMode::Campaign {
+        return;
+    }
 
-        let message = match write_document(&slot_path(slot), &save) {
-            Ok(()) => format!("Saved slot {slot}"),
-            Err(e) => format!("Save failed: {e}"),
-        };
+    let elapsed_secs = battle
+        .started_at
+        .map(|start| (time.elapsed_secs() - start).max(0.0))
+        .unwrap_or(battle.duration_secs);
+    let ctx = CaptureContext {
+        world,
+        mission: &battle.mission_name,
+        elapsed_secs,
+        outcome: battle.outcome.map(|o| format!("{o:?}")),
+        saved_at_unix_ms: now_unix_ms(),
+        seed: game_rng.seed(),
+    };
+    let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
+
+    let message = match write_document(&battle_save_path(), &save) {
+        Ok(()) => None,
+        Err(e) => Some(format!("Save failed: {e}")),
+    };
+    if let Some(message) = message {
         commands.insert_resource(SaveResult {
             message: Some(message),
         });
+    }
+}
+
+fn flush_pending_exit_action(
+    mut action: ResMut<PendingExitAction>,
+    mut next_scene: ResMut<NextState<SceneState>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    match *action {
+        PendingExitAction::None => {}
+        PendingExitAction::Home => {
+            *action = PendingExitAction::None;
+            next_scene.set(SceneState::Home);
+        }
+        PendingExitAction::Exit => {
+            *action = PendingExitAction::None;
+            exit.write(AppExit::Success);
+        }
     }
 }
 
@@ -130,10 +201,12 @@ pub fn report_save_result(mut result: ResMut<SaveResult>, mut notice: ResMut<App
 pub fn handle_load_request(
     mut events: MessageReader<LoadWorldEvent>,
     mut pending: ResMut<PendingLoad>,
+    mut mode: ResMut<BattleMode>,
     mut next_scene: ResMut<NextState<SceneState>>,
 ) {
-    for event in events.read() {
-        pending.slot = Some(event.slot.clamp(1, SAVE_SLOTS as u8));
+    if events.read().next().is_some() {
+        *mode = BattleMode::Campaign;
+        pending.active = true;
         next_scene.set(SceneState::Loading);
     }
 }
@@ -160,9 +233,9 @@ pub fn spawn_loaded_world(
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     transients: Query<Entity, With<DespawnOnExit<SceneState>>>,
 ) {
-    let Some(slot) = pending.slot else {
+    if !pending.is_pending() {
         return;
-    };
+    }
 
     // Deferred so other OnEnter(Game) systems still observe the pending flag
     // this frame and skip mission setup.
@@ -170,10 +243,10 @@ pub fn spawn_loaded_world(
     commands.insert_resource(CameraTarget::default());
     commands.insert_resource(ControlledShip::default());
 
-    let save: WorldSave = match read_document(&slot_path(slot)) {
+    let save: WorldSave = match read_document(&battle_save_path()) {
         Ok(save) => save,
         Err(e) => {
-            warn!("Failed to read slot {slot}: {e}");
+            warn!("Failed to read battle save: {e}");
             notice.show(format!("Load failed: {e}"));
             scene_state.set(SceneState::Home);
             return;
@@ -192,7 +265,7 @@ pub fn spawn_loaded_world(
         .clone()
         .restore(&mut commands, &registry, &config, team, None)
     {
-        warn!("Failed to restore slot {slot}: {e}");
+        warn!("Failed to restore battle save: {e}");
         notice.show(format!("Load failed: {e}"));
         scene_state.set(SceneState::Home);
         return;
@@ -214,7 +287,6 @@ pub fn spawn_loaded_world(
         mission_name: save.battle.mission,
     };
     phase.set(BattlePhase::Active);
-    notice.show(format!("Loaded slot {slot}"));
 }
 
 pub struct SavePlugin;
@@ -225,10 +297,15 @@ impl Plugin for SavePlugin {
             .add_message::<LoadWorldEvent>()
             .init_resource::<SaveResult>()
             .init_resource::<PendingLoad>()
+            .init_resource::<BattleMode>()
+            .init_resource::<PendingExitAction>()
             .add_systems(
                 Update,
                 (
-                    handle_save_world_event.run_if(on_message::<SaveWorldEvent>),
+                    handle_save_world_event
+                        .run_if(on_message::<SaveWorldEvent>)
+                        .before(flush_pending_exit_action),
+                    flush_pending_exit_action,
                     handle_load_request.run_if(on_message::<LoadWorldEvent>),
                     report_save_result,
                 )
@@ -248,11 +325,21 @@ impl Plugin for SavePlugin {
 mod tests {
     use super::*;
     use crate::save::document::parse_document;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn sample_save(slot: u8) -> WorldSave {
+    fn temp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("agameproject_{label}_{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn sample_save() -> WorldSave {
         WorldSave {
             version: SAVE_SCHEMA_VERSION,
-            slot,
             saved_at_unix_ms: 1_700_000_000_000,
             battle: BattleSave {
                 mission: "quick-battle".to_string(),
@@ -272,28 +359,55 @@ mod tests {
 
     #[test]
     fn world_save_roundtrip_and_version() {
-        let save = sample_save(2);
+        let save = sample_save();
         let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
         let back: WorldSave = parse_document(&text).unwrap();
         assert_eq!(back, save);
 
-        let bad = text.replace("version: 2", "version: 99");
+        let bad = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 99");
         assert!(parse_document::<WorldSave>(&bad).is_err());
     }
 
     #[test]
-    fn slots_are_one_to_five() {
-        assert_eq!(SAVE_SLOTS, 5);
-        for slot in 1..=5 {
-            let path = slot_path(slot);
-            assert!(path.ends_with(format!("slot_{slot}.ron")));
-            assert!(path.to_string_lossy().contains("saves"));
-        }
+    fn single_battle_and_campaign_paths() {
+        let battle = battle_save_path();
+        assert!(battle.ends_with("battle.ron"));
+        assert!(battle.to_string_lossy().contains("saves"));
+
+        let campaign = campaign_save_path();
+        assert!(campaign.ends_with("campaign.ron"));
+        assert!(campaign.to_string_lossy().contains("saves"));
+    }
+
+    #[test]
+    fn campaign_roundtrip_and_reset_preserves_designs() {
+        let root = temp_dir("campaign_reset");
+        let designs_dir = root.join("designs");
+        fs::create_dir_all(&designs_dir).unwrap();
+        let design_file = designs_dir.join("my_ship.ron");
+        fs::write(&design_file, "(version: 1)").unwrap();
+
+        let campaign = CampaignSave {
+            version: CAMPAIGN_SCHEMA_VERSION,
+            current_mission: "quick-battle".to_string(),
+            completed_missions: vec!["quick-battle".to_string()],
+        };
+        write_document(&campaign_save_path_in(&root), &campaign).unwrap();
+        write_document(&battle_save_path_in(&root), &sample_save()).unwrap();
+
+        assert_eq!(load_campaign_in(&root), campaign);
+
+        reset_campaign_data_in(&root);
+        assert!(!battle_save_path_in(&root).exists());
+        assert!(!campaign_save_path_in(&root).exists());
+        assert!(design_file.exists());
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn no_per_ship_paths_exist() {
-        let save = sample_save(1);
+        let save = sample_save();
         let text = ron::ser::to_string(&save).unwrap();
         assert!(!text.contains("ship_ids"));
         assert!(!text.contains("ships/"));

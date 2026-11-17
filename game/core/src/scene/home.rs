@@ -1,15 +1,19 @@
 use bevy::prelude::*;
 
-use crate::resource::{SceneState, SettingState};
+use crate::resource::{BattleMode, SceneState, SettingState};
+use crate::save::io::{LoadWorldEvent, has_battle_save};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
-use crate::scene::slot_panel::{SlotPanel, build_slot_panel};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 
 pub struct HomeScenePlugin;
 
 impl Plugin for HomeScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(SceneState::Home), setup_home);
+        app.add_systems(OnEnter(SceneState::Home), setup_home)
+            .add_systems(
+                OnExit(SettingState::Open),
+                refresh_play_label.run_if(in_state(SceneState::Home)),
+            );
     }
 }
 
@@ -19,9 +23,17 @@ struct PlayButton;
 fn on_play(
     click: On<PointerClick>,
     buttons: Query<&PlayButton>,
+    mut mode: ResMut<BattleMode>,
+    mut loads: MessageWriter<LoadWorldEvent>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
-    if buttons.contains(click.event().entity) {
+    if !buttons.contains(click.event().entity) {
+        return;
+    }
+    *mode = BattleMode::Campaign;
+    if has_battle_save() {
+        loads.write(LoadWorldEvent);
+    } else {
         scene.set(SceneState::Game);
     }
 }
@@ -32,9 +44,11 @@ struct QuickBattleButton;
 fn on_quick_battle(
     click: On<PointerClick>,
     buttons: Query<&QuickBattleButton>,
+    mut mode: ResMut<BattleMode>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
     if buttons.contains(click.event().entity) {
+        *mode = BattleMode::QuickBattle;
         scene.set(SceneState::Game);
     }
 }
@@ -78,6 +92,28 @@ fn on_exit(
     }
 }
 
+fn primary_play_label() -> &'static str {
+    if has_battle_save() {
+        "Continue"
+    } else {
+        "Play"
+    }
+}
+
+fn refresh_play_label(
+    buttons: Query<&Children, With<PlayButton>>,
+    mut texts: Query<&mut Text>,
+) {
+    let label = primary_play_label();
+    for children in &buttons {
+        for child in children.iter() {
+            if let Ok(mut text) = texts.get_mut(child) {
+                text.0 = label.to_string();
+            }
+        }
+    }
+}
+
 fn setup_home(mut commands: Commands) {
     commands
         .spawn((
@@ -93,30 +129,56 @@ fn setup_home(mut commands: Commands) {
             DespawnOnExit(SceneState::Home),
         ))
         .with_children(|parent| {
-            spawn_button(parent, button_node(), "Play", 20.0, Color::WHITE,
-                PlayButton, on_play, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Quick Battle", 20.0, Color::WHITE,
-                QuickBattleButton, on_quick_battle, ButtonVisuals::blue());
-            spawn_button(parent, button_node(), "Ship Editor", 20.0, Color::WHITE,
-                ShipEditorButton, on_ship_editor, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Settings", 20.0, Color::WHITE,
-                HomeSettingsButton, on_settings, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Exit", 20.0, Color::WHITE,
-                ExitButton, on_exit, ButtonVisuals::dark());
-
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(4.0),
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    SlotPanel { allow_save: false },
-                ))
-                .with_children(|panel| {
-                    build_slot_panel(panel, false);
-                });
+            spawn_button(
+                parent,
+                button_node(),
+                primary_play_label(),
+                20.0,
+                Color::WHITE,
+                PlayButton,
+                on_play,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Quick Battle",
+                20.0,
+                Color::WHITE,
+                QuickBattleButton,
+                on_quick_battle,
+                ButtonVisuals::blue(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Ship Editor",
+                20.0,
+                Color::WHITE,
+                ShipEditorButton,
+                on_ship_editor,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Settings",
+                20.0,
+                Color::WHITE,
+                HomeSettingsButton,
+                on_settings,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Exit",
+                20.0,
+                Color::WHITE,
+                ExitButton,
+                on_exit,
+                ButtonVisuals::dark(),
+            );
         });
 }
 

@@ -67,6 +67,14 @@ pub enum ControlMode {
     FreeLook,
 }
 
+/// Whether the active Game scene is a persistent Campaign run or a stateless Quick Battle.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BattleMode {
+    #[default]
+    Campaign,
+    QuickBattle,
+}
+
 /// A world load that has been requested but not yet applied.
 ///
 /// Set by `handle_load_request`, then consumed when `SceneState::Game` is
@@ -74,12 +82,12 @@ pub enum ControlMode {
 /// is spawned.
 #[derive(Resource, Default, Debug)]
 pub struct PendingLoad {
-    pub slot: Option<u8>,
+    pub active: bool,
 }
 
 impl PendingLoad {
     pub fn is_pending(&self) -> bool {
-        self.slot.is_some()
+        self.active
     }
 }
 

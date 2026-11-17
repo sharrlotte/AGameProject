@@ -17,7 +17,7 @@ the overlay spawns.
 
 ## Quick Battle flow
 
-Home → **Quick Battle** (or **Play** — same battle in v1) → `SceneState::Game`:
+Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`BattleMode::QuickBattle`) → `SceneState::Game`:
 
 1. `setup` spawns the HUD; `MissionPlugin::setup_battle` inserts `MissionAsset` (loads
    `assets/config/mission/quick-battle.ron`) and resets `BattlePhase` to `Loading`.

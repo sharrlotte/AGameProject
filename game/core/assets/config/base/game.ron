@@ -19,4 +19,5 @@
     ai_min_range_factor: 0.9,
     ai_wander_attack_chance: 0.5,
     ai_wander_guard_chance: 0.5,
+    auto_save_interval_secs: 30.0,
 )

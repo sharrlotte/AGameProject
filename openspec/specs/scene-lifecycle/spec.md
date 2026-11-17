@@ -31,11 +31,19 @@ The pipeline SHALL order collision and damage events, health and death handling,
 
 ### Requirement: Load is a state transition
 
-Loading SHALL set `PendingLoad`, enter `Loading`, let exiting `Game` despawn old entities, enter `Game` and spawn from the snapshot instead of the mission spawn path, restore battle, camera, AI, cargo, and power, and clear `PendingLoad`.
+Loading the saved battle SHALL set `PendingLoad`, enter `Loading`, let exiting `Game` despawn old entities, enter `Game` and spawn from `battle.ron` instead of the mission spawn path, restore battle, camera, AI, cargo, and power, and clear `PendingLoad`.
 
-#### Scenario: Pause-menu load
-- **WHEN** a slot is loaded from the pause menu
-- **THEN** no old game entity survives and the snapshot is the only source of ships
+#### Scenario: Continue from Home
+- **WHEN** the player clicks `Continue` on `Home`
+- **THEN** `PendingLoad` is set and `SceneState::Game` spawns from `battle.ron` instead of a fresh mission
+
+### Requirement: No manual save/load slot UI in Home or Pause
+
+`Home` and `Pause` SHALL NOT render `SlotPanel` or manual `Save`/`Load` slot buttons. `Pause` SHALL expose only `Resume`, `Settings`, `Back to Home`, and `Exit`.
+
+#### Scenario: Pause menu has no Save or Load buttons
+- **WHEN** the player pauses the game
+- **THEN** only `Resume`, `Settings`, `Back to Home`, and `Exit` buttons are shown
 
 ### Requirement: Pilot and camera controls are separate
 

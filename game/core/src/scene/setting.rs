@@ -1,7 +1,9 @@
 use bevy::{audio::Volume, post_process::bloom::Bloom, prelude::*};
 
 use crate::config::GameSetting;
-use crate::resource::SettingState;
+use crate::mission::BattleResult;
+use crate::resource::{AppNotice, PendingLoad, SceneState, SettingState};
+use crate::save::io::reset_campaign_data;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 use crate::simulation::SimulationSet;
 
@@ -52,6 +54,132 @@ fn on_close(
     }
 }
 
+#[derive(Component)]
+struct DataSection;
+
+#[derive(Component)]
+struct ResetPromptButton;
+
+#[derive(Component)]
+struct ConfirmResetButton;
+
+#[derive(Component)]
+struct CancelResetButton;
+
+fn spawn_data_idle(parent: &mut ChildSpawnerCommands) {
+    parent.spawn((
+        Text::new("Data"),
+        TextFont {
+            font_size: FontSize::Px(24.0),
+            ..default()
+        },
+        TextColor(Color::srgb(0.85, 0.85, 0.85)),
+    ));
+    spawn_button(
+        parent,
+        small_button_node(260.0, 42.0),
+        "Reset Mission / Campaign",
+        18.0,
+        Color::WHITE,
+        ResetPromptButton,
+        on_reset_prompt,
+        ButtonVisuals::red(),
+    );
+}
+
+fn spawn_data_confirm(parent: &mut ChildSpawnerCommands) {
+    parent.spawn((
+        Text::new("Reset all mission & campaign progress?"),
+        TextFont {
+            font_size: FontSize::Px(18.0),
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 0.6, 0.6)),
+    ));
+    parent
+        .spawn(Node {
+            flex_direction: FlexDirection::Row,
+            column_gap: Val::Px(12.0),
+            ..default()
+        })
+        .with_children(|row| {
+            spawn_button(
+                row,
+                small_button_node(150.0, 40.0),
+                "Confirm Reset",
+                16.0,
+                Color::WHITE,
+                ConfirmResetButton,
+                on_confirm_reset,
+                ButtonVisuals::red(),
+            );
+            spawn_button(
+                row,
+                small_button_node(110.0, 40.0),
+                "Cancel",
+                16.0,
+                Color::WHITE,
+                CancelResetButton,
+                on_cancel_reset,
+                ButtonVisuals::dark(),
+            );
+        });
+}
+
+fn rebuild_data_section(commands: &mut Commands, sections: &Query<Entity, With<DataSection>>, confirm: bool) {
+    for entity in sections {
+        commands.entity(entity).despawn_children();
+        commands.entity(entity).with_children(move |parent| {
+            if confirm {
+                spawn_data_confirm(parent);
+            } else {
+                spawn_data_idle(parent);
+            }
+        });
+    }
+}
+
+fn on_reset_prompt(
+    click: On<PointerClick>,
+    buttons: Query<&ResetPromptButton>,
+    sections: Query<Entity, With<DataSection>>,
+    mut commands: Commands,
+) {
+    if buttons.contains(click.event().entity) {
+        rebuild_data_section(&mut commands, &sections, true);
+    }
+}
+
+fn on_cancel_reset(
+    click: On<PointerClick>,
+    buttons: Query<&CancelResetButton>,
+    sections: Query<Entity, With<DataSection>>,
+    mut commands: Commands,
+) {
+    if buttons.contains(click.event().entity) {
+        rebuild_data_section(&mut commands, &sections, false);
+    }
+}
+
+fn on_confirm_reset(
+    click: On<PointerClick>,
+    buttons: Query<&ConfirmResetButton>,
+    sections: Query<Entity, With<DataSection>>,
+    mut commands: Commands,
+    mut pending: ResMut<PendingLoad>,
+    mut battle: ResMut<BattleResult>,
+    mut notice: ResMut<AppNotice>,
+) {
+    if !buttons.contains(click.event().entity) {
+        return;
+    }
+    reset_campaign_data();
+    *pending = PendingLoad::default();
+    *battle = BattleResult::default();
+    notice.show("Campaign data reset");
+    rebuild_data_section(&mut commands, &sections, false);
+}
+
 pub struct SettingScenePlugin;
 
 impl Plugin for SettingScenePlugin {
@@ -69,8 +197,13 @@ impl Plugin for SettingScenePlugin {
     }
 }
 
-pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
+pub fn setup_setting_ui(
+    mut commands: Commands,
+    setting: Res<GameSetting>,
+    scene: Res<State<SceneState>>,
+) {
     let mut bloom_button = None;
+    let is_home = *scene.get() == SceneState::Home;
 
     commands
         .spawn((
@@ -169,6 +302,21 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
                         ButtonVisuals::dark(),
                     ));
                 });
+
+            if is_home {
+                parent
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            row_gap: Val::Px(10.0),
+                            margin: UiRect::top(Val::Px(12.0)),
+                            ..default()
+                        },
+                        DataSection,
+                    ))
+                    .with_children(spawn_data_idle);
+            }
 
             spawn_button(
                 parent,

@@ -7,11 +7,12 @@
 
 ```
 <data_dir>/designs/*.ron        one self-contained ship design per file
-<data_dir>/saves/slot_1.ron … slot_5.ron
+<data_dir>/saves/battle.ron     single active campaign battle snapshot
+<data_dir>/saves/campaign.ron   campaign/mission progression document
 ```
 
-Old `schematics/*.json`, `schematics/*.ron`, and `world/` are ignored and
-untouched. There is no JSON reader, no v1 world reader, no phantom-ship
+Old `schematics/*.json`, `schematics/*.ron`, `saves/slot_*.ron`, and `world/` are ignored
+and untouched. There is no JSON reader, no v1/v2 slot reader, no phantom-ship
 fabrication, and no "repair ships with <= 2 blocks".
 
 ## Design format (editor)
@@ -42,18 +43,19 @@ separate schematic struct or `load_saved_schematics()`.
 (`VERSION`, `KIND`), `Versioned<T>`, `parse_document`, `read_document`,
 `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is
 copied to `.bak`, then the temporary file is renamed over the target. Unknown
-versions are rejected before gameplay data is trusted. `ron_document!`
-implements the trait for `WorldSave` (version 2) and `ShipDesign` (version 1).
+versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 3), `CampaignSave`
+(version 1), and `ShipDesign` (version 1).
 
-## World slot format (`SAVE_SCHEMA_VERSION = 2`)
+## World battle format (`SAVE_SCHEMA_VERSION = 3`)
 
-`SaveWorldEvent { slot }` writes `saves/slot_N.ron`. Each slot is self-contained;
-all ships are embedded. There are **no per-ship files** and no `ship_ids`.
+`SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active.
+`BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
+The save is self-contained; all ships are embedded. There are **no per-ship files**,
+no `slot`, and no `ship_ids`.
 
 ```ron
 (
-  version: 2,
-  slot: 1,
+  version: 3,
   saved_at_unix_ms: 1700000000000,
   battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: Some("Victory")),
   camera: (x: 12.0, y: -4.0, zoom: 3.0),
@@ -95,18 +97,21 @@ reacquired after load.
 `capture`/`restore` live in `save/snapshot.rs` behind the `CaptureSnapshot` and
 `RestoreSnapshot` traits. Entity references are never persisted.
 
-## Load flow
+## Auto-save, Load & Reset flow
 
 ```
-SaveWorldEvent/LoadWorldEvent { slot }
-  → PendingLoad { slot }
+Home → Continue (when battle.ron exists)
+  → LoadWorldEvent → PendingLoad { active: true }
   → NextState<SceneState>::Loading
-  → exit Game (DespawnOnExit clears the old scene)
-  → enter Game (spawn_loaded_world restores the embedded ships)
+  → exit outgoing scene → enter Game (spawn_loaded_world restores battle.ron)
   → setup_battle skips while PendingLoad is set
 ```
 
-The Home and Pause screens both show a five-slot panel (`scene/slot_panel.rs`)
-with mission name, ship count, elapsed time, and a relative save timestamp.
-Load failures post an `AppNotice` and return to Home; no partial world is left
-behind.
+Auto-save triggers in `BattleMode::Campaign`:
+- Periodic timer during `BattlePhase::Active` + `PauseState::Playing` (`auto_save_interval_secs` in `game.ron`).
+- On `Pause` **Back to Home** or **Exit** (`PendingExitAction` flushes after `SaveWorldEvent` completes).
+- On `BattlePhase::Ended`: `battle.ron` is cleared; `Victory` records the mission in `campaign.ron`.
+
+Main Menu **Settings → Data → Reset Mission / Campaign** (2-step confirmation) deletes
+`battle.ron` and `campaign.ron` (and `.bak` files) while keeping `designs/*.ron` intact.
+Load failures post an `AppNotice` and return to Home; no partial world is left behind.

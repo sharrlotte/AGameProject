@@ -28,7 +28,6 @@ use crate::save::schema::*;
 /// Immutable world state available while capturing a snapshot.
 pub struct CaptureContext<'a> {
     pub world: &'a World,
-    pub slot: u8,
     pub mission: &'a str,
     pub elapsed_secs: f32,
     pub outcome: Option<String>,
@@ -355,7 +354,6 @@ impl CaptureSnapshot for WorldSave {
 
         Self {
             version: SAVE_SCHEMA_VERSION,
-            slot: ctx.slot,
             saved_at_unix_ms: ctx.saved_at_unix_ms,
             battle: BattleSave {
                 mission: ctx.mission.to_string(),
@@ -460,7 +458,6 @@ mod tests {
 
         let ctx = CaptureContext {
             world: source.world(),
-            slot: 3,
             mission: "roundtrip-test",
             elapsed_secs: 17.5,
             outcome: Some("Victory".to_string()),
@@ -468,7 +465,6 @@ mod tests {
             seed: 4242,
         };
         let save = WorldSave::capture(&ctx, Entity::PLACEHOLDER);
-        assert_eq!(save.slot, 3);
         assert_eq!(save.ships.len(), 1);
         assert_eq!(save.ships[0].blocks.len(), 2);
         assert_eq!(save.battle.elapsed_secs, 17.5);

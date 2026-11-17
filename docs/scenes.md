@@ -2,10 +2,14 @@
 
 ## Home
 
-Entry scene (`SceneState::Home`). UI column: title, **Play**, **Quick Battle**, **Ship Editor**,
-**Settings**, **Exit**. Buttons flip `BackgroundColor` on hover/press. Exit writes
-`AppExit::Success`. Settings opens `SettingState::Open` (see Settings). Play and Quick
-Battle both launch the mission battle (see mission.md) in v1. No game entities exist here.
+Entry scene (`SceneState::Home`). UI column: **Play** (or **Continue** when `saves/battle.ron`
+exists), **Quick Battle**, **Ship Editor**, **Settings**, **Exit**.
+- **Play / Continue** sets `BattleMode::Campaign`; **Continue** emits `LoadWorldEvent`, while
+  **Play** enters `SceneState::Game` fresh.
+- **Quick Battle** sets `BattleMode::QuickBattle` and enters `SceneState::Game` without
+  reading or writing campaign saves.
+- **Settings** opens `SettingState::Open`. **Exit** writes `AppExit::Success`.
+No game entities exist here.
 
 ## Game
 
@@ -63,11 +67,10 @@ cursor; `remove_block_at` removes all voxels of that block.
 
 `SceneState::Game` or `ShipEditor`, toggled by `Escape`, mapped to
 `PauseState::{Playing, Paused}` (`OnEnter(Paused)` pauses `Time<Virtual>`, `OnExit`
-unpauses). Menu: **Resume**, **Settings**, **Save** (writes world save into
-`save_dir()/saves/test.json`), **Load** (despawns all `Ship` and `Bullet` entities, then
-loads `saves/test.json`), **Back to Home**, **Exit**.
-
-Load leaks: missiles, lasers, drops, damage text survive a load (see defects.md).
+unpauses). Menu: **Resume**, **Settings**, **Back to Home**, **Exit**.
+In `SceneState::Game` with `BattleMode::Campaign`, **Back to Home** and **Exit** trigger
+`SaveWorldEvent` and defer scene exit / app exit via `PendingExitAction` until capture
+completes.
 
 ## Settings
 
@@ -76,6 +79,9 @@ panel (opacity 0.8). Controls:
 
 - Volume — ±10 % linear (`GlobalVolume`), persists for the session only.
 - Bloom — toggles `Bloom.intensity` between `0.3` (default) and `0.0` (OFF).
+- Data (Home only) — **Reset Mission / Campaign** with 2-step confirmation (**Confirm Reset** /
+  **Cancel**); deletes `battle.ron` and `campaign.ron` while keeping `designs/*.ron` intact,
+  and refreshes Home's **Continue** label back to **Play** on close.
 - Close.
 
 Values are not written to disk; all-reset on restart.

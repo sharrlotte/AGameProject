@@ -2,7 +2,7 @@
 
 ## Purpose
 
-RON-only, versioned, atomic five-slot saves embed the full world snapshot in one self-contained file per slot.
+RON-only, versioned, atomic single-file battle and campaign saves embed the full world snapshot in one self-contained file.
 
 ## Requirements
 ### Requirement: RON is the only serialization format
@@ -17,17 +17,16 @@ The game SHALL read and write world saves and ship designs as RON; `serde_json` 
 - **WHEN** old JSON schematics or saves exist on disk
 - **THEN** the game does not read, rewrite, or delete them
 
-### Requirement: Five fixed slots
+### Requirement: Single battle save and campaign progress files
+The save system SHALL store at most one active battle snapshot at `<data_dir>/saves/battle.ron` and one campaign progress document at `<data_dir>/saves/campaign.ron`. Each file SHALL be self-contained.
 
-The save system SHALL expose exactly five slots at `<save_dir>/saves/slot_1.ron` through `slot_5.ron`, and each slot SHALL be one self-contained file.
+#### Scenario: Battle save is self-contained
+- **WHEN** a battle is saved
+- **THEN** only `battle.ron` is written for the battle snapshot and no `slot_*.ron` or per-ship file is created
 
-#### Scenario: Slot isolation
-- **WHEN** slot 3 is saved
-- **THEN** only `slot_3.ron` is written for that save and no per-ship file is created
-
-#### Scenario: Slot load is self-contained
-- **WHEN** slot 3 is loaded
-- **THEN** no other slot or per-ship file is opened
+#### Scenario: Battle load is self-contained
+- **WHEN** `battle.ron` is loaded
+- **THEN** no `slot_*.ron` or per-ship file is opened
 
 ### Requirement: WorldSave embeds every ship
 
@@ -59,15 +58,15 @@ The snapshot SHALL include battle mission name, elapsed battle seconds, outcome,
 
 ### Requirement: Saves are versioned and atomic
 
-Every save and design document SHALL carry `version`. The loader SHALL reject a version other than the current `SAVE_SCHEMA_VERSION` (2) with an error naming expected and found versions. Writes SHALL go to `.tmp`, preserve the previous file as `.bak`, and rename only after a successful write; on error the previous slot SHALL remain intact.
+Every save and design document SHALL carry `version`. The loader SHALL reject a version other than the current `SAVE_SCHEMA_VERSION` with an error naming expected and found versions. Writes SHALL go to `.tmp`, preserve the previous file as `.bak`, and rename only after a successful write; on error the previous save SHALL remain intact.
 
 #### Scenario: Version mismatch fails cleanly
-- **WHEN** a v1 file is opened
+- **WHEN** an incompatible version file is opened
 - **THEN** loading returns an incompatibility error and does not spawn a partial world
 
-#### Scenario: Failed write preserves the old slot
+#### Scenario: Failed write preserves the previous save
 - **WHEN** writing fails part-way through
-- **THEN** the previous `slot_N.ron` is still readable
+- **THEN** the previous `battle.ron` or `campaign.ron` is still readable
 
 ### Requirement: Ship designs are versioned RON documents
 
@@ -95,8 +94,8 @@ The loader SHALL NOT import JSON schematics, read v1 world saves, fabricate phan
 
 ### Requirement: Save and load round-trips are tested
 
-Tests SHALL cover embedded ship round-trip, version mismatch, atomic write behavior, five-slot addressing, design round-trip, starter validation, and absence of per-ship file access.
+Tests SHALL cover embedded ship round-trip, version mismatch, atomic write behavior, single-file `battle.ron` and `campaign.ron` persistence, design round-trip, starter validation, and absence of per-ship file access.
 
 #### Scenario: Two-ship world round-trip
 - **WHEN** the save suite runs
-- **THEN** it proves a two-ship world restores entirely from one slot file
+- **THEN** it proves a two-ship world restores entirely from `battle.ron`

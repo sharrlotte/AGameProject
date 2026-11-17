@@ -22,7 +22,6 @@ use crate::scene::home::HomeScenePlugin;
 use crate::scene::notice::NoticePlugin;
 use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
-use crate::scene::slot_panel::SlotPanelPlugin;
 use crate::simulation::SimulationSet;
 #[cfg(debug_assertions)]
 use crate::system::DebugAuditPlugin;
@@ -135,7 +134,6 @@ fn main() {
         ContentPlugin,
         SettingScenePlugin,
         NoticePlugin,
-        SlotPanelPlugin,
         scene::widget::WidgetPlugin,
     ))
     .insert_resource(Time::<Fixed>::from_hz(60.0));

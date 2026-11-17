@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 
-use crate::resource::{AppNotice, PauseState, SceneState, SettingState};
-use crate::save::io::{LoadWorldEvent, SaveWorldEvent};
+use crate::resource::{BattleMode, PauseState, SceneState, SettingState};
+use crate::save::io::{PendingExitAction, SaveWorldEvent};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
-use crate::scene::slot_panel::{RefreshSlotPanel, SlotPanel, build_slot_panel};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
 
@@ -63,46 +62,26 @@ fn on_settings(
 }
 
 #[derive(Component)]
-struct SaveButton(pub u8);
-
-fn on_save(
-    click: On<PointerClick>,
-    buttons: Query<&SaveButton>,
-    mut saves: MessageWriter<SaveWorldEvent>,
-    mut refresh: MessageWriter<RefreshSlotPanel>,
-    mut notice: ResMut<AppNotice>,
-) {
-    let Ok(button) = buttons.get(click.event().entity) else { return; };
-    saves.write(SaveWorldEvent { slot: button.0 });
-    notice.show(format!("Saving slot {}…", button.0));
-    refresh.write(RefreshSlotPanel);
-}
-
-#[derive(Component)]
-struct LoadButton(pub u8);
-
-fn on_load(
-    click: On<PointerClick>,
-    buttons: Query<&LoadButton>,
-    mut pause: ResMut<NextState<PauseState>>,
-    mut loads: MessageWriter<LoadWorldEvent>,
-) {
-    let Ok(button) = buttons.get(click.event().entity) else { return; };
-    pause.set(PauseState::Playing);
-    loads.write(LoadWorldEvent { slot: button.0 });
-}
-
-#[derive(Component)]
 struct HomeButton;
 
 fn on_home(
     click: On<PointerClick>,
     buttons: Query<&HomeButton>,
+    scene_state: Res<State<SceneState>>,
+    mode: Res<BattleMode>,
     mut pause: ResMut<NextState<PauseState>>,
     mut scene: ResMut<NextState<SceneState>>,
+    mut saves: MessageWriter<SaveWorldEvent>,
+    mut pending_exit: ResMut<PendingExitAction>,
 ) {
-    if buttons.contains(click.event().entity) {
-        pause.set(PauseState::Playing);
+    if !buttons.contains(click.event().entity) {
+        return;
+    }
+    pause.set(PauseState::Playing);
+    if *scene_state.get() == SceneState::Game && *mode == BattleMode::Campaign {
+        saves.write(SaveWorldEvent);
+        *pending_exit = PendingExitAction::Home;
+    } else {
         scene.set(SceneState::Home);
     }
 }
@@ -113,9 +92,21 @@ struct ExitButton;
 fn on_exit(
     click: On<PointerClick>,
     buttons: Query<&ExitButton>,
+    scene_state: Res<State<SceneState>>,
+    mode: Res<BattleMode>,
+    mut pause: ResMut<NextState<PauseState>>,
+    mut saves: MessageWriter<SaveWorldEvent>,
+    mut pending_exit: ResMut<PendingExitAction>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if buttons.contains(click.event().entity) {
+    if !buttons.contains(click.event().entity) {
+        return;
+    }
+    pause.set(PauseState::Playing);
+    if *scene_state.get() == SceneState::Game && *mode == BattleMode::Campaign {
+        saves.write(SaveWorldEvent);
+        *pending_exit = PendingExitAction::Exit;
+    } else {
         exit.write(AppExit::Success);
     }
 }
@@ -140,37 +131,57 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Paused"),
-                TextFont { font_size: FontSize::Px(40.0), ..default() },
+                TextFont {
+                    font_size: FontSize::Px(40.0),
+                    ..default()
+                },
                 TextColor(Color::WHITE),
-                Node { margin: UiRect::bottom(Val::Px(40.0)), ..default() },
+                Node {
+                    margin: UiRect::bottom(Val::Px(40.0)),
+                    ..default()
+                },
             ));
 
-            spawn_button(parent, button_node(), "Resume", 20.0, Color::WHITE,
-                ResumeButton, on_resume, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Settings", 20.0, Color::WHITE,
-                PauseSettingsButton, on_settings, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Save", 20.0, Color::WHITE,
-                SaveButton(1), on_save, ButtonVisuals::green());
-            spawn_button(parent, button_node(), "Load", 20.0, Color::WHITE,
-                LoadButton(1), on_load, ButtonVisuals::blue());
-            spawn_button(parent, button_node(), "Back to Home", 20.0, Color::WHITE,
-                HomeButton, on_home, ButtonVisuals::dark());
-            spawn_button(parent, button_node(), "Exit", 20.0, Color::WHITE,
-                ExitButton, on_exit, ButtonVisuals::dark());
-
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(4.0),
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    SlotPanel { allow_save: true },
-                ))
-                .with_children(|panel| {
-                    build_slot_panel(panel, true);
-                });
+            spawn_button(
+                parent,
+                button_node(),
+                "Resume",
+                20.0,
+                Color::WHITE,
+                ResumeButton,
+                on_resume,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Settings",
+                20.0,
+                Color::WHITE,
+                PauseSettingsButton,
+                on_settings,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Back to Home",
+                20.0,
+                Color::WHITE,
+                HomeButton,
+                on_home,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Exit",
+                20.0,
+                Color::WHITE,
+                ExitButton,
+                on_exit,
+                ButtonVisuals::dark(),
+            );
         });
 }
 
