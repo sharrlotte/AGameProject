@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// Fraction of requested power received by a consumer block (0..1).
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Supply {
@@ -20,7 +19,6 @@ impl Supply {
     }
 }
 
-/// Overdrive multiplier applied to a boostable block (>= 1).
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Boost {
@@ -39,14 +37,12 @@ impl Boost {
     }
 }
 
-/// Power requested this tick by a consumer block (power/s).
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct Demand {
     pub value: f32,
 }
 
-/// A block that generates constant power per second.
 #[derive(Component, Clone, Copy, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 #[reflect(Component)]
 pub struct Generator {
@@ -71,7 +67,6 @@ impl Generator {
     }
 }
 
-/// A block that stores grid energy.
 #[derive(Component, Clone, Copy, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 #[reflect(Component)]
 pub struct Battery {
@@ -101,14 +96,12 @@ impl Battery {
     }
 }
 
-/// Stored energy on a `Battery` block.
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct Charge {
     pub value: f32,
 }
 
-/// A block that consumes power while active.
 #[derive(Component, Clone, Copy, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 #[reflect(Component)]
 pub struct Consumer {
@@ -139,7 +132,6 @@ impl Consumer {
     }
 }
 
-/// A block that overdrives nearby own-team blocks while fully powered.
 #[derive(Component, Clone, Copy, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 #[reflect(Component)]
 pub struct Booster {
@@ -182,7 +174,6 @@ impl Booster {
     }
 }
 
-/// Runtime powered state of a `Booster`.
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct BoosterState {

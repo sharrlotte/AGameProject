@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-/// Movement intent for a ship on both linear and angular axes, clamped to `0..=1`.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component)]
 pub struct Throttle {

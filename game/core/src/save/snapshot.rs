@@ -1,8 +1,3 @@
-//! `CaptureSnapshot`/`RestoreSnapshot` implementations for save data.
-//!
-//! Runtime ECS state is converted into serializable snapshots here, never in
-//! the IO layer. Entity references are never persisted: turret targets, laser
-//! beams and AI targets are reacquired after a load.
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
@@ -25,7 +20,6 @@ use crate::resource::SceneState;
 use crate::save::document::DocumentError;
 use crate::save::schema::*;
 
-/// Immutable world state available while capturing a snapshot.
 pub struct CaptureContext<'a> {
     pub world: &'a World,
     pub mission: &'a str,
@@ -35,14 +29,10 @@ pub struct CaptureContext<'a> {
     pub seed: u64,
 }
 
-/// Convert runtime state into a serializable snapshot.
 pub trait CaptureSnapshot: Sized {
     fn capture(ctx: &CaptureContext, entity: Entity) -> Self;
 }
 
-/// Rebuild runtime state from a serializable snapshot. `Commands` is passed
-/// explicitly because its two lifetimes cannot be stored in a helper struct
-/// without over-constraining callers.
 pub trait RestoreSnapshot: Sized {
     fn restore(
         self,
@@ -98,8 +88,6 @@ impl CaptureSnapshot for BlockSnapshot {
 }
 
 impl BlockSnapshot {
-    /// Apply saved mutable state to a block entity that was just spawned by
-    /// `ShipDesign::spawn`. No new entity is created here.
     pub fn apply_to(self, commands: &mut Commands, block: Entity) {
         commands.entity(block).insert(Health {
             health: self.health,
@@ -211,8 +199,6 @@ impl CaptureSnapshot for ShipSnapshot {
     }
 }
 
-/// Restore a saved behavior. Behaviors that carry a live entity target fall
-/// back to `Idle`; the rule engine reacquires one on its next think tick.
 fn restore_behavior(commands: &mut Commands, entity: Entity, label: &str, timer_secs: f32) {
     let behavior = match label {
         "Wander" => AiBehavior::Wander { point: Vec2::ZERO },

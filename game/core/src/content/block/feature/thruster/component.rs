@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use crate::config::GameConfigValue;
 use crate::content::block::{feature::power::Boost, stat::StatEffect};
 
-// ThrustPower
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct ThrustPowerBase {
     value: f32,
@@ -39,7 +38,6 @@ impl ThrustPowerComputed {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 pub struct ThrustPowerEffects(pub Vec<StatEffect>);
 
-// RotateSpeed
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
 pub struct RotateSpeedBase {
     value: f32,

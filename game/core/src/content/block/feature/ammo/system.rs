@@ -94,7 +94,6 @@ fn update_ammo(
                     Transform::from_xyz(0.0, 0.0, LAYER_BLOCK_ICON),
                 ));
 
-                // Inner
                 parent.spawn((
                     Mesh2d(assets.inner_triangle.clone()),
                     MeshMaterial2d(assets.yellow.clone()),

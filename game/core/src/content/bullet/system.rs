@@ -592,14 +592,11 @@ pub fn handle_pulling_beam(
                 .id();
 
             state.beam = Some(beam);
-            // Parent to the rotating barrel; the hitbox uses its transform.
             commands.entity(barrel_ref.0).add_child(beam);
         }
     }
 }
 
-/// Point defense: when an interceptor bullet hits a hostile projectile, both
-/// are removed. Missiles despawn this way do not trigger their blast.
 pub fn handle_point_defense_hits(
     mut collision_events: MessageReader<CollisionEvent>,
     owners: Query<&ProjectileOwner>,

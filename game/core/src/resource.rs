@@ -34,8 +34,6 @@ pub struct DeployPayload {
     pub current_ship: Option<ShipDesign>,
 }
 
-/// Seed persisted in save slots. Kept as a resource so the snapshot can carry
-/// it without tying the save schema to a concrete RNG implementation.
 #[derive(Resource)]
 pub struct GameRng {
     seed: u64,
@@ -57,17 +55,13 @@ impl Default for GameRng {
     }
 }
 
-/// How WASD input is interpreted while in the Game scene.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlMode {
-    /// WASD/QE fly the controlled ship and the camera follows it.
     Pilot,
-    /// WASD pan the camera and ship thrust is paused.
     #[default]
     FreeLook,
 }
 
-/// Whether the active Game scene is a persistent Campaign run or a stateless Quick Battle.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleMode {
     #[default]
@@ -75,11 +69,6 @@ pub enum BattleMode {
     QuickBattle,
 }
 
-/// A world load that has been requested but not yet applied.
-///
-/// Set by `handle_load_request`, then consumed when `SceneState::Game` is
-/// entered so the old scene is torn down by `DespawnOnExit` before the snapshot
-/// is spawned.
 #[derive(Resource, Default, Debug)]
 pub struct PendingLoad {
     pub active: bool,

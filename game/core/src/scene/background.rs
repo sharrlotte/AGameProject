@@ -19,9 +19,9 @@ impl Plugin for BackgroundPlugin {
 
 #[derive(Component)]
 struct ParallaxLayer {
-    factor: f32,  // movement multiplier (0.05..1.0)
-    radius: f32,  // wrap distance
-    offset: Vec2, // fixed random offset
+    factor: f32,
+    radius: f32,
+    offset: Vec2,
 }
 
 fn spawn_parallax_layer(
@@ -62,7 +62,6 @@ fn spawn_parallax_layer(
 }
 
 fn setup(mut commands: Commands) {
-    // FAR stars
     spawn_parallax_layer(
         &mut commands,
         200,
@@ -73,7 +72,6 @@ fn setup(mut commands: Commands) {
         1,
     );
 
-    // MID dust
     spawn_parallax_layer(
         &mut commands,
         120,
@@ -84,7 +82,6 @@ fn setup(mut commands: Commands) {
         2,
     );
 
-    // NEAR debris
     spawn_parallax_layer(
         &mut commands,
         60,

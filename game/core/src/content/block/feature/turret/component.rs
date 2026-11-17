@@ -102,8 +102,6 @@ pub struct Turret {
     pub shooting_pattern: ShootPattern,
 }
 
-/// What a turret is aiming at. Ship targets are homed; projectile targets are
-/// point-defense intercepts and are never persisted.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TurretTarget {
     Ship(Entity),

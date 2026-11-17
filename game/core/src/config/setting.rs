@@ -49,7 +49,6 @@ pub fn game_setting_bridge(
     }
 }
 
-/// Waits for a quiet period after the last settings change before writing.
 #[derive(Resource)]
 pub struct SettingSaveTimer(pub Timer);
 

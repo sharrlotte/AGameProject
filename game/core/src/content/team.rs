@@ -3,27 +3,27 @@ use bevy_rapier2d::prelude::Group;
 use serde::{Deserialize, Serialize};
 
 const COLORS: [Color; 16] = [
-    Color::srgb(0.0, 1.0, 0.0),    // green
-    Color::srgb(1.0, 0.0, 0.0),    // red
-    Color::srgb(0.0, 0.0, 1.0),    // blue
-    Color::srgb(1.0, 1.0, 0.0),    // yellow
-    Color::srgb(1.0, 0.5, 0.0),    // orange
-    Color::srgb(0.5, 0.0, 0.5),    // purple
-    Color::srgb(0.0, 1.0, 1.0),    // cyan
-    Color::srgb(1.0, 0.0, 1.0),    // magenta
-    Color::srgb(0.75, 1.0, 0.0),   // lime
-    Color::srgb(1.0, 0.75, 0.8),   // pink
-    Color::srgb(0.0, 0.5, 0.5),    // teal
-    Color::srgb(0.6, 0.4, 0.2),    // brown
-    Color::srgb(0.5, 0.5, 0.5),    // gray
-    Color::srgb(1.0, 1.0, 1.0),    // white
-    Color::srgb(0.0, 0.0, 0.0),    // black
-    Color::srgb(0.75, 0.75, 0.75), // silver
+    Color::srgb(0.0, 1.0, 0.0),
+    Color::srgb(1.0, 0.0, 0.0),
+    Color::srgb(0.0, 0.0, 1.0),
+    Color::srgb(1.0, 1.0, 0.0),
+    Color::srgb(1.0, 0.5, 0.0),
+    Color::srgb(0.5, 0.0, 0.5),
+    Color::srgb(0.0, 1.0, 1.0),
+    Color::srgb(1.0, 0.0, 1.0),
+    Color::srgb(0.75, 1.0, 0.0),
+    Color::srgb(1.0, 0.75, 0.8),
+    Color::srgb(0.0, 0.5, 0.5),
+    Color::srgb(0.6, 0.4, 0.2),
+    Color::srgb(0.5, 0.5, 0.5),
+    Color::srgb(1.0, 1.0, 1.0),
+    Color::srgb(0.0, 0.0, 0.0),
+    Color::srgb(0.75, 0.75, 0.75),
 ];
 
-pub const GROUP_SHIP: Group = Group::GROUP_1; // ship hull (physical)
-pub const GROUP_BULLET: Group = Group::GROUP_2; // bullet
-pub const GROUP_RADAR: Group = Group::GROUP_3; // radar sensor
+pub const GROUP_SHIP: Group = Group::GROUP_1;
+pub const GROUP_BULLET: Group = Group::GROUP_2;
+pub const GROUP_RADAR: Group = Group::GROUP_3;
 // bits 16–31 reserved for block hitbox per-team
 
 pub const DEFAULT_TEAM_ID: u8 = 0;

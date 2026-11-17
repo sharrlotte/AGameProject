@@ -1,9 +1,3 @@
-# Clippy baseline for the workspace.
-# CI runs `cargo check --locked` and `cargo build --release`; clippy is enforced manually
-# via `cargo clippy -- -D warnings` outside CI for now.
-
-# Keep argument counts reasonable; refactor when exceeded.
 too-many-arguments-threshold = 7
 
-# Type complexity; extract type aliases when exceeded.
 type-complexity-threshold = 250

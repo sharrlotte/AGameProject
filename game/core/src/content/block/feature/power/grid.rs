@@ -44,7 +44,6 @@ pub struct GridOutput {
     pub new_stored: f32,
 }
 
-/// Allocate power to boosters in order, returning `(powered_flags, booster_draw, remaining_available)`.
 pub fn allocate_boosters(
     mut available_power: f32,
     boosters: &[BoosterInput],
@@ -66,7 +65,6 @@ pub fn allocate_boosters(
     (powered, draw, available_power)
 }
 
-/// Pure per-ship power grid solver.
 #[cfg(test)]
 pub fn solve_ship_grid(input: GridInput<'_>) -> GridOutput {
     let generation = input.generation.max(0.0);
@@ -360,7 +358,6 @@ mod tests {
         let stats_b = app.world().get::<ShipStats>(ship_b).unwrap();
         assert_eq!(stats_b.power_supply, 0.5);
 
-        // Destroy one battery: capacity and stored shrink proportionally.
         app.world_mut().despawn(bat1);
         app.update();
         let stats_a = app.world().get::<ShipStats>(ship_a).unwrap();

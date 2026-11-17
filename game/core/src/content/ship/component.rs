@@ -18,9 +18,7 @@ use crate::resource::SceneState;
 #[derive(Component, Debug, Default, Clone)]
 #[require(Throttle)]
 pub struct Ship {
-    /// Core block id.
     pub id: Uuid,
-    /// Core block centre in ship-local space.
     pub core_position: Vec2,
 }
 
@@ -29,17 +27,14 @@ pub struct BoundingBox {
     pub size: Vec2,
 }
 
-/// Blocks that were cut off from the core by a mutation.
 #[derive(Component, Debug, Clone, Default)]
-#[allow(dead_code)] // Authoritative build result consumed by tests and future consumers.
+#[allow(dead_code)]
 pub struct ShipFragment {
     pub placements: Vec<BlockPlacement>,
 }
 
-/// Result of deriving a ship from a grid. A missing `ship` means the layout has
-/// no core and cannot be spawned as a ship.
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)] // `fragments` is part of the canonical build result.
+#[allow(dead_code)]
 pub struct ShipBuildResult {
     pub ship: Option<Ship>,
     pub stats: Option<ShipStats>,
@@ -47,7 +42,6 @@ pub struct ShipBuildResult {
     pub fragments: Vec<ShipFragment>,
 }
 
-/// Static ship blueprint used by spawn, editor, and designs on disk.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShipDesign {
     #[serde(default = "default_version")]
@@ -65,7 +59,7 @@ fn default_version() -> u32 {
 }
 
 impl ShipDesign {
-    #[allow(dead_code)] // Used by design fixtures and tests.
+    #[allow(dead_code)]
     pub fn new(blocks: Vec<BlockPlacement>) -> Self {
         Self {
             version: 1,

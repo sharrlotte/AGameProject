@@ -8,7 +8,6 @@ use bevy::prelude::*;
 
 use crate::simulation::SimulationSet;
 
-/// Supply at or below this threshold disables the affected output (thrust, beam).
 pub const STARVATION_THRESHOLD: f32 = 0.01;
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]

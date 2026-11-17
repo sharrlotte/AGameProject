@@ -225,7 +225,6 @@ fn update_fps(
     }
 }
 
-/// Show the pooled cargo of all player ships plus an item breakdown.
 fn update_cargo_hud(
     mut texts: Query<&mut Text, With<CargoHudText>>,
     ships: Query<(&ShipStats, &Team)>,
@@ -403,8 +402,6 @@ fn update_ship_list(
 mod tests {
     use super::*;
 
-    /// Gameplay roots tagged for `SceneState::Game` must not survive leaving
-    /// the scene — this is the invariant behind `DespawnOnExit`.
     #[test]
     fn game_roots_are_despawned_on_scene_exit() {
         let mut app = App::new();
@@ -436,8 +433,6 @@ mod tests {
         assert_eq!(tagged.iter(app.world()).count(), 0);
     }
 
-    /// Block entities are children of the ship root; they must be removed with
-    /// it so no gameplay entity survives leaving `Game`.
     #[test]
     fn children_of_game_roots_are_despawned_too() {
         let mut app = App::new();
@@ -480,8 +475,6 @@ mod tests {
         log.0.push("death");
     }
 
-    /// The fixed-tick chain must hold without message persistence: damage is
-    /// resolved before destruction and mutation.
     #[test]
     fn damage_runs_before_death_in_fixed_post_update() {
         let mut app = App::new();

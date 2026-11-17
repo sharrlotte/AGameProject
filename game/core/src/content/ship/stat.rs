@@ -8,11 +8,6 @@ use crate::content::block::{
 };
 use crate::content::ship::ShipGrid;
 
-/// Single aggregate stats component for a ship.
-///
-/// Derived from `ShipGrid` by `BlockRegistry::stats_from_grid` on every
-/// mutation. Runtime systems update power/thrust/cargo fields from live block
-/// state without changing the structural values.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct ShipStats {
@@ -61,9 +56,6 @@ impl ShipStats {
     }
 }
 
-/// Recompute pooled cargo capacity after the grid changes. If capacity drops
-/// below what is stored, the excess is discarded (items are cleared so the
-/// HUD never reports more cargo than the ship can hold).
 pub fn rebuild_cargo_capacity(
     mut events: MessageReader<ShipChanged>,
     mut ships: Query<(&mut ShipStats, &ShipGrid)>,
@@ -84,17 +76,11 @@ pub fn rebuild_cargo_capacity(
     }
 }
 
-/// Emitted after a ship grid, stats, or collider changed.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct ShipChanged {
     pub ship: Entity,
 }
 
-/// Aggregate per-block derived components into the ship stats component.
-///
-/// Structural values (mass, bounds, health, ranges) come from
-/// `stats_from_grid`; this system only refreshes values that depend on live
-/// block state such as power efficiency and cargo contents.
 pub fn update_stats(
     mut ships: Query<&mut ShipStats>,
     blocks: Query<(

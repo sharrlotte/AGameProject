@@ -1,6 +1,5 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-
 #[derive(Clone, PartialEq, Reflect, Component)]
 pub struct Storage {
     capacity: u32,

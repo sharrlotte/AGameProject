@@ -19,13 +19,11 @@ fn draw_indicators(
     window: Single<&Window>,
 ) {
     let (camera, camera_transform, projection) = *camera;
-    // max(32) prevent crash when window size is too small, idk how
     let window_size = Vec2::new(window.width(), window.height());
 
     for (ship_transform, team, ship) in &ships {
         let ship_position = ship_transform.transform_point(ship.core_position.extend(0.0));
 
-        // Project to screen to check visibility and clamp
         if let Ok(viewport_position) = camera.world_to_viewport(camera_transform, ship_position) {
             let scale = if let Projection::Orthographic(ortho) = &*projection {
                 ortho.scale
@@ -42,7 +40,6 @@ fn draw_indicators(
 
             let clamped_viewport_position = Vec2::new(clamped_x, clamped_y);
 
-            // Convert back to world space for drawing Gizmos
             if let Ok(world_position) =
                 camera.viewport_to_world_2d(camera_transform, clamped_viewport_position)
             {
@@ -50,7 +47,6 @@ fn draw_indicators(
                 let size = 45.0 * scale.sqrt();
 
                 let diff = ship_position.truncate() - world_position;
-                // Only draw if we are somewhat far from the target (avoid drawing on top)
                 let angle: f32 = if diff.length_squared() > 0.5 {
                     diff.y.atan2(diff.x)
                 } else {
@@ -59,12 +55,10 @@ fn draw_indicators(
 
                 let rotation = Quat::from_rotation_z(angle);
 
-                // Local points: Tip at (0,0), Base at -size
-                let p1 = Vec2::ZERO; // Tip
-                let p2 = Vec2::new(-size, size * 0.5); // Top Back
-                let p3 = Vec2::new(-size, -size * 0.5); // Bottom Back
+                let p1 = Vec2::ZERO;
+                let p2 = Vec2::new(-size, size * 0.5);
+                let p3 = Vec2::new(-size, -size * 0.5);
 
-                // Rotate and Translate
                 let transform_point =
                     |p: Vec2| -> Vec2 { world_position + (rotation * p.extend(0.0)).truncate() };
 

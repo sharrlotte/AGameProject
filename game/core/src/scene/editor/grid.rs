@@ -1,10 +1,9 @@
 use super::*;
 
 pub fn draw_grid(mut gizmos: Gizmos) {
-    let grid_lines = 50; // Number of lines in each direction from center
+    let grid_lines = 50;
     let grid_color = Color::srgb(0.2, 0.2, 0.2);
 
-    // Vertical lines
     for i in -grid_lines..=grid_lines {
         let x: f32 = i as f32 * GRID_SIZE;
         gizmos.line_2d(
@@ -14,7 +13,6 @@ pub fn draw_grid(mut gizmos: Gizmos) {
         );
     }
 
-    // Horizontal lines
     for i in -grid_lines..=grid_lines {
         let y = i as f32 * GRID_SIZE;
         gizmos.line_2d(
@@ -30,14 +28,13 @@ pub fn check_placement_validity(
     registry: &BlockRegistry,
     block_type: String,
     grid_position: IVec2,
-    _rotation: u8, // Unused for now
+    _rotation: u8,
 ) -> bool {
     let Some(def) = registry.get(&block_type) else {
         warn!("No block definition for {:?}", block_type);
         return false;
     };
 
-    // 1. Check for overlap
     for voxel in &def.shape.voxels {
         let target_position = grid_position + voxel.position;
         if grid.cells.contains_key(&target_position) {
@@ -45,37 +42,30 @@ pub fn check_placement_validity(
         }
     }
 
-    // 2. If grid is empty, allow placement (first block)
     if grid.blocks.is_empty() {
         return true;
     }
 
-    // 3. Check connectivity with neighbors
-    // We check if ANY of our voxels connects to a valid neighbor.
     for voxel in &def.shape.voxels {
         let my_position = grid_position + voxel.position;
         let directions = [
-            (IVec2::new(1, 0), FACE_RIGHT, FACE_LEFT), // Neighbor is Right, I need FACE_RIGHT, Neighbor needs FACE_LEFT
-            (IVec2::new(-1, 0), FACE_LEFT, FACE_RIGHT), // Neighbor is Left, I need FACE_LEFT, Neighbor needs FACE_RIGHT
-            (IVec2::new(0, 1), FACE_UP, FACE_DOWN), // Neighbor is Up, I need FACE_UP, Neighbor needs FACE_DOWN
-            (IVec2::new(0, -1), FACE_DOWN, FACE_UP), // Neighbor is Down, I need FACE_DOWN, Neighbor needs FACE_UP
+            (IVec2::new(1, 0), FACE_RIGHT, FACE_LEFT),
+            (IVec2::new(-1, 0), FACE_LEFT, FACE_RIGHT),
+            (IVec2::new(0, 1), FACE_UP, FACE_DOWN),
+            (IVec2::new(0, -1), FACE_DOWN, FACE_UP),
         ];
 
         for (dir, my_req_face, neighbor_req_face) in directions {
-            // Check if this voxel has the required face
             if (voxel.connectable_faces & my_req_face) == 0 {
                 continue;
             }
 
             let neighbor_position = my_position + dir;
             if let Some(neighbor_block) = grid.block_at(neighbor_position) {
-                // Found a neighbor. Check if faces match.
                 if let Some(neighbor_def) = registry.get(&neighbor_block.placement.block_type) {
-                    // Find which voxel of the neighbor is at neighbor_pos
                     let neighbor_local_position =
                         neighbor_position - neighbor_block.placement.position;
 
-                    // Find the voxel in neighbor definition
                     if let Some(neighbor_voxel) = neighbor_def
                         .shape
                         .voxels
@@ -111,16 +101,13 @@ pub fn update_placement_preview(
             return;
         };
 
-        // Calculate anchor position to center the block on mouse
         let size = def.shape.size;
         let anchor_offset = size / 2;
         let grid_position = mouse_grid_position - anchor_offset;
 
-        // Check validity
         let is_valid =
             check_placement_validity(&editor.grid, &registry, selected_type, grid_position, 0);
 
-        // Despawn existing preview
         for entity in &preview {
             commands.entity(entity).despawn();
         }

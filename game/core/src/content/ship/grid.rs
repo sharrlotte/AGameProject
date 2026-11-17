@@ -4,10 +4,6 @@ use uuid::Uuid;
 
 use crate::content::block::{BlockDef, BlockPlacement, BlockRegistry, GridBlock};
 
-/// Per-ship block grid. This is authoritative for placement and identity:
-/// `blocks` owns every live block by id, and `cells` maps occupied cells back
-/// to a block id. Block entities only carry `BlockRef`/`BlockOwner` plus
-/// runtime state.
 #[derive(Component, Debug, Default)]
 pub struct ShipGrid {
     pub blocks: HashMap<Uuid, GridBlock>,
@@ -19,7 +15,6 @@ impl ShipGrid {
         Self::default()
     }
 
-    /// Insert one block and fill every cell its shape occupies.
     pub fn insert_block(&mut self, placement: BlockPlacement, entity: Entity, def: &BlockDef) {
         for y in 0..def.shape.size.y {
             for x in 0..def.shape.size.x {
@@ -37,7 +32,7 @@ impl ShipGrid {
         }
     }
 
-    #[allow(dead_code)] // Canonical grid query; used by validation/tests.
+    #[allow(dead_code)]
     pub fn entity_at(&self, cell: IVec2) -> Option<Entity> {
         let id = self.cells.get(&cell)?;
         self.blocks.get(id).map(|block| block.entity)
@@ -52,7 +47,6 @@ impl ShipGrid {
         self.blocks.get(id)
     }
 
-    /// Remove a block and all of its occupied cells.
     pub fn remove_block(&mut self, id: Uuid) -> Option<GridBlock> {
         self.cells.retain(|_, cell_id| *cell_id != id);
         self.blocks.remove(&id)
@@ -66,8 +60,6 @@ impl ShipGrid {
         self.cells.iter()
     }
 
-    /// Rebuild the grid from a static layout. Entities start as placeholders;
-    /// spawn code calls `set_entity` after creating each block entity.
     pub fn rebuild_from_layout(&mut self, layout: &[BlockPlacement], registry: &BlockRegistry) {
         self.blocks.clear();
         self.cells.clear();
@@ -81,8 +73,7 @@ impl ShipGrid {
         }
     }
 
-    /// Recompute the cell map after block entities changed.
-    #[allow(dead_code)] // Canonical grid rebuild helper; kept for layout mutations.
+    #[allow(dead_code)]
     pub fn refresh_cells(&mut self, registry: &BlockRegistry) {
         self.cells.clear();
         let blocks: Vec<(Uuid, IVec2, IVec2)> = self

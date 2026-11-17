@@ -100,9 +100,6 @@ pub fn advance_turret_charge(
     }
 }
 
-/// Solve the intercept point for a moving target and a finite projectile
-/// speed. Falls back to the target's current position when there is no
-/// positive-time solution (e.g. instantaneous beams).
 pub fn lead_point(origin: Vec2, target: Vec2, velocity: Vec2, projectile_speed: f32) -> Vec2 {
     if !projectile_speed.is_finite() || projectile_speed <= 0.0 {
         return target;
@@ -141,8 +138,6 @@ pub fn lead_point(origin: Vec2, target: Vec2, velocity: Vec2, projectile_speed: 
     }
 }
 
-/// True when `entity` still has a live core block, i.e. it is a valid ship
-/// target. A core-less wreck must never be targeted.
 fn has_core(grid: &ShipGrid, ship: &Ship) -> bool {
     grid.block(ship.id).is_some()
 }
@@ -157,7 +152,6 @@ struct Candidate {
     id: u64,
 }
 
-/// Closest wins on distance; ties break by entity id.
 fn better_closest(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
@@ -168,7 +162,6 @@ fn better_closest(candidate: Candidate, best: Option<Candidate>) -> bool {
     }
 }
 
-/// MostHP wins on current health; ties break by distance, then entity id.
 fn better_most_hp(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
@@ -182,7 +175,6 @@ fn better_most_hp(candidate: Candidate, best: Option<Candidate>) -> bool {
     }
 }
 
-/// Point defense prioritises nearby missiles, then distance, then entity id.
 fn better_intercept(candidate: Candidate, best: Option<Candidate>) -> bool {
     match best {
         None => true,
@@ -324,7 +316,6 @@ mod tests {
     fn closest_ties_break_by_entity_id() {
         let first = candidate(1, 100.0, 10.0);
         let second = candidate(2, 100.0, 999.0);
-        // Equal distance: the lower entity id wins.
         assert!(!better_closest(second, Some(first)));
         assert!(better_closest(first, Some(second)));
     }
@@ -434,7 +425,6 @@ mod tests {
         assert!(aim.x > 0.0, "aim should lead the target: {aim:?}");
         assert!((aim.y - 100.0).abs() < 1e-3);
 
-        // Instantaneous beams aim directly at the target.
         let instant = lead_point(
             Vec2::ZERO,
             Vec2::new(0.0, 100.0),

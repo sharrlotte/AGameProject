@@ -11,9 +11,8 @@ use crate::content::ship::{BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats};
 use crate::content::team::Team;
 use crate::simulation::SimulationSet;
 
-/// All placement changes go through this single mutation pipeline.
 #[derive(Message, Debug, Clone)]
-#[allow(dead_code)] // Batch/layout variants are handled by the pipeline and kept for editor use.
+#[allow(dead_code)]
 pub enum ShipMutation {
     DestroyBlock {
         ship: Entity,
@@ -144,7 +143,6 @@ pub fn apply_ship_mutations(
             }
         }
 
-        // Cut every block that is no longer connected to the core.
         let reachable = reachable_from_core(&grid, &registry);
         let disconnected: Vec<Uuid> = grid
             .blocks
@@ -183,7 +181,6 @@ pub fn apply_ship_mutations(
         let (Some(new_ship), Some(new_stats), Some(new_bounds)) =
             (build.ship, build.stats, build.bounds)
         else {
-            // The core is gone (or nothing is left): the ship dies.
             commands.entity(ship_entity).insert(Death);
             destroyed.write(ShipDestroyed {
                 ship: ship_entity,

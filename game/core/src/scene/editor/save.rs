@@ -5,8 +5,6 @@ pub fn handle_ship_saving(
     state: Res<EditorState>,
     registry: Res<BlockRegistry>,
 ) {
-    // Re-validate before saving; a layout must have exactly one core and be
-    // fully connected.
     let layout: Vec<BlockPlacement> = state
         .grid
         .blocks()

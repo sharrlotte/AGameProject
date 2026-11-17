@@ -21,12 +21,9 @@ use crate::simulation::SimulationSet;
 #[derive(Message)]
 pub struct SaveWorldEvent;
 
-/// Request a world load. Handled as a state transition so the outgoing scene
-/// is despawned by `DespawnOnExit` before the snapshot is spawned.
 #[derive(Message)]
 pub struct LoadWorldEvent;
 
-/// Action to perform immediately after an exit-triggered auto-save completes.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PendingExitAction {
     #[default]
@@ -35,8 +32,6 @@ pub enum PendingExitAction {
     Exit,
 }
 
-/// Save outcome reported to the UI without mixing `&World` and `ResMut` in
-/// the same system (Bevy B0002). Written through `Commands`, read next frame.
 #[derive(Resource, Default)]
 pub struct SaveResult {
     pub message: Option<String>,
@@ -109,7 +104,6 @@ pub fn reset_campaign_data() {
     reset_campaign_data_in(&data_dir());
 }
 
-/// Removes active battle and campaign progress files while keeping `designs/*.ron` intact.
 pub fn reset_campaign_data_in(base: &Path) {
     remove_with_backup(&battle_save_path_in(base));
     remove_with_backup(&campaign_save_path_in(base));
@@ -195,9 +189,6 @@ pub fn report_save_result(mut result: ResMut<SaveResult>, mut notice: ResMut<App
     }
 }
 
-/// Convert a load request into a scene transition. The snapshot is spawned on
-/// the next `SceneState::Game` entry, after the outgoing scene has been torn
-/// down by `DespawnOnExit(SceneState::Game)`.
 pub fn handle_load_request(
     mut events: MessageReader<LoadWorldEvent>,
     mut pending: ResMut<PendingLoad>,
@@ -211,15 +202,12 @@ pub fn handle_load_request(
     }
 }
 
-/// Move from `Loading` into `Game` once a load has been requested.
 pub fn begin_loaded_game(pending: Res<PendingLoad>, mut next_scene: ResMut<NextState<SceneState>>) {
     if pending.is_pending() {
         next_scene.set(SceneState::Game);
     }
 }
 
-/// Spawn the requested snapshot when `Game` is entered. Runs alongside
-/// `setup_battle`, which skips itself while a load is pending.
 pub fn spawn_loaded_world(
     mut commands: Commands,
     pending: Res<PendingLoad>,
@@ -253,9 +241,6 @@ pub fn spawn_loaded_world(
         }
     };
 
-    // Projectiles, beams, damage text and VFX are never serialized. They are
-    // tagged `DespawnOnExit(SceneState::Game)` and are already gone when this
-    // system runs; this clears any stragglers defensively.
     for entity in &transients {
         commands.entity(entity).despawn();
     }

@@ -81,7 +81,6 @@ fn main() {
             )
             .in_fixed_schedule(),
     )
-    // .add_plugins(RapierDebugRenderPlugin::default())
     .init_resource::<DeployPayload>()
     .init_resource::<CameraTarget>()
     .init_resource::<ControlledShip>()

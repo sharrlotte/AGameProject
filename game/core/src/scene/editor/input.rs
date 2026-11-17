@@ -39,7 +39,6 @@ pub fn on_scroll_handler(
 
     let delta = &mut scroll.delta;
     if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
-        // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.x > 0. {
             scroll_position.x >= max_offset.x
         } else {
@@ -48,13 +47,11 @@ pub fn on_scroll_handler(
 
         if !max {
             scroll_position.x += delta.x;
-            // Consume the X portion of the scroll delta.
             delta.x = 0.;
         }
     }
 
     if node.overflow.y == OverflowAxis::Scroll && delta.y != 0. {
-        // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.y > 0. {
             scroll_position.y >= max_offset.y
         } else {
@@ -63,12 +60,10 @@ pub fn on_scroll_handler(
 
         if !max {
             scroll_position.y += delta.y;
-            // Consume the Y portion of the scroll delta.
             delta.y = 0.;
         }
     }
 
-    // Stop propagating when the delta is fully consumed.
     if *delta == Vec2::ZERO {
         scroll.propagate(false);
     }
@@ -194,9 +189,7 @@ pub fn process_input(
     mut camera: Query<(&Camera, &GlobalTransform, &mut Transform, &mut Projection), With<Camera2d>>,
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     mut mouse_motion_events: MessageReader<MouseMotion>,
-    // touches: Res<Touches>, // For future mobile support
 ) {
-    // Reset transient flags
     editor.place_req = false;
     editor.delete_req = false;
 
@@ -204,9 +197,7 @@ pub fn process_input(
         return;
     };
 
-    // Use iter().next() instead of get_single() to avoid potential API issues and be safe
     if let Some(cursor_position) = window.cursor_position() {
-        // Check if cursor is over UI (Left/Right panels)
         // Simplified check assuming fixed widths of 220px (left) and 250px (right)
         let width = window.width();
         if cursor_position.x < 220.0 || cursor_position.x > width - 250.0 {
@@ -257,7 +248,6 @@ pub fn process_input(
             }
         }
 
-        // Convert to world coordinates
         if let Ok(world_position) = camera.viewport_to_world_2d(global_transform, cursor_position) {
             let grid_x = ((world_position.x - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
             let grid_y = ((world_position.y - GRID_SIZE / 2.0) / GRID_SIZE).round() as i32;
@@ -310,7 +300,6 @@ pub fn handle_block_deletion(
     registry: Res<BlockRegistry>,
     mut events: MessageWriter<ShipSaveChanged>,
 ) {
-    // Check abstracted input flag instead of raw mouse input
     if editor.delete_req {
         if let Some(grid_position) = editor.hovered_grid_position {
             remove_block_at(&mut commands, &mut editor, &registry, grid_position);
@@ -355,7 +344,6 @@ pub fn sync_tabs(
         };
     }
 
-    // Update Visibility
     block_list.display = if editor.active_tab == EditorTab::Blocks {
         Display::Flex
     } else {

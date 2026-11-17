@@ -11,7 +11,6 @@ pub fn setup_editor_ui(
         transform.translation = Vec3::new(0.0, 0.0, 0.0);
     }
     let mut block_buttons = Vec::new();
-    // Root Node (Full Screen)
     commands.spawn((
         ShipBase,
         Visibility::Inherited,
@@ -31,11 +30,10 @@ pub fn setup_editor_ui(
             DespawnOnExit(SceneState::ShipEditor),
         ))
         .with_children(|parent| {
-            // Left Panel (Block Palette & Ships)
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(PANEL_WIDTH), // Fixed width for better layout
+                        width: Val::Px(PANEL_WIDTH),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         padding: UiRect::all(Val::Px(CORNER_RADIUS)),
@@ -45,7 +43,6 @@ pub fn setup_editor_ui(
                     BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
                 ))
                 .with_children(|left_panel| {
-                    // --- Back Button ---
                     spawn_button(
                         left_panel,
                         Node {
@@ -65,7 +62,6 @@ pub fn setup_editor_ui(
                         ButtonVisuals::dark(),
                     );
 
-                    // --- Tab Header ---
                     left_panel
                         .spawn(Node {
                             width: Val::Percent(100.0),
@@ -90,7 +86,6 @@ pub fn setup_editor_ui(
                             );
                         });
 
-                    // --- AI Panel ---
                     left_panel
                         .spawn((
                             Node {
@@ -142,7 +137,6 @@ pub fn setup_editor_ui(
                             ));
                         });
 
-                    // --- Block List Panel ---
                     left_panel
                         .spawn((
                             Node {
@@ -150,14 +144,13 @@ pub fn setup_editor_ui(
                                 width: Val::Percent(100.0),
                                 height: Val::Percent(100.0),
                                 row_gap: Val::Px(8.0),
-                                display: Display::Flex, // Initially Visible
+                                display: Display::Flex,
                                 overflow: Overflow::scroll_y(),
                                 ..default()
                             },
                             BlockListPanel,
                         ))
                         .with_children(|list_content| {
-                            // Block List
                             for (block_type, def) in registry.iter() {
                                 let button = spawn_widget(
                                     list_content,
@@ -179,31 +172,28 @@ pub fn setup_editor_ui(
                             }
                         });
 
-                    // --- Ship List Panel ---
                     left_panel.spawn((
                         Node {
                             flex_direction: FlexDirection::Column,
                             width: Val::Percent(100.0),
                             row_gap: Val::Px(8.0),
-                            display: Display::None, // Initially Hidden
+                            display: Display::None,
                             ..default()
                         },
                         ShipListPanel,
                     ));
                 });
 
-            // Center Panel (Transparent for Grid Interaction)
             parent.spawn(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 ..default()
             });
 
-            // Right Panel (Properties)
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(BUTTON_WIDTH), // Fixed width
+                        width: Val::Px(BUTTON_WIDTH),
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         padding: UiRect::all(Val::Px(CORNER_RADIUS)),
@@ -236,7 +226,6 @@ pub fn setup_editor_ui(
                         BlockPropertiesText,
                     ));
 
-                    // Instructions
                     right_panel.spawn((
                         Text::new("\n\nLeft Click: Place\nRight Click: Delete"),
                         TextFont {
@@ -250,7 +239,6 @@ pub fn setup_editor_ui(
                         },
                     ));
 
-                    // Spacer
                     right_panel.spawn(Node {
                         flex_grow: 1.0,
                         ..default()

@@ -22,7 +22,7 @@ pub fn power_boosters(
         let core_pos = ships
             .get(owner.ship)
             .map_or(Vec2::ZERO, |ship| ship.core_position);
-        
+
         let distance_sq = transform.translation.truncate().distance_squared(core_pos);
 
         by_ship.entry(owner.ship).or_default().push(BoosterInput {

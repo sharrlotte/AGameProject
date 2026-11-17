@@ -7,25 +7,18 @@ use crate::content::block::{
 };
 use crate::content::ship::ai::AiProfile;
 
-/// Version of the self-contained active battle save format. Old v1/v2 slot
-/// files are deliberately not read.
 pub const SAVE_SCHEMA_VERSION: u32 = 3;
 
-/// Version of the campaign progression format.
 pub const CAMPAIGN_SCHEMA_VERSION: u32 = 1;
 
-/// Version of the standalone ship design format.
 pub const DESIGN_SCHEMA_VERSION: u32 = 1;
 
-/// Turret runtime state. `target` is intentionally omitted: targets are
-/// reacquired after load instead of restoring stale entity ids.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct TurretSaveState {
     pub active: bool,
     pub shoot_at: Option<Vec2>,
 }
 
-/// Everything needed to recreate one block's mutable runtime state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockSnapshot {
     pub placement: BlockPlacement,
@@ -39,7 +32,6 @@ pub struct BlockSnapshot {
     pub pulling_pattern: bool,
 }
 
-/// 2D transform snapshot (Rapier games do not need the 3rd axis).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct TransformSave {
     pub x: f32,
@@ -54,8 +46,6 @@ pub struct VelocitySave {
     pub angvel: f32,
 }
 
-/// AI runtime state. The concrete behavior rule set is expanded in Phase 6;
-/// this captures the selected behavior and its think timer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct AiRuntimeSave {
     pub behavior: String,
@@ -100,8 +90,6 @@ pub struct RngSave {
     pub seed: u64,
 }
 
-/// Self-contained active battle snapshot (`saves/battle.ron`). All ships are
-/// embedded; no per-ship files are read or written anywhere in the save pipeline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorldSave {
     pub version: u32,
@@ -115,7 +103,6 @@ pub struct WorldSave {
 
 crate::ron_document!(WorldSave, SAVE_SCHEMA_VERSION, "world save");
 
-/// Durable campaign/mission progression (`saves/campaign.ron`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CampaignSave {
     pub version: u32,

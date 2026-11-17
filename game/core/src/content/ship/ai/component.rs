@@ -3,9 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::constant::AI_THINK_RATE_HZ;
 
-/// Authorable AI profile stored inline on a `ShipDesign` and mirrored on the
-/// spawned ship entity. Rules are evaluated in priority order at the shared
-/// `AI_THINK_RATE_HZ`.
 #[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AiProfile {
     pub initial: BehaviorSpec,
@@ -74,8 +71,6 @@ pub enum PositionRef {
     SelfCore,
 }
 
-/// The single runtime behavior enum. It replaces the old `BehaviorX` marker
-/// components and `AIShipController`.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub enum AiBehavior {
     Idle,
@@ -107,7 +102,6 @@ impl AiBehavior {
     }
 }
 
-/// Mutable AI state for one ship.
 #[derive(Component, Debug, Clone)]
 pub struct AiRuntime {
     pub current: AiBehavior,
@@ -130,8 +124,6 @@ impl AiRuntime {
     }
 }
 
-/// Resolve an authorable behavior spec into its runtime form. Entity targets
-/// are resolved by the rule evaluator before this is called.
 pub fn behavior_from_spec(
     spec: &BehaviorSpec,
     spawn_position: Vec2,
@@ -181,7 +173,6 @@ impl AiBehavior {
     }
 }
 
-/// Named presets copied into an inline profile by the editor.
 pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher"];
 
 pub fn preset(name: &str) -> AiProfile {
@@ -244,7 +235,6 @@ pub fn preset(name: &str) -> AiProfile {
     AiProfile { initial, rules }
 }
 
-/// Validate an authored profile. Returns a human-readable error list.
 pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
     let mut errors = Vec::new();
     for (index, rule) in profile.rules.iter().enumerate() {

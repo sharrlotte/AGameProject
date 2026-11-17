@@ -12,7 +12,6 @@ crate::ron_document!(ShipDesign, DESIGN_SCHEMA_VERSION, "ship design");
 const INTERCEPTOR: &str = include_str!("../../assets/config/starter/interceptor.ron");
 const RAIDER: &str = include_str!("../../assets/config/starter/raider.ron");
 
-/// Ship designs on disk, one self-contained RON file per design.
 pub struct ShipCatalog;
 
 impl ShipCatalog {
@@ -20,7 +19,6 @@ impl ShipCatalog {
         data_dir().join("designs")
     }
 
-    /// File stem used for a design. The name is the only user-facing identity.
     pub fn file_name(design: &ShipDesign) -> String {
         design
             .name
@@ -33,7 +31,6 @@ impl ShipCatalog {
             .to_string()
     }
 
-    /// Load every design, seeding the bundled starters on first run.
     pub fn load_or_seed() -> Vec<ShipDesign> {
         let dir = Self::designs_dir();
         if let Err(e) = fs::create_dir_all(&dir) {

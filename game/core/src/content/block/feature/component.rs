@@ -44,12 +44,10 @@ impl Feature {
             Self::Consumer(consumer) => consumer.insert(commands, base),
             Self::Booster(booster) => booster.insert(commands, base),
             Self::Storage(_) => {
-                // Capacity is pooled into ShipStats; no runtime component.
             }
         }
     }
 
-    /// Extra texture layers that cannot share the block's single `Sprite`.
     pub fn extra_texture(&self) -> Option<&Texture> {
         match self {
             Self::Texture(t) => Some(t),

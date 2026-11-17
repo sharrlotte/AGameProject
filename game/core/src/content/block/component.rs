@@ -135,7 +135,6 @@ pub enum ShootPattern {
 }
 
 impl ShootingProjectile {
-    /// Speed used for lead prediction. Beams are instantaneous.
     pub fn speed(&self) -> f32 {
         match self {
             Self::Bullet { speed, .. } | Self::Missile { speed, .. } => *speed,
@@ -194,7 +193,6 @@ pub struct Health {
     pub max_health: f32,
 }
 
-/// Spawn one block entity for a placement, attaching runtime state and features.
 pub fn spawn_block_entity(
     commands: &mut Commands,
     placement: &BlockPlacement,
@@ -238,7 +236,7 @@ pub fn spawn_block_entity(
     commands.entity(ship).add_child(block);
 
     let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
-    textures.next(); // primary texture is attached to the block entity
+    textures.next();
     for extra in textures {
         let layer = commands
             .spawn((
@@ -260,10 +258,10 @@ pub fn spawn_block_entity(
     block
 }
 
-pub const FACE_RIGHT: u8 = 0b0001; // +X
-pub const FACE_LEFT: u8 = 0b0010; // -X
-pub const FACE_UP: u8 = 0b0100; // +Y
-pub const FACE_DOWN: u8 = 0b1000; // -Y
+pub const FACE_RIGHT: u8 = 0b0001;
+pub const FACE_LEFT: u8 = 0b0010;
+pub const FACE_UP: u8 = 0b0100;
+pub const FACE_DOWN: u8 = 0b1000;
 pub const FACE_ALL: u8 = 0b1111;
 
 #[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
@@ -320,7 +318,6 @@ pub struct BlockDef {
     pub block_group: String,
     pub mass: f32,
     pub health: f32,
-    // TODO: Better shape data type for complex voxel structures
     pub shape: BlockShape,
     pub cost: u32,
     pub features: Vec<Feature>,
@@ -354,7 +351,6 @@ impl BlockDef {
 pub struct BlockRegistry {
     pub(crate) map: HashMap<String, BlockDef>,
     pub(crate) by_name: HashMap<String, String>,
-    /// Keys sorted by block group once at registration time.
     sorted: Vec<String>,
 }
 
@@ -400,7 +396,6 @@ impl BlockRegistry {
         Collider::voxels_from_points(Vec2::new(GRID_SIZE, GRID_SIZE), &points)
     }
 
-    /// Axis-aligned bounds of every occupied cell, in ship-local pixels.
     pub fn bounds_from_grid(&self, grid: &ShipGrid) -> Option<BoundingBox> {
         if grid.cells.is_empty() {
             return None;
@@ -420,7 +415,6 @@ impl BlockRegistry {
         Some(BoundingBox { size: max - min })
     }
 
-    /// Locate the single core block. Returns its id and ship-local centre.
     pub fn core_of(&self, grid: &ShipGrid) -> Option<(Uuid, Vec2)> {
         for block in grid.blocks() {
             let def = self.get_symbol(&block.placement.block_type)?;
@@ -435,7 +429,6 @@ impl BlockRegistry {
         None
     }
 
-    /// Structural stats derived from the live grid. Returns `None` without a core.
     pub fn stats_from_grid(&self, grid: &ShipGrid) -> Option<ShipStats> {
         self.core_of(grid)?;
 
@@ -493,7 +486,6 @@ impl BlockRegistry {
         Some(stats)
     }
 
-    /// Derive the ship, stats, and bounds. A core-less layout becomes one fragment.
     pub fn build_ship_result(&self, grid: &ShipGrid) -> ShipBuildResult {
         let Some((core_id, core_position)) = self.core_of(grid) else {
             return ShipBuildResult {
@@ -522,7 +514,6 @@ impl BlockRegistry {
         }
     }
 
-    /// Validate a static layout before spawning it as a ship.
     pub fn validate_ship(&self, layout: &[BlockPlacement]) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         let mut grid = ShipGrid::new();
@@ -556,7 +547,6 @@ impl BlockRegistry {
             errors.push(format!("expected exactly one core, found {core_count}"));
         }
 
-        // Overlap: a cell claimed twice means two block ids.
         let mut seen: HashMap<IVec2, Uuid> = HashMap::new();
         for block in grid.blocks() {
             let Some(def) = self.get_symbol(&block.placement.block_type) else {
@@ -577,7 +567,6 @@ impl BlockRegistry {
             }
         }
 
-        // Connectivity: every block must be reachable from the core.
         if core_count == 1 {
             let core = grid
                 .blocks()

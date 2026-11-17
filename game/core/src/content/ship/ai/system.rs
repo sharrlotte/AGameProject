@@ -8,7 +8,6 @@ use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use crate::simulation::SimulationSet;
 
-/// Snapshot of a ship used by AI rule evaluation.
 #[derive(Clone, Copy, Debug)]
 pub struct ShipInfo {
     pub entity: Entity,
@@ -161,8 +160,6 @@ fn resolve_position(
     }
 }
 
-/// Which `PositionRef`, if any, a behavior spec needs resolved before it can
-/// become a runtime behavior.
 fn position_for_spec(spec: &BehaviorSpec) -> Option<PositionRef> {
     match spec {
         BehaviorSpec::Patrol { around, .. } => Some(*around),
@@ -202,7 +199,6 @@ fn condition_matches(
     }
 }
 
-/// Select the highest-priority matching rule that is not on cooldown.
 pub fn select_rule(
     profile: &AiProfile,
     cooldowns: &[f32],
@@ -226,9 +222,6 @@ pub fn select_rule(
     winner.map(|(_, index)| index)
 }
 
-/// Evaluate rules at the profile's think rate. The highest-priority matching
-/// rule that is not on cooldown wins; with no match the current behavior is
-/// kept.
 pub fn evaluate_ai_rules(
     time: Res<Time>,
     index: Res<ShipIndex>,
@@ -300,7 +293,6 @@ pub fn evaluate_ai_rules(
             }
         }
 
-        // Re-roll a wander point once the ship reaches it.
         if let AiBehavior::Wander { point } = &runtime.current
             && point.distance(position) < 40.0
         {
@@ -334,8 +326,6 @@ fn target_for_spec(
     }
 }
 
-/// Turn the current runtime behavior into a steering intent consumed by
-/// `update_ship_behavior`.
 pub fn apply_ai_behaviors(
     mut ships: Query<(Entity, &AiRuntime, &Transform, &ShipStats, &BoundingBox)>,
     transforms: Query<&Transform>,
@@ -445,7 +435,6 @@ pub fn apply_ai_behaviors(
                     });
                     continue;
                 };
-                // Correct direction: away from the threat.
                 let away = (position - threat).normalize_or_zero();
                 ShipBehavior::Approach {
                     position: position + away * *distance,
@@ -513,11 +502,8 @@ mod tests {
             ],
         };
 
-        // Highest priority matches first.
         assert_eq!(select_rule(&profile, &[0.0, 0.0], |_| true), Some(1));
-        // On cooldown, the lower-priority rule takes over.
         assert_eq!(select_rule(&profile, &[0.0, 5.0], |_| true), Some(0));
-        // A condition that does not match skips that rule.
         assert_eq!(
             select_rule(&profile, &[0.0, 0.0], |c| matches!(c, AiCondition::Always)),
             Some(0)
@@ -528,8 +514,6 @@ mod tests {
     fn flee_behavior_moves_away_from_threat() {
         let threat = Vec2::new(0.0, 0.0);
         let position = Vec2::new(100.0, 0.0);
-        // The runtime behavior stores the threat entity; the steering intent
-        // is computed as `position + away * distance`.
         let away = (position - threat).normalize_or_zero();
         let intent_position = position + away * 1000.0;
         assert!(intent_position.x > position.x);

@@ -22,5 +22,4 @@ pub struct ShipSpawn {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MissionObjective {
     DestroyEnemyCore,
-    // TODO: Survive { seconds: f32 }, Collect { steel: u32 }, Escort { ... } — future missions
 }

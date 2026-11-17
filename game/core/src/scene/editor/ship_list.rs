@@ -49,7 +49,6 @@ pub fn refresh_ship_list(
 ) {
     available_ships.ships = ShipCatalog::load_or_seed();
 
-    // 2. Rebuild UI
     commands.entity(ship_list_panel.entity()).despawn_children();
 
     commands
@@ -133,8 +132,6 @@ pub fn spawn_placed_block(
 
     commands.entity(base).add_child(block);
 
-    // Primary texture sprite on the block entity; extra texture layers remain
-    // render-only children to preserve z-ordering.
     let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
     if let Some(primary) = textures.next() {
         commands.entity(block).insert(Sprite {
@@ -229,7 +226,6 @@ pub fn spawn_ship(
             return;
         }
 
-        // 2. Spawn new blocks
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
                 let placement = saved_block;

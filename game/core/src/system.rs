@@ -15,11 +15,6 @@ use crate::simulation::SimulationSet;
 #[cfg(debug_assertions)]
 use bevy::time::TimerMode;
 
-/// Debug-only audit for roots that would survive a scene exit.
-///
-/// State-scoped cleanup only despawns entities tagged with `DespawnOnExit`;
-/// any other root would leak across scenes. The audit samples periodically
-/// instead of every frame so the log stays readable.
 #[cfg(debug_assertions)]
 pub struct DebugAuditPlugin;
 

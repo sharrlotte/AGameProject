@@ -148,7 +148,6 @@ pub fn player_control_ship(
     mode: Res<ControlMode>,
     config: Res<GameConfigValue>,
 ) {
-    // Zoom is available in both modes.
     for event in mouse_wheel_events.read() {
         if let Ok((_, mut projection)) = camera.single_mut() {
             if let Projection::Orthographic(ortho) = &mut *projection {
@@ -159,8 +158,6 @@ pub fn player_control_ship(
         }
     }
 
-    // Middle-mouse drag pans the camera in either mode and temporarily
-    // overrides ship following.
     let panning = mouse_button_input.pressed(MouseButton::Middle);
     let drag_delta = if panning {
         mouse_motion
@@ -236,7 +233,6 @@ pub fn player_control_ship(
         }
     }
 
-    // Ship thrust is only applied in Pilot mode; FreeLook pauses control.
     if *mode == ControlMode::Pilot {
         if let Some(controlling) = controlled.controlling {
             match ships.get_mut(controlling) {
@@ -249,7 +245,7 @@ pub fn player_control_ship(
                     let mut linear_active = false;
                     let mut angular_active = false;
 
-                    let forward = transform.local_y().truncate(); // +Y is forward
+                    let forward = transform.local_y().truncate();
                     let right = transform.local_x().truncate();
 
                     if keyboard_input.pressed(KeyCode::KeyW)
@@ -280,7 +276,6 @@ pub fn player_control_ship(
                         angular_active = true;
                     }
 
-                    // Strafe
                     if keyboard_input.pressed(KeyCode::KeyQ) {
                         linear_force -= right * thrust_power;
                         linear_active = true;
@@ -303,7 +298,6 @@ pub fn player_control_ship(
             }
         }
     } else if let Some(controlling) = controlled.controlling {
-        // Clear any force left over from Pilot mode so the ship coasts.
         if let Ok((mut force, _, _, _, mut throttle)) = ships.get_mut(controlling) {
             force.force = Vec2::ZERO;
             force.torque = 0.0;
@@ -312,7 +306,6 @@ pub fn player_control_ship(
     }
 }
 
-/// `F` toggles between piloting the followed ship and free camera movement.
 pub fn toggle_control_mode(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut mode: ResMut<ControlMode>,
@@ -514,10 +507,6 @@ fn wrap_angle(mut a: f32) -> f32 {
     a
 }
 
-/// Collect drops into the nearest player ship's shared cargo.
-///
-/// Pickup is atomic: the full amount must fit or the drop stays in the world.
-/// Non-player ships never collect.
 pub fn collect_drop(
     mut commands: Commands,
     mut drops: Query<(Entity, &mut Transform, &DropComponent)>,
@@ -559,7 +548,6 @@ pub fn collect_drop(
             continue;
         }
 
-        // Atomic add: only mutate cargo state when the whole amount fits.
         if stats.cargo_used.saturating_add(item.amount) > stats.cargo_capacity {
             continue;
         }
@@ -675,8 +663,6 @@ mod tests {
         assert_eq!(stats.cargo_used, 0);
     }
 
-    /// `F` toggles between piloting the followed ship and free look, and
-    /// switching to free look releases ship control.
     #[test]
     fn f_toggles_pilot_and_free_look() {
         let (mut app, ship) = app_with_player_ship();

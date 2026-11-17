@@ -5,18 +5,11 @@ use std::{fmt, fs, path::Path};
 use ron::ser::{PrettyConfig, to_string_pretty};
 use serde::{Serialize, de::DeserializeOwned};
 
-/// A top-level file format that carries its own schema version.
-///
-/// Every persisted document (world saves, ship designs) implements this trait
-/// so `read_document`/`write_document` can reject incompatible versions before
-/// any gameplay data is trusted.
 pub trait RonDocument: Serialize + DeserializeOwned {
     const VERSION: u32;
     const KIND: &'static str;
 }
 
-/// Explicit version/data envelope for documents that do not store a `version`
-/// field inline.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
 pub struct Versioned<T> {
@@ -60,7 +53,6 @@ impl From<io::Error> for DocumentError {
     }
 }
 
-/// Parse a versioned RON document from text, rejecting unknown versions.
 pub fn parse_document<T: RonDocument>(text: &str) -> Result<T, DocumentError> {
     #[derive(serde::Deserialize)]
     struct Header {
@@ -79,13 +71,11 @@ pub fn parse_document<T: RonDocument>(text: &str) -> Result<T, DocumentError> {
     ron::from_str(text).map_err(|e| DocumentError::Parse(e.to_string()))
 }
 
-/// Read and validate a versioned RON document.
 pub fn read_document<T: RonDocument>(path: &Path) -> Result<T, DocumentError> {
     let text = fs::read_to_string(path)?;
     parse_document(&text)
 }
 
-/// Serialize a versioned RON document and write it atomically.
 pub fn write_document<T: RonDocument>(path: &Path, value: &T) -> Result<(), DocumentError> {
     let text = to_string_pretty(value, PrettyConfig::default())
         .map_err(|e| DocumentError::Parse(e.to_string()))?;
@@ -93,7 +83,6 @@ pub fn write_document<T: RonDocument>(path: &Path, value: &T) -> Result<(), Docu
     Ok(())
 }
 
-/// Write through a temporary file, keeping the previous contents as `.bak`.
 pub fn atomic_write(path: &Path, contents: &[u8]) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -109,7 +98,6 @@ pub fn atomic_write(path: &Path, contents: &[u8]) -> io::Result<()> {
     fs::rename(tmp, path)
 }
 
-/// Implement [`RonDocument`] for a persisted type.
 #[macro_export]
 macro_rules! ron_document {
     ($ty:ty, $version:expr, $kind:expr) => {

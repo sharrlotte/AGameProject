@@ -4,11 +4,6 @@ use crate::constant::GRID_SIZE;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Static description of one block in a ship layout.
-///
-/// `ShipGrid` is authoritative for placement and identity; this type is the
-/// only block description that travels through spawn, editor, save, and
-/// mutation paths.
 #[derive(Clone, Debug, PartialEq, Reflect, Serialize, Deserialize)]
 pub struct BlockPlacement {
     pub id: Uuid,
@@ -27,26 +22,22 @@ impl BlockPlacement {
         }
     }
 
-    /// Top-left pixel position of this block, relative to the ship origin.
     pub fn position_pixel(&self) -> Vec2 {
         self.position.as_vec2() * GRID_SIZE
     }
 }
 
-/// One live block in a `ShipGrid`.
 #[derive(Clone, Debug)]
 pub struct GridBlock {
     pub placement: BlockPlacement,
     pub entity: Entity,
 }
 
-/// Identity marker on a block entity. Placement data lives in `ShipGrid`.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BlockRef {
     pub id: Uuid,
 }
 
-/// Ownership marker on a block entity.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BlockOwner {
     pub ship: Entity,
