@@ -35,7 +35,6 @@ block_group: "core",
             shape: Rect((3, 3)),
             features: [
                 Texture((image: "block/core-nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
-                Texture((image: "block/core-nucleus-team.png", offset: (0.0, 0.0), z: 150.0, animated: false)),
                 Thruster((force: 200.0, torque: 60.0)),
                 Storage((capacity: 1000)),
                 Generator((output: 10.0)),

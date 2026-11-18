@@ -42,7 +42,7 @@ A dev-only `AssetCheckPlugin` in `core/src/asset/` walks the asset tree at start
 
 Referenced by `config/base/block.ron` and code:
 
-- `texture/block/`: `block-2`, `block-iron`, `block-steel`, `colaris`, `core-nucleus`, `core-nucleus-team`, `foreshadow`, `lancer`, `meltdown`, `shielded-wall`, `spectre`, `surge-wall-large`, `swarmer`, `thruster`, `titanium-wall-large` (all `.png`)
+- `texture/block/`: `block-2`, `block-iron`, `block-steel`, `colaris`, `core-nucleus`, `foreshadow`, `lancer`, `meltdown`, `shielded-wall`, `spectre`, `surge-wall-large`, `swarmer`, `thruster`, `titanium-wall-large` (all `.png`)
 - `audio/bullet/shoot-spectre.ogg`
 - `config/base/game.ron`, `config/base/block.ron`, `config/setting.ron`, `config/mission/quick-battle.ron`, `config/starter/{interceptor,raider}.ron`
 
