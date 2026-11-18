@@ -12,7 +12,7 @@ assets/
   audio/bullet/      shoot-spectre.ogg
   config/base/       game.ron, block.ron
   config/mission/    quick-battle.ron
-  config/starter/    interceptor.ron, raider.ron
+  config/starter/    interceptor.ron, raider.ron, b2.ron, blackbird.ron
   config/            setting.ron
   texture/block/     block + turret + core + wall sprites (PNG)
 ```
@@ -44,7 +44,7 @@ Referenced by `config/base/block.ron` and code:
 
 - `texture/block/`: `battery`, `booster`, `cap-1x1`, `colaris`, `fin-1x2`, `foreshadow`, `hull`, `lancer`, `meltdown`, `nucleus`, `plate-2x2`, `scrap`, `spectre`, `spike-1x3`, `steel`, `swarmer`, `thruster`, `turret-base`, `wedge-1x1` (all `.png`); all block PNGs are generated deterministically by `tools/gen_block_art.py`
 - `audio/bullet/shoot-spectre.ogg`
-- `config/base/game.ron`, `config/base/block.ron`, `config/setting.ron`, `config/mission/quick-battle.ron`, `config/starter/{interceptor,raider}.ron`
+- `config/base/game.ron`, `config/base/block.ron`, `config/setting.ron`, `config/mission/quick-battle.ron`, `config/starter/{interceptor,raider,b2,blackbird}.ron`
 
 `colaris.png` is shared by the `colaris` and `parallax` blocks; `docs/defects.md` #21 tracks this separately.
 

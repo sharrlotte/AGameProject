@@ -1,4 +1,10 @@
-## ADDED Requirements
+# Starter Roles
+
+## Purpose
+
+The shipped starter fleet includes a long-range bomber and a fast scout so players can experience distinct strategic roles from built-in designs, expressed entirely through block composition and inline AI profiles.
+
+## Requirements
 
 ### Requirement: Starter catalog includes a bomber and a scout
 
@@ -16,12 +22,12 @@ The shipped starter designs SHALL include `B2` and `Blackbird` in addition to `I
 
 ### Requirement: B2 is a long-range bomber
 
-`B2` SHALL have a broad flying-wing silhouette built from existing hull and triangle blocks, SHALL mount two `colaris` turrets, and SHALL contain more hull blocks than thrusters. Its AI SHALL begin with `Attack(target: NearestEnemy)`, SHALL flee at critical health, and SHALL keep its distance with `Kite` when an enemy is in range. Relative to `Blackbird`, `B2` SHALL have greater durability and weapon reach but lower thrust and turn rate.
+`B2` SHALL have a broad flying-wing silhouette built from existing hull and triangle blocks, SHALL mount two `colaris` turrets and one `foreshadow` spinal railgun in addition to them, and SHALL contain more hull blocks than thrusters. Its AI SHALL begin with `Attack(target: NearestEnemy)`, SHALL flee at critical health, and SHALL keep its distance with `Kite` when an enemy is in range. Relative to `Blackbird`, `B2` SHALL have greater durability, weapon count and weapon reach but lower thrust and turn rate.
 
 #### Scenario: Bomber silhouette and loadout
 
 - **WHEN** `B2` is spawned
-- **THEN** its outline is a broad flying wing of existing hull and triangle pieces, with two `colaris` turrets and fewer thrusters than hull blocks
+- **THEN** its outline is a broad flying wing of existing hull and triangle pieces, with two `colaris` turrets, one `foreshadow` spinal railgun mounted at `(0, 2)` with `R0`, and fewer thrusters than hull blocks
 
 #### Scenario: Bomber stand-off behavior
 
@@ -31,7 +37,7 @@ The shipped starter designs SHALL include `B2` and `Blackbird` in addition to `I
 #### Scenario: Bomber trade-off
 
 - **WHEN** `B2` and `Blackbird` stats are compared
-- **THEN** `B2` has higher effective hull and longer weapon range, and lower thrust power and rotate speed
+- **THEN** `B2` has higher effective hull, more weapons and longer weapon range, and lower thrust power and rotate speed
 
 ### Requirement: Blackbird is a fast scout
 

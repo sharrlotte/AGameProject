@@ -4,6 +4,7 @@
     name: "B2",
     blocks: [
         (id: "cd11a199-3062-40d5-91f3-0c800364963a", position: (-1, -1), block_type: "core", rotation: R0),
+        (id: "f287004b-9669-4bde-ba51-185313a21d0a", position: (0, 2), block_type: "foreshadow", rotation: R0),
         (id: "5e7b84d8-3c54-4b8d-b41f-9550d97d80fa", position: (-9, 0), block_type: "hull", rotation: R0),
         (id: "714860a8-a2bf-40cb-b184-b632771b2233", position: (-8, 0), block_type: "hull", rotation: R0),
         (id: "7af2edb0-3904-485f-839e-21f157600c65", position: (-7, 0), block_type: "hull", rotation: R0),

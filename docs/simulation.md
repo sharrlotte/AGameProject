@@ -121,25 +121,39 @@ in `game.ron` (`linear_damping = 0.9`, `angular_damping = 0.999`).
 
 ## Starter designs
 
-Two starter `ShipDesign` documents are embedded via `include_str!` in
+Four starter `ShipDesign` documents are embedded via `include_str!` in
 `save/design/lib.rs` and written to the user data designs directory on every run
 before the directory is loaded into `ShipCatalog`. `quick-battle.ron` selects them
-by name: `Interceptor` for the player, `Raider` for enemies.
+by name: `Interceptor` for the player, `B2` and `Blackbird` for enemies.
 
-Both starters use one 3×3 `core` at grid cell `(-1, -1)`. Layouts are connected,
+Every starter uses one 3×3 `core` at grid cell `(-1, -1)`. Layouts are connected,
 non-overlapping, and satisfy `validate_ship`. Composition:
 
 | Design | Parts | Structure | Weapons | Support |
 |---|---|---|---|---|
 | `Interceptor` | 39 | 15 `hull`, 10 `wedge_1x1`, 1 `spike_1x3` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
 | `Raider` | 49 | 23 `hull`, 12 `wedge_1x1`, 1 `spike_1x3` | 3 `swarmer` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `B2` | 56 | 32 `hull`, 12 `wedge_1x1`, 2 `plate_2x2` | 2 `colaris`, 1 `foreshadow` | 2 `thruster_small`, 2 `reactor`, 2 `battery` |
+| `Blackbird` | 16 | 3 `hull`, 1 `wedge_1x1`, 2 `fin_1x2`, 1 `spike_1x3` | 1 `laser_turret` | 4 `thruster_small`, 1 `booster`, 1 `reactor`, 1 `battery` |
 
 The interceptor is a narrow arrow with an isosceles nose spike and wedge leading
 edges; the raider is a broad swept wedge with turrets at the wingtips and nose.
+`B2` is a broad flying wing with two `plate_2x2` wingtips and serrated wedge leading
+and trailing edges; it has 32 hull blocks and only 2 thrusters. Alongside its two
+`colaris` it carries one `foreshadow` spinal railgun at `(0, 2)` with `R0`, occupying
+`(0,2)..(0,5)` and pointing along the ship's nose; the fixed weapon is aimed by the
+ship-level `AimAt` behavior. Its AI opens with `Attack(target: NearestEnemy)`, kites at
+4500 while an enemy is within 6000, and flees only below 20% health. `Blackbird` is a
+long slender dart with a nose spike, two horizontal `fin_1x2` wings, a single laser and
+4 thrusters; its AI opens with `Chase(target: NearestEnemy)`, kites at 2500 within 4000,
+and flees below 40% health. The bomber therefore has greater hull, weapon count,
+weapon reach and stored power (1200 vs 1100) but lower thrust (600 vs 1000) and turn
+rate (260 vs 460) than the scout.
+
 Every triangle sits on the silhouette boundary with its empty side facing outward,
-so no block touches a triangle's empty edge. Both fit within their grid envelopes
-(`x=-5..5, y=-5..6` and `x=-6..6, y=-5..5`) and carry enough generation to cover
-their consumers without drawing down batteries.
+so no block touches a triangle's empty edge. The new starters fit within
+`x=-9..9, y=-2..5` (`B2`) and `x=-3..3, y=-3..5` (`Blackbird`); generation covers
+consumer demand on both (60/6 and 35/25).
 AI profiles, design names, ids, and schema version are defined by the starter
 documents and are independent of the block layout.
 

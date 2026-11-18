@@ -224,8 +224,58 @@ pub fn update_ship_behavior(
                 };
                 throttle.set(linear, angular);
             }
+            ShipBehavior::AimAt {
+                target,
+                hold_distance,
+                aim_offset_angle,
+            } => {
+                let direction = (*target - current_postion).normalize_or_zero();
+                let angle = desired_ship_angle(direction, *aim_offset_angle);
+                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
+                let distance = current_postion.distance(*target);
+
+                let (torque, torque_multiplier) =
+                    compute_aim_torque(angle_diff, turn_speed, &mut velocity);
+                force.torque = torque;
+
+                let linear = if distance > *hold_distance * 1.1 && angle_diff.abs() < PI / 3.0 {
+                    let ratio = ((distance - *hold_distance) / hold_distance.max(1.0)).clamp(0.0, 1.0);
+                    force.force = forward * thrust_power * ratio;
+                    ratio
+                } else {
+                    force.force = Vec2::ZERO;
+                    0.0
+                };
+                let angular = if torque.abs() > 0.0 {
+                    torque_multiplier
+                } else {
+                    0.0
+                };
+                throttle.set(linear, angular);
+            }
         }
     }
+}
+
+fn desired_ship_angle(direction: Vec2, aim_offset_angle: f32) -> f32 {
+    direction.y.atan2(direction.x) - PI / 2.0 - aim_offset_angle
+}
+
+fn compute_aim_torque(angle_diff: f32, turn_speed: f32, velocity: &mut Velocity) -> (f32, f32) {
+    let torque_multiplier = (angle_diff.abs() / velocity.angular.abs())
+        .clamp(0.0, 1.0)
+        .squared();
+    let mut torque = if angle_diff > 0.0 {
+        turn_speed
+    } else {
+        -turn_speed
+    } * torque_multiplier;
+
+    if angle_diff.abs() < 0.01 && velocity.angular.abs() < 0.01 {
+        torque = 0.0;
+        velocity.angular = 0.0;
+    }
+    (torque, torque_multiplier)
 }
 
 fn wrap_angle(mut a: f32) -> f32 {
@@ -431,5 +481,17 @@ mod tests {
         );
         assert_eq!(app.world().resource::<ControlledShip>().controlling, None);
         assert_eq!(app.world().resource::<CameraTarget>().following, None);
+    }
+
+    #[test]
+    fn aim_at_rot90_offset_aligns_mounted_gun() {
+        // Target is to the right (+X), so atan2(0, 1) = 0.
+        // Forward-mounted (R0, offset 0): ship Z = -PI/2 (nose points +X).
+        let r0 = desired_ship_angle(Vec2::X, 0.0);
+        assert!((r0 - (-std::f32::consts::FRAC_PI_2)).abs() < 1e-5);
+
+        // Right-mounted (R270, 3 turns CCW = 3*PI/2): ship Z = -2*PI (nose points +Y, right side points +X).
+        let r270 = desired_ship_angle(Vec2::X, 3.0 * std::f32::consts::FRAC_PI_2);
+        assert!((wrap_angle(r270)).abs() < 1e-5);
     }
 }

@@ -1,5 +1,4 @@
 use bevy::{math::FloatPow, prelude::*};
-use std::f32::consts::PI;
 
 use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
 use crate::content::block::TurretMirror;
@@ -168,7 +167,7 @@ fn better_intercept(candidate: Candidate, best: Option<Candidate>) -> bool {
 }
 
 pub fn update_turret_target(
-    ships: Query<(&GlobalTransform, &Ship, &BlockGrid, &ShipStats)>,
+    ships: Query<(&GlobalTransform, &Ship, &BlockGrid, &ShipStats, Option<&Velocity>)>,
     projectiles: Query<
         (
             Entity,
@@ -191,19 +190,25 @@ pub fn update_turret_target(
         let mut best: Option<Candidate> = None;
 
         for entity in radar.targets.iter().copied() {
-            let Ok((target_transform, ship, grid, stats)) = ships.get(entity) else {
+            let Ok((target_transform, ship, grid, stats, velocity)) = ships.get(entity) else {
                 continue;
             };
             if !has_core(grid, ship) {
                 continue;
             }
-            let aim = target_transform
+            let core_world = target_transform
                 .transform_point(ship.core_position.extend(0.0))
                 .truncate();
-            let dist_sq = turret_position.distance_squared(aim);
+            let dist_sq = turret_position.distance_squared(core_world);
             if dist_sq > range_sq {
                 continue;
             }
+            let aim = lead_point(
+                turret_position,
+                core_world,
+                velocity.map_or(Vec2::ZERO, |v| v.linear),
+                turret.shooting_pattern.projectile_speed(),
+            );
 
             let candidate = Candidate {
                 target: TurretTarget::Ship(entity),
@@ -265,7 +270,7 @@ pub fn update_turret_target(
 
             state.target = Some(candidate.target);
             state.aim_point = candidate.aim;
-            state.can_fire = angle_error.abs() < PI / 16.0;
+            state.can_fire = angle_error.abs() < turret.aim_tolerance;
             state.active = state.can_fire;
         } else {
             state.target = None;
@@ -493,5 +498,12 @@ mod tests {
             f32::INFINITY,
         );
         assert_eq!(instant, Vec2::new(0.0, 100.0));
+    }
+
+    #[test]
+    fn custom_aim_tolerance_gates_firing_cone() {
+        let tolerance = 0.035_f32;
+        assert!(0.02_f32.abs() < tolerance);
+        assert!(!(0.1_f32.abs() < tolerance));
     }
 }

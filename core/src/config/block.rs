@@ -79,6 +79,8 @@ pub struct TurretComponentConfig {
     pub strategy: TargetingStrategy,
     pub shooting_pattern: ShootPatternConfig,
     pub turn_speed: f32,
+    #[serde(default)]
+    pub aim_tolerance: Option<f32>,
     pub range: f32,
     pub barrels: Vec<Vec2>,
     pub image: String,
@@ -166,6 +168,10 @@ impl FeatureConfig {
                     strategy: config.strategy,
                     shooting_pattern,
                     turn_speed: config.turn_speed,
+                    aim_tolerance: config
+                        .aim_tolerance
+                        .filter(|t| t.is_finite() && *t > 0.0)
+                        .unwrap_or(std::f32::consts::FRAC_PI_8 * 0.5),
                     range: config.range,
                     barrels: config.barrels,
                     image: assets.load(format!("texture/{}", config.image)),

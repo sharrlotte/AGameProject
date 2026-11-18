@@ -195,6 +195,7 @@ pub struct ShipUIRoot {
 pub enum ShipBehavior {
     Approach { position: Vec2, radius: f32 },
     GoAround { position: Vec2, radius: f32 },
+    AimAt { target: Vec2, hold_distance: f32, aim_offset_angle: f32 },
 }
 
 

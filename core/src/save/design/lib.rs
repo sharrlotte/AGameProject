@@ -105,7 +105,7 @@ mod tests {
     use crate::content::block::{BlockPlacement, BlockRegistry, Rot90};
     use crate::save::design::DESIGN_SCHEMA_VERSION;
     use bevy::asset::{AssetApp, AssetPlugin, AssetServer};
-    use bevy::prelude::Image;
+    use bevy::prelude::{AudioSource, Image};
 
     #[test]
     fn starters_are_valid_documents() {
@@ -126,7 +126,8 @@ mod tests {
     fn starters_pass_validate_ship() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-            .init_asset::<Image>();
+            .init_asset::<Image>()
+            .init_asset::<AudioSource>();
         let server = app.world().resource::<AssetServer>().clone();
 
         let config: BlocksConfig = ron::from_str(include_str!(

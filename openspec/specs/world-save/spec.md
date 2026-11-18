@@ -77,7 +77,7 @@ The game SHALL store `ShipDesign { version, id, name, blocks: Vec<BlockPlacement
 
 #### Scenario: Fresh install has starter designs cached in resource
 - **WHEN** the game starts with an empty designs directory
-- **THEN** the v2 starter interceptor and raider designs are written, loaded into the `ShipCatalog` resource, and available to the editor and missions without repeated disk seeding
+- **THEN** the v2 starter interceptor, raider, B2 and Blackbird designs are written, loaded into the `ShipCatalog` resource, and available to the editor and missions without repeated disk seeding
 
 #### Scenario: Missing design is an error
 - **WHEN** a mission references a missing design

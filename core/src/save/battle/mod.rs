@@ -111,6 +111,7 @@ mod tests {
                         },
                     }),
                     turn_speed: 2.0,
+                    aim_tolerance: std::f32::consts::FRAC_PI_8 * 0.5,
                     range: 500.0,
                     barrels: vec![Vec2::ZERO],
                     image: Handle::default(),

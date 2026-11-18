@@ -38,6 +38,7 @@ pub struct TurretComponent {
     pub strategy: TargetingStrategy,
     pub shooting_pattern: ShootPattern,
     pub turn_speed: f32,
+    pub aim_tolerance: f32,
     pub range: f32,
     pub barrels: Vec<Vec2>,
     pub image: Handle<Image>,
@@ -55,6 +56,7 @@ impl TurretComponent {
                 strategy: self.strategy.clone(),
                 range: self.range,
                 turn_speed: self.turn_speed,
+                aim_tolerance: self.aim_tolerance,
                 barrels: self.barrels.clone(),
                 shooting_pattern: self.shooting_pattern.clone(),
             },
@@ -108,6 +110,7 @@ pub struct TurretBarrel(pub Entity);
 pub struct Turret {
     pub range: f32,
     pub turn_speed: f32,
+    pub aim_tolerance: f32,
     pub barrels: Vec<Vec2>,
     pub strategy: TargetingStrategy,
     pub shooting_pattern: ShootPattern,

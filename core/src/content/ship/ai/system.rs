@@ -1,7 +1,11 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::prelude::*;
 
 use super::component::*;
 use crate::config::GameConfigValue;
+use crate::content::block::{BlockRegistry, feature::component::Feature};
+use crate::content::body::BlockGrid;
 use crate::content::ship::{BoundingBox, ShipBehavior, ShipStats};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlledShip};
@@ -298,13 +302,31 @@ fn target_for_spec(
     }
 }
 
+fn fixed_weapon_offset(grid: &BlockGrid, registry: &BlockRegistry) -> Option<f32> {
+    grid.blocks().find_map(|block| {
+        let def = registry.get_symbol(&block.placement.block_type)?;
+        let has_fixed_turret = def.features.iter().any(|feature| {
+            matches!(feature, Feature::Turret(turret) if turret.turn_speed == 0.0)
+        });
+        has_fixed_turret.then(|| block.placement.rotation.turns() as f32 * FRAC_PI_2)
+    })
+}
+
 pub fn apply_ai_behaviors(
-    mut ships: Query<(Entity, &AiRuntime, &Transform, &ShipStats, &BoundingBox)>,
+    mut ships: Query<(
+        Entity,
+        &AiRuntime,
+        &Transform,
+        &ShipStats,
+        &BoundingBox,
+        &BlockGrid,
+    )>,
     transforms: Query<&Transform>,
     config: Res<GameConfigValue>,
+    registry: Res<BlockRegistry>,
     mut commands: Commands,
 ) {
-    for (entity, runtime, transform, ship_stats, bbox) in &mut ships {
+    for (entity, runtime, transform, ship_stats, bbox, grid) in &mut ships {
         let position = transform.translation.truncate();
         let size = bbox.size.length();
         let intent = match &runtime.current {
@@ -388,6 +410,12 @@ pub fn apply_ai_behaviors(
                     ShipBehavior::Approach {
                         position: enemy,
                         radius,
+                    }
+                } else if let Some(aim_offset_angle) = fixed_weapon_offset(grid, &registry) {
+                    ShipBehavior::AimAt {
+                        target: enemy,
+                        hold_distance: radius,
+                        aim_offset_angle,
                     }
                 } else {
                     ShipBehavior::GoAround {
@@ -489,5 +517,61 @@ mod tests {
         let away = (position - threat).normalize_or_zero();
         let intent_position = position + away * 1000.0;
         assert!(intent_position.x > position.x);
+    }
+
+    #[test]
+    fn fixed_weapon_offset_reads_rot90_for_zero_turn_speed_turret() {
+        use crate::content::block::{
+            BakedShape, BlockDef, BlockPlacement, Rot90, ShapeSpec,
+            component::{ShootPattern, SingleShootPattern, ShootingProjectile, TargetingStrategy},
+            feature::turret::TurretComponent,
+        };
+
+        let mut registry = BlockRegistry::default();
+        registry.register(
+            "railgun",
+            BlockDef {
+                name: "Railgun".to_string(),
+                block_type: "railgun".to_string(),
+                block_group: "turret".to_string(),
+                mass: 10.0,
+                health: 100.0,
+                cost: 10,
+                shape: BakedShape::try_from(&ShapeSpec::Rect(UVec2::new(1, 4))).unwrap(),
+                features: vec![Feature::Turret(TurretComponent {
+                    strategy: TargetingStrategy::Closest,
+                    shooting_pattern: ShootPattern::Single(SingleShootPattern {
+                        fire_rate: 1.0,
+                        projectile: ShootingProjectile::Bullet {
+                            speed: 1000.0,
+                            damage: 10.0,
+                            lifetime: 1.0,
+                            piercing: 0,
+                            width: 1.0,
+                            length: 10.0,
+                        },
+                    }),
+                    turn_speed: 0.0,
+                    aim_tolerance: 0.035,
+                    range: 1000.0,
+                    barrels: vec![Vec2::ZERO],
+                    image: Handle::default(),
+                    offset: Vec2::ZERO,
+                    z: 10.0,
+                    animated: false,
+                    ammo: None,
+                    power: None,
+                })],
+                drops: Vec::new(),
+            },
+        );
+
+        let mut grid = BlockGrid::new();
+        grid.rebuild_from_layout(
+            &[BlockPlacement::new(IVec2::ZERO, "railgun", Rot90::R90)],
+            &registry,
+        );
+        let offset = fixed_weapon_offset(&grid, &registry).expect("fixed turret detected");
+        assert!((offset - FRAC_PI_2).abs() < 1e-5);
     }
 }
