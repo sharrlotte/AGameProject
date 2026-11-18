@@ -26,24 +26,6 @@ pub struct BoosterInput {
     pub rate: f32,
 }
 
-#[cfg(test)]
-pub struct GridInput<'a> {
-    pub generation: f32,
-    pub stored: f32,
-    pub capacity: f32,
-    pub demand: f32,
-    pub dt: f32,
-    pub boosters: &'a [BoosterInput],
-}
-
-#[cfg(test)]
-pub struct GridOutput {
-    pub powered_boosters: Vec<bool>,
-    pub booster_draw: f32,
-    pub supply: f32,
-    pub new_stored: f32,
-}
-
 pub fn allocate_boosters(
     mut available_power: f32,
     boosters: &[BoosterInput],
@@ -63,43 +45,6 @@ pub fn allocate_boosters(
     }
 
     (powered, draw, available_power)
-}
-
-#[cfg(test)]
-pub fn solve_ship_grid(input: GridInput<'_>) -> GridOutput {
-    let generation = input.generation.max(0.0);
-    let capacity = input.capacity.max(0.0);
-    let stored = input.stored.clamp(0.0, capacity);
-    let demand = input.demand.max(0.0);
-
-    let available_power = if input.dt > 0.0 {
-        generation + stored / input.dt
-    } else {
-        generation
-    };
-
-    let (powered_boosters, booster_draw, remaining_available) =
-        allocate_boosters(available_power, input.boosters);
-
-    let supply = if demand <= 0.0 {
-        1.0
-    } else {
-        (remaining_available / demand).clamp(0.0, 1.0)
-    };
-
-    let net = generation - booster_draw - demand * supply;
-    let new_stored = if input.dt > 0.0 {
-        (stored + net * input.dt).clamp(0.0, capacity)
-    } else {
-        stored
-    };
-
-    GridOutput {
-        powered_boosters,
-        booster_draw,
-        supply,
-        new_stored,
-    }
 }
 
 pub fn gather_generation(
@@ -197,6 +142,58 @@ pub fn solve_power_grid(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct GridInput<'a> {
+        generation: f32,
+        stored: f32,
+        capacity: f32,
+        demand: f32,
+        dt: f32,
+        boosters: &'a [BoosterInput],
+    }
+
+    struct GridOutput {
+        powered_boosters: Vec<bool>,
+        booster_draw: f32,
+        supply: f32,
+        new_stored: f32,
+    }
+
+    fn solve_ship_grid(input: GridInput<'_>) -> GridOutput {
+        let generation = input.generation.max(0.0);
+        let capacity = input.capacity.max(0.0);
+        let stored = input.stored.clamp(0.0, capacity);
+        let demand = input.demand.max(0.0);
+
+        let available_power = if input.dt > 0.0 {
+            generation + stored / input.dt
+        } else {
+            generation
+        };
+
+        let (powered_boosters, booster_draw, remaining_available) =
+            allocate_boosters(available_power, input.boosters);
+
+        let supply = if demand <= 0.0 {
+            1.0
+        } else {
+            (remaining_available / demand).clamp(0.0, 1.0)
+        };
+
+        let net = generation - booster_draw - demand * supply;
+        let new_stored = if input.dt > 0.0 {
+            (stored + net * input.dt).clamp(0.0, capacity)
+        } else {
+            stored
+        };
+
+        GridOutput {
+            powered_boosters,
+            booster_draw,
+            supply,
+            new_stored,
+        }
+    }
 
     #[test]
     fn surplus_supplies_everyone_fully() {

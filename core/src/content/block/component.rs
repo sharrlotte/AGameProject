@@ -1,11 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
+
 use bevy::prelude::*;
+
 use bevy_rapier2d::prelude::*;
+
 use serde::{Deserialize, Serialize};
+
 use uuid::Uuid;
 
+
 use crate::config::GameConfigValue;
+
 use crate::{
     constant::GRID_SIZE,
     content::{
@@ -15,15 +21,29 @@ use crate::{
     },
 };
 
+
+pub const FACE_RIGHT: u8 = 0b0001;
+
+pub const FACE_LEFT: u8 = 0b0010;
+
+pub const FACE_UP: u8 = 0b0100;
+
+pub const FACE_DOWN: u8 = 0b1000;
+
+pub const FACE_ALL: u8 = 0b1111;
+
+
 #[derive(Clone, PartialEq, Reflect)]
 pub struct RecoilComponent {
     pub strength: f32,
 }
 
+
 #[derive(Clone, PartialEq, Reflect)]
 pub struct HeatEmitterComponent {
     pub amount: f32,
 }
+
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum TargetingStrategy {
@@ -31,6 +51,7 @@ pub enum TargetingStrategy {
     MostHP,
     EnemyBullet,
 }
+
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum ShootingProjectile {
@@ -58,16 +79,19 @@ pub enum ShootingProjectile {
     },
 }
 
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct SingleShootPattern {
     pub fire_rate: f32,
     pub projectile: ShootingProjectile,
 }
 
+
 #[derive(Component, Debug, Clone, Default, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct SingleShootPatternState {
     pub cooldown_remaining: f32,
 }
+
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
 pub struct BurstShootPattern {
@@ -77,6 +101,7 @@ pub struct BurstShootPattern {
     pub projectile: ShootingProjectile,
     pub shoot_sound: Option<Handle<AudioSource>>,
 }
+
 
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum BurstShootPatternShootingState {
@@ -90,10 +115,12 @@ pub enum BurstShootPatternShootingState {
     },
 }
 
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct BurstShootPatternState {
     pub shooting: BurstShootPatternShootingState,
 }
+
 
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct LaserBeamPattern {
@@ -103,21 +130,25 @@ pub struct LaserBeamPattern {
     pub width: f32,
 }
 
+
 #[derive(Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub enum LaserBeamPatternShootingState {
     Shooting { elapsed: f32 },
     Cooldown { cooldown_remaining: f32 },
 }
 
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct PullingBeamPattern {
     pub width: f32,
 }
 
+
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Serialize, Deserialize)]
 pub struct PullingBeamPatternState {
     pub beam: Option<Entity>,
 }
+
 
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct LaserBeamPatternState {
@@ -125,6 +156,7 @@ pub struct LaserBeamPatternState {
     pub beam: Option<Entity>,
     pub shooting: LaserBeamPatternShootingState,
 }
+
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
 pub enum ShootPattern {
@@ -134,6 +166,7 @@ pub enum ShootPattern {
     PullingBeam(PullingBeamPattern),
 }
 
+
 impl ShootingProjectile {
     pub fn speed(&self) -> f32 {
         match self {
@@ -142,6 +175,7 @@ impl ShootingProjectile {
         }
     }
 }
+
 
 impl ShootPattern {
     pub fn projectile_speed(&self) -> f32 {
@@ -193,6 +227,7 @@ impl ShootPattern {
     }
 }
 
+
 #[derive(Component, Debug, Clone, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Health {
@@ -200,83 +235,13 @@ pub struct Health {
     pub max_health: f32,
 }
 
-pub fn spawn_block_entity(
-    commands: &mut Commands,
-    placement: &BlockPlacement,
-    def: &BlockDef,
-    ship: Entity,
-    team: Team,
-    config: &GameConfigValue,
-) -> Entity {
-    let pixel_size = def.get_pixel_size();
-    let half_size = pixel_size / 2.0;
-    let mut transform = def.to_transform(placement.position);
-
-    // Use the first texture's z as the block sprite's render layer so the
-    // collapsed sprite keeps its original visual stacking.
-    if let Some(z) = def
-        .features
-        .iter()
-        .find_map(|f| f.extra_texture().map(|t| t.z))
-    {
-        transform.translation.z = z;
-    }
-
-    let block = commands
-        .spawn((
-            transform,
-            team,
-            Visibility::Visible,
-            ActiveEvents::COLLISION_EVENTS,
-            Collider::cuboid(half_size.x, half_size.y),
-            CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
-            ColliderMassProperties::Mass(0.0),
-            Sensor,
-            BlockRef { id: placement.id },
-            BlockOwner { ship },
-            Health {
-                health: def.health,
-                max_health: def.health,
-            },
-        ))
-        .id();
-
-    commands.entity(ship).add_child(block);
-
-    let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
-    textures.next();
-    for extra in textures {
-        let layer = commands
-            .spawn((
-                Transform::from_translation(extra.offset.extend(extra.z)),
-                Sprite {
-                    image: extra.image.clone(),
-                    custom_size: Some(pixel_size),
-                    ..default()
-                },
-            ))
-            .id();
-        commands.entity(block).add_child(layer);
-    }
-
-    for feature in &def.features {
-        feature.insert(commands, block, pixel_size, &team, config);
-    }
-
-    block
-}
-
-pub const FACE_RIGHT: u8 = 0b0001;
-pub const FACE_LEFT: u8 = 0b0010;
-pub const FACE_UP: u8 = 0b0100;
-pub const FACE_DOWN: u8 = 0b1000;
-pub const FACE_ALL: u8 = 0b1111;
 
 #[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct BlockVoxel {
     pub position: IVec2,
     pub connectable_faces: u8,
 }
+
 
 impl Default for BlockVoxel {
     fn default() -> Self {
@@ -287,11 +252,13 @@ impl Default for BlockVoxel {
     }
 }
 
+
 #[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub struct BlockShape {
     pub size: IVec2,
     pub voxels: Vec<BlockVoxel>,
 }
+
 
 impl Default for BlockShape {
     fn default() -> Self {
@@ -302,22 +269,26 @@ impl Default for BlockShape {
     }
 }
 
+
 #[derive(Clone, PartialEq, Reflect, Debug, Serialize, Deserialize)]
 pub struct ItemDrop {
     pub item_type: String,
     pub amount: u32,
 }
 
+
 #[derive(Component, Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
 pub enum Loot {
     Item(ItemDrop),
 }
+
 
 #[derive(Message, Clone, PartialEq, Reflect)]
 pub struct DropEvent {
     pub drop: Loot,
     pub position: Vec2,
 }
+
 
 #[derive(Clone, PartialEq, Reflect)]
 pub struct BlockDef {
@@ -331,6 +302,7 @@ pub struct BlockDef {
     pub features: Vec<Feature>,
     pub drops: Vec<Loot>,
 }
+
 
 impl BlockDef {
     pub fn get_block_size(&self) -> Vec2 {
@@ -354,6 +326,7 @@ impl BlockDef {
     }
 }
 
+
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource)]
 pub struct BlockRegistry {
@@ -361,6 +334,7 @@ pub struct BlockRegistry {
     pub(crate) by_name: HashMap<String, String>,
     sorted: Vec<String>,
 }
+
 
 impl BlockRegistry {
     pub fn register(&mut self, key: &str, def: BlockDef) {
@@ -630,7 +604,75 @@ impl BlockRegistry {
     }
 }
 
+
 #[derive(Component, Debug)]
 pub struct FlashOverlay {
     pub timer: Timer,
+}
+
+
+pub fn spawn_block_entity(
+    commands: &mut Commands,
+    placement: &BlockPlacement,
+    def: &BlockDef,
+    ship: Entity,
+    team: Team,
+    config: &GameConfigValue,
+) -> Entity {
+    let pixel_size = def.get_pixel_size();
+    let half_size = pixel_size / 2.0;
+    let mut transform = def.to_transform(placement.position);
+
+    // Use the first texture's z as the block sprite's render layer so the
+    // collapsed sprite keeps its original visual stacking.
+    if let Some(z) = def
+        .features
+        .iter()
+        .find_map(|f| f.extra_texture().map(|t| t.z))
+    {
+        transform.translation.z = z;
+    }
+
+    let block = commands
+        .spawn((
+            transform,
+            team,
+            Visibility::Visible,
+            ActiveEvents::COLLISION_EVENTS,
+            Collider::cuboid(half_size.x, half_size.y),
+            CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
+            ColliderMassProperties::Mass(0.0),
+            Sensor,
+            BlockRef { id: placement.id },
+            BlockOwner { ship },
+            Health {
+                health: def.health,
+                max_health: def.health,
+            },
+        ))
+        .id();
+
+    commands.entity(ship).add_child(block);
+
+    let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
+    textures.next();
+    for extra in textures {
+        let layer = commands
+            .spawn((
+                Transform::from_translation(extra.offset.extend(extra.z)),
+                Sprite {
+                    image: extra.image.clone(),
+                    custom_size: Some(pixel_size),
+                    ..default()
+                },
+            ))
+            .id();
+        commands.entity(block).add_child(layer);
+    }
+
+    for feature in &def.features {
+        feature.insert(commands, block, pixel_size, &team, config);
+    }
+
+    block
 }

@@ -11,11 +11,9 @@ mod simulation;
 mod system;
 mod ui;
 
-#[cfg(feature = "dev")]
-use crate::asset::AssetCheckPlugin;
 use crate::config::{ConfigPlugin, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
-use crate::content::plugin::ContentPlugin;
+use crate::content::ContentPlugin;
 use crate::mission::MissionPlugin;
 use crate::resource::{
     DeployPayload, GameRng, PauseState, SceneState,
@@ -38,15 +36,15 @@ use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
 
 #[cfg(feature = "dev")]
-use bevy::remote::RemotePlugin;
-#[cfg(feature = "dev")]
-use bevy_brp_extras::BrpExtrasPlugin;
+use {
+    crate::asset::dev::AssetCheckPlugin, bevy::remote::RemotePlugin, bevy_brp_extras::BrpExtrasPlugin,
+};
 
 #[cfg(all(debug_assertions, feature = "dev"))]
-use bevy::input::common_conditions::input_toggle_active;
-
-#[cfg(all(debug_assertions, feature = "dev"))]
-use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
+use {
+    bevy::input::common_conditions::input_toggle_active,
+    bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin},
+};
 
 fn main() {
     let mut app = App::new();
@@ -153,10 +151,9 @@ fn register_game_plugins(app: &mut App) {
 }
 
 fn register_debug_and_dev_plugins(app: &mut App) {
-
     #[cfg(debug_assertions)]
     {
-        use crate::system::DebugAuditPlugin;
+        use crate::system::debug_audit::DebugAuditPlugin;
         use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 
         app.add_plugins((
@@ -164,13 +161,13 @@ fn register_debug_and_dev_plugins(app: &mut App) {
             EntityCountDiagnosticsPlugin::new(100),
             DebugAuditPlugin,
         ));
-    }
 
-    #[cfg(all(debug_assertions, feature = "dev"))]
-    {
-        app.add_plugins(EguiPlugin::default()).add_plugins(
-            WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
-        );
+        #[cfg(feature = "dev")]
+        {
+            app.add_plugins(EguiPlugin::default()).add_plugins(
+                WorldInspectorPlugin::new().run_if(input_toggle_active(false, KeyCode::F12)),
+            );
+        }
     }
 
     #[cfg(feature = "dev")]

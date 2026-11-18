@@ -3,40 +3,12 @@ use bevy::prelude::*;
 use super::*;
 use crate::config::GameConfigValue;
 use crate::constant::{FLASH_OVERLAY_COLOR, LAYER_DROP, LAYER_FLASH_OVERLAY};
-use crate::content::block::feature::ComponentPlugin;
-use crate::content::block::radar::RadarPlugin;
 use crate::content::damage::DamageEvent;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::mutation::apply_ship_mutations;
 use crate::content::ship::{ShipGrid, ShipMutation};
 use crate::resource::SceneState;
-use crate::simulation::SimulationSet;
 
-pub struct BlockPlugin;
-
-impl Plugin for BlockPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<BlockRegistry>()
-            .add_message::<DropEvent>()
-            .add_systems(
-                FixedPostUpdate,
-                (
-                    handle_block_damage_event,
-                    handle_flash_overlay,
-                    handle_block_destroy,
-                )
-                    .in_set(SimulationSet::Death),
-            )
-            .add_systems(
-                FixedPostUpdate,
-                handle_drop
-                    .after(apply_ship_mutations)
-                    .in_set(SimulationSet::Death),
-            )
-            .add_plugins((RadarPlugin, ComponentPlugin));
-    }
-}
 
 pub fn handle_block_destroy(
     mut commands: Commands,

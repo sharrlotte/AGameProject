@@ -1,38 +1,10 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 use super::component::*;
 use crate::config::GameConfigValue;
 use crate::content::ship::{BoundingBox, ShipBehavior, ShipStats};
 use crate::content::team::Team;
-use crate::resource::{CameraTarget, ControlledShip, SceneState};
-use crate::simulation::SimulationSet;
-
-#[derive(Clone, Copy, Debug)]
-pub struct ShipInfo {
-    pub entity: Entity,
-    pub position: Vec2,
-}
-
-#[derive(Resource, Default)]
-pub struct ShipIndex {
-    pub teams: HashMap<u8, Vec<ShipInfo>>,
-    pub enemies: HashMap<u8, Vec<ShipInfo>>,
-}
-
-pub struct AiPlugin;
-
-impl Plugin for AiPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ShipIndex>().add_systems(
-            FixedUpdate,
-            (build_ship_index, evaluate_ai_rules, apply_ai_behaviors)
-                .chain()
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Ai),
-        );
-    }
-}
+use crate::resource::{CameraTarget, ControlledShip};
 
 pub fn build_ship_index(
     ships: Query<(Entity, &GlobalTransform, &Team)>,

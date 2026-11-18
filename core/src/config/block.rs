@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 
+
 use bevy::asset::{AssetEvent, AssetServer};
+
 use bevy::prelude::*;
+
 use bevy::reflect::TypePath;
+
 use serde::Deserialize;
+
 
 use crate::content::block::{
     BlockRegistry, BlockShape,
@@ -21,11 +26,13 @@ use crate::content::block::{
     },
 };
 
+
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct BlocksConfig {
     pub blocks: HashMap<String, BlockDefConfig>,
 }
+
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -40,6 +47,7 @@ pub struct BlockDefConfig {
     pub drops: Vec<Loot>,
 }
 
+
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 pub enum FeatureConfig {
     Texture(TextureConfig),
@@ -52,6 +60,7 @@ pub enum FeatureConfig {
     Storage(StorageConfig),
 }
 
+
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct TextureConfig {
@@ -60,6 +69,7 @@ pub struct TextureConfig {
     pub z: f32,
     pub animated: bool,
 }
+
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -77,11 +87,13 @@ pub struct TurretComponentConfig {
     pub power: Option<TurretPowerConfig>,
 }
 
+
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 pub enum TurretPowerConfig {
     Charge(TurretChargeConfig),
     Drain(TurretDrainConfig),
 }
+
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -90,11 +102,13 @@ pub struct TurretChargeConfig {
     pub charge_rate: f32,
 }
 
+
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct TurretDrainConfig {
     pub rate: f32,
 }
+
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 pub enum ShootPatternConfig {
@@ -103,6 +117,7 @@ pub enum ShootPatternConfig {
     LaserBeam(LaserBeamPattern),
     PullingBeam(PullingBeamPattern),
 }
+
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -114,6 +129,7 @@ pub struct BurstShootPatternConfig {
     pub shoot_sound: Option<String>,
 }
 
+
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct AmmoConfig {
@@ -122,11 +138,13 @@ pub struct AmmoConfig {
     pub icon: Option<String>,
 }
 
+
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
     pub capacity: u32,
 }
+
 
 impl FeatureConfig {
     fn into_feature(self, assets: &AssetServer, block_type: &str) -> Feature {
@@ -167,6 +185,60 @@ impl FeatureConfig {
         }
     }
 }
+
+
+impl ShootPatternConfig {
+    fn into_pattern(self, assets: &AssetServer) -> ShootPattern {
+        match self {
+            ShootPatternConfig::Single(pattern) => ShootPattern::Single(pattern),
+            ShootPatternConfig::Burst(config) => ShootPattern::Burst(BurstShootPattern {
+                fire_rate: config.fire_rate,
+                delay: config.delay,
+                amount: config.amount,
+                projectile: config.projectile,
+                shoot_sound: config
+                    .shoot_sound
+                    .map(|sound| assets.load(format!("audio/{sound}"))),
+            }),
+            ShootPatternConfig::LaserBeam(pattern) => ShootPattern::LaserBeam(pattern),
+            ShootPatternConfig::PullingBeam(pattern) => ShootPattern::PullingBeam(pattern),
+        }
+    }
+}
+
+
+impl AmmoConfig {
+    fn into_ammo(self, assets: &AssetServer) -> Ammo {
+        AmmoBuilder::build(AmmoBuilder {
+            capacity: self.capacity,
+            crafting: self.crafting,
+            icon: self.icon.map(|icon| assets.load(format!("texture/{icon}"))),
+        })
+    }
+}
+
+
+impl BlockDefConfig {
+    pub fn into_def(self, assets: &AssetServer, block_type: String) -> BlockDef {
+        let features = self
+            .features
+            .into_iter()
+            .map(|feature| feature.into_feature(assets, &block_type))
+            .collect();
+        BlockDef {
+            name: self.name,
+            block_type,
+            block_group: self.block_group,
+            mass: self.mass,
+            health: self.health,
+            cost: self.cost,
+            shape: self.shape,
+            features,
+            drops: self.drops,
+        }
+    }
+}
+
 
 fn validate_turret_power(
     power: TurretPowerConfig,
@@ -210,55 +282,6 @@ fn validate_turret_power(
     }
 }
 
-impl ShootPatternConfig {
-    fn into_pattern(self, assets: &AssetServer) -> ShootPattern {
-        match self {
-            ShootPatternConfig::Single(pattern) => ShootPattern::Single(pattern),
-            ShootPatternConfig::Burst(config) => ShootPattern::Burst(BurstShootPattern {
-                fire_rate: config.fire_rate,
-                delay: config.delay,
-                amount: config.amount,
-                projectile: config.projectile,
-                shoot_sound: config
-                    .shoot_sound
-                    .map(|sound| assets.load(format!("audio/{sound}"))),
-            }),
-            ShootPatternConfig::LaserBeam(pattern) => ShootPattern::LaserBeam(pattern),
-            ShootPatternConfig::PullingBeam(pattern) => ShootPattern::PullingBeam(pattern),
-        }
-    }
-}
-
-impl AmmoConfig {
-    fn into_ammo(self, assets: &AssetServer) -> Ammo {
-        AmmoBuilder::build(AmmoBuilder {
-            capacity: self.capacity,
-            crafting: self.crafting,
-            icon: self.icon.map(|icon| assets.load(format!("texture/{icon}"))),
-        })
-    }
-}
-
-impl BlockDefConfig {
-    pub fn into_def(self, assets: &AssetServer, block_type: String) -> BlockDef {
-        let features = self
-            .features
-            .into_iter()
-            .map(|feature| feature.into_feature(assets, &block_type))
-            .collect();
-        BlockDef {
-            name: self.name,
-            block_type,
-            block_group: self.block_group,
-            mass: self.mass,
-            health: self.health,
-            cost: self.cost,
-            shape: self.shape,
-            features,
-            drops: self.drops,
-        }
-    }
-}
 
 pub fn blocks_bridge(
     mut events: MessageReader<AssetEvent<BlocksConfig>>,

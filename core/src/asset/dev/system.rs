@@ -3,8 +3,8 @@ use std::path::Path;
 
 use bevy::prelude::*;
 
-use crate::asset::component::AssetNameIssue;
-use crate::asset::lib::is_valid_asset_name;
+use super::component::AssetNameIssue;
+use super::lib::is_valid_asset_name;
 
 pub fn validate_assets() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");

@@ -1,19 +1,9 @@
 use super::*;
 use crate::content::{ship::BoundingBox, team::Team};
-use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
-pub struct SelectablePlugin;
 
-impl Plugin for SelectablePlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<SelectableRes>()
-            .add_message::<EntitySelectEvent>()
-            .add_systems(Update, update_selectable.in_set(SimulationSet::Input));
-    }
-}
-
-fn update_selectable(
+pub(super) fn update_selectable(
     mut res: ResMut<SelectableRes>,
     mut selected_writer: MessageWriter<EntitySelectEvent>,
     mut gizmos: Gizmos,

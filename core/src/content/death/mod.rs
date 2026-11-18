@@ -1,5 +1,13 @@
 pub mod component;
-pub mod system;
 
 pub use component::*;
-pub use system::*;
+
+use bevy::prelude::*;
+
+pub struct DeathPlugin;
+
+impl Plugin for DeathPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<ShipDestroyed>();
+    }
+}

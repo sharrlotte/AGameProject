@@ -10,12 +10,16 @@ AGameProject/                Cargo workspace (resolver = "3")
       main.rs                plugin wiring, window, audio, fixed-timestep setup
       resource.rs            states + typed shared resources
       simulation.rs          named simulation-set ordering contract
-      system.rs              camera, startup ship load, debug scene audit
+      system/                camera, startup ship load, debug scene audit
+        mod.rs               module root, plugin declaration, debug gate
       constant.rs            global constants (incl. AI_THINK_RATE_HZ)
       content/               gameplay content (one module per domain)
       scene/                 UI/state scenes
-        editor.rs            editor module root: state, components, plugin wiring
-        editor/{ui,input,grid,save,ship_list,ai_panel}.rs  editor feature modules
+        editor/              editor module root (state, plugin wiring) + feature modules
+          mod.rs             module root: declarations, re-exports, plugin
+          {ui,input,grid,save,ship_list,ai_panel}.rs  editor feature modules
+        {background,game,home,notice,pause,setting,widget}/  scene modules
+          mod.rs             module root: declarations, re-exports, plugin
         layout.rs            shared UI layout constants
       mission/               battle-core scaffolding (quick-battle.ron, overlay)
       config/                ron config boot gate
@@ -42,7 +46,7 @@ Scene-scoped entities are tagged with Bevy's `DespawnOnExit(S)`, one per owning
 state: `SceneState::Game/Home/ShipEditor`, `PauseState::Paused`, and
 `SettingState::Open`. Bevy despawns the tagged root and all of its children on
 the matching state exit; no manual cleanup loop exists. A debug-only audit in
-`system.rs` samples root entities every five seconds and warns about any that
+`system/mod.rs` samples root entities every five seconds and warns about any that
 lack a `DespawnOnExit` tag.
 
 Config load failures move `ConfigState` to `Error(ConfigError)` and show a
@@ -131,12 +135,32 @@ State gating on systems uses `run_if(in_state(SceneState::…))`, `on_timer`,
 the `dev` cargo feature — production builds contain no inspector code.
 `bevy_hanabi` is added but no effect assets exist yet.
 
+## Module file roles
+
+Every feature module is a folder with `mod.rs` as its root. The `Plugin`
+implementation for a module is declared in that module's `mod.rs`, alongside
+submodule declarations and `pub use` re-exports that keep existing import paths
+stable when a plugin moves from a flat file into a folder.
+
+| File | Responsibility |
+|---|---|
+| `mod.rs` | module root: submodule declarations, re-exports, plugin declaration |
+| `system.rs` | systems and helper functions only; no enums, structs, traits, or plugins |
+| `component.rs` | enums, structs, traits, and components owned by the module |
+| `lib.rs` | helpers used by sibling modules |
+
+Within each file, type declarations precede functions and the test module is
+last. Items sharing a `#[cfg(...)]` gate in one scope are grouped into a single
+block. Crate paths are imported with top-of-file `use` declarations rather than
+written inline in signatures, parameters, or bodies. `core/tests/conventions.rs`
+enforces these invariants against `core/src/**/*.rs`.
+
 ## Module map (content)
 
 ```
 content/
   team.rs        Team { id: u8 } + Rapier collision groups, 16 palette entries
-  plugin.rs      ContentPlugin — aggregate
+  mod.rs         ContentPlugin — aggregate
   block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, power, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   ship/          Ship, AI controller, movement, UI, indicators, Stat computation
   bullet/        Bullet/Laser/Missile components + all projectile systems

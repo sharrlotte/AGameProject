@@ -1,38 +1,63 @@
 pub mod def;
+
 mod state;
+
 
 use std::collections::HashSet;
 
+
 pub use def::MissionDef;
+
 pub use state::{BattleOutcome, BattlePhase, BattleRestart, BattleResult};
 
+
 use bevy::asset::LoadState;
+
 use bevy::prelude::*;
 
+
 use crate::config::ConfigState;
+
 use crate::config::GameConfigValue;
+
 use crate::config::loader::RonAssetLoader;
+
 use crate::content::block::BlockRegistry;
+
 use crate::content::death::ShipDestroyed;
+
 use crate::content::ship::mutation::apply_ship_mutations;
+
 use crate::content::ship::Ship;
+
 use crate::content::team::Team;
+
 use crate::resource::{AppNotice, BattleMode, DeployPayload, PauseState, PendingLoad, SceneState};
+
 use crate::save::battle::{BattleSaveState, SaveWorldEvent, clear_battle_save};
+
 use crate::save::campaign::CampaignSave;
+
 use crate::save::design::ShipCatalog;
 
+
 use crate::mission::state::spawn_mission;
+
 use crate::scene::widget::{ButtonVisuals, spawn_button};
+
 use crate::simulation::SimulationSet;
+
 
 #[derive(Resource)]
 struct MissionAsset(Handle<MissionDef>);
 
+
 #[derive(Resource)]
 struct AutoSaveTimer(Timer);
 
+
 pub struct MissionPlugin;
+
 
 impl Plugin for MissionPlugin {
     fn build(&self, app: &mut App) {
@@ -84,6 +109,15 @@ impl Plugin for MissionPlugin {
     }
 }
 
+
+#[derive(Component)]
+struct RetryButton;
+
+
+#[derive(Component)]
+struct EndHomeButton;
+
+
 fn setup_battle(
     mut commands: Commands,
     assets: Res<AssetServer>,
@@ -103,6 +137,7 @@ fn setup_battle(
     phase.set(BattlePhase::Loading);
 }
 
+
 fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue>) {
     let interval = config.0.auto_save_interval_secs.max(1.0);
     commands.insert_resource(AutoSaveTimer(Timer::from_seconds(
@@ -110,6 +145,7 @@ fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue>) {
         TimerMode::Repeating,
     )));
 }
+
 
 fn tick_auto_save(
     time: Res<Time>,
@@ -128,6 +164,7 @@ fn tick_auto_save(
     }
 }
 
+
 fn record_campaign_outcome(
     mode: Res<BattleMode>,
     result: Res<BattleResult>,
@@ -145,6 +182,7 @@ fn record_campaign_outcome(
         warn!("Failed to save campaign progress: {err}");
     }
 }
+
 
 fn poll_mission_loaded(
     mut commands: Commands,
@@ -185,6 +223,7 @@ fn poll_mission_loaded(
     phase.set(BattlePhase::Active);
 }
 
+
 fn reset_battle(
     mut result: ResMut<BattleResult>,
     mut phase: ResMut<NextState<BattlePhase>>,
@@ -192,6 +231,7 @@ fn reset_battle(
     *result = BattleResult::default();
     phase.set(BattlePhase::Idle);
 }
+
 
 fn check_battle_outcome(
     mut events: MessageReader<ShipDestroyed>,
@@ -243,8 +283,6 @@ fn check_battle_outcome(
     }
 }
 
-#[derive(Component)]
-struct RetryButton;
 
 fn on_retry(
     click: On<PointerClick>,
@@ -258,8 +296,6 @@ fn on_retry(
     }
 }
 
-#[derive(Component)]
-struct EndHomeButton;
 
 fn on_end_home(
     click: On<PointerClick>,
@@ -270,6 +306,7 @@ fn on_end_home(
         scene.set(SceneState::Home);
     }
 }
+
 
 fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
     let (title, color) = match result.outcome {
@@ -345,6 +382,7 @@ fn spawn_end_overlay(mut commands: Commands, result: Res<BattleResult>) {
         });
 }
 
+
 fn end_button_node() -> Node {
     Node {
         width: Val::Px(180.0),
@@ -355,6 +393,7 @@ fn end_button_node() -> Node {
     }
 }
 
+
 fn resume_battle_on_restart(
     mut restart: ResMut<BattleRestart>,
     mut next_state: ResMut<NextState<SceneState>>,
@@ -364,6 +403,7 @@ fn resume_battle_on_restart(
         next_state.set(SceneState::Game);
     }
 }
+
 
 #[cfg(test)]
 mod tests {

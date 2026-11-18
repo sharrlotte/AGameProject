@@ -10,6 +10,16 @@ use crate::content::block::{
     radar::Radar,
 };
 
+#[derive(Clone, Copy)]
+pub struct Candidate {
+    pub(super) target: TurretTarget,
+    pub(super) aim: Vec2,
+    pub(super) dist_sq: f32,
+    pub(super) health: f32,
+    pub(super) priority: f32,
+    pub(super) id: u64,
+}
+
 #[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub enum TurretPower {

@@ -37,10 +37,7 @@ pub fn load_current_ship(mut state: ResMut<DeployPayload>, catalog: Res<ShipCata
 }
 
 #[cfg(debug_assertions)]
-pub use debug_audit::DebugAuditPlugin;
-
-#[cfg(debug_assertions)]
-mod debug_audit {
+pub mod debug_audit {
     use super::*;
     use crate::resource::{PauseState, SceneState, SettingState};
     use crate::simulation::SimulationSet;

@@ -2,42 +2,11 @@ use bevy::prelude::*;
 
 use crate::{
     constant::LAYER_BLOCK_ICON, content::block::feature::ammo::AmmoState, resource::SceneState,
-    simulation::SimulationSet,
 };
 
-pub struct AmmoPlugin;
+use super::{NoAmmo, NoAmmoWarningUI, WarningIconAssets};
 
-impl Plugin for AmmoPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (
-                update_ammo.in_set(SimulationSet::Weapons),
-                update_no_ammo_warning.in_set(SimulationSet::Present),
-            ),
-        )
-        .add_systems(Startup, setup_assets);
-    }
-}
-
-#[derive(Resource, Default)]
-struct WarningIconAssets {
-    border_triangle: Handle<Mesh>,
-    inner_triangle: Handle<Mesh>,
-    exclamation_body: Handle<Mesh>,
-    exclamation_dot: Handle<Mesh>,
-
-    black: Handle<ColorMaterial>,
-    yellow: Handle<ColorMaterial>,
-}
-
-#[derive(Component)]
-struct NoAmmoWarningUI(pub Entity);
-
-#[derive(Component)]
-struct NoAmmo;
-
-fn setup_assets(
+pub(super) fn setup_assets(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -70,7 +39,7 @@ fn setup_assets(
     commands.insert_resource(assets);
 }
 
-fn update_ammo(
+pub(super) fn update_ammo(
     mut commands: Commands,
     ammos: Query<(Entity, &AmmoState), Without<NoAmmo>>,
     assets: Res<WarningIconAssets>,
@@ -117,7 +86,7 @@ fn update_ammo(
     }
 }
 
-fn update_no_ammo_warning(
+pub(super) fn update_no_ammo_warning(
     mut commands: Commands,
     mut uis: Query<(Entity, &NoAmmoWarningUI)>,
     ammos: Query<(Entity, &AmmoState, &GlobalTransform)>,

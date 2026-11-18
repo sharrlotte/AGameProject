@@ -12,7 +12,6 @@ use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::power::{Boost, STARVATION_THRESHOLD, Supply};
 use crate::content::block::feature::turret::{
     Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget,
-    advance_turret_charge,
 };
 use crate::content::block::radar::Radar;
 use crate::content::block::{
@@ -25,42 +24,7 @@ use crate::content::lifetime::Lifetime;
 use crate::content::ship::{Ship, ShipGrid};
 use crate::content::team::Team;
 use crate::resource::SceneState;
-use crate::simulation::SimulationSet;
 
-pub struct BulletPlugin;
-
-impl Plugin for BulletPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (
-                handle_missiles,
-                handle_bullets,
-                handle_single_shot.after(advance_turret_charge),
-                handle_burst_shot.after(advance_turret_charge),
-                handle_missile_radar_target,
-                handle_laser_beam,
-                handle_pulling_beam,
-                destroy_out_of_range_bullet,
-                handle_collisions,
-            )
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Weapons),
-        )
-        .add_systems(
-            FixedUpdate,
-            handle_point_defense_hits
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Weapons),
-        )
-        .add_systems(
-            FixedPostUpdate,
-            (handle_laser)
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Damage),
-        );
-    }
-}
 
 pub fn handle_bullets(
     mut query: Query<(&mut Bullet, &mut Transform)>,

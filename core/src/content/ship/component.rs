@@ -1,17 +1,30 @@
 use bevy::prelude::*;
+
 use bevy_rapier2d::prelude::*;
+
 use serde::{Deserialize, Serialize};
+
 use uuid::Uuid;
 
+
 use crate::config::GameConfigValue;
+
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
+
 use crate::content::selectable::Selectable;
+
 use crate::content::ship::ai::{AiProfile, AiRuntime};
+
 use crate::content::ship::grid::ShipGrid;
+
 use crate::content::ship::stat::ShipStats;
+
 use crate::content::ship::throttle::Throttle;
+
 use crate::content::team::Team;
+
 use crate::resource::SceneState;
+
 
 #[derive(Component, Debug, Default, Clone)]
 #[require(Throttle)]
@@ -21,16 +34,19 @@ pub struct Ship {
     pub core_position: Vec2,
 }
 
+
 #[derive(Component, Debug, Clone, Default)]
 pub struct BoundingBox {
     pub size: Vec2,
 }
+
 
 #[derive(Component, Debug, Clone, Default)]
 #[allow(dead_code)]
 pub struct ShipFragment {
     pub placements: Vec<BlockPlacement>,
 }
+
 
 #[derive(Clone, Debug, Default)]
 #[allow(dead_code)]
@@ -40,6 +56,7 @@ pub struct ShipBuildResult {
     pub bounds: Option<BoundingBox>,
     pub fragments: Vec<ShipFragment>,
 }
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShipDesign {
@@ -53,9 +70,6 @@ pub struct ShipDesign {
     pub ai: AiProfile,
 }
 
-fn default_version() -> u32 {
-    1
-}
 
 impl ShipDesign {
     #[allow(dead_code)]
@@ -176,17 +190,25 @@ impl ShipDesign {
     }
 }
 
+
 #[cfg(debug_assertions)]
 #[derive(Component, Debug)]
 pub struct ShipUIRoot {
     pub ship: Entity,
 }
 
+
 #[derive(Component, Debug)]
 pub enum ShipBehavior {
     Approach { position: Vec2, radius: f32 },
     GoAround { position: Vec2, radius: f32 },
 }
+
+
+fn default_version() -> u32 {
+    1
+}
+
 
 #[cfg(test)]
 mod tests {

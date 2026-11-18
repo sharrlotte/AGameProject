@@ -1,6 +1,28 @@
 use super::*;
 
+
 use crate::scene::widget::ButtonVisualState;
+
+
+#[derive(Component)]
+pub struct BlockSelectButton(pub String);
+
+
+#[derive(Component)]
+pub struct DeployButton;
+
+
+#[derive(Component)]
+pub struct NavBackButton;
+
+
+#[derive(Component)]
+pub struct NavPlayButton;
+
+
+#[derive(Component)]
+pub struct TabButton(pub EditorTab);
+
 
 pub fn send_scroll_events(
     mut mouse_wheel_reader: MessageReader<MouseWheel>,
@@ -26,6 +48,7 @@ pub fn send_scroll_events(
         }
     }
 }
+
 
 pub fn on_scroll_handler(
     mut scroll: On<Scroll>,
@@ -69,8 +92,6 @@ pub fn on_scroll_handler(
     }
 }
 
-#[derive(Component)]
-pub struct BlockSelectButton(pub String);
 
 pub fn on_block_select(
     click: On<PointerClick>,
@@ -85,6 +106,7 @@ pub fn on_block_select(
     }
 }
 
+
 pub fn sync_block_selection(
     editor: Res<EditorState>,
     mut buttons: Query<(&BlockSelectButton, &mut ButtonVisualState)>,
@@ -98,8 +120,6 @@ pub fn sync_block_selection(
     }
 }
 
-#[derive(Component)]
-pub struct DeployButton;
 
 pub fn on_deploy(
     click: On<PointerClick>,
@@ -124,6 +144,7 @@ pub fn on_deploy(
     });
 }
 
+
 pub fn sync_deploy_button(
     app_var: Res<DeployPayload>,
     editor: Res<EditorState>,
@@ -143,8 +164,6 @@ pub fn sync_deploy_button(
     }
 }
 
-#[derive(Component)]
-pub struct NavBackButton;
 
 pub fn on_nav_back(
     click: On<PointerClick>,
@@ -156,8 +175,6 @@ pub fn on_nav_back(
     }
 }
 
-#[derive(Component)]
-pub struct NavPlayButton;
 
 pub fn on_nav_play(
     click: On<PointerClick>,
@@ -169,8 +186,6 @@ pub fn on_nav_play(
     }
 }
 
-#[derive(Component)]
-pub struct TabButton(pub EditorTab);
 
 pub fn on_tab(
     click: On<PointerClick>,
@@ -181,6 +196,7 @@ pub fn on_tab(
         editor.active_tab = button.0;
     }
 }
+
 
 pub fn process_input(
     mut editor: ResMut<EditorState>,
@@ -259,6 +275,7 @@ pub fn process_input(
     }
 }
 
+
 pub fn handle_placement(
     registry: Res<BlockRegistry>,
     mut commands: Commands,
@@ -294,6 +311,7 @@ pub fn handle_placement(
     }
 }
 
+
 pub fn handle_block_deletion(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
@@ -307,6 +325,7 @@ pub fn handle_block_deletion(
         }
     }
 }
+
 
 pub fn sync_tabs(
     editor: Res<EditorState>,

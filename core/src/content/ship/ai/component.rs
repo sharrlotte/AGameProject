@@ -1,7 +1,30 @@
+use std::collections::HashMap;
+
+
 use bevy::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
+
 use crate::constant::AI_THINK_RATE_HZ;
+
+
+pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher"];
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct ShipInfo {
+    pub entity: Entity,
+    pub position: Vec2,
+}
+
+
+#[derive(Resource, Default)]
+pub struct ShipIndex {
+    pub teams: HashMap<u8, Vec<ShipInfo>>,
+    pub enemies: HashMap<u8, Vec<ShipInfo>>,
+}
+
 
 #[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AiProfile {
@@ -9,6 +32,7 @@ pub struct AiProfile {
     #[serde(default)]
     pub rules: Vec<AiRule>,
 }
+
 
 impl Default for AiProfile {
     fn default() -> Self {
@@ -19,6 +43,7 @@ impl Default for AiProfile {
     }
 }
 
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AiRule {
     pub priority: i32,
@@ -27,6 +52,7 @@ pub struct AiRule {
     #[serde(default)]
     pub cooldown_secs: f32,
 }
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AiCondition {
@@ -38,6 +64,7 @@ pub enum AiCondition {
     AllyCountAbove(u32),
     TargetLost,
 }
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BehaviorSpec {
@@ -53,6 +80,7 @@ pub enum BehaviorSpec {
     Flee { from: TargetRef, distance: f32 },
 }
 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TargetRef {
     NearestEnemy,
@@ -63,6 +91,7 @@ pub enum TargetRef {
     SquadCenter,
 }
 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PositionRef {
     SpawnPoint,
@@ -70,6 +99,7 @@ pub enum PositionRef {
     Leader,
     SelfCore,
 }
+
 
 #[derive(Component, Debug, Clone, PartialEq)]
 pub enum AiBehavior {
@@ -84,6 +114,7 @@ pub enum AiBehavior {
     Attack { target: Option<Entity> },
     Flee { from: Option<Entity>, distance: f32 },
 }
+
 
 impl AiBehavior {
     pub fn label(&self) -> &'static str {
@@ -102,6 +133,7 @@ impl AiBehavior {
     }
 }
 
+
 #[derive(Component, Debug, Clone)]
 pub struct AiRuntime {
     pub current: AiBehavior,
@@ -109,6 +141,7 @@ pub struct AiRuntime {
     pub rule_cooldowns: Vec<f32>,
     pub think_timer: Timer,
 }
+
 
 impl AiRuntime {
     pub fn new(profile: &AiProfile, spawn_position: Vec2) -> Self {
@@ -123,6 +156,16 @@ impl AiRuntime {
         }
     }
 }
+
+
+impl AiBehavior {
+    fn with_radius(self, _radius: f32) -> Self {
+        // Wander stores only its current point; radius is applied by the
+        // evaluator when re-rolling.
+        self
+    }
+}
+
 
 pub fn behavior_from_spec(
     spec: &BehaviorSpec,
@@ -165,15 +208,6 @@ pub fn behavior_from_spec(
     }
 }
 
-impl AiBehavior {
-    fn with_radius(self, _radius: f32) -> Self {
-        // Wander stores only its current point; radius is applied by the
-        // evaluator when re-rolling.
-        self
-    }
-}
-
-pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher"];
 
 pub fn preset(name: &str) -> AiProfile {
     let (initial, rules) = match name {
@@ -235,6 +269,7 @@ pub fn preset(name: &str) -> AiProfile {
     AiProfile { initial, rules }
 }
 
+
 pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
     let mut errors = Vec::new();
     for (index, rule) in profile.rules.iter().enumerate() {
@@ -245,9 +280,11 @@ pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
     errors
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::content::ship::ShipDesign;
 
     #[test]
     fn profile_round_trips_through_ron() {
@@ -285,7 +322,7 @@ mod tests {
             include_str!("../../../../assets/config/starter/interceptor.ron"),
             include_str!("../../../../assets/config/starter/raider.ron"),
         ] {
-            let design: crate::content::ship::ShipDesign = ron::from_str(text).unwrap();
+            let design: ShipDesign = ron::from_str(text).unwrap();
             assert!(!design.ai.rules.is_empty());
         }
     }

@@ -1,18 +1,30 @@
 mod block;
+
 mod game;
+
 pub(crate) mod loader;
+
 mod setting;
 
+
 pub use block::BlocksConfig;
+
 pub use game::{GameConfig, GameConfigValue};
+
 pub use setting::GameSetting;
 
+
 use bevy::asset::LoadState;
+
 use bevy::prelude::*;
 
+
 use crate::content::block::BlockRegistry;
+
 use crate::resource::SceneState;
+
 use crate::simulation::SimulationSet;
+
 
 #[derive(States, Clone, Copy, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
@@ -22,16 +34,19 @@ pub enum ConfigState {
     Error(ConfigError),
 }
 
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub struct ConfigError {
     pub failed: ConfigFile,
 }
+
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum ConfigFile {
     Game,
     Blocks,
 }
+
 
 impl ConfigError {
     fn new(failed: ConfigFile) -> Self {
@@ -46,6 +61,7 @@ impl ConfigError {
     }
 }
 
+
 #[derive(Resource)]
 struct ConfigHandles {
     game: Handle<GameConfig>,
@@ -53,7 +69,9 @@ struct ConfigHandles {
     settings: Handle<GameSetting>,
 }
 
+
 pub struct ConfigPlugin;
+
 
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
@@ -95,6 +113,15 @@ impl Plugin for ConfigPlugin {
     }
 }
 
+
+#[derive(Resource)]
+struct ConfigErrorScreen;
+
+
+#[derive(Component)]
+struct ErrorText;
+
+
 fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(ConfigHandles {
         game: assets.load("config/base/game.ron"),
@@ -102,6 +129,7 @@ fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
         settings: assets.load("config/setting.ron"),
     });
 }
+
 
 fn check_config_ready(
     mut commands: Commands,
@@ -167,15 +195,11 @@ fn check_config_ready(
     scene_state.set(SceneState::Home);
 }
 
+
 fn config_failed(state: Res<State<ConfigState>>) -> bool {
     matches!(state.get(), ConfigState::Error(_))
 }
 
-#[derive(Resource)]
-struct ConfigErrorScreen;
-
-#[derive(Component)]
-struct ErrorText;
 
 fn spawn_config_error_screen(
     mut commands: Commands,
@@ -232,6 +256,7 @@ fn spawn_config_error_screen(
             ));
         });
 }
+
 
 fn refresh_config_error_text(
     state: Res<State<ConfigState>>,

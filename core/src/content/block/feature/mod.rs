@@ -2,9 +2,22 @@ pub mod ammo;
 pub mod component;
 pub mod power;
 pub mod sprite;
-pub mod system;
 pub mod thruster;
 pub mod turret;
 
 pub use component::*;
-pub use system::*;
+
+use bevy::prelude::*;
+
+use ammo::AmmoPlugin;
+use power::PowerPlugin;
+use thruster::ThrusterPlugin;
+use turret::TurretPlugin;
+
+pub struct ComponentPlugin;
+
+impl Plugin for ComponentPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((ThrusterPlugin, TurretPlugin, PowerPlugin, AmmoPlugin));
+    }
+}

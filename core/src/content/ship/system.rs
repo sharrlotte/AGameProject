@@ -5,61 +5,16 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 use crate::config::GameConfigValue;
-use crate::constant::DROP_PICKUP_RADIUS;
+use crate::constant::{DROP_PICKUP_RADIUS, LAYER_SHIP_UI};
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
-use crate::content::block::stat::StatsUpdateSet;
 use crate::content::block::{BlockOwner, Loot};
-use crate::content::ship::ai::AiPlugin;
-use crate::content::ship::indicator::IndicatorsPlugin;
-use crate::content::ship::stat::{ShipChanged, ShipStats, rebuild_cargo_capacity, update_stats};
+use crate::content::ship::ai::AiRuntime;
+use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
-use crate::resource::{ControlledShip, SceneState};
-use crate::simulation::SimulationSet;
+use crate::resource::ControlledShip;
 
 use super::*;
 
-pub struct ShipPlugin;
-
-impl Plugin for ShipPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<ShipStats>()
-            .register_type::<Throttle>();
-        #[cfg(debug_assertions)]
-        app.add_systems(
-            FixedUpdate,
-            update_ship_ui
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Present),
-        );
-        app.add_systems(
-            PostUpdate,
-            update_ship_behavior
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Present),
-        )
-        .add_systems(
-            FixedPreUpdate,
-            update_stats
-                .after(StatsUpdateSet)
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Stats),
-        )
-        .add_systems(
-            FixedPreUpdate,
-            rebuild_cargo_capacity
-                .run_if(on_message::<ShipChanged>)
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Stats),
-        )
-        .add_systems(
-            FixedUpdate,
-            collect_drop
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Control),
-        )
-        .add_plugins((IndicatorsPlugin, AiPlugin, ShipMutationPlugin));
-    }
-}
 
 #[cfg(debug_assertions)]
 pub fn update_ship_ui(
@@ -67,7 +22,7 @@ pub fn update_ship_ui(
     mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
     ships: Query<(
         &Ship,
-        &crate::content::ship::ai::AiRuntime,
+        &AiRuntime,
         Option<&ShipBehavior>,
         &GlobalTransform,
         &ShipStats,
@@ -110,7 +65,7 @@ pub fn update_ship_ui(
                     ..default()
                 },
                 Transform::from_rotation(global_transform.rotation().inverse())
-                    .with_translation(Vec2::ZERO.extend(crate::constant::LAYER_SHIP_UI)),
+                    .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
             ));
         }
     }
@@ -340,6 +295,10 @@ pub fn collect_drop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::GameConfig;
+    use crate::content::block::ItemDrop;
+    use crate::control::system::toggle_control_mode;
+    use crate::control::ControlPlugin;
     use crate::resource::{CameraTarget, ControlMode};
 
     fn app_with_player_ship() -> (App, Entity) {
@@ -349,7 +308,7 @@ mod tests {
             .init_resource::<CameraTarget>()
             .init_resource::<ControlledShip>()
             .init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(Update, crate::control::system::toggle_control_mode);
+            .add_systems(Update, toggle_control_mode);
 
         let ship = app.world_mut().spawn((Ship::default(), Team::new(0))).id();
         (app, ship)
@@ -357,9 +316,9 @@ mod tests {
 
     fn app_with_cargo(capacity: u32) -> (App, Entity) {
         let mut app = App::new();
-        app.add_plugins((MinimalPlugins, crate::control::ControlPlugin))
+        app.add_plugins((MinimalPlugins, ControlPlugin))
             .add_systems(Update, collect_drop)
-            .insert_resource(GameConfigValue(crate::config::GameConfig::default()));
+            .insert_resource(GameConfigValue(GameConfig::default()));
         let ship = app
             .world_mut()
             .spawn((
@@ -380,7 +339,7 @@ mod tests {
         let (mut app, ship) = app_with_cargo(5);
         app.world_mut().spawn((
             Transform::default(),
-            Loot::Item(crate::content::block::ItemDrop {
+            Loot::Item(ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 6,
             }),
@@ -397,7 +356,7 @@ mod tests {
         let (mut app, ship) = app_with_cargo(10);
         app.world_mut().spawn((
             Transform::default(),
-            Loot::Item(crate::content::block::ItemDrop {
+            Loot::Item(ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 4,
             }),
@@ -412,9 +371,9 @@ mod tests {
     #[test]
     fn enemy_ships_do_not_collect() {
         let mut app = App::new();
-        app.add_plugins((MinimalPlugins, crate::control::ControlPlugin))
+        app.add_plugins((MinimalPlugins, ControlPlugin))
             .add_systems(Update, collect_drop)
-            .insert_resource(GameConfigValue(crate::config::GameConfig::default()));
+            .insert_resource(GameConfigValue(GameConfig::default()));
         let ship = app
             .world_mut()
             .spawn((
@@ -429,7 +388,7 @@ mod tests {
             .id();
         app.world_mut().spawn((
             Transform::default(),
-            Loot::Item(crate::content::block::ItemDrop {
+            Loot::Item(ItemDrop {
                 item_type: "steel".to_string(),
                 amount: 4,
             }),

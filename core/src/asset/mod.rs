@@ -1,19 +1,17 @@
 #[cfg(feature = "dev")]
-mod component;
-#[cfg(feature = "dev")]
-mod lib;
-#[cfg(feature = "dev")]
-mod system;
+pub mod dev {
+    mod component;
+    mod lib;
+    mod system;
 
-use bevy::prelude::*;
+    use bevy::prelude::*;
+    use system::validate_assets;
 
-#[cfg(feature = "dev")]
-use system::validate_assets;
+    pub struct AssetCheckPlugin;
 
-pub struct AssetCheckPlugin;
-
-impl Plugin for AssetCheckPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, validate_assets);
+    impl Plugin for AssetCheckPlugin {
+        fn build(&self, app: &mut App) {
+            app.add_systems(Startup, validate_assets);
+        }
     }
 }

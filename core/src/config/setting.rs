@@ -1,11 +1,18 @@
 use bevy::asset::AssetEvent;
+
 use bevy::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
+
 use ron::ser::{PrettyConfig, to_string_pretty};
+
 use std::env;
+
 use std::fs;
+
 use std::path::PathBuf;
+
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
 pub struct GameSetting {
@@ -15,13 +22,6 @@ pub struct GameSetting {
     pub bloom: bool,
 }
 
-fn default_volume() -> f32 {
-    0.5
-}
-
-fn default_bloom() -> bool {
-    true
-}
 
 impl Default for GameSetting {
     fn default() -> Self {
@@ -31,6 +31,28 @@ impl Default for GameSetting {
         }
     }
 }
+
+
+#[derive(Resource)]
+pub struct SettingSaveTimer(pub Timer);
+
+
+impl Default for SettingSaveTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(0.5, TimerMode::Once))
+    }
+}
+
+
+fn default_volume() -> f32 {
+    0.5
+}
+
+
+fn default_bloom() -> bool {
+    true
+}
+
 
 pub fn game_setting_bridge(
     mut events: MessageReader<AssetEvent<GameSetting>>,
@@ -49,14 +71,6 @@ pub fn game_setting_bridge(
     }
 }
 
-#[derive(Resource)]
-pub struct SettingSaveTimer(pub Timer);
-
-impl Default for SettingSaveTimer {
-    fn default() -> Self {
-        Self(Timer::from_seconds(0.5, TimerMode::Once))
-    }
-}
 
 pub fn save_setting_on_change(
     setting: Res<GameSetting>,
@@ -100,6 +114,7 @@ pub fn save_setting_on_change(
     }
     timer.0.reset();
 }
+
 
 fn asset_root() -> PathBuf {
     env::var("BEVY_ASSET_ROOT")

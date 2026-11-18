@@ -1,14 +1,6 @@
 use super::Lifetime;
-use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
-pub struct LifetimePlugin;
-
-impl Plugin for LifetimePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, update_lifetime.in_set(SimulationSet::Cleanup));
-    }
-}
 
 pub fn update_lifetime(
     mut commands: Commands,

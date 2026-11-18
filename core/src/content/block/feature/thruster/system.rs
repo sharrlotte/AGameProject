@@ -3,28 +3,11 @@ use bevy::prelude::*;
 use super::*;
 use crate::content::block::{
     BlockOwner,
-    feature::power::{Boost, Consumer, Demand, PowerSet, STARVATION_THRESHOLD, Supply},
-    stat::{StatsUpdateSet, make_stat_system},
+    feature::power::{Boost, Consumer, Demand, STARVATION_THRESHOLD, Supply},
+    stat::make_stat_system,
 };
 use crate::content::ship::Throttle;
-use crate::simulation::SimulationSet;
 
-pub struct ThrusterPlugin;
-
-impl Plugin for ThrusterPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedFirst,
-            update_thruster_demand.in_set(PowerSet::Demand),
-        )
-        .add_systems(
-            FixedPreUpdate,
-            (update_thrust_power_stats, update_rotate_speed_stats)
-                .in_set(StatsUpdateSet)
-                .in_set(SimulationSet::Stats),
-        );
-    }
-}
 
 pub fn update_thruster_demand(
     ships: Query<&Throttle>,

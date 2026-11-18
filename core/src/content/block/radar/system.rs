@@ -1,16 +1,8 @@
 use super::Radar;
 use crate::content::{ship::Ship, team::Team};
-use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
 
-pub struct RadarPlugin;
-
-impl Plugin for RadarPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, radar_scan.in_set(SimulationSet::Weapons));
-    }
-}
 
 pub fn radar_scan(
     time: Res<Time>,

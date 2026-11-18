@@ -20,6 +20,18 @@ impl Plugin for HomeScenePlugin {
 #[derive(Component)]
 struct PlayButton;
 
+#[derive(Component)]
+struct QuickBattleButton;
+
+#[derive(Component)]
+struct ShipEditorButton;
+
+#[derive(Component)]
+struct HomeSettingsButton;
+
+#[derive(Component)]
+struct ExitButton;
+
 fn on_play(
     click: On<PointerClick>,
     buttons: Query<&PlayButton>,
@@ -39,9 +51,6 @@ fn on_play(
     }
 }
 
-#[derive(Component)]
-struct QuickBattleButton;
-
 fn on_quick_battle(
     click: On<PointerClick>,
     buttons: Query<&QuickBattleButton>,
@@ -54,9 +63,6 @@ fn on_quick_battle(
     }
 }
 
-#[derive(Component)]
-struct ShipEditorButton;
-
 fn on_ship_editor(
     click: On<PointerClick>,
     buttons: Query<&ShipEditorButton>,
@@ -67,9 +73,6 @@ fn on_ship_editor(
     }
 }
 
-#[derive(Component)]
-struct HomeSettingsButton;
-
 fn on_settings(
     click: On<PointerClick>,
     buttons: Query<&HomeSettingsButton>,
@@ -79,9 +82,6 @@ fn on_settings(
         setting.set(SettingState::Open);
     }
 }
-
-#[derive(Component)]
-struct ExitButton;
 
 fn on_exit(
     click: On<PointerClick>,

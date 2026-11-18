@@ -20,40 +20,11 @@ pub struct BloomText;
 #[derive(Component)]
 struct VolumeButton(pub f32);
 
-fn on_volume(
-    click: On<PointerClick>,
-    buttons: Query<&VolumeButton>,
-    mut setting: ResMut<GameSetting>,
-) {
-    let Ok(button) = buttons.get(click.event().entity) else { return; };
-    setting.volume = (setting.volume + button.0).clamp(0.0, 1.0);
-}
-
 #[derive(Component)]
 struct BloomButton;
 
-fn on_bloom(
-    click: On<PointerClick>,
-    buttons: Query<&BloomButton>,
-    mut setting: ResMut<GameSetting>,
-) {
-    if buttons.contains(click.event().entity) {
-        setting.bloom = !setting.bloom;
-    }
-}
-
 #[derive(Component)]
 struct CloseSettingsButton;
-
-fn on_close(
-    click: On<PointerClick>,
-    buttons: Query<&CloseSettingsButton>,
-    mut next: ResMut<NextState<SettingState>>,
-) {
-    if buttons.contains(click.event().entity) {
-        next.set(SettingState::Closed);
-    }
-}
 
 #[derive(Component)]
 struct DataSection;
@@ -66,6 +37,52 @@ struct ConfirmResetButton;
 
 #[derive(Component)]
 struct CancelResetButton;
+
+pub struct SettingScenePlugin;
+
+impl Plugin for SettingScenePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<SettingState>()
+            .init_resource::<GameSetting>()
+            .add_systems(OnEnter(SettingState::Open), setup_setting_ui)
+            .add_systems(
+                Update,
+                sync_settings_to_ui
+                    .run_if(in_state(SettingState::Open))
+                    .in_set(SimulationSet::Input),
+            )
+            .add_systems(Update, apply_settings.in_set(SimulationSet::Input));
+    }
+}
+
+fn on_volume(
+    click: On<PointerClick>,
+    buttons: Query<&VolumeButton>,
+    mut setting: ResMut<GameSetting>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    setting.volume = (setting.volume + button.0).clamp(0.0, 1.0);
+}
+
+fn on_bloom(
+    click: On<PointerClick>,
+    buttons: Query<&BloomButton>,
+    mut setting: ResMut<GameSetting>,
+) {
+    if buttons.contains(click.event().entity) {
+        setting.bloom = !setting.bloom;
+    }
+}
+
+fn on_close(
+    click: On<PointerClick>,
+    buttons: Query<&CloseSettingsButton>,
+    mut next: ResMut<NextState<SettingState>>,
+) {
+    if buttons.contains(click.event().entity) {
+        next.set(SettingState::Closed);
+    }
+}
 
 fn spawn_data_idle(parent: &mut ChildSpawnerCommands) {
     parent.spawn((
@@ -183,23 +200,6 @@ fn on_confirm_reset(
     *battle = BattleResult::default();
     notice.show("Campaign data reset");
     rebuild_data_section(&mut commands, &sections, false);
-}
-
-pub struct SettingScenePlugin;
-
-impl Plugin for SettingScenePlugin {
-    fn build(&self, app: &mut App) {
-        app.init_state::<SettingState>()
-            .init_resource::<GameSetting>()
-            .add_systems(OnEnter(SettingState::Open), setup_setting_ui)
-            .add_systems(
-                Update,
-                sync_settings_to_ui
-                    .run_if(in_state(SettingState::Open))
-                    .in_set(SimulationSet::Input),
-            )
-            .add_systems(Update, apply_settings.in_set(SimulationSet::Input));
-    }
 }
 
 pub fn setup_setting_ui(

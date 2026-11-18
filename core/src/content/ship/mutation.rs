@@ -9,7 +9,6 @@ use crate::content::block::{BlockPlacement, BlockRegistry, DropEvent, spawn_bloc
 use crate::content::death::ShipDestroyed;
 use crate::content::ship::{BoundingBox, Ship, ShipChanged, ShipGrid, ShipStats};
 use crate::content::team::Team;
-use crate::simulation::SimulationSet;
 
 #[derive(Message, Debug, Clone)]
 #[allow(dead_code)]
@@ -30,21 +29,6 @@ pub enum ShipMutation {
         ship: Entity,
         layout: Vec<BlockPlacement>,
     },
-}
-
-pub struct ShipMutationPlugin;
-
-impl Plugin for ShipMutationPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_message::<ShipMutation>()
-            .add_message::<ShipChanged>()
-            .add_systems(
-                FixedPostUpdate,
-                apply_ship_mutations
-                    .after(super::super::block::handle_block_destroy)
-                    .in_set(SimulationSet::Death),
-            );
-    }
 }
 
 type ShipQuery<'w, 's> = Query<

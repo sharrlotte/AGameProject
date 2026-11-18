@@ -6,33 +6,11 @@ use crate::config::GameConfigValue;
 use crate::constant::LAYER_DAMAGE_TEXT;
 use crate::content::block::Health;
 use crate::resource::SceneState;
-use crate::simulation::SimulationSet;
 
-pub struct DamagePlugin;
-
-impl Plugin for DamagePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_message::<DamageEvent>()
-            .add_systems(OnEnter(SceneState::Game), spawn_damage_text_pool)
-            .add_systems(
-                FixedUpdate,
-                handle_damage_collisions
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Damage),
-            )
-            .add_systems(
-                FixedPostUpdate,
-                handle_damage_events
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Damage),
-            )
-            .add_systems(Update, tick_damage_text_pool.in_set(SimulationSet::Present));
-    }
-}
 
 const DAMAGE_TEXT_POOL_SIZE: usize = 64;
 
-fn spawn_damage_text_pool(mut commands: Commands) {
+pub(super) fn spawn_damage_text_pool(mut commands: Commands) {
     let slots = (0..DAMAGE_TEXT_POOL_SIZE)
         .map(|_| {
             commands
@@ -54,7 +32,7 @@ fn spawn_damage_text_pool(mut commands: Commands) {
     commands.insert_resource(DamageTextPool { slots, next: 0 });
 }
 
-fn tick_damage_text_pool(
+pub(super) fn tick_damage_text_pool(
     time: Res<Time>,
     mut slots: Query<(&mut DamageTextSlot, &mut Visibility)>,
 ) {

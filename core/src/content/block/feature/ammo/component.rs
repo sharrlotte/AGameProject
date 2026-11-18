@@ -43,6 +43,23 @@ impl AmmoBuilder {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct WarningIconAssets {
+    pub(super) border_triangle: Handle<Mesh>,
+    pub(super) inner_triangle: Handle<Mesh>,
+    pub(super) exclamation_body: Handle<Mesh>,
+    pub(super) exclamation_dot: Handle<Mesh>,
+
+    pub(super) black: Handle<ColorMaterial>,
+    pub(super) yellow: Handle<ColorMaterial>,
+}
+
+#[derive(Component)]
+pub struct NoAmmoWarningUI(pub Entity);
+
+#[derive(Component)]
+pub struct NoAmmo;
+
 #[derive(Component, Debug)]
 pub struct AmmoState {
     current: u32,

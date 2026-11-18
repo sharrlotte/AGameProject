@@ -1,6 +1,12 @@
 use super::*;
 
+
 use crate::scene::widget::{ButtonVisuals, spawn_button};
+
+
+#[derive(Component)]
+pub struct LoadShipButton(pub String);
+
 
 pub fn load_initial_ship(
     mut commands: Commands,
@@ -28,8 +34,6 @@ pub fn load_initial_ship(
     );
 }
 
-#[derive(Component)]
-pub struct LoadShipButton(pub String);
 
 fn on_load_ship(
     click: On<PointerClick>,
@@ -41,6 +45,7 @@ fn on_load_ship(
         filename: button.0.clone(),
     });
 }
+
 
 pub fn refresh_ship_list(
     mut commands: Commands,
@@ -95,6 +100,7 @@ pub fn refresh_ship_list(
         });
 }
 
+
 pub fn handle_ship_loading(
     mut commands: Commands,
     mut editor: ResMut<EditorState>,
@@ -116,6 +122,7 @@ pub fn handle_ship_loading(
         );
     }
 }
+
 
 pub fn spawn_placed_block(
     commands: &mut Commands,
@@ -177,6 +184,7 @@ pub fn spawn_placed_block(
     block
 }
 
+
 pub fn remove_block_at(
     commands: &mut Commands,
     editor: &mut EditorState,
@@ -200,11 +208,13 @@ pub fn remove_block_at(
     let _ = def;
 }
 
+
 pub fn despawn_ship(commands: &mut Commands, placed_blocks: &Query<Entity, With<BlockRef>>) {
     for entity in placed_blocks {
         commands.entity(entity).despawn();
     }
 }
+
 
 pub fn spawn_ship(
     commands: &mut Commands,

@@ -1,41 +1,22 @@
 use bevy::{math::FloatPow, prelude::*};
 use std::f32::consts::PI;
 
-use super::{Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
+use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
 use crate::{
     content::{
         block::{
             LaserBeamPatternState, LaserBeamPatternShootingState, PullingBeamPattern,
             component::TargetingStrategy,
-            feature::power::{Boost, Demand, PowerSet, Supply},
+            feature::power::{Boost, Demand, Supply},
             radar::Radar,
         },
         bullet::{Interceptable, Missile, ProjectileOwner},
         ship::{Ship, ShipGrid, ShipStats},
         team::Team,
     },
-    resource::SceneState,
-    simulation::SimulationSet,
 };
 use bevy_rapier2d::prelude::Velocity;
 
-pub struct TurretPlugin;
-
-impl Plugin for TurretPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(FixedFirst, update_turret_demand.in_set(PowerSet::Demand))
-            .add_systems(
-                FixedUpdate,
-                (
-                    advance_turret_charge,
-                    turret_tracking,
-                    update_turret_target,
-                )
-                    .run_if(in_state(SceneState::Game))
-                    .in_set(SimulationSet::Weapons),
-            );
-    }
-}
 
 pub fn update_turret_demand(
     mut turrets: Query<(
@@ -140,16 +121,6 @@ pub fn lead_point(origin: Vec2, target: Vec2, velocity: Vec2, projectile_speed: 
 
 fn has_core(grid: &ShipGrid, ship: &Ship) -> bool {
     grid.block(ship.core_id).is_some()
-}
-
-#[derive(Clone, Copy)]
-struct Candidate {
-    target: TurretTarget,
-    aim: Vec2,
-    dist_sq: f32,
-    health: f32,
-    priority: f32,
-    id: u64,
 }
 
 fn better_closest(candidate: Candidate, best: Option<Candidate>) -> bool {
@@ -297,6 +268,65 @@ pub fn update_turret_target(
     }
 }
 
+pub fn turret_tracking(
+    mut barrel_transforms: Query<&mut Transform, With<TurretSprite>>,
+    barrels: Query<&GlobalTransform, With<TurretSprite>>,
+    turrets: Query<(&Turret, &TurretState, &TurretBarrel)>,
+    time: Res<Time>,
+    transforms: Query<(&Ship, &GlobalTransform)>,
+) {
+    for (turret, state, barrel_ref) in &turrets {
+        let turn_speed = turret.turn_speed;
+
+        if turn_speed == 0. {
+            continue;
+        }
+
+        let Ok(global_transform) = barrels.get(barrel_ref.0) else {
+            continue;
+        };
+
+        let mut target_position: Option<Vec2> = None;
+
+        if let Some(TurretTarget::Ship(target)) = state.target {
+            if let Ok((ship, position)) = transforms.get(target) {
+                target_position = Some(
+                    position
+                        .transform_point(ship.core_position.extend(0.0))
+                        .truncate(),
+                );
+            }
+        }
+
+        if let Some(shoot_at_position) = target_position {
+            let current_position = global_transform.translation().truncate();
+            let diff = shoot_at_position - current_position;
+            let dist_sq = diff.length_squared();
+
+            if dist_sq < 0.0001 {
+                continue;
+            }
+
+            let forward: Vec2 = global_transform.up().truncate();
+
+            let to_target = shoot_at_position - global_transform.translation().truncate();
+
+            if to_target.length_squared() < 0.0001 {
+                continue;
+            }
+
+            let target_dir = to_target.normalize_or_zero();
+            let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
+            let max_turn = turn_speed * time.delta_secs();
+            let turn = angle_error.clamp(-max_turn, max_turn);
+
+            if let Ok(mut transform) = barrel_transforms.get_mut(barrel_ref.0) {
+                transform.rotate_z(turn);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -436,63 +466,3 @@ mod tests {
         assert_eq!(instant, Vec2::new(0.0, 100.0));
     }
 }
-
-pub fn turret_tracking(
-    mut barrel_transforms: Query<&mut Transform, With<TurretSprite>>,
-    barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    turrets: Query<(&Turret, &TurretState, &TurretBarrel)>,
-    time: Res<Time>,
-    transforms: Query<(&Ship, &GlobalTransform)>,
-) {
-    for (turret, state, barrel_ref) in &turrets {
-        let turn_speed = turret.turn_speed;
-
-        if turn_speed == 0. {
-            continue;
-        }
-
-        let Ok(global_transform) = barrels.get(barrel_ref.0) else {
-            continue;
-        };
-
-        let mut target_position: Option<Vec2> = None;
-
-        if let Some(TurretTarget::Ship(target)) = state.target {
-            if let Ok((ship, position)) = transforms.get(target) {
-                target_position = Some(
-                    position
-                        .transform_point(ship.core_position.extend(0.0))
-                        .truncate(),
-                );
-            }
-        }
-
-        if let Some(shoot_at_position) = target_position {
-            let current_position = global_transform.translation().truncate();
-            let diff = shoot_at_position - current_position;
-            let dist_sq = diff.length_squared();
-
-            if dist_sq < 0.0001 {
-                continue;
-            }
-
-            let forward: Vec2 = global_transform.up().truncate();
-
-            let to_target = shoot_at_position - global_transform.translation().truncate();
-
-            if to_target.length_squared() < 0.0001 {
-                continue;
-            }
-
-            let target_dir = to_target.normalize_or_zero();
-            let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
-            let max_turn = turn_speed * time.delta_secs();
-            let turn = angle_error.clamp(-max_turn, max_turn);
-
-            if let Ok(mut transform) = barrel_transforms.get_mut(barrel_ref.0) {
-                transform.rotate_z(turn);
-            }
-        }
-    }
-}
-

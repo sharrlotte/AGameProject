@@ -1,18 +1,9 @@
 use std::f32::consts::PI;
 
 use crate::content::{ship::Ship, team::Team};
-use crate::simulation::SimulationSet;
 use bevy::prelude::*;
 
-pub struct IndicatorsPlugin;
-
-impl Plugin for IndicatorsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, draw_indicators.in_set(SimulationSet::Present));
-    }
-}
-
-fn draw_indicators(
+pub(super) fn draw_indicators(
     mut gizmos: Gizmos,
     ships: Query<(&GlobalTransform, &Team, &Ship)>,
     camera: Single<(&Camera, &GlobalTransform, &Projection), With<Camera2d>>,

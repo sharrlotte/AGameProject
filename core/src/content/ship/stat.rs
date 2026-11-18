@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 
+
 use bevy::prelude::*;
+
 
 use crate::content::block::{
     BlockOwner, BlockRegistry,
     feature::thruster::{RotateSpeedComputed, ThrustPowerComputed},
 };
+
 use crate::content::ship::ShipGrid;
+
 
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component)]
@@ -27,6 +31,7 @@ pub struct ShipStats {
     pub thrust_power: f32,
     pub rotate_speed: f32,
 }
+
 
 impl Default for ShipStats {
     fn default() -> Self {
@@ -50,11 +55,19 @@ impl Default for ShipStats {
     }
 }
 
+
 impl ShipStats {
     pub fn is_full(&self) -> bool {
         self.cargo_used >= self.cargo_capacity
     }
 }
+
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ShipChanged {
+    pub ship: Entity,
+}
+
 
 pub fn rebuild_cargo_capacity(
     mut events: MessageReader<ShipChanged>,
@@ -76,10 +89,6 @@ pub fn rebuild_cargo_capacity(
     }
 }
 
-#[derive(Message, Debug, Clone, Copy)]
-pub struct ShipChanged {
-    pub ship: Entity,
-}
 
 pub fn update_stats(
     mut ships: Query<&mut ShipStats>,

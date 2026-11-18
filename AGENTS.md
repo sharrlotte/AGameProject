@@ -58,7 +58,7 @@
 
 # Files
 
-- Assets folder: game\assets
+- Assets folder: core\assets
 
 # Available tools
 

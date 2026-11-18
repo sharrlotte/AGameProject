@@ -21,6 +21,15 @@ impl Plugin for PauseScenePlugin {
     }
 }
 
+#[derive(Component)]
+struct ResumeButton;
+
+#[derive(Component)]
+struct PauseSettingsButton;
+
+#[derive(Component)]
+struct HomeButton;
+
 fn handle_pause_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<PauseState>>,
@@ -35,9 +44,6 @@ fn handle_pause_input(
     }
 }
 
-#[derive(Component)]
-struct ResumeButton;
-
 fn on_resume(
     click: On<PointerClick>,
     buttons: Query<&ResumeButton>,
@@ -48,9 +54,6 @@ fn on_resume(
     }
 }
 
-#[derive(Component)]
-struct PauseSettingsButton;
-
 fn on_settings(
     click: On<PointerClick>,
     buttons: Query<&PauseSettingsButton>,
@@ -60,9 +63,6 @@ fn on_settings(
         setting.set(SettingState::Open);
     }
 }
-
-#[derive(Component)]
-struct HomeButton;
 
 fn on_home(
     click: On<PointerClick>,

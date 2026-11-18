@@ -21,31 +21,6 @@ use bevy::{prelude::*, time::common_conditions::on_timer};
 #[derive(Component)]
 pub struct ShipButton(pub Entity);
 
-fn on_ship_button(
-    click: On<PointerClick>,
-    buttons: Query<&ShipButton>,
-    mut camera_target: ResMut<CameraTarget>,
-    mut controlled: ResMut<ControlledShip>,
-    mut mode: ResMut<ControlMode>,
-) {
-    let Ok(button) = buttons.get(click.event().entity) else { return; };
-    let entity = button.0;
-    if camera_target.following == Some(entity) {
-        if controlled.controlling == Some(entity) {
-            camera_target.following = None;
-            controlled.controlling = None;
-            *mode = ControlMode::FreeLook;
-        } else {
-            controlled.controlling = Some(entity);
-            *mode = ControlMode::Pilot;
-        }
-    } else {
-        camera_target.following = Some(entity);
-        controlled.controlling = None;
-        *mode = ControlMode::FreeLook;
-    }
-}
-
 #[derive(Component)]
 pub struct ShipList;
 
@@ -73,6 +48,31 @@ impl Plugin for GameScenePlugin {
                     .in_set(SimulationSet::Input),
             )
             .add_plugins(BackgroundPlugin);
+    }
+}
+
+fn on_ship_button(
+    click: On<PointerClick>,
+    buttons: Query<&ShipButton>,
+    mut camera_target: ResMut<CameraTarget>,
+    mut controlled: ResMut<ControlledShip>,
+    mut mode: ResMut<ControlMode>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else { return; };
+    let entity = button.0;
+    if camera_target.following == Some(entity) {
+        if controlled.controlling == Some(entity) {
+            camera_target.following = None;
+            controlled.controlling = None;
+            *mode = ControlMode::FreeLook;
+        } else {
+            controlled.controlling = Some(entity);
+            *mode = ControlMode::Pilot;
+        }
+    } else {
+        camera_target.following = Some(entity);
+        controlled.controlling = None;
+        *mode = ControlMode::FreeLook;
     }
 }
 
@@ -108,7 +108,7 @@ fn setup(mut commands: Commands) {
                         },
                         TextColor(Color::WHITE),
                         Node { ..default() },
-                        FpsText,
+                        fps_debug::FpsText,
                     ));
                     top_bar.spawn((
                         Text::new("CARGO 0 / 0"),
@@ -374,6 +374,31 @@ fn update_ship_list(
     }
 }
 
+#[cfg(debug_assertions)]
+mod fps_debug {
+    use super::*;
+    use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+
+    #[derive(Component)]
+    pub struct FpsText;
+
+    pub fn update_fps(
+        mut text: Single<&mut Text, With<FpsText>>,
+        diagnostics: Res<DiagnosticsStore>,
+        camera: Single<&GlobalTransform, With<Camera2d>>,
+    ) {
+        let position = camera.translation().truncate();
+
+        let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) else {
+            return;
+        };
+
+        if let Some(value) = fps.smoothed() {
+            text.0 = format!("FPS: {value:.0}\nPOS: ({:.0}, {:.0})", position.x, position.y);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -527,33 +552,5 @@ mod tests {
         assert_eq!(remaining[0].0, ship_a);
         let original_a = first.iter().find(|(ship, _)| *ship == ship_a).unwrap().1;
         assert_eq!(remaining[0].1, original_a);
-    }
-}
-
-#[cfg(debug_assertions)]
-pub use fps_debug::FpsText;
-
-#[cfg(debug_assertions)]
-mod fps_debug {
-    use super::*;
-    use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-
-    #[derive(Component)]
-    pub struct FpsText;
-
-    pub fn update_fps(
-        mut text: Single<&mut Text, With<FpsText>>,
-        diagnostics: Res<DiagnosticsStore>,
-        camera: Single<&GlobalTransform, With<Camera2d>>,
-    ) {
-        let position = camera.translation().truncate();
-
-        let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) else {
-            return;
-        };
-
-        if let Some(value) = fps.smoothed() {
-            text.0 = format!("FPS: {value:.0}\nPOS: ({:.0}, {:.0})", position.x, position.y);
-        }
     }
 }
