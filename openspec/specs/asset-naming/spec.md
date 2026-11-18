@@ -11,12 +11,12 @@ Shipped assets follow one filename convention, the asset tree contains only refe
 Every shipped asset file under `core/assets` SHALL use a lowercase kebab-case stem and a lowercase extension. Mixed case, PascalCase, UUID stems, and uppercase extensions SHALL NOT be used for shipped assets.
 
 #### Scenario: Valid asset name
-- **WHEN** an asset file named `texture/block/surge-wall-large.png` is inspected
+- **WHEN** an asset file named `texture/block/hull.png` is inspected
 - **THEN** it conforms to the naming requirement
 
 #### Scenario: Uppercase extension is removed
 - **WHEN** the asset tree is inspected after this change
-- **THEN** no file named `texture/block/block-steel.PNG` exists and `texture/block/block-steel.png` exists
+- **THEN** no file named `texture/block/steel.PNG` exists and `texture/block/steel.png` exists
 
 ### Requirement: Unreferenced assets are removed
 

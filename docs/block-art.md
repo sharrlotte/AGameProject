@@ -12,14 +12,14 @@ This spec governs only the sprite assets under `core/assets/texture/block/`. Ass
 
 | File | Pixels | Alpha | Category | Used by |
 |---|---|---|---|---|
-| `block-2.png` | 64×64 | opaque | weapon base | turret block bodies |
-| `block-iron.png` | 64×64 | opaque | armor | `block_scrap` |
-| `block-steel.png` | 64×64 | opaque | armor | `block_steel` |
-| `core-nucleus.png` | 160×160 | opaque | power / core | `core`, `reactor` |
-| `shielded-wall.png` | 64×64 | opaque | utility | `booster` |
-| `surge-wall-large.png` | 64×64 | opaque | structure | `hull` |
+| `turret-base.png` | 64×64 | opaque | weapon base | turret block bodies |
+| `scrap.png` | 64×64 | opaque | armor | `block_scrap` |
+| `steel.png` | 64×64 | opaque | armor | `block_steel` |
+| `nucleus.png` | 160×160 | opaque | power / core | `core`, `reactor` |
+| `booster.png` | 64×64 | opaque | utility | `booster` |
+| `hull.png` | 64×64 | opaque | structure | `hull` |
 | `thruster.png` | 64×64 | opaque | utility | `thruster_small` |
-| `titanium-wall-large.png` | 64×64 | opaque | power | `battery` |
+| `battery.png` | 64×64 | opaque | power | `battery` |
 | `wedge-1x1.png` | 64×64 | triangular | structure | `wedge_1x1` |
 | `cap-1x1.png` | 64×64 | triangular | structure | `cap_1x1` |
 | `plate-2x2.png` | 128×128 | triangular | structure | `plate_2x2` |
