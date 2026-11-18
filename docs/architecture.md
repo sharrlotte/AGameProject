@@ -126,7 +126,9 @@ pixels-per-meter 1.0.
 (debug builds only), the scene plugins, plus `ConfigPlugin` (ron config boot gate),
 `ContentPlugin` (bullet, ship, block, item, lifetime, death, damage, selectable),
 `MissionPlugin` (battle-core scaffolding), `SavePlugin`, and (debug builds / feature
-`dev`) `WorldInspectorPlugin` / `RemotePlugin`.
+`dev`) `WorldInspectorPlugin` / `RemotePlugin`. With feature `dev`, `ContentPlugin` also
+registers `ShipDebugPlugin`, which owns click selection, the scoped debug label, and
+ship gizmos; all of it is compiled out without the feature.
 
 State gating on systems uses `run_if(in_state(SceneState::…))`, `on_timer`,
 `on_message`, and explicit state `States` (`BattlePhase`, `ConfigState`).
@@ -150,8 +152,7 @@ stable when a plugin moves from a flat file into a folder.
 | `lib.rs` | helpers used by sibling modules |
 
 Within each file, type declarations precede functions and the test module is
-last. Items sharing a `#[cfg(...)]` gate in one scope are grouped into a single
-block. Crate paths are imported with top-of-file `use` declarations rather than
+last. Crate paths are imported with top-of-file `use` declarations rather than
 written inline in signatures, parameters, or bodies. `core/tests/conventions.rs`
 enforces these invariants against `core/src/**/*.rs`.
 
@@ -163,7 +164,8 @@ content/
   mod.rs         ContentPlugin — aggregate
   block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, power, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   body/          BlockGrid + BodyMutation; debris/ (Debris body, detach/split, expiry drops)
-  ship/          Ship, AI controller, movement, UI, indicators, Stat computation
+  ship/          Ship, AI controller, movement, geometry helpers, indicators, Stat computation
+    debug/       (dev feature only) ShipDebugSelection, click observer, scoped text, gizmo renderer
   bullet/        Bullet/Laser/Missile components + all projectile systems
   damage/        Damage/DamageEvent (health decrement + floating text)
   death/         Death marker → despawn

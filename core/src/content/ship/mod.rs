@@ -1,9 +1,13 @@
 pub mod ai;
+#[cfg(feature = "dev")]
+pub mod debug;
 pub mod component;
+pub mod geometry;
 pub mod stat;
 pub mod system;
 pub mod throttle;
 pub use component::*;
+pub use geometry::*;
 pub use stat::*;
 pub use system::*;
 pub use throttle::*;
@@ -34,13 +38,6 @@ impl Plugin for ShipPlugin {
         app.register_type::<ShipStats>()
             .register_type::<Throttle>()
             .add_message::<ShipChanged>();
-        #[cfg(debug_assertions)]
-        app.add_systems(
-            FixedUpdate,
-            update_ship_ui
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Present),
-        );
         app.add_systems(
             PostUpdate,
             update_ship_behavior

@@ -1,75 +1,17 @@
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use std::collections::HashMap;
 use std::f32::consts::PI;
 
 use crate::config::GameConfigValue;
-use crate::constant::{DROP_PICKUP_RADIUS, LAYER_SHIP_UI};
-use crate::content::block::feature::ammo::{Ammo, AmmoState};
-use crate::content::block::{BlockOwner, Loot};
-use crate::content::ship::ai::AiRuntime;
+use crate::constant::DROP_PICKUP_RADIUS;
+use crate::content::block::Loot;
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
 
 use super::*;
 
-
-#[cfg(debug_assertions)]
-pub fn update_ship_ui(
-    mut commands: Commands,
-    mut ui_roots: Query<(Entity, &ShipUIRoot, &mut Transform)>,
-    ships: Query<(
-        &Ship,
-        &AiRuntime,
-        Option<&ShipBehavior>,
-        &GlobalTransform,
-        &ShipStats,
-    )>,
-    mut blocks: Query<(&BlockOwner, Option<&Ammo>, Option<&AmmoState>)>,
-) {
-    let mut data: HashMap<Entity, String> = HashMap::new();
-
-    for (owner, ammo, ammo_state) in blocks.iter_mut() {
-        let mut string = String::new();
-
-        if let Some(ammo) = ammo {
-            string.push_str(format!("\n{ammo:?}").as_str());
-        }
-
-        if let Some(ammo_state) = ammo_state {
-            string.push_str(format!("\n{ammo_state:?}").as_str());
-        }
-
-        if !string.is_empty() {
-            data.entry(owner.body)
-                .and_modify(|f| f.push_str(string.as_str()))
-                .or_insert(string);
-        }
-    }
-
-    for (ui_entity, ui_root, _) in ui_roots.iter_mut() {
-        if let Ok((ship, ai_runtime, behavior, global_transform, stats)) = ships.get(ui_root.ship) {
-            let current = ai_runtime.current.label();
-            let empty = String::new();
-            let string = data.get(&ui_root.ship).unwrap_or(&empty);
-
-            commands.entity(ui_entity).insert((
-                Text2d::new(format!(
-                    "Ship: {ship:?}\nC: {current}\nB: {behavior:?}\nCARGO {}/{} {:?}\nS: {stats:?}\n{string}",
-                    stats.cargo_used, stats.cargo_capacity, stats.cargo_items,
-                )),
-                TextFont {
-                    font_size: FontSize::Px(30.0),
-                    ..default()
-                },
-                Transform::from_rotation(global_transform.rotation().inverse())
-                    .with_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
-            ));
-        }
-    }
-}
 pub fn update_ship_behavior(
     mut ships: Query<(
         Entity,
@@ -83,7 +25,6 @@ pub fn update_ship_behavior(
         &mut Throttle,
     )>,
     controlled: Res<ControlledShip>,
-    #[cfg_attr(not(debug_assertions), allow(unused_variables))] mut gizmos: Gizmos,
     config: Res<GameConfigValue>,
 ) {
     for (entity, _, size, behavior, transform, mut force, mut velocity, stats, mut throttle) in
@@ -98,23 +39,15 @@ pub fn update_ship_behavior(
         let thrust_power = stats.thrust_power;
         let turn_speed = stats.rotate_speed;
 
-        let center = size.size / 2.0;
-
-        let current_postion = transform.transform_point(center.extend(0.0)).truncate();
+        let current_position = ship_center(transform, size);
         let forward = transform.local_y().truncate();
 
         match behavior {
             ShipBehavior::Approach { position, radius } => {
-                let direction = (position - current_postion).normalize_or_zero();
+                let direction = (position - current_position).normalize_or_zero();
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_postion.distance(*position);
-
-                if cfg!(debug_assertions) {
-                    gizmos.line_2d(current_postion, *position, Color::srgba(0.0, 1.0, 1.0, 0.5));
-
-                    gizmos.circle_2d(*position, 30.0, Color::srgb(0.0, 1.0, 1.0));
-                }
+                let distance = current_position.distance(*position);
 
                 let force_multiplier = if distance > *radius {
                     1.0
@@ -160,32 +93,14 @@ pub fn update_ship_behavior(
                 throttle.set(linear, angular);
             }
             ShipBehavior::GoAround { position, radius } => {
-                let direction = (current_postion - position).normalize_or_zero();
-                let position_on_ring = position + direction * radius;
-                let mut next_position = position_on_ring;
+                let geometry = go_around_geometry(current_position, *position, *radius);
+                let next_position = geometry.next_position;
 
-                let in_range = current_postion.distance(position_on_ring) <= *radius;
-
-                if in_range {
-                    next_position = position_on_ring + direction.perp() * radius / 2.0;
-                }
-
-                if cfg!(debug_assertions) {
-                    gizmos.line_2d(
-                        current_postion,
-                        next_position,
-                        Color::srgba(0.0, 1.0, 0.0, 0.5),
-                    );
-
-                    gizmos.circle_2d(*position, *radius, Color::srgb(1.0, 1.0, 0.0));
-                    gizmos.circle_2d(next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
-                }
-
-                let direction = (next_position - current_postion).normalize_or_zero();
+                let direction = (next_position - current_position).normalize_or_zero();
 
                 let angle = direction.y.atan2(direction.x) - PI / 2.0;
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_postion.distance(next_position);
+                let distance = current_position.distance(next_position);
 
                 let force_multiplier = if distance > *radius {
                     1.0
@@ -229,10 +144,10 @@ pub fn update_ship_behavior(
                 hold_distance,
                 aim_offset_angle,
             } => {
-                let direction = (*target - current_postion).normalize_or_zero();
+                let direction = (*target - current_position).normalize_or_zero();
                 let angle = desired_ship_angle(direction, *aim_offset_angle);
                 let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_postion.distance(*target);
+                let distance = current_position.distance(*target);
 
                 let (torque, torque_multiplier) =
                     compute_aim_torque(angle_diff, turn_speed, &mut velocity);

@@ -28,9 +28,12 @@ No game entities exist here.
   from the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
   (`ShipChanged`, `OnMessage`) recomputes `ShipStats`. Detached components become
   `Debris` bodies with their own grid, collider, lifetime, and drops.
-- `ShipUIRoot` child of each ship (debug builds only): `Text2d` debug dump.
+- `ShipUIRoot` child of each ship (`dev` feature only): a persistent `Text2d` debug dump
+  that is visible only while the ship is in `ShipDebugSelection`.
 
-Selection requires `Ctrl` + left-drag; `Home`/`Game` do not scroll-select.
+Gameplay selection requires `Ctrl` + left-drag and remains player-only; `Home`/`Game` do
+not scroll-select. With the `dev` feature, left-clicking any ship toggles it in the
+independent `ShipDebugSelection`, and `Escape` clears that selection.
 
 ## Ship Editor
 

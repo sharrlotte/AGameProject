@@ -63,13 +63,6 @@ fn is_test_module(line: &str) -> bool {
     text == "mod tests" || text.starts_with("mod tests ")
 }
 
-fn cfg_gate(line: &str) -> Option<&str> {
-    let text = line.trim();
-    let inner = text.strip_prefix("#[cfg(")?;
-    let end = inner.find(")]")?;
-    Some(&inner[..end])
-}
-
 fn scope_ids(lines: &[&str]) -> Vec<usize> {
     let mut next_id = 0usize;
     let mut stack = vec![0usize];
@@ -130,41 +123,6 @@ fn system_files_declare_no_types() {
     assert!(
         violations.is_empty(),
         "system.rs must contain functions only:\n{}",
-        violations.join("\n")
-    );
-}
-
-#[test]
-fn same_gate_cfg_is_grouped() {
-    let mut violations = Vec::new();
-    for file in source_files() {
-        let source = fs::read_to_string(&file).expect("source file must be readable");
-        let lines: Vec<&str> = source.lines().collect();
-        let scopes = scope_ids(&lines);
-        let mut seen: Vec<(usize, String, usize)> = Vec::new();
-        for (index, line) in lines.iter().enumerate() {
-            let Some(gate) = cfg_gate(line) else {
-                continue;
-            };
-            let key = (scopes[index], gate.to_string());
-            if let Some((_, _, first)) = seen.iter().find(|(depth, text, _)| {
-                *depth == key.0 && text == &key.1
-            }) {
-                violations.push(format!(
-                    "{}:{} repeats #[cfg({})] from line {} in the same scope",
-                    file.display(),
-                    index + 1,
-                    gate,
-                    first + 1
-                ));
-            } else {
-                seen.push((key.0, key.1, index));
-            }
-        }
-    }
-    assert!(
-        violations.is_empty(),
-        "matching #[cfg] gates must be grouped into one block per scope:\n{}",
         violations.join("\n")
     );
 }

@@ -1178,6 +1178,8 @@ pub fn spawn_block_entity(
     let visual = commands
         .spawn((visual_transform(xform), Visual, Visibility::Visible))
         .id();
+    #[cfg(feature = "dev")]
+    commands.entity(visual).insert(Pickable::default());
     commands.entity(block).add_child(visual);
 
     let mut textures = def.features.iter().filter_map(|f| f.extra_texture());

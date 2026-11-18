@@ -19,11 +19,18 @@ All HUD elements are UI nodes (not world-space canvases) except the per-ship deb
   selection group. Stale between events.
 - **Selection outline** — drag rectangle drawn via gizmos (`SelectablePlugin`). Both the
   dragging rectangle and entourage highlights use world-space gizmos.
+- **Ship debug gizmos** — with the `dev` feature, `ShipDebugPlugin` draws AI behavior
+  geometry, hull/bounds with a core marker, heading/velocity/force, and turret aim rays
+  only for ships in `ShipDebugSelection`.
+- **Ship click picking** — with the `dev` feature, block visual sprites receive `Pickable`
+  so clicks bubble to the ship root, and non-interactive HUD nodes are `Pickable::IGNORE`
+  so they do not swallow world clicks. Interactive buttons keep their picking behavior.
 
 ## Per-ship in-world label
 
-`ShipUIRoot` child of the ship; contains a `Text2d` rebuilt every fixed tick
-(debug builds only — `#[cfg(debug_assertions)]`):
+`ShipUIRoot` child of the ship; contains one `Text2d` spawned at ship creation and
+updated only when a ship is selected and the content changes (`dev` feature only —
+`#[cfg(feature = "dev")]`). Unselected roots stay hidden and their text is not rebuilt.
 
 ```
 Ship: <Entity id>
@@ -35,7 +42,8 @@ S: <ShipStats debug>
 ```
 
 Reverse-rotated to face screen upright (`global_transform.rotation().inverse()`),
-z = `LAYER_SHIP_UI = 300`. Compiled out of release builds.
+z = `LAYER_SHIP_UI = 300`. The root is `Pickable::IGNORE`; compiled out of builds
+without the `dev` feature.
 
 ## Damage / warning icons
 
@@ -63,5 +71,6 @@ See scenes.md (Volume / Bloom / Close).
 ## FPS / diagnostics
 
 `FrameTimeDiagnosticsPlugin(100)`, `EntityCountDiagnosticsPlugin(100)` registered in main.
-Debug builds additionally register `WorldInspectorPlugin` (F12) and, with feature `dev`,
-`RemotePlugin`/`BrpExtrasPlugin`.
+Debug builds additionally register `WorldInspectorPlugin` (F12). With feature `dev`,
+`RemotePlugin`/`BrpExtrasPlugin` and `ShipDebugPlugin` are registered; the latter owns
+ship click selection, the scoped debug label, and the ship debug gizmos.

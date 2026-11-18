@@ -13,7 +13,8 @@
 | `Shift` (L) | camera pan speed ×3 |
 | Mouse wheel | zoom (`min_zoom 0.2` .. `max_zoom 30.0`, from `game.ron`) |
 | `Ctrl` + `Left` drag | box-select player entities — release fires selection |
-| `Escape` | toggle Pause (playing/paused) |
+| `Left` click (`dev` feature only) | toggle the clicked ship in the debug selection, including enemies — click again to deselect |
+| `Escape` | clear debug selection when ships are selected (`dev` feature only); otherwise toggle Pause (playing/paused) |
 | Ship list buttons (HUD) | 1st click follow, 2nd click control, 3rd clear |
 
 ## Ship Editor

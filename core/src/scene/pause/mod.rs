@@ -30,7 +30,7 @@ struct PauseSettingsButton;
 #[derive(Component)]
 struct HomeButton;
 
-fn handle_pause_input(
+pub fn handle_pause_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<PauseState>>,
     state: Res<State<PauseState>>,

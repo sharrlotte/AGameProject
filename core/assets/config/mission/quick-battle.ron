@@ -3,7 +3,7 @@
     briefing: "Two Hive lances hold the frontier. Break their Cores.",
     player: (
         team: 0,
-        position: (0.0, 0.0),
+        position: (10000.0, 0.0),
         schematic_name: "Interceptor",
     ),
     enemies: [
@@ -19,12 +19,12 @@
         ),
         (
             team: 1,
-            position: (6000.0, 6000.0),
+            position: (0.0, 6000.0),
             schematic_name: "Raider",
         ),
         (
             team: 1,
-            position: (-6000.0, 6000.0),
+            position: (0.0, -6000.0),
             schematic_name: "Interceptor",
         ),
     ],

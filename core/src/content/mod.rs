@@ -17,6 +17,9 @@ use crate::content::{
     ship::ShipPlugin,
 };
 
+#[cfg(feature = "dev")]
+use crate::content::ship::debug::ShipDebugPlugin;
+
 pub struct ContentPlugin;
 
 impl Plugin for ContentPlugin {
@@ -32,5 +35,8 @@ impl Plugin for ContentPlugin {
             DamagePlugin,
             SelectablePlugin,
         ));
+
+        #[cfg(feature = "dev")]
+        app.add_plugins(ShipDebugPlugin);
     }
 }

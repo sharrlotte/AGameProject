@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 
+#[cfg(feature = "dev")]
+use {
+    crate::constant::LAYER_SHIP_UI,
+    crate::content::ship::debug::{ShipUIRoot, on_ship_click},
+};
+
 use crate::config::GameConfigValue;
 
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
@@ -164,30 +170,28 @@ impl ShipDesign {
 
         commands.entity(ship_entity).insert(grid);
 
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "dev")]
         {
-            use crate::constant::LAYER_SHIP_UI;
-
             let ui_root = commands
                 .spawn((
                     ShipUIRoot { ship: ship_entity },
-                    Visibility::Visible,
+                    Visibility::Hidden,
                     Transform::from_translation(Vec2::ZERO.extend(LAYER_SHIP_UI)),
+                    Text2d::new(String::new()),
+                    TextFont {
+                        font_size: FontSize::Px(30.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
                 ))
                 .id();
 
             commands.entity(ship_entity).add_child(ui_root);
+            commands.entity(ship_entity).observe(on_ship_click);
         }
 
         Some((ship_entity, block_entities))
     }
-}
-
-
-#[cfg(debug_assertions)]
-#[derive(Component, Debug)]
-pub struct ShipUIRoot {
-    pub ship: Entity,
 }
 
 
