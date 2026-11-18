@@ -1,4 +1,10 @@
-## ADDED Requirements
+# Code Layout Conventions
+
+## Purpose
+
+Source-tree conventions keep module responsibilities focused: plugins live in `mod.rs`, each module file has a single role, conditional gates are consolidated, crate paths are imported, declarations precede functions, and the asset location has one documented source of truth. A test-only regression guard prevents silent reintroduction of structural drift.
+
+## Requirements
 
 ### Requirement: Plugins are declared in mod.rs
 
