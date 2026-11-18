@@ -18,7 +18,12 @@ The old `BlockData`, `Block`, `BlockState`, `Blocks`, `ShipData`, `ShipState`,
 
 Grid cell = `GRID_SIZE = 64.0` px. A block occupies the cells of its baked `Footprint`
 for its placement `Rot90`; placement validity in the editor requires a shared orthogonal
-edge (Manhattan distance 1) with another block. Shapes are authored as `ShapeSpec`
+edge where **both** sides are physically filled. `BlockDef::solid_edge` derives this from
+the baked hitbox: square, rect and rows edges are always solid, while a triangle accepts
+connections only on its filled leg edges — right triangles connect on two adjacent cell
+edges (`R0` left+bottom, `R90` right+bottom, `R180` right+top, `R270` left+top), and
+isosceles triangles only on their base. `validate_ship` rejects any adjacent occupied
+cells that touch on an empty edge, and debris splitting uses the same rule. Shapes are authored as `ShapeSpec`
 (`Square`, `Rect`, `Triangle`, `Rows`) and baked once at config load into four
 `(Footprint, Hitbox)` pairs — one per placement rotation. `core` is `Square(3)`-sized
 (`Rect((3,3))`), `spectre` `Rect((3,3))`, `foreshadow` `Rect((3,9))`; triangles and
@@ -126,12 +131,13 @@ non-overlapping, and satisfy `validate_ship`. Composition:
 
 | Design | Parts | Structure | Weapons | Support |
 |---|---|---|---|---|
-| `Interceptor` | 44 | 14 `hull`, 12 `wedge_1x1`, 2 `plate_2x2`, 2 `cap_1x1`, 1 `spike_1x3` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
-| `Raider` | 57 | 23 `hull`, 14 `wedge_1x1`, 2 `plate_2x2`, 2 `fin_1x2`, 2 `cap_1x1`, 1 `spike_1x3` | 3 `swarmer` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `Interceptor` | 39 | 15 `hull`, 10 `wedge_1x1`, 1 `spike_1x3` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `Raider` | 49 | 23 `hull`, 12 `wedge_1x1`, 1 `spike_1x3` | 3 `swarmer` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
 
 The interceptor is a narrow arrow with an isosceles nose spike and wedge leading
-edges; the raider is a broad swept wedge with fins on the trailing wings and
-turrets at the wingtips and nose. Both fit within their grid envelopes
+edges; the raider is a broad swept wedge with turrets at the wingtips and nose.
+Every triangle sits on the silhouette boundary with its empty side facing outward,
+so no block touches a triangle's empty edge. Both fit within their grid envelopes
 (`x=-5..5, y=-5..6` and `x=-6..6, y=-5..5`) and carry enough generation to cover
 their consumers without drawing down batteries.
 AI profiles, design names, ids, and schema version are defined by the starter

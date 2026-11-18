@@ -88,13 +88,17 @@ Config loading SHALL reject a shape spec with non-positive dimensions, malformed
 - **WHEN** a `Rows` spec describes two cell groups with no shared orthogonal edge
 - **THEN** config loading rejects it with an error naming the block
 
-### Requirement: Structural connection is derived from shared edges
+### Requirement: Structural connection is derived from shared filled edges
 
-Two cells of different blocks SHALL connect only when their coordinates differ by Manhattan distance 1. Diagonal contact SHALL NOT connect. No face mask SHALL exist in configuration or runtime types.
+Two cells of different blocks SHALL connect only when their coordinates differ by Manhattan distance 1 **and** the shared cell edge is physically filled on both sides, as derived from each block's baked hitbox. Square, rect and rows edges are always filled; a triangle accepts connections only on its filled leg edges. Diagonal contact SHALL NOT connect. No face mask SHALL exist in configuration or runtime types.
 
 #### Scenario: Full edge connects
-- **WHEN** a placed block's cell and an existing block's cell differ by `(1,0)` or `(0,1)`
+- **WHEN** a placed block's cell and an existing block's cell differ by `(1,0)` or `(0,1)` and both sides of that edge are filled
 - **THEN** the placement forms a structural connection
+
+#### Scenario: Empty triangle edge does not connect
+- **WHEN** a block's cell is adjacent to a triangle block's cell across an edge the triangle does not fill
+- **THEN** no connection forms and ship validation rejects the layout
 
 #### Scenario: Corner contact does not connect
 - **WHEN** two cells touch only at a diagonal corner

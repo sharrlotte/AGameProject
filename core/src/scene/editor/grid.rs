@@ -50,7 +50,16 @@ pub fn check_placement_validity(
     for offset in footprint.cells() {
         let cell = grid_position + *offset;
         for direction in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-            if grid.block_at(cell + direction).is_some() {
+            let Some(neighbor) = grid.block_at(cell + direction) else {
+                continue;
+            };
+            let Some(neighbor_def) = registry.get_symbol(&neighbor.placement.block_type) else {
+                continue;
+            };
+            let neighbor_offset = cell + direction - neighbor.placement.position;
+            if def.solid_edge(rotation, *offset, direction)
+                && neighbor_def.solid_edge(neighbor.placement.rotation, neighbor_offset, -direction)
+            {
                 return true;
             }
         }

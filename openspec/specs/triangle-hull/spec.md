@@ -30,6 +30,11 @@ Triangle-shaped hull block definitions give starter ships pointed, swept silhoue
 - **WHEN** stats are derived from a ship containing triangle hull blocks
 - **THEN** mass, health, cost and steel drops equal the per-size table: 1×1 = 6 / 600 / 3 / 6, 1×2 = 12 / 1200 / 6 / 12, 2×2 and 1×3 = 18 / 1800 / 9 / 18
 
+#### Scenario: Connections only on filled edges
+
+- **WHEN** a block is placed adjacent to a triangle hull block
+- **THEN** the placement is accepted only if it touches one of the triangle's filled leg edges, and rejected if it touches the empty half of the cell
+
 ### Requirement: Starter ships use triangle pieces for a ship silhouette
 
 `Interceptor` SHALL have a crisp arrow silhouette and `Raider` SHALL have a broad swept wedge silhouette, both built with the triangle hull definitions. Both SHALL keep a single 3×3 core and the combat composition of three turrets, four small thrusters, two reactors, two batteries and one booster, and SHALL fit within Interceptor `x=-5..5, y=-5..6` and Raider `x=-6..6, y=-5..5`.

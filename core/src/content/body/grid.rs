@@ -41,6 +41,34 @@ impl BlockGrid {
         self.blocks.get(id)
     }
 
+    pub fn solid_neighbor(
+        &self,
+        registry: &BlockRegistry,
+        cell: IVec2,
+        dir: IVec2,
+    ) -> Option<Uuid> {
+        let source_id = *self.cells.get(&cell)?;
+        let neighbor_id = *self.cells.get(&(cell + dir))?;
+        if source_id == neighbor_id {
+            return None;
+        }
+
+        let source = self.blocks.get(&source_id)?;
+        let neighbor = self.blocks.get(&neighbor_id)?;
+        let source_def = registry.get_symbol(&source.placement.block_type)?;
+        let neighbor_def = registry.get_symbol(&neighbor.placement.block_type)?;
+
+        let source_offset = cell - source.placement.position;
+        let neighbor_offset = cell + dir - neighbor.placement.position;
+        if source_def.solid_edge(source.placement.rotation, source_offset, dir)
+            && neighbor_def.solid_edge(neighbor.placement.rotation, neighbor_offset, -dir)
+        {
+            Some(neighbor_id)
+        } else {
+            None
+        }
+    }
+
     pub fn remove_block(&mut self, id: Uuid) -> Option<GridBlock> {
         self.cells.retain(|_, cell_id| *cell_id != id);
         self.blocks.remove(&id)
@@ -76,10 +104,10 @@ impl BlockGrid {
                 for offset in footprint.cells() {
                     let cell = block.placement.position + *offset;
                     for direction in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-                        if let Some(neighbor) = self.cells.get(&(cell + direction))
-                            && visited.insert(*neighbor)
+                        if let Some(neighbor) = self.solid_neighbor(registry, cell, direction)
+                            && visited.insert(neighbor)
                         {
-                            queue.push(*neighbor);
+                            queue.push(neighbor);
                         }
                     }
                 }

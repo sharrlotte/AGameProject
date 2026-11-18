@@ -557,6 +557,31 @@ impl BlockDef {
             rot.turns() as f32 * std::f32::consts::FRAC_PI_2,
         ))
     }
+
+    pub fn solid_edge(&self, rot: Rot90, offset: IVec2, dir: IVec2) -> bool {
+        let (footprint, hitbox) = self.shape.get(rot);
+        let Hitbox::Polygon(points) = hitbox else {
+            return true;
+        };
+
+        let center = footprint.size().as_vec2() * (GRID_SIZE * 0.5);
+        let local = |x: f32, y: f32| Vec2::new(x - center.x, y - center.y);
+        let left = offset.x as f32 * GRID_SIZE;
+        let right = left + GRID_SIZE;
+        let bottom = offset.y as f32 * GRID_SIZE;
+        let top = bottom + GRID_SIZE;
+
+        let (start, end) = match dir {
+            IVec2::X => (Vec2::new(right, bottom), Vec2::new(right, top)),
+            IVec2::NEG_X => (Vec2::new(left, bottom), Vec2::new(left, top)),
+            IVec2::Y => (Vec2::new(left, top), Vec2::new(right, top)),
+            IVec2::NEG_Y => (Vec2::new(left, bottom), Vec2::new(right, bottom)),
+            _ => return false,
+        };
+
+        point_in_convex(local(start.x, start.y), points)
+            && point_in_convex(local(end.x, end.y), points)
+    }
 }
 
 
@@ -774,6 +799,23 @@ impl BlockRegistry {
             }
         }
 
+        for (cell, source_id) in &grid.cells {
+            for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+                let Some(neighbor_id) = grid.cells.get(&(*cell + dir)) else {
+                    continue;
+                };
+                if source_id == neighbor_id {
+                    continue;
+                }
+                if grid.solid_neighbor(self, *cell, dir).is_none() {
+                    errors.push(format!(
+                        "block at cell {:?} touches a neighbor on an empty edge",
+                        cell
+                    ));
+                }
+            }
+        }
+
         if core_count == 1 {
             let core = grid
                 .blocks()
@@ -801,10 +843,10 @@ impl BlockRegistry {
                     for offset in footprint.cells() {
                         let cell = block.placement.position + *offset;
                         for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-                            if let Some(neighbor) = grid.cells.get(&(cell + dir))
-                                && !visited.contains(neighbor)
+                            if let Some(neighbor) = grid.solid_neighbor(self, cell, dir)
+                                && !visited.contains(&neighbor)
                             {
-                                queue.push(*neighbor);
+                                queue.push(neighbor);
                             }
                         }
                     }
@@ -993,6 +1035,26 @@ fn make_footprint(mut cells: Vec<IVec2>) -> Result<Footprint, ShapeError> {
         size: footprint_size(&cells),
         cells,
     })
+}
+
+
+fn point_in_convex(point: Vec2, polygon: &[Vec2]) -> bool {
+    let mut winding = 0.0;
+    for (index, start) in polygon.iter().enumerate() {
+        let end = polygon[(index + 1) % polygon.len()];
+        let cross = (end.x - start.x) * (point.y - start.y)
+            - (end.y - start.y) * (point.x - start.x);
+        if cross.abs() < 1.0e-3 {
+            continue;
+        }
+        let sign = cross.signum();
+        if winding == 0.0 {
+            winding = sign;
+        } else if winding != sign {
+            return false;
+        }
+    }
+    true
 }
 
 
