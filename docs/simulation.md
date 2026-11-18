@@ -109,6 +109,28 @@ Movement: player control uses `ExternalForce` (WASD/QE, Pilot mode); AI uses
 `update_ship_behavior` steering intents from `AiBehavior`. Damping is configured
 in `game.ron` (`linear_damping = 0.9`, `angular_damping = 0.999`).
 
+## Starter designs
+
+Two starter `ShipDesign` documents are embedded via `include_str!` in
+`save/design/lib.rs` and written to the user data designs directory on every run
+before the directory is loaded into `ShipCatalog`. `quick-battle.ron` selects them
+by name: `Interceptor` for the player, `Raider` for enemies.
+
+Both starters use one 3×3 `core` at grid cell `(-1, -1)` and 1-cell parts at
+`R0`. Layouts are connected, non-overlapping, and satisfy `validate_ship`.
+Composition:
+
+| Design | Parts | Structure | Armor | Weapons | Support |
+|---|---|---|---|---|---|
+| `Interceptor` | 40 | 21 `hull` | 6 `block_steel` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `Raider` | 47 | 27 `hull` | 6 `block_scrap` | 3 `swarmer` | 4 `thruster_small`, 3 `reactor`, 2 `battery`, 1 `booster` |
+
+The interceptor is a narrow dart with turrets at the nose and wingtips; the
+raider is a wider wedge with turrets on the nose and outer wings. Both carry
+enough generation to cover their consumers without drawing down batteries.
+AI profiles, design names, ids, and schema version are defined by the starter
+documents and are independent of the block layout.
+
 ## Drops and cargo
 
 Cargo lives only on `ShipStats` (`cargo_capacity`, `cargo_used`, `cargo_items`),
