@@ -48,6 +48,8 @@ impl Plugin for BattleSavePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_rapier2d::prelude::Velocity;
+    use uuid::Uuid;
     use crate::config::{GameConfig, GameConfigValue};
     use crate::content::block::feature::component::Feature;
     use crate::content::block::feature::power::{Battery, Charge};
@@ -57,12 +59,14 @@ mod tests {
     use crate::content::block::{
         BakedShape, BlockDef, BlockPlacement, BlockRegistry, ItemDrop, Loot, Rot90, ShapeSpec,
         ShootPattern, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
-        TargetingStrategy,
+        TargetingStrategy, spawn_block_entity,
     };
+    use crate::content::body::Debris;
     use crate::content::lifetime::Lifetime;
     use crate::content::ship::ai::{AiBehavior, AiRuntime};
     use crate::content::ship::stat::ShipStats;
-    use crate::content::ship::{ShipDesign, ShipGrid};
+    use crate::content::body::BlockGrid;
+    use crate::content::ship::ShipDesign;
     use crate::content::team::Team;
     use crate::resource::{CameraTarget, ControlMode, ControlledShip};
     use crate::save::campaign::campaign_save_path;
@@ -126,7 +130,7 @@ mod tests {
     }
 
     #[test]
-    fn world_save_v5_roundtrip_and_rejects_v4() {
+    fn world_save_v6_roundtrip_rejects_v5_and_v4() {
         let save = WorldSave {
             version: SAVE_SCHEMA_VERSION,
             saved_at_unix_ms: 1_700_000_000_000,
@@ -145,13 +149,34 @@ mod tests {
                 controlling: None,
                 pilot_mode: false,
             },
-            ships: Vec::new(),
+            bodies: vec![BodySnapshot::Debris(DebrisSnapshot {
+                team: 1,
+                transform: TransformSave {
+                    x: 5.0,
+                    y: -2.0,
+                    rotation: 0.25,
+                },
+                velocity: VelocitySave {
+                    x: 1.0,
+                    y: 2.0,
+                    angvel: 0.5,
+                },
+                remaining_secs: 42.0,
+                blocks: Vec::new(),
+            })],
             drops: Vec::new(),
             rng: RngSave { seed: 1234 },
         };
         let text = ron::ser::to_string_pretty(&save, ron::ser::PrettyConfig::default()).unwrap();
         let back: WorldSave = parse_document(&text).unwrap();
         assert_eq!(back, save);
+
+        let v5 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 5");
+        let error = parse_document::<WorldSave>(&v5).expect_err("v5 is rejected");
+        assert!(
+            error.to_string().contains("expected version 6, found 5"),
+            "{error}"
+        );
 
         let v4 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 4");
         assert!(parse_document::<WorldSave>(&v4).is_err());
@@ -205,6 +230,33 @@ mod tests {
                         Transform::from_xyz(5.0, 6.0, 0.0),
                         Lifetime::seconds(12.0),
                     ));
+
+                    let debris = commands
+                        .spawn((
+                            Debris,
+                            Team::new(1),
+                            Transform::from_xyz(7.0, 8.0, 0.0),
+                            Velocity {
+                                linear: Vec2::new(1.0, 2.0),
+                                angular: 0.5,
+                            },
+                            Lifetime::seconds(9.0),
+                        ))
+                        .id();
+                    let placement = BlockPlacement::new(IVec2::ZERO, "gun", Rot90::R0);
+                    let def = reg.get_symbol("gun").expect("gun is registered");
+                    let mut debris_grid = BlockGrid::new();
+                    debris_grid.insert_block(placement.clone(), Entity::PLACEHOLDER, def);
+                    let block = spawn_block_entity(
+                        &mut commands,
+                        &placement,
+                        def,
+                        debris,
+                        Team::new(1),
+                        &cfg,
+                    );
+                    debris_grid.set_entity(placement.id, block);
+                    commands.entity(debris).insert(debris_grid);
                 }
             });
         source.update();
@@ -218,7 +270,7 @@ mod tests {
         }
         let block_entities: Vec<Entity> = source
             .world()
-            .get::<ShipGrid>(player_entity)
+            .get::<BlockGrid>(player_entity)
             .unwrap()
             .blocks()
             .map(|b| b.entity)
@@ -252,8 +304,17 @@ mod tests {
             seed: 999,
         };
         let save = WorldSave::capture(&ctx);
-        assert_eq!(save.ships.len(), 2);
-        assert_ne!(save.ships[0].id, save.ships[1].id, "identical designs must produce distinct ship instance IDs");
+        let ship_ids: Vec<Uuid> = save
+            .bodies
+            .iter()
+            .filter_map(|body| match body {
+                BodySnapshot::Ship(ship) => Some(ship.id),
+                BodySnapshot::Debris(_) => None,
+            })
+            .collect();
+        assert_eq!(ship_ids.len(), 2);
+        assert_eq!(save.bodies.len(), 3, "two ships and one debris body");
+        assert_ne!(ship_ids[0], ship_ids[1], "identical designs must produce distinct ship instance IDs");
 
         let mut restored = App::new();
         let restore_save = save.clone();
@@ -281,7 +342,7 @@ mod tests {
         assert_eq!(stats.cargo_items.get("steel"), Some(&25));
 
         let mut enemy_ai_checked = false;
-        let mut ship_query = world.query::<(Entity, &Team, &AiRuntime, &ShipGrid)>();
+        let mut ship_query = world.query::<(Entity, &Team, &AiRuntime, &BlockGrid)>();
         for (entity, team, ai_runtime, ship_grid) in ship_query.iter(world) {
             if !team.is_player() {
                 assert_eq!(ai_runtime.current, AiBehavior::Attack { target: Some(controlled_entity) });
@@ -311,5 +372,15 @@ mod tests {
 
         let mut drops = world.query::<(&Loot, &Sprite)>();
         assert_eq!(drops.iter(world).count(), 1, "restored drop must include a visible Sprite");
+
+        let mut debris_query = world.query::<(&Debris, &Team, &BlockGrid, &Lifetime)>();
+        let (_, team, grid, lifetime) = debris_query
+            .iter(world)
+            .next()
+            .expect("debris body restored");
+        assert_eq!(team.id, 1);
+        assert_eq!(grid.blocks.len(), 1);
+        assert!(grid.blocks().all(|block| block.entity != Entity::PLACEHOLDER));
+        assert!((lifetime.timer().remaining_secs() - 9.0).abs() < 1e-4);
     }
 }

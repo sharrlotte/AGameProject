@@ -8,10 +8,6 @@ use crate::save::document::{DocumentError, data_dir, parse_document, read_docume
 pub const INTERCEPTOR: &str = include_str!("../../../assets/config/starter/interceptor.ron");
 pub const RAIDER: &str = include_str!("../../../assets/config/starter/raider.ron");
 
-pub fn designs_dir() -> PathBuf {
-    designs_dir_in(&data_dir())
-}
-
 pub fn designs_dir_in(base: &Path) -> PathBuf {
     base.join("designs")
 }
@@ -88,11 +84,6 @@ pub fn save_design_file(design: &ShipDesign) -> Result<(), DocumentError> {
 pub fn save_design_file_in(base: &Path, design: &ShipDesign) -> Result<(), DocumentError> {
     let file = format!("{}.ron", design_file_name(design));
     write_document(&designs_dir_in(base).join(file), design)
-}
-
-#[allow(dead_code)]
-pub fn load_design_file(name: &str) -> Result<ShipDesign, DocumentError> {
-    read_document(&designs_dir().join(format!("{name}.ron")))
 }
 
 #[cfg(test)]

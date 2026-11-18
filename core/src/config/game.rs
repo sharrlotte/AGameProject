@@ -27,6 +27,8 @@ pub struct GameConfig {
     pub ai_wander_attack_chance: f32,
     pub ai_wander_guard_chance: f32,
     pub auto_save_interval_secs: f32,
+    pub debris_lifetime_min_seconds: f32,
+    pub debris_lifetime_max_seconds: f32,
 }
 
 impl Default for GameConfig {
@@ -53,7 +55,30 @@ impl Default for GameConfig {
             ai_wander_attack_chance: 0.5,
             ai_wander_guard_chance: 0.5,
             auto_save_interval_secs: 30.0,
+            debris_lifetime_min_seconds: 30.0,
+            debris_lifetime_max_seconds: 60.0,
         }
+    }
+}
+
+impl GameConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        let min = self.debris_lifetime_min_seconds;
+        let max = self.debris_lifetime_max_seconds;
+
+        if min <= 0.0 || max <= 0.0 {
+            return Err(format!(
+                "debris_lifetime_min_seconds and debris_lifetime_max_seconds must be positive (min {min}, max {max})"
+            ));
+        }
+
+        if max < min {
+            return Err(format!(
+                "debris_lifetime_max_seconds ({max}) must be at least debris_lifetime_min_seconds ({min})"
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -74,5 +99,38 @@ pub fn game_config_bridge(
         if let Some(config) = assets.get(id) {
             *value = GameConfigValue(config.clone());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_inverted_debris_lifetime_range() {
+        let config = GameConfig {
+            debris_lifetime_min_seconds: 60.0,
+            debris_lifetime_max_seconds: 30.0,
+            ..GameConfig::default()
+        };
+
+        let error = config.validate().expect_err("inverted range is invalid");
+        assert!(error.contains("debris_lifetime_max_seconds"), "{error}");
+    }
+
+    #[test]
+    fn rejects_non_positive_debris_lifetime() {
+        let config = GameConfig {
+            debris_lifetime_min_seconds: 0.0,
+            ..GameConfig::default()
+        };
+
+        let error = config.validate().expect_err("zero lifetime is invalid");
+        assert!(error.contains("must be positive"), "{error}");
+    }
+
+    #[test]
+    fn accepts_valid_debris_lifetime_range() {
+        assert!(GameConfig::default().validate().is_ok());
     }
 }

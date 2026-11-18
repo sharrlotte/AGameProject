@@ -37,7 +37,7 @@ pub fn handle_ship_saving(
 pub fn perform_save_schematic(
     id: Uuid,
     name: String,
-    grid: &ShipGrid,
+    grid: &BlockGrid,
     profile: &AiProfile,
     catalog: &mut ShipCatalog,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,

@@ -17,7 +17,7 @@ pub fn update_thruster_demand(
     >,
 ) {
     for (owner, consumer, mut demand, boost) in &mut thrusters {
-        let throttle = ships.get(owner.ship).map_or(0.0, Throttle::max_axis);
+        let throttle = ships.get(owner.body).map_or(0.0, Throttle::max_axis);
         let boost = boost.map_or(1.0, Boost::value);
         demand.value = consumer.rate() * throttle * boost;
     }
@@ -48,10 +48,11 @@ mod tests {
         app.add_systems(Update, update_thruster_demand);
 
         let ship = app.world_mut().spawn(Throttle::default()).id();
+        
         let thruster = app
             .world_mut()
             .spawn((
-                BlockOwner { ship },
+                BlockOwner { body: ship },
                 ThrustPowerBase::new(100.0),
                 Consumer { rate: 3.0 },
                 Demand::default(),

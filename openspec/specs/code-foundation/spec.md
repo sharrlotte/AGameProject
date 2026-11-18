@@ -3,7 +3,6 @@
 ## Purpose
 
 String keys, centralized RON document IO, snapshot and feature macros, and one type per concept form the shared code foundation.
-
 ## Requirements
 ### Requirement: String keys replace interned symbols
 
@@ -43,11 +42,15 @@ The system SHALL provide `RonDocument`, `read_document`, `write_document`, and `
 
 ### Requirement: Snapshot capture and restore are trait-driven
 
-`CaptureSnapshot` and `RestoreSnapshot` SHALL be implemented for `WorldSave`, `ShipSnapshot`, `BlockSnapshot`, and `ItemDrop`, and `save_world` and `load_world` SHALL only orchestrate them.
+`CaptureSnapshot` and `RestoreSnapshot` SHALL be implemented for `WorldSave`, `BodySnapshot`, `ShipSnapshot`, `DebrisSnapshot`, `BlockSnapshot`, and `ItemDrop`, and `save_world` and `load_world` SHALL only orchestrate them. `BodySnapshot` SHALL cover both ships and debris without a second parallel capture loop.
 
 #### Scenario: New snapshot field
 - **WHEN** a new snapshot field is added
 - **THEN** its capture and restore live in the corresponding impl rather than a copy-pasted loop
+
+#### Scenario: Body kinds share one snapshot
+- **WHEN** a ship or a debris body is captured
+- **THEN** both produce a `BodySnapshot` variant and `save_world` iterates one body list
 
 ### Requirement: Feature mapping is macro-generated
 
@@ -84,3 +87,4 @@ Each phase SHALL add unit or integration tests, and `cargo test` SHALL be part o
 #### Scenario: Phase completion
 - **WHEN** a phase is marked done
 - **THEN** its tests run green and cover the phase invariants
+

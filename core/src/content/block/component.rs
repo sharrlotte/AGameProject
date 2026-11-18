@@ -16,7 +16,8 @@ use crate::{
     constant::GRID_SIZE,
     content::{
         block::{BlockOwner, BlockPlacement, BlockRef, feature::component::Feature},
-        ship::{BoundingBox, Ship, ShipBuildResult, ShipFragment, ShipStats, grid::ShipGrid},
+        body::BlockGrid,
+        ship::{BoundingBox, Ship, GridBuildResult, ShipStats},
         team::Team,
     },
 };
@@ -598,7 +599,7 @@ impl BlockRegistry {
             .filter_map(|key| self.map.get_key_value(key))
     }
 
-    pub fn build_ship_voxel_collider_2d(&self, grid: &ShipGrid) -> Collider {
+    pub fn build_voxel_collider_2d(&self, grid: &BlockGrid) -> Collider {
         let mut parts: Vec<(Vec2, f32, Collider)> = Vec::new();
 
         for block in grid.blocks() {
@@ -614,7 +615,7 @@ impl BlockRegistry {
         Collider::compound(parts)
     }
 
-    pub fn bounds_from_grid(&self, grid: &ShipGrid) -> Option<BoundingBox> {
+    pub fn bounds_from_grid(&self, grid: &BlockGrid) -> Option<BoundingBox> {
         if grid.cells.is_empty() {
             return None;
         }
@@ -633,7 +634,7 @@ impl BlockRegistry {
         Some(BoundingBox { size: max - min })
     }
 
-    pub fn core_of(&self, grid: &ShipGrid) -> Option<(Uuid, Vec2)> {
+    pub fn core_of(&self, grid: &BlockGrid) -> Option<(Uuid, Vec2)> {
         for block in grid.blocks() {
             let def = self.get_symbol(&block.placement.block_type)?;
             if def.block_group == "core" {
@@ -647,7 +648,7 @@ impl BlockRegistry {
         None
     }
 
-    pub fn stats_from_grid(&self, grid: &ShipGrid) -> Option<ShipStats> {
+    pub fn stats_from_grid(&self, grid: &BlockGrid) -> Option<ShipStats> {
         self.core_of(grid)?;
 
         let mut stats = ShipStats::default();
@@ -704,38 +705,26 @@ impl BlockRegistry {
         Some(stats)
     }
 
-    pub fn build_ship_result(&self, grid: &ShipGrid) -> ShipBuildResult {
-        let Some((core_id, core_position)) = self.core_of(grid) else {
-            return ShipBuildResult {
-                fragments: vec![ShipFragment {
-                    placements: grid.blocks().map(|block| block.placement.clone()).collect(),
-                }],
-                ..default()
-            };
-        };
+    pub fn build_grid_result(&self, grid: &BlockGrid) -> Option<GridBuildResult> {
+        let (core_id, core_position) = self.core_of(grid)?;
+        let stats = self.stats_from_grid(grid)?;
+        let bounds = self.bounds_from_grid(grid)?;
 
-        let Some(stats) = self.stats_from_grid(grid) else {
-            return default();
-        };
-        let Some(bounds) = self.bounds_from_grid(grid) else {
-            return default();
-        };
-
-        ShipBuildResult {
-            ship: Some(Ship {
+        Some(GridBuildResult {
+            ship: Ship {
                 id: Uuid::now_v7(),
                 core_id,
                 core_position,
-            }),
-            stats: Some(stats),
-            bounds: Some(bounds),
-            fragments: Vec::new(),
-        }
+            },
+            stats,
+            bounds,
+        })
     }
 
     pub fn validate_ship(&self, layout: &[BlockPlacement]) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
+        
         grid.rebuild_from_layout(layout, self);
 
         let mut core_count = 0;
@@ -1082,7 +1071,7 @@ pub fn spawn_block_entity(
     commands: &mut Commands,
     placement: &BlockPlacement,
     def: &BlockDef,
-    ship: Entity,
+    body: Entity,
     team: Team,
     config: &GameConfigValue,
 ) -> Entity {
@@ -1113,7 +1102,7 @@ pub fn spawn_block_entity(
             ColliderMassProperties::Mass(0.0),
             Sensor,
             BlockRef { id: placement.id },
-            BlockOwner { ship },
+            BlockOwner { body },
             TurretMirror(mirror),
             Health {
                 health: def.health,
@@ -1122,7 +1111,7 @@ pub fn spawn_block_entity(
         ))
         .id();
 
-    commands.entity(ship).add_child(block);
+    commands.entity(body).add_child(block);
 
     let visual = commands
         .spawn((visual_transform(xform), Visual, Visibility::Visible))

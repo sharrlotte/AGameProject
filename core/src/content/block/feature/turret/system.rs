@@ -11,8 +11,9 @@ use crate::{
             feature::power::{Boost, Demand, Supply},
             radar::Radar,
         },
+        body::BlockGrid,
         bullet::{Interceptable, Missile, ProjectileOwner},
-        ship::{Ship, ShipGrid, ShipStats},
+        ship::{Ship, ShipStats},
         team::Team,
     },
 };
@@ -126,7 +127,7 @@ fn aim_turn(angle_error: f32, mirrored: bool, max_turn: f32) -> f32 {
 }
 
 
-fn has_core(grid: &ShipGrid, ship: &Ship) -> bool {
+fn has_core(grid: &BlockGrid, ship: &Ship) -> bool {
     grid.block(ship.core_id).is_some()
 }
 
@@ -167,7 +168,7 @@ fn better_intercept(candidate: Candidate, best: Option<Candidate>) -> bool {
 }
 
 pub fn update_turret_target(
-    ships: Query<(&GlobalTransform, &Ship, &ShipGrid, &ShipStats)>,
+    ships: Query<(&GlobalTransform, &Ship, &BlockGrid, &ShipStats)>,
     projectiles: Query<
         (
             Entity,

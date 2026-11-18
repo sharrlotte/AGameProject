@@ -1,4 +1,5 @@
 pub mod block;
+pub mod body;
 pub mod bullet;
 pub mod damage;
 pub mod death;
@@ -11,8 +12,9 @@ pub mod team;
 use bevy::prelude::*;
 
 use crate::content::{
-    block::BlockPlugin, bullet::BulletPlugin, damage::DamagePlugin, death::DeathPlugin,
-    item::ItemPlugin, lifetime::LifetimePlugin, selectable::SelectablePlugin, ship::ShipPlugin,
+    block::BlockPlugin, body::BodyPlugin, bullet::BulletPlugin, damage::DamagePlugin,
+    death::DeathPlugin, item::ItemPlugin, lifetime::LifetimePlugin, selectable::SelectablePlugin,
+    ship::ShipPlugin,
 };
 
 pub struct ContentPlugin;
@@ -22,6 +24,7 @@ impl Plugin for ContentPlugin {
         app.add_plugins((
             BulletPlugin,
             ShipPlugin,
+            BodyPlugin,
             BlockPlugin,
             ItemPlugin,
             LifetimePlugin,

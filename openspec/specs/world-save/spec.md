@@ -3,7 +3,6 @@
 ## Purpose
 
 RON-only, versioned, atomic single-file battle and campaign saves embed the full world snapshot in one self-contained file.
-
 ## Requirements
 ### Requirement: RON is the only serialization format
 
@@ -28,17 +27,9 @@ The save system SHALL store at most one active battle snapshot at `<data_dir>/sa
 - **WHEN** `battle.ron` is loaded
 - **THEN** no `slot_*.ron` or per-ship file is opened
 
-### Requirement: WorldSave embeds every ship
-
-`WorldSave` SHALL contain `ships: Vec<ShipSnapshot>` with each ship's unique instance `id`, `team`, `transform`, `velocity`, `cargo` (`cargo_used` and `cargo_items`), `ai` profile and full `ai_runtime` (`current` behavior with target ship `Uuid`s, `spawn_position`, `rule_cooldowns`, and `timer_secs`), and `blocks` (including `placement`, `health`, `max_health`, `turret` state and barrel `rotation`, `turret_charge`, `battery_charge`, `ammo`, and relative weapon pattern states). `WorldSave` SHALL NOT contain `ship_ids`, and no `ships/*.ron` directory SHALL be written or read.
-
-#### Scenario: Two ships from the same design in one battle save
-- **WHEN** a world with two ships spawned from the same `ShipDesign` is saved and loaded
-- **THEN** each ship has a distinct instance `Ship.id`, both `ShipSnapshot` values appear inside `battle.ron`, and loading restores both ships and their cross-ship AI/camera/pilot targets without `Uuid` collision
-
 ### Requirement: Full snapshot fidelity
 
-The snapshot SHALL include battle mission name, elapsed battle seconds, outcome, camera position/zoom/follow target, controlled ship and control mode, ships (with cargo, power charges, turret charges/barrel angles, AI runtime, and relative weapon timers), drops, and RNG state. It SHALL NOT include in-flight bullets, missiles, lasers, beams, damage text, or transient VFX, and those entities SHALL be cleared on load.
+The snapshot SHALL include battle mission name, elapsed battle seconds, outcome, camera position/zoom/follow target, controlled ship and control mode, ships (with cargo, power charges, turret charges/barrel angles, AI runtime, and relative weapon timers), debris bodies (with blocks, transform, velocity, and remaining lifetime), drops, and RNG state. It SHALL NOT include in-flight bullets, missiles, lasers, beams, damage text, or transient VFX, and those entities SHALL be cleared on load.
 
 #### Scenario: Transforms and velocities round-trip
 - **WHEN** two ships at non-zero transforms and velocities are saved and loaded
@@ -51,6 +42,10 @@ The snapshot SHALL include battle mission name, elapsed battle seconds, outcome,
 #### Scenario: AI runtime and pilot/camera targets round-trip
 - **WHEN** a battle is saved while the player is piloting a ship and an AI ship is executing a behavior targeting another ship with active rule cooldowns
 - **THEN** loading restores `ControlledShip`, `CameraTarget`, `ControlMode`, and the AI ship's exact `AiBehavior` target `Entity`, `spawn_position`, `rule_cooldowns`, and think timer
+
+#### Scenario: Debris block state round-trips
+- **WHEN** a debris body with damaged blocks and remaining lifetime is saved and loaded
+- **THEN** each block's placement and health, the body's team, transform, velocity, and remaining lifetime match the snapshot
 
 #### Scenario: Transients are absent after load
 - **WHEN** a bullet, missile, laser, or beam is in flight at save time
@@ -66,10 +61,10 @@ The snapshot SHALL include battle mission name, elapsed battle seconds, outcome,
 
 ### Requirement: Saves are versioned and atomic
 
-Every save and design document SHALL carry `version`. `WorldSave` SHALL use `SAVE_SCHEMA_VERSION = 4`. The loader SHALL reject a version other than the current schema version with an error naming expected and found versions. Writes SHALL go to `.tmp`, preserve the previous file as `.bak`, and rename only after a successful write; on error the previous save SHALL remain intact.
+Every save and design document SHALL carry `version`. `WorldSave` SHALL use `SAVE_SCHEMA_VERSION = 6`. The loader SHALL reject a version other than the current schema version with an error naming expected and found versions. Writes SHALL go to `.tmp`, preserve the previous file as `.bak`, and rename only after a successful write; on error the previous save SHALL remain intact.
 
 #### Scenario: Version mismatch fails cleanly
-- **WHEN** an incompatible version file (such as v3) is opened
+- **WHEN** an incompatible version file (such as v5) is opened
 - **THEN** loading returns an incompatibility error and does not spawn a partial world
 
 #### Scenario: Failed write preserves the previous save
@@ -78,19 +73,23 @@ Every save and design document SHALL carry `version`. `WorldSave` SHALL use `SAV
 
 ### Requirement: Ship designs are versioned RON documents
 
-The game SHALL store `ShipDesign { version, id, name, blocks: Vec<BlockPlacement>, ai: AiProfile }` under `<save_dir>/designs/*.ron`, cache the sorted catalog in a Bevy `Resource` (`ShipCatalog`) seeded once at startup, and update the resource when designs are saved.
+The game SHALL store `ShipDesign { version, id, name, blocks: Vec<BlockPlacement>, ai: AiProfile }` with `DESIGN_SCHEMA_VERSION = 2` under `<save_dir>/designs/*.ron`, where `BlockPlacement.rotation` is a `Rot90` serialized by variant name (`R0`, `R90`, `R180`, `R270`). The game SHALL cache the sorted catalog in a Bevy `Resource` (`ShipCatalog`) seeded once at startup, and update the resource when designs are saved.
 
 #### Scenario: Fresh install has starter designs cached in resource
 - **WHEN** the game starts with an empty designs directory
-- **THEN** the starter interceptor and raider designs are written, loaded into the `ShipCatalog` resource, and available to the editor and missions without repeated disk seeding
+- **THEN** the v2 starter interceptor and raider designs are written, loaded into the `ShipCatalog` resource, and available to the editor and missions without repeated disk seeding
 
 #### Scenario: Missing design is an error
 - **WHEN** a mission references a missing design
 - **THEN** the mission reports an error and does not fall back to the first ship
 
 #### Scenario: Design round-trip
-- **WHEN** a design is saved and reloaded
-- **THEN** its blocks and AI profile round-trip exactly and the `ShipCatalog` resource is updated
+- **WHEN** a design containing a rotated block is saved and reloaded
+- **THEN** its blocks, including `rotation`, and AI profile round-trip exactly and the `ShipCatalog` resource is updated
+
+#### Scenario: v1 design rejected
+- **WHEN** a v1 design file is read
+- **THEN** it is reported as incompatible, left untouched on disk, and not loaded
 
 ### Requirement: Hard cutover with no fabrication
 
@@ -102,8 +101,25 @@ The loader SHALL NOT import JSON schematics, read v1 world saves, fabricate phan
 
 ### Requirement: Save and load round-trips are tested
 
-Tests SHALL cover embedded ship round-trip (including cargo, battery/turret charge, barrel rotation, AI runtime targets, and relative weapon timers), unique ship instance IDs across identical designs, version mismatch (rejecting v3), atomic write behavior, single-file `battle.ron` and `campaign.ron` persistence, design round-trip, starter validation, and absence of per-ship file access.
+Tests SHALL cover embedded ship round-trip (including cargo, battery/turret charge, barrel rotation, block placement rotation, AI runtime targets, and relative weapon timers), embedded debris round-trip with remaining lifetime, unique ship instance IDs across identical designs, version mismatch (rejecting v5 world saves and v1 designs), atomic write behavior, single-file `battle.ron` and `campaign.ron` persistence, design round-trip, starter validation, and absence of per-ship file access.
 
 #### Scenario: Two-ship world round-trip
 - **WHEN** the save suite runs
 - **THEN** it proves a two-ship world restores entirely from `battle.ron` with full state fidelity
+
+#### Scenario: Mixed world round-trip
+- **WHEN** the save suite saves one ship and one debris body
+- **THEN** loading restores both bodies and the debris never resolves as a camera, control, or AI target
+
+### Requirement: WorldSave embeds every body
+
+`WorldSave` SHALL contain `bodies: Vec<BodySnapshot>` where `BodySnapshot` is either `Ship(ShipSnapshot)` or `Debris(DebrisSnapshot)`. A ship snapshot SHALL carry its unique instance `id`, `team`, `transform`, `velocity`, `cargo`, `ai` profile, full `ai_runtime`, and `blocks`. A debris snapshot SHALL carry `team`, `transform`, `velocity`, `remaining_secs`, and `blocks`; debris SHALL NOT require an `id` because no camera, control, AI, or mission reference targets it. `WorldSave` SHALL NOT contain `ship_ids`, and no `ships/*.ron` directory SHALL be written or read.
+
+#### Scenario: Two ships from the same design in one battle save
+- **WHEN** a world with two ships spawned from the same `ShipDesign` is saved and loaded
+- **THEN** each ship has a distinct instance `Ship.id`, both `BodySnapshot::Ship` values appear inside `battle.ron`, and loading restores both ships and their cross-ship AI/camera/pilot targets without `Uuid` collision
+
+#### Scenario: Debris is embedded with its lifetime
+- **WHEN** a world with a debris body is saved and loaded
+- **THEN** the debris body appears as `BodySnapshot::Debris`, its blocks and transform round-trip, and it keeps its remaining lifetime
+

@@ -24,6 +24,7 @@ const COLORS: [Color; 16] = [
 pub const GROUP_SHIP: Group = Group::GROUP_1;
 pub const GROUP_BULLET: Group = Group::GROUP_2;
 pub const GROUP_RADAR: Group = Group::GROUP_3;
+pub const GROUP_DEBRIS: Group = Group::GROUP_4;
 // bits 16–31 reserved for block hitbox per-team
 
 pub const DEFAULT_TEAM_ID: u8 = 0;
@@ -77,7 +78,7 @@ impl Team {
     }
 
     pub fn ship_filter(&self) -> Group {
-        GROUP_SHIP | GROUP_RADAR
+        GROUP_SHIP | GROUP_RADAR | GROUP_DEBRIS
     }
 
     pub fn block_hitbox_group(&self) -> Group {

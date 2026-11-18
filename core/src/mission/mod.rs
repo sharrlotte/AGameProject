@@ -26,7 +26,7 @@ use crate::content::block::BlockRegistry;
 
 use crate::content::death::ShipDestroyed;
 
-use crate::content::ship::mutation::apply_ship_mutations;
+use crate::content::body::mutation::apply_body_mutations;
 
 use crate::content::ship::Ship;
 
@@ -101,7 +101,7 @@ impl Plugin for MissionPlugin {
             .add_systems(
                 FixedPostUpdate,
                 check_battle_outcome
-                    .after(apply_ship_mutations)
+                    .after(apply_body_mutations)
                     .run_if(in_state(SceneState::Game))
                     .run_if(in_state(BattlePhase::Active))
                     .in_set(SimulationSet::Death),
@@ -432,7 +432,7 @@ mod tests {
             .add_systems(
                 FixedPostUpdate,
                 check_battle_outcome
-                    .after(apply_ship_mutations)
+                    .after(apply_body_mutations)
                     .run_if(in_state(SceneState::Game))
                     .run_if(in_state(BattlePhase::Active))
                     .in_set(SimulationSet::Death),

@@ -15,7 +15,7 @@ use crate::content::selectable::Selectable;
 
 use crate::content::ship::ai::{AiProfile, AiRuntime};
 
-use crate::content::ship::grid::ShipGrid;
+use crate::content::body::BlockGrid;
 
 use crate::content::ship::stat::ShipStats;
 
@@ -42,20 +42,11 @@ pub struct BoundingBox {
 }
 
 
-#[derive(Component, Debug, Clone, Default)]
-#[allow(dead_code)]
-pub struct ShipFragment {
-    pub placements: Vec<BlockPlacement>,
-}
-
-
-#[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
-pub struct ShipBuildResult {
-    pub ship: Option<Ship>,
-    pub stats: Option<ShipStats>,
-    pub bounds: Option<BoundingBox>,
-    pub fragments: Vec<ShipFragment>,
+#[derive(Clone, Debug)]
+pub struct GridBuildResult {
+    pub ship: Ship,
+    pub stats: ShipStats,
+    pub bounds: BoundingBox,
 }
 
 
@@ -73,7 +64,7 @@ pub struct ShipDesign {
 
 
 impl ShipDesign {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(blocks: Vec<BlockPlacement>) -> Self {
         Self {
             version: DESIGN_SCHEMA_VERSION,
@@ -111,17 +102,18 @@ impl ShipDesign {
         config: &GameConfigValue,
         ship_id: Uuid,
     ) -> Option<(Entity, Vec<Entity>)> {
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
+        
         grid.rebuild_from_layout(&self.blocks, registry);
 
-        let build = registry.build_ship_result(&grid);
-        let mut ship = build.ship?;
+        let build = registry.build_grid_result(&grid)?;
+        let mut ship = build.ship;
         ship.id = ship_id;
-        let stats = build.stats?;
-        let bounds = build.bounds?;
+        let stats = build.stats;
+        let bounds = build.bounds;
         let mass = stats.mass;
 
-        let collider = registry.build_ship_voxel_collider_2d(&grid);
+        let collider = registry.build_voxel_collider_2d(&grid);
 
         let ship_entity = commands
             .spawn((
@@ -264,7 +256,7 @@ mod tests {
         app.update();
 
         let world = app.world_mut();
-        let mut grids = world.query::<&ShipGrid>();
+        let mut grids = world.query::<&BlockGrid>();
         let grid = grids.single(world).expect("spawned ship has a grid");
         assert_eq!(grid.blocks.len(), 2);
         assert!(

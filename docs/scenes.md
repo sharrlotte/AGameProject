@@ -24,9 +24,10 @@ No game entities exist here.
 - Battle-core (see mission.md): mission loads async; ship spawns driven by the mission
   def; outcome is win/lose; overlay on `Ended`. Top-up spawner deleted; `check_ship`
   gone.
-- Ship mutations rebuild stats and bounds from `ShipGrid` and the compound collider from
-  the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
-  (`ShipChanged`, `OnMessage`) recomputes `ShipStats`.
+- Ship mutations rebuild ship stats and bounds from `BlockGrid` and the compound collider
+  from the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
+  (`ShipChanged`, `OnMessage`) recomputes `ShipStats`. Detached components become
+  `Debris` bodies with their own grid, collider, lifetime, and drops.
 - `ShipUIRoot` child of each ship (debug builds only): `Text2d` debug dump.
 
 Selection requires `Ctrl` + left-drag; `Home`/`Game` do not scroll-select.

@@ -1,4 +1,12 @@
-## ADDED Requirements
+# Block Shape
+
+## Purpose
+
+Block footprints are authored as one readable `ShapeSpec`, baked once at config load into
+footprints and hitboxes for every placement rotation, with geometry-derived structural
+connection and a `Visual` hierarchy that keeps colliders unscaled.
+
+## Requirements
 
 ### Requirement: Block shapes are authored as a single ShapeSpec
 

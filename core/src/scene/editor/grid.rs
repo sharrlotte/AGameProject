@@ -24,7 +24,7 @@ pub fn draw_grid(mut gizmos: Gizmos) {
 }
 
 pub fn check_placement_validity(
-    grid: &ShipGrid,
+    grid: &BlockGrid,
     registry: &BlockRegistry,
     block_type: String,
     grid_position: IVec2,

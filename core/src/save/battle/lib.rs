@@ -13,12 +13,15 @@ use crate::content::block::feature::turret::{TurretBarrel, TurretCharge, TurretS
 use crate::content::block::{
     BlockPlacement, BlockRegistry, BurstShootPatternState, GridBlock, Health, ItemDrop,
     LaserBeamPatternState, Loot, PullingBeamPatternState, SingleShootPatternState,
+    spawn_block_entity,
 };
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
 use crate::content::ship::ai::{AiProfile, AiRuntime};
+use crate::content::body::debris::{component_mass, spawn_debris_body};
+use crate::content::body::{BlockGrid, Debris};
 use crate::content::ship::stat::ShipStats;
-use crate::content::ship::{Ship, ShipDesign, ShipGrid};
+use crate::content::ship::{Ship, ShipDesign};
 use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlMode, ControlledShip, SceneState};
 use crate::save::campaign::clear_campaign_save_in;
@@ -26,9 +29,9 @@ use crate::save::design::DESIGN_SCHEMA_VERSION;
 use crate::save::document::{DocumentError, data_dir, remove_with_backup};
 
 use super::component::{
-    AiBehaviorSave, AiRuntimeSave, BattleSave, BlockSnapshot, CameraSave, CaptureContext,
-    CargoSave, ControlSave, DropSave, RngSave, SAVE_SCHEMA_VERSION, ShipSnapshot, TransformSave,
-    TurretSaveState, VelocitySave, WorldSave,
+    AiBehaviorSave, AiRuntimeSave, BattleSave, BlockSnapshot, BodySnapshot, CameraSave,
+    CaptureContext, CargoSave, ControlSave, DebrisSnapshot, DropSave, RngSave, SAVE_SCHEMA_VERSION,
+    ShipSnapshot, TransformSave, TurretSaveState, VelocitySave, WorldSave,
 };
 
 impl BlockSnapshot {
@@ -136,7 +139,7 @@ impl BlockSnapshot {
 impl ShipSnapshot {
     pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
         let ship = entity.get::<Ship>()?;
-        let grid = entity.get::<ShipGrid>()?;
+        let grid = entity.get::<BlockGrid>()?;
         let team = entity.get::<Team>().map(|t| t.id).unwrap_or(0);
         let transform = entity.get::<Transform>().cloned().unwrap_or_default();
         let velocity = entity.get::<Velocity>().cloned().unwrap_or_default();
@@ -242,13 +245,117 @@ impl ShipSnapshot {
     }
 }
 
+impl BodySnapshot {
+    pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
+        if entity.get::<Debris>().is_some() {
+            return DebrisSnapshot::capture(world, entity).map(Self::Debris);
+        }
+
+        ShipSnapshot::capture(world, entity).map(Self::Ship)
+    }
+}
+
+impl DebrisSnapshot {
+    pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
+        let grid = entity.get::<BlockGrid>()?;
+        let team = entity.get::<Team>().map(|t| t.id).unwrap_or(0);
+        let transform = entity.get::<Transform>().cloned().unwrap_or_default();
+        let velocity = entity.get::<Velocity>().cloned().unwrap_or_default();
+        let remaining_secs = entity
+            .get::<Lifetime>()
+            .map(|lifetime| lifetime.timer().remaining_secs())
+            .unwrap_or_default();
+
+        let blocks = grid
+            .blocks()
+            .filter(|block| block.entity != Entity::PLACEHOLDER)
+            .map(|block| BlockSnapshot::capture(world, block))
+            .collect();
+
+        Some(Self {
+            team,
+            transform: TransformSave {
+                x: transform.translation.x,
+                y: transform.translation.y,
+                rotation: transform.rotation.to_euler(EulerRot::ZYX).0,
+            },
+            velocity: VelocitySave {
+                x: velocity.linear.x,
+                y: velocity.linear.y,
+                angvel: velocity.angular,
+            },
+            remaining_secs,
+            blocks,
+        })
+    }
+
+    pub fn restore(
+        self,
+        commands: &mut Commands,
+        registry: &BlockRegistry,
+        config: &GameConfigValue,
+    ) -> Entity {
+        let placements: Vec<BlockPlacement> = self
+            .blocks
+            .iter()
+            .map(|block| block.placement.clone())
+            .collect();
+
+        let mut grid = BlockGrid::new();
+        grid.rebuild_from_layout(&placements, registry);
+
+        let transform = Transform::from_xyz(self.transform.x, self.transform.y, 0.0)
+            .with_rotation(Quat::from_rotation_z(self.transform.rotation));
+        let velocity = Velocity {
+            linear: Vec2::new(self.velocity.x, self.velocity.y),
+            angular: self.velocity.angvel,
+        };
+        let team = Team::new(self.team);
+        let collider = registry.build_voxel_collider_2d(&grid);
+        let mass = component_mass(&grid, registry);
+
+        let body = spawn_debris_body(
+            commands,
+            grid,
+            transform,
+            velocity,
+            team,
+            self.remaining_secs,
+            collider,
+            mass,
+            config,
+        );
+
+        let mut spawned = Vec::with_capacity(self.blocks.len());
+        for snapshot in self.blocks {
+            let Some(def) = registry.get_symbol(&snapshot.placement.block_type) else {
+                continue;
+            };
+            let id = snapshot.placement.id;
+            let block = spawn_block_entity(commands, &snapshot.placement, def, body, team, config);
+            snapshot.apply(commands, block);
+            spawned.push((id, block));
+        }
+
+        commands.entity(body).queue(move |mut entity: EntityWorldMut| {
+            if let Some(mut grid) = entity.get_mut::<BlockGrid>() {
+                for (id, block) in spawned {
+                    grid.set_entity(id, block);
+                }
+            }
+        });
+
+        body
+    }
+}
+
 impl WorldSave {
     pub fn capture(ctx: &CaptureContext) -> Self {
         let world = ctx.world;
 
-        let ships: Vec<ShipSnapshot> = world
+        let bodies: Vec<BodySnapshot> = world
             .iter_entities()
-            .filter_map(|entity| ShipSnapshot::capture(world, entity))
+            .filter_map(|entity| BodySnapshot::capture(world, entity))
             .collect();
 
         let drops: Vec<DropSave> = world
@@ -317,7 +424,7 @@ impl WorldSave {
                 controlling,
                 pilot_mode,
             },
-            ships,
+            bodies,
             drops,
             rng: RngSave { seed: ctx.seed },
         }
@@ -330,13 +437,28 @@ impl WorldSave {
         config: &GameConfigValue,
         items: Option<&ItemRegistry>,
     ) -> Result<HashMap<Uuid, Entity>, DocumentError> {
-        let mut ship_map = HashMap::with_capacity(self.ships.len());
-        let mut pending_ai = Vec::with_capacity(self.ships.len());
+        let (ship_bodies, debris_bodies): (Vec<BodySnapshot>, Vec<BodySnapshot>) = self
+            .bodies
+            .into_iter()
+            .partition(|body| matches!(body, BodySnapshot::Ship(_)));
 
-        for ship in self.ships {
+        let mut ship_map = HashMap::with_capacity(ship_bodies.len());
+        let mut pending_ai = Vec::with_capacity(ship_bodies.len());
+
+        for body in ship_bodies {
+            let BodySnapshot::Ship(ship) = body else {
+                continue;
+            };
             let (id, entity, ai_runtime) = ship.restore(commands, registry, config)?;
             ship_map.insert(id, entity);
             pending_ai.push((entity, ai_runtime));
+        }
+
+        for body in debris_bodies {
+            let BodySnapshot::Debris(debris) = body else {
+                continue;
+            };
+            debris.restore(commands, registry, config);
         }
 
         for (entity, ai_runtime) in pending_ai {

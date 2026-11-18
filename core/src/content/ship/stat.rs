@@ -9,7 +9,7 @@ use crate::content::block::{
     feature::thruster::{RotateSpeedComputed, ThrustPowerComputed},
 };
 
-use crate::content::ship::ShipGrid;
+use crate::content::body::BlockGrid;
 
 
 #[derive(Component, Clone, Debug, Reflect)]
@@ -71,16 +71,18 @@ pub struct ShipChanged {
 
 pub fn rebuild_cargo_capacity(
     mut events: MessageReader<ShipChanged>,
-    mut ships: Query<(&mut ShipStats, &ShipGrid)>,
+    mut ships: Query<(&mut ShipStats, &BlockGrid)>,
     registry: Res<BlockRegistry>,
 ) {
     for event in events.read() {
         let Ok((mut stats, grid)) = ships.get_mut(event.ship) else {
             continue;
         };
+
         let Some(derived) = registry.stats_from_grid(grid) else {
             continue;
         };
+        
         stats.cargo_capacity = derived.cargo_capacity;
         if stats.cargo_used > stats.cargo_capacity {
             stats.cargo_used = stats.cargo_capacity;
@@ -105,7 +107,7 @@ pub fn update_stats(
     }
 
     for (_, owner, thrust, rotate) in &blocks {
-        let Ok(mut stats) = ships.get_mut(owner.ship) else {
+        let Ok(mut stats) = ships.get_mut(owner.body) else {
             continue;
         };
 

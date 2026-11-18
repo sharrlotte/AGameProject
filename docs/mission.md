@@ -27,7 +27,8 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
    `Interceptor` starter design. Enemies = the `Raider` starter design from their absolute
    spawn positions, team 1. (`find_schematic` falls back to the first available design when
    a name is missing — see defects.md.)
-4. Core loss in `apply_ship_mutations` emits `ShipDestroyed` and marks the ship `Death`.
+4. Core loss in `apply_body_mutations` emits `ShipDestroyed` and wrecks the surviving
+   components as debris bodies.
 5. The outcome system consumes `ShipDestroyed` in `FixedPostUpdate` after the mutation
    pipeline, queries remaining ships by team, and sets
    `BattleResult { started_at, outcome, duration_secs }`. `OnEnter(BattlePhase::Ended)`

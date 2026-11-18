@@ -3,7 +3,6 @@
 ## Purpose
 
 Shared per-ship cargo pools capacity from storage blocks and collects drops atomically with player-only pickup.
-
 ## Requirements
 ### Requirement: Cargo is shared per ship
 
@@ -15,7 +14,7 @@ Each ship SHALL store cargo in `ShipStats` (`cargo_capacity`, `cargo_used`, `car
 
 ### Requirement: Capacity is pooled from storage blocks
 
-Cargo capacity SHALL equal the sum of `StorageConfig.capacity` over all storage blocks in `ShipGrid` and SHALL be recomputed on `ShipChanged`.
+Cargo capacity SHALL equal the sum of `StorageConfig.capacity` over all storage blocks in `BlockGrid` and SHALL be recomputed on `ShipChanged`. Debris bodies have no cargo capacity.
 
 #### Scenario: Pooled capacity
 - **WHEN** storage blocks of 500 and 500 exist
@@ -60,3 +59,4 @@ The HUD SHALL show `CARGO used / capacity` for the controlled ship, and the paus
 #### Scenario: Storage block has no inventory
 - **WHEN** a storage block spawns
 - **THEN** it has no storage inventory component
+

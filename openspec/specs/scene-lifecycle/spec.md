@@ -3,7 +3,6 @@
 ## Purpose
 
 State-scoped despawning, an explicit schedule contract, and state-driven loading keep scene transitions leak-free.
-
 ## Requirements
 ### Requirement: All scene entities are state-scoped
 
@@ -23,11 +22,11 @@ Systems SHALL be registered into the documented sets: `Input` in `PreUpdate`; `S
 
 ### Requirement: Damage, death, and ship mutation are chained
 
-The pipeline SHALL order collision and damage events, health and death handling, and `ShipMutation` application explicitly within the same fixed tick, without relying on message persistence across frames.
+The pipeline SHALL order collision and damage events, health and death handling, and `BodyMutation` application explicitly within the same fixed tick, without relying on message persistence across frames.
 
 #### Scenario: Lethal damage reaches mutation
 - **WHEN** a block takes lethal damage
-- **THEN** its block entity is marked `Death` and the ship mutation removes its cells before the next frame
+- **THEN** its block entity is removed and the body mutation removes its cells before the next frame
 
 ### Requirement: Load is a state transition
 
@@ -71,3 +70,4 @@ A debug-only system SHALL compare `DespawnOnExit`-tagged roots with spawned game
 #### Scenario: Missing state scope
 - **WHEN** a gameplay entity spawns without a state scope
 - **THEN** the debug audit reports it
+

@@ -5,9 +5,10 @@ use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
         block::{BlockRegistry, Health, Rot90},
+        body::BlockGrid,
         selectable::EntitySelectEvent,
         ship::component::{BoundingBox, Ship},
-        ship::{ShipGrid, ShipStats},
+        ship::ShipStats,
         team::Team,
     },
     resource::{CameraTarget, ControlMode, ControlledShip, SceneState},
@@ -241,7 +242,7 @@ fn update_cargo_hud(
 fn update_ship_list(
     mut commands: Commands,
     ship_list: Single<Entity, With<ShipList>>,
-    ships: Query<(Entity, &Ship, &BoundingBox, &Team, &ShipGrid)>,
+    ships: Query<(Entity, &Ship, &BoundingBox, &Team, &BlockGrid)>,
     healths: Query<&Health>,
     buttons: Query<(Entity, &ShipButton)>,
     state: Res<ControlledShip>,
@@ -521,7 +522,7 @@ mod tests {
                 Ship::default(),
                 Team::new(0),
                 BoundingBox::default(),
-                ShipGrid::new(),
+                BlockGrid::new(),
             ))
             .id();
         let ship_b = app
@@ -530,7 +531,7 @@ mod tests {
                 Ship::default(),
                 Team::new(0),
                 BoundingBox::default(),
-                ShipGrid::new(),
+                BlockGrid::new(),
             ))
             .id();
 

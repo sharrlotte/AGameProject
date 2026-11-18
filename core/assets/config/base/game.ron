@@ -20,4 +20,6 @@
     ai_wander_attack_chance: 0.5,
     ai_wander_guard_chance: 0.5,
     auto_save_interval_secs: 30.0,
+    debris_lifetime_min_seconds: 30.0,
+    debris_lifetime_max_seconds: 60.0,
 )

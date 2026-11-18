@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use crate::content::block::feature::ComponentPlugin;
 use crate::content::block::radar::RadarPlugin;
-use crate::content::ship::apply_ship_mutations;
+use crate::content::body::apply_body_mutations;
 use crate::simulation::SimulationSet;
 
 pub struct BlockPlugin;
@@ -34,7 +34,7 @@ impl Plugin for BlockPlugin {
             .add_systems(
                 FixedPostUpdate,
                 handle_drop
-                    .after(apply_ship_mutations)
+                    .after(apply_body_mutations)
                     .in_set(SimulationSet::Death),
             )
             .add_plugins((RadarPlugin, ComponentPlugin));

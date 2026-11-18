@@ -10,7 +10,7 @@ use crate::content::block::{
 use crate::content::ship::Ship;
 use crate::content::ship::ai::{AiBehavior, AiProfile};
 
-pub const SAVE_SCHEMA_VERSION: u32 = 5;
+pub const SAVE_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Message)]
 pub struct SaveWorldEvent;
@@ -221,6 +221,21 @@ pub struct ShipSnapshot {
     pub blocks: Vec<BlockSnapshot>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DebrisSnapshot {
+    pub team: u8,
+    pub transform: TransformSave,
+    pub velocity: VelocitySave,
+    pub remaining_secs: f32,
+    pub blocks: Vec<BlockSnapshot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum BodySnapshot {
+    Ship(ShipSnapshot),
+    Debris(DebrisSnapshot),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct BattleSave {
     pub mission: String,
@@ -264,7 +279,7 @@ pub struct WorldSave {
     pub camera: CameraSave,
     #[serde(default)]
     pub control: ControlSave,
-    pub ships: Vec<ShipSnapshot>,
+    pub bodies: Vec<BodySnapshot>,
     pub drops: Vec<DropSave>,
     pub rng: RngSave,
 }

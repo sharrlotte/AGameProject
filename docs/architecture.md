@@ -79,12 +79,12 @@ The simulation-set ordering contract is stated here; set ordering is configured 
 | `FixedUpdate` | `Weapons` | turret targeting/tracking, shooting, projectiles, radar, ammo |
 | `FixedUpdate` | `Cleanup` | lifetime countdown |
 | `FixedPostUpdate` | `Damage` | collisions → damage events → health, laser hit resolution |
-| `FixedPostUpdate` | `Death` | block destruction → `ShipMutation` → drops |
+| `FixedPostUpdate` | `Death` | block destruction → `BodyMutation` → debris/drops |
 | `PostUpdate` | `Present` | camera, HUD, indicators, damage text, parallax |
 | `Last` | `Cleanup` | deferred despawns |
 
-`Damage → Death → ShipMutation` is chained inside one fixed tick: `Damage`
-precedes `Death` via `configure_sets`, `apply_ship_mutations` runs after
+`Damage → Death → BodyMutation` is chained inside one fixed tick: `Damage`
+precedes `Death` via `configure_sets`, `apply_body_mutations` runs after
 `handle_block_destroy`, and `handle_drop` runs after the mutation. Message
 persistence across frames is never assumed.
 
@@ -162,6 +162,7 @@ content/
   team.rs        Team { id: u8 } + Rapier collision groups, 16 palette entries
   mod.rs         ContentPlugin — aggregate
   block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, power, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
+  body/          BlockGrid + BodyMutation; debris/ (Debris body, detach/split, expiry drops)
   ship/          Ship, AI controller, movement, UI, indicators, Stat computation
   bullet/        Bullet/Laser/Missile components + all projectile systems
   damage/        Damage/DamageEvent (health decrement + floating text)
@@ -177,6 +178,7 @@ config/          ConfigPlugin: ron loader, boot gate, GameConfig/BlocksConfig/Ga
 
 Workspace lints are configured in the root `Cargo.toml` (`[workspace.lints]`) and inherited by `core/Cargo.toml` via `[lints] workspace = true`:
 
+- `rust::dead_code = "deny"`
 - `rust::unused_variables = "deny"`
 - `rust::unused_imports = "deny"`
 - `clippy::absolute_paths = "deny"`

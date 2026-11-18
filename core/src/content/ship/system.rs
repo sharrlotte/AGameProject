@@ -43,7 +43,7 @@ pub fn update_ship_ui(
         }
 
         if !string.is_empty() {
-            data.entry(owner.ship)
+            data.entry(owner.body)
                 .and_modify(|f| f.push_str(string.as_str()))
                 .or_insert(string);
         }

@@ -230,7 +230,7 @@ pub fn spawn_ship(
     filename: &str,
     ship_base: Entity,
 ) {
-    editor.grid = ShipGrid::new();
+    editor.grid = BlockGrid::new();
     editor.filename = filename.to_string();
 
     if let Some(ship_to_load) = catalog

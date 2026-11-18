@@ -41,5 +41,5 @@ pub struct BlockRef {
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BlockOwner {
-    pub ship: Entity,
+    pub body: Entity,
 }

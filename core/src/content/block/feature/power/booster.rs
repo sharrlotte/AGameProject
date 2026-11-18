@@ -20,12 +20,12 @@ pub fn power_boosters(
 
     for (entity, owner, transform, booster, _) in &boosters {
         let core_pos = ships
-            .get(owner.ship)
+            .get(owner.body)
             .map_or(Vec2::ZERO, |ship| ship.core_position);
 
         let distance_sq = transform.translation.truncate().distance_squared(core_pos);
 
-        by_ship.entry(owner.ship).or_default().push(BoosterInput {
+        by_ship.entry(owner.body).or_default().push(BoosterInput {
             entity,
             distance_sq,
             rate: booster.rate,

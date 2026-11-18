@@ -6,22 +6,20 @@ use crate::constant::{FLASH_OVERLAY_COLOR, LAYER_DROP, LAYER_FLASH_OVERLAY};
 use crate::content::damage::DamageEvent;
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::{ShipGrid, ShipMutation};
+use crate::content::body::{BlockGrid, BodyMutation};
 use crate::resource::SceneState;
 
 
 pub fn handle_block_destroy(
-    mut commands: Commands,
-    mut writer: MessageWriter<ShipMutation>,
-    mut query: Query<(Entity, &Health, &BlockRef, &BlockOwner)>,
+    mut writer: MessageWriter<BodyMutation>,
+    query: Query<(&Health, &BlockRef, &BlockOwner)>,
 ) {
-    for (entity, health, block, owner) in query.iter_mut() {
+    for (health, block, owner) in query.iter() {
         if health.health <= 0.0 {
-            writer.write(ShipMutation::DestroyBlock {
-                ship: owner.ship,
+            writer.write(BodyMutation::DestroyBlock {
+                body: owner.body,
                 block_id: block.id,
             });
-            commands.entity(entity).despawn();
         }
     }
 }
@@ -30,14 +28,14 @@ pub fn handle_block_damage_event(
     mut events: MessageReader<DamageEvent>,
     mut commands: Commands,
     blocks: Query<(&BlockRef, &BlockOwner)>,
-    grids: Query<&ShipGrid>,
+    grids: Query<&BlockGrid>,
     registry: Res<BlockRegistry>,
 ) {
     for event in events.read() {
         let Ok((block, owner)) = blocks.get(event.target) else {
             continue;
         };
-        let Ok(grid) = grids.get(owner.ship) else {
+        let Ok(grid) = grids.get(owner.body) else {
             continue;
         };
         let Some(grid_block) = grid.block(block.id) else {

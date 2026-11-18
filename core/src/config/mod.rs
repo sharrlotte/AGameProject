@@ -181,6 +181,14 @@ fn check_config_ready(
         return;
     };
 
+    if let Err(reason) = game.validate() {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Game,
+            reason,
+        )));
+        return;
+    }
+
     let Some(blocks) = block_assets.get(&handles.blocks) else {
         return;
     };

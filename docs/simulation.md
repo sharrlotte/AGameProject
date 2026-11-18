@@ -5,9 +5,9 @@
 - `BlockPlacement` — static block description (`id`, `position`, `block_type`, `rotation`).
 - `GridBlock` — one live block in a grid (`placement` + `entity`).
 - `BlockRef` / `BlockOwner` — identity and ownership components on block entities.
-- `ShipGrid { blocks: HashMap<Uuid, GridBlock>, cells: HashMap<IVec2, Uuid> }` —
-  authoritative placement and identity. `cells` is derived from `blocks` on every
-  `rebuild_from_layout` (including collider rebuilds).
+- `BlockGrid { blocks: HashMap<Uuid, GridBlock>, cells: HashMap<IVec2, Uuid> }` —
+  authoritative placement and identity for ships and debris. `cells` is derived from
+  `blocks` on every `rebuild_from_layout` (including collider rebuilds).
 - `ShipStats` — single aggregate per ship (mass, health, ranges, power, cargo,
   thrust). Derived by `BlockRegistry::stats_from_grid` on every `ShipChanged`.
 
@@ -73,20 +73,37 @@ player control and AI steering.
 
 ## Destruction and fragmentation
 
-`handle_block_destroy` writes `ShipMutation::DestroyBlock` for blocks at
-`health <= 0`. `apply_ship_mutations` (FixedPostUpdate, `Death` set) batches per
-ship: remove blocks, delete fragments disconnected by Manhattan-1 adjacency of baked
-footprint cells, kill the ship on core loss, rebuild stats/bounds and the compound
-collider from live blocks' baked hitboxes, emit drops, and send `ShipChanged`.
+`handle_block_destroy` writes `BodyMutation::DestroyBlock { body, block_id }` for blocks
+at `health <= 0`; only the mutation removes the block entity, its grid cells, and its
+collider parts. `apply_body_mutations` (FixedPostUpdate, `Death` set) batches per body:
+remove blocks, recompute connected components from Manhattan-1 adjacency of baked
+footprint cells, detach every component that does not contain the core into a `Debris`
+body, kill the ship and wreck every survivor on core loss, rebuild ship stats/bounds and
+each body's compound collider from live baked hitboxes, emit drops, and send
+`ShipChanged` for ships.
+
+## Debris
+
+A `Debris` body is a first-class inert grid body: `Debris`, its own `BlockGrid`, `Team`,
+`RigidBody::Dynamic`, compound collider, mass, `Velocity`, `Lifetime`, and
+`GROUP_DEBRIS`. Blocks keep `Health` and stay damageable. Destroying a debris block
+splits the body recursively: the largest component keeps the entity and the rest become
+new debris bodies. Debris never carries `Ship`, `ShipStats`, `AiRuntime`, or `Throttle`,
+so ship list, AI, HUD, power, turret, cargo, and mission systems ignore it.
+
+Ship components detached on destruction get a random lifetime in the configured
+`debris_lifetime_min_seconds..max_seconds` range; splits inherit the parent's remaining
+time. On expiry a non-player body emits each remaining block's `def.drops` at its world
+position and despawns; player debris yields nothing. Expiry applies no damage or impulse.
+Debris collides with ships and other debris, radar ignores it, and bodies never merge.
 
 ## Ships
 
-`ShipDesign::spawn` builds a `ShipGrid` from a layout (using each placement's rotated
-footprint), derives `ShipBuildResult`, spawns the ship with `RigidBody::Dynamic`,
-compound hitbox collider, `ShipStats`,
-`ShipGrid`, `AiProfile`, `AiRuntime`, `DespawnOnExit(SceneState::Game)`, and
-spawns each block entity with its identity. The debug `ShipUIRoot` shows
-behavior, stats, and pooled cargo.
+`ShipDesign::spawn` builds a `BlockGrid` from a layout (using each placement's rotated
+footprint), derives `GridBuildResult`, spawns the ship with `RigidBody::Dynamic`,
+compound hitbox collider, `ShipStats`, `BlockGrid`, `AiProfile`, `AiRuntime`,
+`DespawnOnExit(SceneState::Game)`, and spawns each block entity with its identity. The
+debug `ShipUIRoot` shows behavior, stats, and pooled cargo.
 
 Movement: player control uses `ExternalForce` (WASD/QE, Pilot mode); AI uses
 `update_ship_behavior` steering intents from `AiBehavior`. Damping is configured

@@ -74,7 +74,7 @@ mod tests {
             },
             camera: CameraSave::default(),
             control: ControlSave::default(),
-            ships: Vec::new(),
+            bodies: Vec::new(),
             drops: Vec::new(),
             rng: RngSave { seed: 1234 },
         };

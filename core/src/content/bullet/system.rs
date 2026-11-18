@@ -21,7 +21,8 @@ use crate::content::block::{
 };
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::{Ship, ShipGrid};
+use crate::content::body::BlockGrid;
+use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::resource::SceneState;
 
@@ -53,7 +54,7 @@ pub fn destroy_out_of_range_bullet(
 
 pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform)>,
-    targets: Query<(&GlobalTransform, &ShipGrid)>,
+    targets: Query<(&GlobalTransform, &BlockGrid)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
 ) {
@@ -525,16 +526,18 @@ pub fn handle_pulling_beam(
                         return true;
                     };
 
-                    if owner.ship == entity {
+                    if owner.body == entity {
                         return true;
                     }
 
-                    if !pulled.insert(owner.ship) {
+                    if !pulled.insert(owner.body) {
                         return true;
                     }
-                    if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.ship) {
+
+                    if let Ok((ship_transform, mut velocity)) = ships.get_mut(owner.body) {
                         let direction =
                             (origin - ship_transform.translation().truncate()).normalize_or_zero();
+                            
                         velocity.linear += direction * PULL_SPEED * supply_val * time.delta_secs();
                     }
 

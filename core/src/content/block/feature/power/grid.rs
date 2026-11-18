@@ -59,13 +59,13 @@ pub fn gather_generation(
     }
 
     for (owner, generator, boost) in &generators {
-        let entry = scratch.ships.entry(owner.ship).or_default();
+        let entry = scratch.ships.entry(owner.body).or_default();
         let multiplier = boost.map_or(1.0, Boost::value);
         entry.generation += generator.output.max(0.0) * multiplier;
     }
 
     for (owner, battery, charge) in &batteries {
-        let entry = scratch.ships.entry(owner.ship).or_default();
+        let entry = scratch.ships.entry(owner.body).or_default();
         let cap = battery.capacity.max(0.0);
         entry.capacity += cap;
         entry.stored += charge.value.clamp(0.0, cap);
@@ -84,7 +84,7 @@ pub fn solve_power_grid(
 
     let mut total_demand = HashMap::<Entity, f32>::new();
     for (owner, demand) in &consumers {
-        *total_demand.entry(owner.ship).or_default() += demand.value.max(0.0);
+        *total_demand.entry(owner.body).or_default() += demand.value.max(0.0);
     }
 
     let mut ship_supply = HashMap::<Entity, f32>::new();
@@ -122,13 +122,13 @@ pub fn solve_power_grid(
     }
 
     for (owner, mut supply) in &mut supplies {
-        if let Some(&value) = ship_supply.get(&owner.ship) {
+        if let Some(&value) = ship_supply.get(&owner.body) {
             supply.value = value;
         }
     }
 
     for (owner, battery, mut charge) in &mut batteries {
-        let Some(&(new_stored, total_cap)) = ship_new_stored.get(&owner.ship) else {
+        let Some(&(new_stored, total_cap)) = ship_new_stored.get(&owner.body) else {
             continue;
         };
         if total_cap > 0.0 {
@@ -329,18 +329,18 @@ mod tests {
         let ship_b = app.world_mut().spawn(ShipStats::default()).id();
 
         app.world_mut()
-            .spawn((BlockOwner { ship: ship_a }, Generator { output: 50.0 }));
+            .spawn((BlockOwner { body: ship_a }, Generator { output: 50.0 }));
         let mut cmds = app.world_mut().commands();
-        let bat1 = cmds.spawn(BlockOwner { ship: ship_a }).id();
+        let bat1 = cmds.spawn(BlockOwner { body: ship_a }).id();
         Battery { capacity: 50.0 }.insert(&mut cmds, bat1);
-        let bat2 = cmds.spawn(BlockOwner { ship: ship_a }).id();
+        let bat2 = cmds.spawn(BlockOwner { body: ship_a }).id();
         Battery { capacity: 50.0 }.insert(&mut cmds, bat2);
         app.world_mut().flush();
 
         app.world_mut()
-            .spawn((BlockOwner { ship: ship_b }, Generator { output: 5.0 }));
+            .spawn((BlockOwner { body: ship_b }, Generator { output: 5.0 }));
         app.world_mut().spawn((
-            BlockOwner { ship: ship_b },
+            BlockOwner { body: ship_b },
             Demand { value: 10.0 },
             Supply::default(),
         ));
@@ -376,7 +376,7 @@ mod tests {
         let generator = app
             .world_mut()
             .spawn((
-                BlockOwner { ship },
+                BlockOwner { body: ship },
                 Generator { output: 25.0 },
                 Boost { value: 1.0 },
             ))

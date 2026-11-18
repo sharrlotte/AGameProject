@@ -1,16 +1,16 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 use crate::content::block::{BlockDef, BlockPlacement, BlockRegistry, GridBlock};
 
 #[derive(Component, Debug, Default)]
-pub struct ShipGrid {
+pub struct BlockGrid {
     pub blocks: HashMap<Uuid, GridBlock>,
     pub cells: HashMap<IVec2, Uuid>,
 }
 
-impl ShipGrid {
+impl BlockGrid {
     pub fn new() -> Self {
         Self::default()
     }
@@ -32,12 +32,6 @@ impl ShipGrid {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn entity_at(&self, cell: IVec2) -> Option<Entity> {
-        let id = self.cells.get(&cell)?;
-        self.blocks.get(id).map(|block| block.entity)
-    }
-
     pub fn block(&self, id: Uuid) -> Option<&GridBlock> {
         self.blocks.get(&id)
     }
@@ -56,9 +50,45 @@ impl ShipGrid {
         self.blocks.values()
     }
 
-    #[allow(dead_code)]
-    pub fn occupied_cells(&self) -> impl Iterator<Item = (&IVec2, &Uuid)> {
-        self.cells.iter()
+    pub fn components(&self, registry: &BlockRegistry) -> Vec<Vec<Uuid>> {
+        let mut visited: HashSet<Uuid> = HashSet::new();
+        let mut components = Vec::new();
+
+        for id in self.blocks.keys() {
+            if !visited.insert(*id) {
+                continue;
+            }
+
+            let mut component = Vec::new();
+            let mut queue = vec![*id];
+
+            while let Some(current) = queue.pop() {
+                component.push(current);
+
+                let Some(block) = self.block(current) else {
+                    continue;
+                };
+                let Some(def) = registry.get_symbol(&block.placement.block_type) else {
+                    continue;
+                };
+
+                let footprint = def.shape.get(block.placement.rotation).0;
+                for offset in footprint.cells() {
+                    let cell = block.placement.position + *offset;
+                    for direction in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+                        if let Some(neighbor) = self.cells.get(&(cell + direction))
+                            && visited.insert(*neighbor)
+                        {
+                            queue.push(*neighbor);
+                        }
+                    }
+                }
+            }
+
+            components.push(component);
+        }
+
+        components
     }
 
     pub fn rebuild_from_layout(&mut self, layout: &[BlockPlacement], registry: &BlockRegistry) {
@@ -74,26 +104,6 @@ impl ShipGrid {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn refresh_cells(&mut self, registry: &BlockRegistry) {
-        self.cells.clear();
-        let blocks: Vec<(Uuid, IVec2, Vec<IVec2>)> = self
-            .blocks
-            .iter()
-            .filter_map(|(id, block)| {
-                let def = registry.get_symbol(&block.placement.block_type)?;
-                let footprint = def.shape.get(block.placement.rotation).0;
-                
-                Some((*id, block.placement.position, footprint.cells().to_vec()))
-            })
-            .collect();
-
-        for (id, position, cells) in blocks {
-            for offset in cells {
-                self.cells.insert(position + offset, id);
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -101,6 +111,17 @@ mod tests {
     use super::*;
     use crate::constant::GRID_SIZE;
     use crate::content::block::{BakedShape, BlockDef, BlockRegistry, Rot90, ShapeSpec, Xform};
+
+    impl BlockGrid {
+        fn entity_at(&self, cell: IVec2) -> Option<Entity> {
+            let id = self.cells.get(&cell)?;
+            self.blocks.get(id).map(|block| block.entity)
+        }
+
+        fn occupied_cells(&self) -> impl Iterator<Item = (&IVec2, &Uuid)> {
+            self.cells.iter()
+        }
+    }
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
         def_shape(block_type, group, mass, health, ShapeSpec::Square(1))
@@ -143,7 +164,7 @@ mod tests {
     #[test]
     fn cells_follow_shapes_and_removals() {
         let registry = registry();
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
         grid.rebuild_from_layout(&layout(), &registry);
 
         assert_eq!(grid.occupied_cells().count(), 2);
@@ -158,7 +179,7 @@ mod tests {
     #[test]
     fn stats_and_bounds_come_from_grid() {
         let registry = registry();
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
         grid.rebuild_from_layout(&layout(), &registry);
 
         let stats = registry.stats_from_grid(&grid).unwrap();
@@ -174,9 +195,9 @@ mod tests {
     }
 
     #[test]
-    fn core_loss_becomes_fragment() {
+    fn core_loss_yields_no_build_result() {
         let registry = registry();
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
         grid.rebuild_from_layout(&layout(), &registry);
 
         let core_id = grid.block_at(IVec2::ZERO).unwrap().placement.id;
@@ -184,11 +205,7 @@ mod tests {
 
         assert!(registry.core_of(&grid).is_none());
         assert!(registry.stats_from_grid(&grid).is_none());
-
-        let build = registry.build_ship_result(&grid);
-        assert!(build.ship.is_none());
-        assert_eq!(build.fragments.len(), 1);
-        assert_eq!(build.fragments[0].placements.len(), 1);
+        assert!(registry.build_grid_result(&grid).is_none());
     }
 
     #[test]
@@ -235,7 +252,7 @@ mod tests {
             ),
         );
 
-        let mut grid = ShipGrid::new();
+        let mut grid = BlockGrid::new();
         let rotated = BlockPlacement::new(IVec2::new(10, 10), "core", Rot90::R90);
         let ring = BlockPlacement::new(IVec2::new(-5, -5), "ring", Rot90::R0);
         grid.insert_block(rotated.clone(), Entity::PLACEHOLDER, registry.get_symbol("core").unwrap());

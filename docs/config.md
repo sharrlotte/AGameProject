@@ -108,8 +108,10 @@ The schema is owned by the files themselves (`deny_unknown_fields`); the values 
 document are illustrative, not normative:
 
 - `config/base/game.ron` — flat map of scalars: damping, thrust/turn factors, drop tuning,
-  `max_ships`, zoom bounds, missile/bullet/laser feel, AI tuning, and
-  `auto_save_interval_secs`.
+  `max_ships`, zoom bounds, missile/bullet/laser feel, AI tuning,
+  `debris_lifetime_min_seconds` / `debris_lifetime_max_seconds`, and
+  `auto_save_interval_secs`. The debris range is validated at load: both bounds must be
+  positive and the maximum must be at least the minimum.
 - `config/base/block.ron` — `blocks:` map keyed by plain `String` id; each entry: `name`,
   `block_group`, `mass`, `health`, `cost`, `shape` (`ShapeSpec`), `features` (`Texture`,
   `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`, `Storage`), `drops`.
