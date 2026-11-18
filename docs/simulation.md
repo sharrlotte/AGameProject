@@ -22,7 +22,12 @@ edge (Manhattan distance 1) with another block. Shapes are authored as `ShapeSpe
 (`Square`, `Rect`, `Triangle`, `Rows`) and baked once at config load into four
 `(Footprint, Hitbox)` pairs — one per placement rotation. `core` is `Square(3)`-sized
 (`Rect((3,3))`), `spectre` `Rect((3,3))`, `foreshadow` `Rect((3,9))`; triangles and
-`Rows` masks are supported for non-rectangular footprints.
+`Rows` masks are supported for non-rectangular footprints. Five hull-only triangle
+definitions ship as `wedge_1x1` (`Triangle(Right, (1,1))`), `cap_1x1`
+(`Triangle(Isosceles, (1,1))`), `plate_2x2` (`Triangle(Right, (2,2))`), `fin_1x2`
+(`Triangle(Isosceles, (1,2))`) and `spike_1x3` (`Triangle(Isosceles, (1,3))`).
+Their polygon hitboxes match their alpha, and their mass, health, cost and steel
+drops are 60% of a same-cell-count square, per size.
 
 `BlockDef` fields: `name`, `block_type`, `block_group`, `mass`, `health`,
 `shape`, `cost`, `features: Vec<Feature>`, `drops`. `BlockRegistry` (resource)
@@ -116,18 +121,19 @@ Two starter `ShipDesign` documents are embedded via `include_str!` in
 before the directory is loaded into `ShipCatalog`. `quick-battle.ron` selects them
 by name: `Interceptor` for the player, `Raider` for enemies.
 
-Both starters use one 3×3 `core` at grid cell `(-1, -1)` and 1-cell parts at
-`R0`. Layouts are connected, non-overlapping, and satisfy `validate_ship`.
-Composition:
+Both starters use one 3×3 `core` at grid cell `(-1, -1)`. Layouts are connected,
+non-overlapping, and satisfy `validate_ship`. Composition:
 
-| Design | Parts | Structure | Armor | Weapons | Support |
-|---|---|---|---|---|---|
-| `Interceptor` | 40 | 21 `hull` | 6 `block_steel` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
-| `Raider` | 47 | 27 `hull` | 6 `block_scrap` | 3 `swarmer` | 4 `thruster_small`, 3 `reactor`, 2 `battery`, 1 `booster` |
+| Design | Parts | Structure | Weapons | Support |
+|---|---|---|---|---|
+| `Interceptor` | 44 | 14 `hull`, 12 `wedge_1x1`, 2 `plate_2x2`, 2 `cap_1x1`, 1 `spike_1x3` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `Raider` | 57 | 23 `hull`, 14 `wedge_1x1`, 2 `plate_2x2`, 2 `fin_1x2`, 2 `cap_1x1`, 1 `spike_1x3` | 3 `swarmer` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
 
-The interceptor is a narrow dart with turrets at the nose and wingtips; the
-raider is a wider wedge with turrets on the nose and outer wings. Both carry
-enough generation to cover their consumers without drawing down batteries.
+The interceptor is a narrow arrow with an isosceles nose spike and wedge leading
+edges; the raider is a broad swept wedge with fins on the trailing wings and
+turrets at the wingtips and nose. Both fit within their grid envelopes
+(`x=-5..5, y=-5..6` and `x=-6..6, y=-5..5`) and carry enough generation to cover
+their consumers without drawing down batteries.
 AI profiles, design names, ids, and schema version are defined by the starter
 documents and are independent of the block layout.
 
