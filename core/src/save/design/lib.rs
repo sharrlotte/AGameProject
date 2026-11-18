@@ -7,6 +7,8 @@ use crate::save::document::{DocumentError, data_dir, parse_document, read_docume
 
 pub const INTERCEPTOR: &str = include_str!("../../../assets/config/starter/interceptor.ron");
 pub const RAIDER: &str = include_str!("../../../assets/config/starter/raider.ron");
+pub const B2: &str = include_str!("../../../assets/config/starter/b2.ron");
+pub const BLACKBIRD: &str = include_str!("../../../assets/config/starter/blackbird.ron");
 
 pub fn designs_dir_in(base: &Path) -> PathBuf {
     base.join("designs")
@@ -35,7 +37,12 @@ pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
         return Vec::new();
     }
 
-    for (name, text) in [("interceptor.ron", INTERCEPTOR), ("raider.ron", RAIDER)] {
+    for (name, text) in [
+        ("interceptor.ron", INTERCEPTOR),
+        ("raider.ron", RAIDER),
+        ("b2.ron", B2),
+        ("blackbird.ron", BLACKBIRD),
+    ] {
         let path = dir.join(name);
         if let Err(e) = fs::write(&path, text) {
             warn!("Failed to refresh starter design {name}: {e}");
@@ -44,7 +51,12 @@ pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
 
     let mut designs = read_designs_dir(&dir);
     if designs.is_empty() {
-        for (name, text) in [("interceptor.ron", INTERCEPTOR), ("raider.ron", RAIDER)] {
+        for (name, text) in [
+            ("interceptor.ron", INTERCEPTOR),
+            ("raider.ron", RAIDER),
+            ("b2.ron", B2),
+            ("blackbird.ron", BLACKBIRD),
+        ] {
             match parse_document::<ShipDesign>(text) {
                 Ok(design) => designs.push(design),
                 Err(e) => warn!("Starter design {name} failed to parse: {e}"),
@@ -89,12 +101,15 @@ pub fn save_design_file_in(base: &Path, design: &ShipDesign) -> Result<(), Docum
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content::block::{BlockPlacement, Rot90};
+    use crate::config::BlocksConfig;
+    use crate::content::block::{BlockPlacement, BlockRegistry, Rot90};
     use crate::save::design::DESIGN_SCHEMA_VERSION;
+    use bevy::asset::{AssetApp, AssetPlugin, AssetServer};
+    use bevy::prelude::Image;
 
     #[test]
     fn starters_are_valid_documents() {
-        for text in [INTERCEPTOR, RAIDER] {
+        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD] {
             let design = parse_document::<ShipDesign>(text).expect("starter parses");
             assert_eq!(design.version, DESIGN_SCHEMA_VERSION);
             assert!(!design.blocks.is_empty());
@@ -104,6 +119,34 @@ mod tests {
                     .iter()
                     .any(|b: &BlockPlacement| b.block_type == "core")
             );
+        }
+    }
+
+    #[test]
+    fn starters_pass_validate_ship() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>();
+        let server = app.world().resource::<AssetServer>().clone();
+
+        let config: BlocksConfig = ron::from_str(include_str!(
+            "../../../assets/config/base/block.ron"
+        ))
+        .expect("shipped block config parses");
+        let mut registry = BlockRegistry::default();
+        for (key, def) in &config.blocks {
+            let def = def
+                .clone()
+                .into_def(&server, key.clone())
+                .unwrap_or_else(|error| panic!("block {key} failed to build: {error}"));
+            registry.register(key, def);
+        }
+
+        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD] {
+            let design = parse_document::<ShipDesign>(text).expect("starter parses");
+            registry
+                .validate_ship(&design.blocks)
+                .unwrap_or_else(|errors| panic!("starter {} invalid: {errors:?}", design.name));
         }
     }
 

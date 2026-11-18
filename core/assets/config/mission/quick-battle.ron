@@ -10,12 +10,22 @@
         (
             team: 1,
             position: (6000.0, 0.0),
-            schematic_name: "Raider",
+            schematic_name: "B2",
         ),
         (
             team: 1,
             position: (-6000.0, 0.0),
+            schematic_name: "Blackbird",
+        ),
+        (
+            team: 1,
+            position: (6000.0, 6000.0),
             schematic_name: "Raider",
+        ),
+        (
+            team: 1,
+            position: (-6000.0, 6000.0),
+            schematic_name: "Interceptor",
         ),
     ],
     objective: DestroyEnemyCore,
