@@ -208,7 +208,8 @@ pub fn spawn_block_entity(
     team: Team,
     config: &GameConfigValue,
 ) -> Entity {
-    let half_size = def.get_pixel_size() / 2.0;
+    let pixel_size = def.get_pixel_size();
+    let half_size = pixel_size / 2.0;
     let mut transform = def.to_transform(placement.position);
 
     // Use the first texture's z as the block sprite's render layer so the
@@ -250,7 +251,7 @@ pub fn spawn_block_entity(
                 Transform::from_translation(extra.offset.extend(extra.z)),
                 Sprite {
                     image: extra.image.clone(),
-                    custom_size: Some(def.get_pixel_size()),
+                    custom_size: Some(pixel_size),
                     ..default()
                 },
             ))
@@ -259,7 +260,7 @@ pub fn spawn_block_entity(
     }
 
     for feature in &def.features {
-        feature.insert(commands, block, def, &team, config);
+        feature.insert(commands, block, pixel_size, &team, config);
     }
 
     block

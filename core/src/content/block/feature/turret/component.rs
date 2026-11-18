@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::content::block::{
-    component::{BlockDef, ShootPattern, TargetingStrategy},
+    component::{ShootPattern, TargetingStrategy},
     feature::{
         ammo::Ammo,
         power::{Boost, Demand, Supply},
@@ -39,7 +39,7 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, pixel_size: Vec2) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -75,7 +75,7 @@ impl TurretComponent {
                 Transform::from_translation(self.offset.extend(self.z)),
                 Sprite {
                     image: self.image.clone(),
-                    custom_size: Some(def.get_pixel_size()),
+                    custom_size: Some(pixel_size),
                     ..default()
                 },
                 TurretSprite,

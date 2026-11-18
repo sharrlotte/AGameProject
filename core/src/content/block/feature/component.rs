@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use crate::config::GameConfigValue;
 use crate::content::{
     block::{
-        component::BlockDef,
         feature::{
             power::{Battery, Booster, Consumer, Generator},
             sprite::Texture,
@@ -31,13 +30,13 @@ impl Feature {
         &self,
         commands: &mut Commands,
         base: Entity,
-        def: &BlockDef,
+        pixel_size: Vec2,
         _team: &Team,
         config: &GameConfigValue,
     ) {
         match self {
-            Self::Texture(sprite) => sprite.insert(commands, base, def),
-            Self::Turret(turret) => turret.insert(commands, base, def),
+            Self::Texture(sprite) => sprite.insert(commands, base, pixel_size),
+            Self::Turret(turret) => turret.insert(commands, base, pixel_size),
             Self::Thruster(thruster) => thruster.insert(commands, base, config),
             Self::Generator(generator) => generator.insert(commands, base),
             Self::Battery(battery) => battery.insert(commands, base),

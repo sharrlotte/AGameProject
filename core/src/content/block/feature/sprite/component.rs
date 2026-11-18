@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use crate::content::block::BlockDef;
-
 #[derive(Clone, PartialEq, Reflect)]
 pub struct Texture {
     pub image: Handle<Image>,
@@ -11,10 +9,10 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn insert(&self, commands: &mut Commands, base: Entity, def: &BlockDef) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, pixel_size: Vec2) {
         commands.entity(base).insert(Sprite {
             image: self.image.clone(),
-            custom_size: Some(def.get_pixel_size()),
+            custom_size: Some(pixel_size),
             ..default()
         });
     }
