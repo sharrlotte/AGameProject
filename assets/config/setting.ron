@@ -1,4 +1,8 @@
 (
     volume: 0.5,
     bloom: true,
+    keys: (
+        rotate_ccw: KeyQ,
+        rotate_cw: KeyE,
+    ),
 )

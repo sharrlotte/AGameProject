@@ -1,12 +1,12 @@
 (
-    version: 1,
+    version: 2,
     id: "9d2b1c30-8e5f-4b22-ad4e-2f6a7b8c9d01",
     name: "Raider",
     blocks: [
-        (id: "9d2b1c31-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (0, 0), block_type: "core", rotation: 0),
-        (id: "9d2b1c32-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (3, 1), block_type: "hull", rotation: 0),
-        (id: "9d2b1c33-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (4, 1), block_type: "thruster_small", rotation: 0),
-        (id: "9d2b1c34-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (2, 3), block_type: "swarmer", rotation: 0),
+        (id: "9d2b1c31-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (0, 0), block_type: "core", rotation: R0),
+        (id: "9d2b1c32-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (3, 1), block_type: "hull", rotation: R0),
+        (id: "9d2b1c33-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (4, 1), block_type: "thruster_small", rotation: R0),
+        (id: "9d2b1c34-8e5f-4b22-ad4e-2f6a7b8c9d01", position: (2, 3), block_type: "swarmer", rotation: R0),
     ],
     ai: (
         initial: Wander(radius: 600.0),

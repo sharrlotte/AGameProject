@@ -16,9 +16,13 @@ The old `BlockData`, `Block`, `BlockState`, `Blocks`, `ShipData`, `ShipState`,
 
 ## Blocks
 
-Grid cell = `GRID_SIZE = 64.0` px. A block occupies the cells of its `BlockShape`;
-placement validity in the editor requires face-match connectivity. Multi-cell
-blocks use a filled voxel rectangle (`core` is 3×3, `spectre` 3×3, `foreshadow` 3×9).
+Grid cell = `GRID_SIZE = 64.0` px. A block occupies the cells of its baked `Footprint`
+for its placement `Rot90`; placement validity in the editor requires a shared orthogonal
+edge (Manhattan distance 1) with another block. Shapes are authored as `ShapeSpec`
+(`Square`, `Rect`, `Triangle`, `Rows`) and baked once at config load into four
+`(Footprint, Hitbox)` pairs — one per placement rotation. `core` is `Square(3)`-sized
+(`Rect((3,3))`), `spectre` `Rect((3,3))`, `foreshadow` `Rect((3,9))`; triangles and
+`Rows` masks are supported for non-rectangular footprints.
 
 `BlockDef` fields: `name`, `block_type`, `block_group`, `mass`, `health`,
 `shape`, `cost`, `features: Vec<Feature>`, `drops`. `BlockRegistry` (resource)
@@ -29,10 +33,20 @@ Features (`FeatureConfig`/`Feature`, shared between RON config and runtime):
 `Texture`, `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`,
 `Storage` (capacity only). Power components are shared between serde and runtime.
 
-Block entities carry `BlockRef`, `BlockOwner`, `Health`, `Team`, a sensor
-`Collider` in a per-team hitbox layer, and all feature components. The only
-child is the rotating turret barrel (`TurretSprite`); extra textures are
-render-only children.
+Block entities carry `BlockRef`, `BlockOwner`, `Health`, `Team`, the placement
+translation and `Rot90` rotation, a sensor `Collider` built from the baked hitbox in a
+per-team hitbox layer, and all feature components (components stay on the block entity so
+save/load reads them directly). A `Visual` child applies the definition rotation and flips
+as signed scale; textures and the rotating turret barrel (`TurretSprite`) are its children.
+Art is authored once for the base shape with alpha matching the true shape, so one texture
+serves all four definition rotations and the collider never sees negative scale. Turret
+aim compensates for a mirrored `Visual` so barrels point at targets in world space.
+
+Hitboxes follow the shape: `Square`/`Rect` → cuboid, `Triangle` → convex polygon of the
+true triangle, `Rows` → compound of per-cell cuboids, each in block-local pixel space
+centered on the footprint bounding box for that rotation. The ship physics collider is a
+`Collider::compound` of the baked hitboxes of live blocks, positioned at each block's
+footprint center; it replaces the old voxel-point collider.
 
 ## Power
 
@@ -61,14 +75,15 @@ player control and AI steering.
 
 `handle_block_destroy` writes `ShipMutation::DestroyBlock` for blocks at
 `health <= 0`. `apply_ship_mutations` (FixedPostUpdate, `Death` set) batches per
-ship: remove blocks, delete detached fragments, kill the ship on core loss,
-rebuild stats/bounds/collider from `ShipGrid.cells`, emit drops, and send
-`ShipChanged`. Colliders are rebuilt from `grid.cells` only.
+ship: remove blocks, delete fragments disconnected by Manhattan-1 adjacency of baked
+footprint cells, kill the ship on core loss, rebuild stats/bounds and the compound
+collider from live blocks' baked hitboxes, emit drops, and send `ShipChanged`.
 
 ## Ships
 
-`ShipDesign::spawn` builds a `ShipGrid` from a layout, derives `ShipBuildResult`,
-spawns the ship with `RigidBody::Dynamic`, voxel collider, `ShipStats`,
+`ShipDesign::spawn` builds a `ShipGrid` from a layout (using each placement's rotated
+footprint), derives `ShipBuildResult`, spawns the ship with `RigidBody::Dynamic`,
+compound hitbox collider, `ShipStats`,
 `ShipGrid`, `AiProfile`, `AiRuntime`, `DespawnOnExit(SceneState::Game)`, and
 spawns each block entity with its identity. The debug `ShipUIRoot` shows
 behavior, stats, and pooled cargo.

@@ -1,4 +1,4 @@
-# Persistence Spec — Designs, Campaign, and World Save (v4)
+# Persistence Spec — Designs, Campaign, and World Save (v5 / design v2)
 
 ## Module Layout
 
@@ -10,7 +10,7 @@ core/src/save/
 ├── document.rs     RonDocument trait, DocumentError, parse/read/write_document, atomic_write, data_dir
 ├── design/         DesignSavePlugin, ShipCatalog (Resource), starter seeding, design file I/O
 ├── campaign/       CampaignSavePlugin, CampaignSave (Resource), campaign progression & reset
-└── battle/         BattleSavePlugin, BattleSaveState (Resource), WorldSave (v4), capture & restore
+└── battle/         BattleSavePlugin, BattleSaveState (Resource), WorldSave (v5), capture & restore
 ```
 
 ## Locations
@@ -34,17 +34,19 @@ All persistent save domains are cached in ECS memory as Bevy `Resource`s initial
 - `CampaignSave` (`save::campaign::CampaignSave`): loaded once at startup; updated via `CampaignSave::record_victory` and `CampaignSave::reset`.
 - `BattleSaveState` (`save::battle::BattleSaveState`): tracks `has_save: bool` in memory so `Home` and `Settings` never poll the filesystem on UI updates.
 
-## Design Format (`DESIGN_SCHEMA_VERSION = 1`)
+## Design Format (`DESIGN_SCHEMA_VERSION = 2`)
 
-`designs/<name>.ron`, written by `ShipCatalog::save_design`:
+`designs/<name>.ron`, written by `ShipCatalog::save_design`. `BlockPlacement.rotation` is
+a `Rot90` (`R0`, `R90`, `R180`, `R270`) serialized by variant name. v1 designs are rejected
+by the version check and left untouched on disk.
 
 ```ron
 (
-  version: 1,
+  version: 2,
   id: "<uuid-v7>",
   name: "My Ship",
   blocks: [
-    (id: "<uuid>", position: (0, 0), block_type: "core", rotation: 0),
+    (id: "<uuid>", position: (0, 0), block_type: "core", rotation: R0),
   ],
   ai: (
     initial: Idle,
@@ -57,15 +59,15 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
 
 ## Document API
 
-`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 4), `CampaignSave` (version 1), and `ShipDesign` (version 1).
+`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 5), `CampaignSave` (version 1), and `ShipDesign` (version 2).
 
-## World Battle Format (`SAVE_SCHEMA_VERSION = 4`)
+## World Battle Format (`SAVE_SCHEMA_VERSION = 5`)
 
 `SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active. `BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
 
 ```ron
 (
-  version: 4,
+  version: 5,
   saved_at_unix_ms: 1700000000000,
   battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: None),
   camera: (x: 12.0, y: -4.0, zoom: 3.0, following: Some("<ship-uuid>")),
@@ -86,7 +88,7 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
       ),
       blocks: [
         (
-          placement: (id: "<block-uuid>", position: (0, 0), block_type: "core", rotation: 0),
+          placement: (id: "<block-uuid>", position: (0, 0), block_type: "core", rotation: R0),
           health: 5000.0,
           max_health: 5000.0,
           battery_charge: Some(100.0),

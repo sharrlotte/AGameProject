@@ -20,7 +20,8 @@
 
 | Input | Action |
 |---|---|
-| Left click (release, no drag) | place block (face-connected) |
+| Left click (release, no drag) | place block at the pending rotation (must share an orthogonal edge) |
+| `Q` / `E` | rotate pending block CCW / CW (from `setting.ron` → `keys`) |
 | Left+drag | pan camera |
 | Right click (hold) | delete block |
 | Mouse wheel | zoom `[0.1, 5.0]` |

@@ -4,8 +4,9 @@
 
 - Hardcoded game balance data lives in `.ron` files under `core/assets/config/` with hot
   reload (bevy AssetServer + `file_watcher`, dev-only).
-- Game settings (`GameSetting`: volume, bloom) are file-backed `.ron` with hot reload and
-  save-on-change.
+- Game settings (`GameSetting`: volume, bloom, `keys`) are file-backed `.ron` with hot reload
+  and save-on-change. `keys` holds `rotate_ccw`/`rotate_cw` (defaults `KeyQ`/`KeyE`) and is
+  merged field-by-field with defaults when absent.
 - Single source of truth: the `.ron` files are the only definition of balance data; this
   doc describes the design, not the current values.
 
@@ -32,7 +33,7 @@
   Hot-reload failure = `error!` log + keep last good values (no crash mid-session).
   `setting.ron` missing/corrupt at boot = fall back to defaults + `warn!`.
 - `setting.ron` lives in `core/assets/config/setting.ron` (inside the asset root so it is
-  watched by the same pipeline).
+  watched by the same pipeline). Its `keys` section is optional and merged with defaults.
 - `game.ron` is a single flat file; `deny_unknown_fields`.
 
 ## Files
@@ -110,9 +111,44 @@ document are illustrative, not normative:
   `max_ships`, zoom bounds, missile/bullet/laser feel, AI tuning, and
   `auto_save_interval_secs`.
 - `config/base/block.ron` — `blocks:` map keyed by plain `String` id; each entry: `name`,
-  `block_group`, `mass`, `health`, `cost`, `shape` (`size` + filled-rectangle `voxels`
-  with `connectable_faces` bit flags), `features` (`Texture`, `Turret`, `Generator`,
-  `Battery`, `Consumer`, `Booster`, `Thruster`, `Storage`), `drops`.
+  `block_group`, `mass`, `health`, `cost`, `shape` (`ShapeSpec`), `features` (`Texture`,
+  `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`, `Storage`), `drops`.
+
+### Shape spec (`ShapeSpec`)
+
+`shape` is a single value, with no separate `size` or `voxels` field:
+
+```ron
+shape: Square(3),
+shape: Rect((3, 5)),
+shape: Triangle(base: Right, size: (3, 3)),
+shape: Triangle(base: Isosceles, size: (5, 3), xform: (rotate: R90, flip_x: true)),
+shape: Rows(art: ["###", "#.#", "###"]),
+```
+
+- `Square(n)` is an `n×n` grid; `Rect((w, h))` is a filled `w×h` grid.
+- `Triangle` bases are `Right` and `Isosceles`, rasterized by an integer center-in rule;
+  its rasterized bounding box must equal the declared `size`.
+- `Rows` uses `#` for filled and `.` for empty. Rows must be rectangular, contain at least
+  one `#`, use only those two characters, and have no empty border row or column.
+- `Triangle` and `Rows` carry `xform: (rotate, flip_x, flip_y)`, defaulting to identity.
+
+**Transform order:** base cells → definition `Xform` (rotate CCW, then `flip_x`, then
+`flip_y`) → normalize to min `(0,0)` → placement `Rot90` (CCW) → normalize again. `size`
+is recomputed after each normalization, so `Rect((3,5))` at `R90` has size `(5,3)`.
+
+**Baking and validation:** each spec is validated and baked once at config load (and on
+hot reload) by `TryFrom<&ShapeSpec> for BakedShape`. Baking rejects non-positive
+dimensions, malformed `Rows`, a triangle whose raster does not span its declared size,
+zero cells, disconnected cells, and a triangle with no buildable convex hull. Failures
+name the block key and move `ConfigState` to `Error` on boot; on hot reload the last good
+registry is kept and the error is logged. `BlockDef` holds only the read-only baked form:
+four `(Footprint, Hitbox)` pairs keyed by placement `Rot90`, exposed as slices/values.
+
+**Art convention:** art is authored once for the base, untransformed shape; its alpha
+matches the true shape (e.g. smooth triangle edges). Cells govern grid occupancy and
+connection only. The `Visual` child applies definition rotation and flips as signed scale;
+the block entity carries only placement rotation so colliders never see negative scale.
 
 Usage sites read `Res<GameConfigValue>` / `BlockRegistry` instead of `constant::X`.
 `constant.rs` keeps only grid/layer/color/audio constants; gameplay constants moved into
@@ -125,8 +161,9 @@ Usage sites read `Res<GameConfigValue>` / `BlockRegistry` instead of `constant::
 - Registry keys are plain `String` ids: `block.ron` is keyed by id and `BlockRegistry`
   exposes `get_symbol(key)`. `ItemDrop.item_type` is a `String`.
 - `Vec2`/`IVec2`: bevy `serialize` feature provides serde support.
-- `BlockDefConfig::into_def(assets: &AssetServer, key) -> BlockDef` converts and loads
-  handles.
+- `BlockDefConfig::into_def(assets: &AssetServer, key) -> Result<BlockDef, ShapeSpecError>`
+  bakes the shape spec (validating it) and loads handles; conversion failures include the
+  block key and are routed to `ConfigState::Error`.
 - Turret shoot sound (`BurstShootPattern.shoot_sound`) stays a path string in config →
   resolved at conversion.
 - `PreStartup` block registration is gone; the registry is built in the boot sequence.

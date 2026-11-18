@@ -2,6 +2,7 @@ use bevy::{math::FloatPow, prelude::*};
 use std::f32::consts::PI;
 
 use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
+use crate::content::block::TurretMirror;
 use crate::{
     content::{
         block::{
@@ -118,6 +119,12 @@ pub fn lead_point(origin: Vec2, target: Vec2, velocity: Vec2, projectile_speed: 
         target
     }
 }
+
+fn aim_turn(angle_error: f32, mirrored: bool, max_turn: f32) -> f32 {
+    let sign = if mirrored { -1.0 } else { 1.0 };
+    (angle_error * sign).clamp(-max_turn, max_turn)
+}
+
 
 fn has_core(grid: &ShipGrid, ship: &Ship) -> bool {
     grid.block(ship.core_id).is_some()
@@ -271,11 +278,11 @@ pub fn update_turret_target(
 pub fn turret_tracking(
     mut barrel_transforms: Query<&mut Transform, With<TurretSprite>>,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    turrets: Query<(&Turret, &TurretState, &TurretBarrel)>,
+    turrets: Query<(&Turret, &TurretState, &TurretBarrel, Option<&TurretMirror>)>,
     time: Res<Time>,
     transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
-    for (turret, state, barrel_ref) in &turrets {
+    for (turret, state, barrel_ref, mirror) in &turrets {
         let turn_speed = turret.turn_speed;
 
         if turn_speed == 0. {
@@ -318,7 +325,8 @@ pub fn turret_tracking(
             let target_dir = to_target.normalize_or_zero();
             let angle_error: f32 = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
             let max_turn = turn_speed * time.delta_secs();
-            let turn = angle_error.clamp(-max_turn, max_turn);
+            let mirrored = mirror.is_some_and(|value| value.0);
+            let turn = aim_turn(angle_error, mirrored, max_turn);
 
             if let Ok(mut transform) = barrel_transforms.get_mut(barrel_ref.0) {
                 transform.rotate_z(turn);
@@ -339,6 +347,26 @@ mod tests {
             health,
             priority: 0.0,
             id,
+        }
+    }
+
+    #[test]
+    fn turret_aim_respects_mirrored_visual() {
+        let target = Vec2::new(1.0, 0.0);
+        let world_forward = Vec2::Y;
+
+        for mirrored in [false, true] {
+            let error = world_forward.perp_dot(target).atan2(world_forward.dot(target));
+            let angle = 0.0 + aim_turn(error, mirrored, std::f32::consts::FRAC_PI_2);
+            let forward = if mirrored {
+                Vec2::new(angle.sin(), angle.cos())
+            } else {
+                Vec2::new(-angle.sin(), angle.cos())
+            };
+            assert!(
+                forward.distance(target) < 1e-3,
+                "mirrored={mirrored} should aim at {target:?}, got {forward:?}"
+            );
         }
     }
 

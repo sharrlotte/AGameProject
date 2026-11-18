@@ -26,7 +26,7 @@ use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
 
 
-#[derive(States, Clone, Copy, Eq, Hash, PartialEq, Default, Debug)]
+#[derive(States, Clone, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
     #[default]
     Loading,
@@ -35,9 +35,10 @@ pub enum ConfigState {
 }
 
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
+#[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct ConfigError {
     pub failed: ConfigFile,
+    detail: Option<String>,
 }
 
 
@@ -50,13 +51,28 @@ pub enum ConfigFile {
 
 impl ConfigError {
     fn new(failed: ConfigFile) -> Self {
-        Self { failed }
+        Self {
+            failed,
+            detail: None,
+        }
     }
 
-    pub fn message(&self) -> &'static str {
-        match self.failed {
+    pub fn with_detail(failed: ConfigFile, detail: impl Into<String>) -> Self {
+        Self {
+            failed,
+            detail: Some(detail.into()),
+        }
+    }
+
+    pub fn message(&self) -> String {
+        let base = match self.failed {
             ConfigFile::Game => "config/base/game.ron failed to load",
             ConfigFile::Blocks => "config/base/block.ron failed to load",
+        };
+        
+        match &self.detail {
+            Some(detail) => format!("{base}: {detail}"),
+            None => base.to_string(),
         }
     }
 }
@@ -172,7 +188,16 @@ fn check_config_ready(
     let mut registry = BlockRegistry::default();
 
     for (key, block) in &blocks.blocks {
-        registry.register(key, block.clone().into_def(assets.as_ref(), key.clone()));
+        match block.clone().into_def(assets.as_ref(), key.clone()) {
+            Ok(def) => registry.register(key, def),
+            Err(error) => {
+                config_state.set(ConfigState::Error(ConfigError::with_detail(
+                    ConfigFile::Blocks,
+                    error.message(),
+                )));
+                return;
+            }
+        }
     }
 
     if matches!(

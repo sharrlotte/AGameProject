@@ -130,7 +130,7 @@ pub fn spawn_placed_block(
     def: &BlockDef,
     placement: &BlockPlacement,
 ) -> Entity {
-    let transform = def.to_transform(placement.position);
+    let transform = def.to_transform(placement.position, placement.rotation);
 
     let block = commands
         .spawn((
@@ -142,11 +142,17 @@ pub fn spawn_placed_block(
 
     commands.entity(base).add_child(block);
 
+    let visual = commands
+        .spawn((visual_transform(def.shape.xform()), Visual, Visibility::Visible))
+        .id();
+        
+    commands.entity(block).add_child(visual);
+
     let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
     if let Some(primary) = textures.next() {
-        commands.entity(block).insert(Sprite {
+        commands.entity(visual).insert(Sprite {
             image: primary.image.clone(),
-            custom_size: Some(def.get_pixel_size()),
+            custom_size: Some(def.get_base_pixel_size()),
             ..default()
         });
     }
@@ -156,28 +162,28 @@ pub fn spawn_placed_block(
                 Transform::from_translation(extra.offset.extend(extra.z)),
                 Sprite {
                     image: extra.image.clone(),
-                    custom_size: Some(def.get_pixel_size()),
+                    custom_size: Some(def.get_base_pixel_size()),
                     ..default()
                 },
             ))
             .id();
-        commands.entity(block).add_child(layer);
+        commands.entity(visual).add_child(layer);
     }
 
     for feature in &def.features {
-        if let Feature::Turret(visual) = feature {
+        if let Feature::Turret(turret) = feature {
             let barrel = commands
                 .spawn((
-                    Transform::from_translation(visual.offset.extend(visual.z)),
+                    Transform::from_translation(turret.offset.extend(turret.z)),
                     Sprite {
-                        image: visual.image.clone(),
-                        custom_size: Some(def.get_pixel_size()),
+                        image: turret.image.clone(),
+                        custom_size: Some(def.get_base_pixel_size()),
                         ..default()
                     },
                     TurretSprite,
                 ))
                 .id();
-            commands.entity(block).add_child(barrel);
+            commands.entity(visual).add_child(barrel);
         }
     }
 

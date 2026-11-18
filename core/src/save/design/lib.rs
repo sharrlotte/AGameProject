@@ -98,7 +98,7 @@ pub fn load_design_file(name: &str) -> Result<ShipDesign, DocumentError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content::block::BlockPlacement;
+    use crate::content::block::{BlockPlacement, Rot90};
     use crate::save::design::DESIGN_SCHEMA_VERSION;
 
     #[test]
@@ -114,6 +114,21 @@ mod tests {
                     .any(|b: &BlockPlacement| b.block_type == "core")
             );
         }
+    }
+
+    #[test]
+    fn rotated_block_roundtrips() {
+        let design = ShipDesign::new(vec![
+            BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
+            BlockPlacement::new(IVec2::X, "hull", Rot90::R90),
+        ]);
+        let text = ron::ser::to_string_pretty(&design, ron::ser::PrettyConfig::default())
+            .expect("design serializes");
+        let restored = parse_document::<ShipDesign>(&text).expect("design parses");
+        assert_eq!(restored.version, DESIGN_SCHEMA_VERSION);
+        assert_eq!(restored.blocks.len(), 2);
+        assert_eq!(restored.blocks[0].rotation, Rot90::R0);
+        assert_eq!(restored.blocks[1].rotation, Rot90::R90);
     }
 
     #[test]

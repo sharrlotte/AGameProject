@@ -22,15 +22,275 @@ use crate::{
 };
 
 
-pub const FACE_RIGHT: u8 = 0b0001;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize, Default)]
+pub enum Rot90 {
+    #[default]
+    R0,
+    R90,
+    R180,
+    R270,
+}
 
-pub const FACE_LEFT: u8 = 0b0010;
 
-pub const FACE_UP: u8 = 0b0100;
+impl Rot90 {
+    pub const ALL: [Self; 4] = [Self::R0, Self::R90, Self::R180, Self::R270];
 
-pub const FACE_DOWN: u8 = 0b1000;
+    pub fn turns(self) -> usize {
+        match self {
+            Self::R0 => 0,
+            Self::R90 => 1,
+            Self::R180 => 2,
+            Self::R270 => 3,
+        }
+    }
 
-pub const FACE_ALL: u8 = 0b1111;
+    pub fn ccw(self) -> Self {
+        match self {
+            Self::R0 => Self::R90,
+            Self::R90 => Self::R180,
+            Self::R180 => Self::R270,
+            Self::R270 => Self::R0,
+        }
+    }
+
+    pub fn cw(self) -> Self {
+        match self {
+            Self::R0 => Self::R270,
+            Self::R90 => Self::R0,
+            Self::R180 => Self::R90,
+            Self::R270 => Self::R180,
+        }
+    }
+
+    fn rotate_cell(self, cell: IVec2) -> IVec2 {
+        match self {
+            Self::R0 => cell,
+            Self::R90 => IVec2::new(-cell.y, cell.x),
+            Self::R180 => -cell,
+            Self::R270 => IVec2::new(cell.y, -cell.x),
+        }
+    }
+
+    fn rotate_vec(self, v: Vec2) -> Vec2 {
+        match self {
+            Self::R0 => v,
+            Self::R90 => Vec2::new(-v.y, v.x),
+            Self::R180 => -v,
+            Self::R270 => Vec2::new(v.y, -v.x),
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Xform {
+    pub rotate: Rot90,
+    pub flip_x: bool,
+    pub flip_y: bool,
+}
+
+
+impl Default for Xform {
+    fn default() -> Self {
+        Self {
+            rotate: Rot90::R0,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
+
+impl Xform {
+    fn apply_cell(self, cell: IVec2) -> IVec2 {
+        let cell = self.rotate.rotate_cell(cell);
+        let cell = if self.flip_x {
+            IVec2::new(-cell.x, cell.y)
+        } else {
+            cell
+        };
+        if self.flip_y {
+            IVec2::new(cell.x, -cell.y)
+        } else {
+            cell
+        }
+    }
+
+    fn apply_vec(self, v: Vec2) -> Vec2 {
+        let v = self.rotate.rotate_vec(v);
+        let v = if self.flip_x { Vec2::new(-v.x, v.y) } else { v };
+        if self.flip_y { Vec2::new(v.x, -v.y) } else { v }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Serialize, Deserialize, Default)]
+pub enum TriangleBase {
+    #[default]
+    Right,
+    Isosceles,
+}
+
+
+#[derive(Debug, Clone, PartialEq, Reflect, Serialize, Deserialize)]
+pub enum ShapeSpec {
+    Square(u32),
+    Rect(UVec2),
+    Triangle {
+        base: TriangleBase,
+        size: UVec2,
+        #[serde(default)]
+        xform: Xform,
+    },
+    Rows {
+        art: Vec<String>,
+        #[serde(default)]
+        xform: Xform,
+    },
+}
+
+
+impl ShapeSpec {
+    pub fn xform(&self) -> Xform {
+        match self {
+            Self::Triangle { xform, .. } | Self::Rows { xform, .. } => *xform,
+            Self::Square(_) | Self::Rect(_) => Xform::default(),
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Reflect)]
+pub struct Footprint {
+    cells: Vec<IVec2>,
+    size: IVec2,
+}
+
+
+impl Footprint {
+    pub fn cells(&self) -> &[IVec2] {
+        &self.cells
+    }
+
+    pub fn size(&self) -> IVec2 {
+        self.size
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Reflect)]
+pub enum Hitbox {
+    Cuboid(Vec2),
+    Polygon(Vec<Vec2>),
+    Cells(Vec<IVec2>),
+}
+
+
+#[derive(Debug, Clone, PartialEq, Reflect)]
+pub struct BakedShape {
+    rotations: [(Footprint, Hitbox); 4],
+    base: Footprint,
+    xform: Xform,
+}
+
+
+impl BakedShape {
+    pub fn get(&self, rot: Rot90) -> (&Footprint, &Hitbox) {
+        let (footprint, hitbox) = &self.rotations[rot.turns()];
+        (footprint, hitbox)
+    }
+
+    pub fn base(&self) -> &Footprint {
+        &self.base
+    }
+
+    pub fn xform(&self) -> Xform {
+        self.xform
+    }
+}
+
+
+impl TryFrom<&ShapeSpec> for BakedShape {
+    type Error = ShapeError;
+
+    fn try_from(spec: &ShapeSpec) -> Result<Self, Self::Error> {
+        let base = make_footprint(base_cells(spec)?)?;
+        let xform = spec.xform();
+        let vertices = match spec {
+            ShapeSpec::Triangle { base, size, .. } => Some(triangle_vertices(*base, *size)),
+            ShapeSpec::Square(_) | ShapeSpec::Rect(_) | ShapeSpec::Rows { .. } => None,
+        };
+
+        let mut baked = Vec::with_capacity(Rot90::ALL.len());
+        for rot in Rot90::ALL {
+            let cells: Vec<IVec2> = base
+                .cells()
+                .iter()
+                .map(|cell| rot.rotate_cell(xform.apply_cell(*cell)))
+                .collect();
+            let footprint = make_footprint(cells)?;
+
+            let hitbox = match spec {
+                ShapeSpec::Square(_) | ShapeSpec::Rect(_) => {
+                    Hitbox::Cuboid(footprint.size().as_vec2() * GRID_SIZE * 0.5)
+                }
+                ShapeSpec::Rows { .. } => Hitbox::Cells(footprint.cells().to_vec()),
+                ShapeSpec::Triangle { .. } => {
+                    let Some(source) = vertices else {
+                        return Err(ShapeError::new("triangle has no vertices"));
+                    };
+                    let points: Vec<Vec2> = source
+                        .iter()
+                        .map(|v| rot.rotate_vec(xform.apply_vec(*v)) * GRID_SIZE)
+                        .collect();
+                    if Collider::convex_hull(&points).is_none() {
+                        return Err(ShapeError::new("triangle hitbox has no convex hull"));
+                    }
+                    Hitbox::Polygon(points)
+                }
+            };
+
+            baked.push((footprint, hitbox));
+        }
+
+        let rotations: [(Footprint, Hitbox); 4] = baked
+            .try_into()
+            .map_err(|_| ShapeError::new("failed to bake shape rotations"))?;
+
+        Ok(Self {
+            rotations,
+            base,
+            xform,
+        })
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShapeError {
+    message: String,
+}
+
+
+impl ShapeError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+
+impl std::fmt::Display for ShapeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
 
 
 #[derive(Clone, PartialEq, Reflect)]
@@ -236,40 +496,6 @@ pub struct Health {
 }
 
 
-#[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
-pub struct BlockVoxel {
-    pub position: IVec2,
-    pub connectable_faces: u8,
-}
-
-
-impl Default for BlockVoxel {
-    fn default() -> Self {
-        Self {
-            position: IVec2::ZERO,
-            connectable_faces: FACE_ALL,
-        }
-    }
-}
-
-
-#[derive(Clone, PartialEq, Reflect, Serialize, Deserialize, Debug)]
-pub struct BlockShape {
-    pub size: IVec2,
-    pub voxels: Vec<BlockVoxel>,
-}
-
-
-impl Default for BlockShape {
-    fn default() -> Self {
-        Self {
-            size: IVec2::ONE,
-            voxels: vec![BlockVoxel::default()],
-        }
-    }
-}
-
-
 #[derive(Clone, PartialEq, Reflect, Debug, Serialize, Deserialize)]
 pub struct ItemDrop {
     pub item_type: String,
@@ -297,7 +523,7 @@ pub struct BlockDef {
     pub block_group: String,
     pub mass: f32,
     pub health: f32,
-    pub shape: BlockShape,
+    pub shape: BakedShape,
     pub cost: u32,
     pub features: Vec<Feature>,
     pub drops: Vec<Loot>,
@@ -305,24 +531,30 @@ pub struct BlockDef {
 
 
 impl BlockDef {
-    pub fn get_block_size(&self) -> Vec2 {
-        return self.shape.size.as_vec2();
+    pub fn get_block_size(&self, rot: Rot90) -> Vec2 {
+        self.shape.get(rot).0.size().as_vec2()
     }
 
-    pub fn get_pixel_size(&self) -> Vec2 {
-        return self.get_block_size() * GRID_SIZE;
+    pub fn get_pixel_size(&self, rot: Rot90) -> Vec2 {
+        self.get_block_size(rot) * GRID_SIZE
     }
 
-    pub fn to_transform(&self, position: IVec2) -> Transform {
+    pub fn get_base_pixel_size(&self) -> Vec2 {
+        self.shape.base().size().as_vec2() * GRID_SIZE
+    }
+
+    pub fn to_transform(&self, position: IVec2, rot: Rot90) -> Transform {
         let anchor_position = Vec3::new(
             position.x as f32 * GRID_SIZE,
             position.y as f32 * GRID_SIZE,
             0.0,
         );
 
-        let position = anchor_position + (self.get_pixel_size() / 2.0).extend(0.0);
+        let position = anchor_position + (self.get_pixel_size(rot) / 2.0).extend(0.0);
 
-        return Transform::from_translation(position);
+        Transform::from_translation(position).with_rotation(Quat::from_rotation_z(
+            rot.turns() as f32 * std::f32::consts::FRAC_PI_2,
+        ))
     }
 }
 
@@ -366,16 +598,20 @@ impl BlockRegistry {
             .filter_map(|key| self.map.get_key_value(key))
     }
 
-    pub fn blocks_to_voxel_points(&self, grid: &ShipGrid) -> Vec<Vec2> {
-        grid.occupied_cells()
-            .map(|(cell, _)| cell.as_vec2() * GRID_SIZE)
-            .collect()
-    }
-
     pub fn build_ship_voxel_collider_2d(&self, grid: &ShipGrid) -> Collider {
-        let points = self.blocks_to_voxel_points(grid);
+        let mut parts: Vec<(Vec2, f32, Collider)> = Vec::new();
 
-        Collider::voxels_from_points(Vec2::new(GRID_SIZE, GRID_SIZE), &points)
+        for block in grid.blocks() {
+            let Some(def) = self.get_symbol(&block.placement.block_type) else {
+                continue;
+            };
+            let (footprint, hitbox) = def.shape.get(block.placement.rotation);
+            let center = block.placement.position.as_vec2() * GRID_SIZE
+                + footprint.size().as_vec2() * GRID_SIZE * 0.5;
+            parts.push((center, 0.0, collider_from_hitbox(hitbox)));
+        }
+
+        Collider::compound(parts)
     }
 
     pub fn bounds_from_grid(&self, grid: &ShipGrid) -> Option<BoundingBox> {
@@ -401,7 +637,7 @@ impl BlockRegistry {
         for block in grid.blocks() {
             let def = self.get_symbol(&block.placement.block_type)?;
             if def.block_group == "core" {
-                let offset = def.shape.size.as_vec2() * GRID_SIZE * 0.5;
+                let offset = def.get_pixel_size(block.placement.rotation) * 0.5;
                 return Some((
                     block.placement.id,
                     block.placement.position.as_vec2() * GRID_SIZE + offset,
@@ -535,17 +771,16 @@ impl BlockRegistry {
             let Some(def) = self.get_symbol(&block.placement.block_type) else {
                 continue;
             };
-            for y in 0..def.shape.size.y {
-                for x in 0..def.shape.size.x {
-                    let cell = block.placement.position + IVec2::new(x, y);
-                    if let Some(existing) = seen.insert(cell, block.placement.id)
-                        && existing != block.placement.id
-                    {
-                        errors.push(format!(
-                            "overlapping blocks at cell {:?} ({existing} and {})",
-                            cell, block.placement.id
-                        ));
-                    }
+            let footprint = def.shape.get(block.placement.rotation).0;
+            for offset in footprint.cells() {
+                let cell = block.placement.position + *offset;
+                if let Some(existing) = seen.insert(cell, block.placement.id)
+                    && existing != block.placement.id
+                {
+                    errors.push(format!(
+                        "overlapping blocks at cell {:?} ({existing} and {})",
+                        cell, block.placement.id
+                    ));
                 }
             }
         }
@@ -573,15 +808,14 @@ impl BlockRegistry {
                     let Some(def) = self.get_symbol(&block.placement.block_type) else {
                         continue;
                     };
-                    for y in 0..def.shape.size.y {
-                        for x in 0..def.shape.size.x {
-                            let cell = block.placement.position + IVec2::new(x, y);
-                            for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-                                if let Some(neighbor) = grid.cells.get(&(cell + dir))
-                                    && !visited.contains(neighbor)
-                                {
-                                    queue.push(*neighbor);
-                                }
+                    let footprint = def.shape.get(block.placement.rotation).0;
+                    for offset in footprint.cells() {
+                        let cell = block.placement.position + *offset;
+                        for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+                            if let Some(neighbor) = grid.cells.get(&(cell + dir))
+                                && !visited.contains(neighbor)
+                            {
+                                queue.push(*neighbor);
                             }
                         }
                     }
@@ -611,6 +845,239 @@ pub struct FlashOverlay {
 }
 
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Visual;
+
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct TurretMirror(pub bool);
+
+
+fn base_cells(spec: &ShapeSpec) -> Result<Vec<IVec2>, ShapeError> {
+    match spec {
+        ShapeSpec::Square(n) => {
+            if *n == 0 {
+                return Err(ShapeError::new("Square size must be positive"));
+            }
+            Ok(grid_cells(*n, *n))
+        }
+        ShapeSpec::Rect(size) => {
+            if size.x == 0 || size.y == 0 {
+                return Err(ShapeError::new("Rect dimensions must be positive"));
+            }
+            Ok(grid_cells(size.x, size.y))
+        }
+        ShapeSpec::Triangle { base, size, .. } => triangle_cells(*base, *size),
+        ShapeSpec::Rows { art, .. } => rows_cells(art),
+    }
+}
+
+
+fn grid_cells(width: u32, height: u32) -> Vec<IVec2> {
+    let mut cells = Vec::with_capacity((width * height) as usize);
+    for y in 0..height as i32 {
+        for x in 0..width as i32 {
+            cells.push(IVec2::new(x, y));
+        }
+    }
+    cells
+}
+
+
+fn triangle_cells(base: TriangleBase, size: UVec2) -> Result<Vec<IVec2>, ShapeError> {
+    if size.x == 0 || size.y == 0 {
+        return Err(ShapeError::new("Triangle dimensions must be positive"));
+    }
+
+    let w = size.x as i64;
+    let h = size.y as i64;
+    let mut cells = Vec::new();
+
+    for y in 0..h {
+        for x in 0..w {
+            let included = match base {
+                TriangleBase::Right => (2 * x + 1) * h + (2 * y + 1) * w <= 2 * w * h,
+                TriangleBase::Isosceles => {
+                    let yy = 2 * y + 1;
+                    2 * h * (2 * x + 1) >= w * yy && 2 * h * (2 * w - 2 * x - 1) >= w * yy
+                }
+            };
+            if included {
+                cells.push(IVec2::new(x as i32, y as i32));
+            }
+        }
+    }
+
+    let size = footprint_size(&cells);
+    if size != IVec2::new(w as i32, h as i32) {
+        return Err(ShapeError::new(
+            "triangle raster does not span its declared size",
+        ));
+    }
+
+    Ok(cells)
+}
+
+
+fn rows_cells(art: &[String]) -> Result<Vec<IVec2>, ShapeError> {
+    let Some(first) = art.first() else {
+        return Err(ShapeError::new("Rows has no rows"));
+    };
+    let width = first.len();
+    if width == 0 {
+        return Err(ShapeError::new("Rows has no columns"));
+    }
+    if art.iter().any(|row| row.len() != width) {
+        return Err(ShapeError::new("Rows are ragged"));
+    }
+
+    let mut cells = Vec::new();
+    for (y, row) in art.iter().enumerate() {
+        for (x, character) in row.chars().enumerate() {
+            match character {
+                '#' => cells.push(IVec2::new(x as i32, y as i32)),
+                '.' => {}
+                _ => return Err(ShapeError::new("Rows contains an invalid character")),
+            }
+        }
+    }
+
+    if cells.is_empty() {
+        return Err(ShapeError::new("Rows has no filled cells"));
+    }
+
+    let last_row = art.len() - 1;
+    let last_column = width - 1;
+    let empty_border = !cells.iter().any(|c| c.y == 0)
+        || !cells.iter().any(|c| c.y == last_row as i32)
+        || !cells.iter().any(|c| c.x == 0)
+        || !cells.iter().any(|c| c.x == last_column as i32);
+    if empty_border {
+        return Err(ShapeError::new("Rows has an empty border"));
+    }
+
+    Ok(cells)
+}
+
+
+fn triangle_vertices(base: TriangleBase, size: UVec2) -> [Vec2; 3] {
+    let width = size.x as f32;
+    let height = size.y as f32;
+    let center = Vec2::new(width * 0.5, height * 0.5);
+    let origin = Vec2::new(0.0, 0.0) - center;
+    let bottom_right = Vec2::new(width, 0.0) - center;
+    let apex = match base {
+        TriangleBase::Right => Vec2::new(0.0, height) - center,
+        TriangleBase::Isosceles => Vec2::new(width * 0.5, height) - center,
+    };
+    [origin, bottom_right, apex]
+}
+
+
+fn footprint_size(cells: &[IVec2]) -> IVec2 {
+    let min = cells
+        .iter()
+        .fold(IVec2::MAX, |accumulator, cell| accumulator.min(*cell));
+    let max = cells
+        .iter()
+        .fold(IVec2::MIN, |accumulator, cell| accumulator.max(*cell));
+    max - min + IVec2::ONE
+}
+
+
+fn make_footprint(mut cells: Vec<IVec2>) -> Result<Footprint, ShapeError> {
+    if cells.is_empty() {
+        return Err(ShapeError::new("shape has no cells"));
+    }
+    if !connected(&cells) {
+        return Err(ShapeError::new("shape cells are disconnected"));
+    }
+
+    let min = cells
+        .iter()
+        .fold(IVec2::MAX, |accumulator, cell| accumulator.min(*cell));
+    for cell in &mut cells {
+        *cell -= min;
+    }
+
+    Ok(Footprint {
+        size: footprint_size(&cells),
+        cells,
+    })
+}
+
+
+fn connected(cells: &[IVec2]) -> bool {
+    let Some(&start) = cells.first() else {
+        return false;
+    };
+    let mut visited = HashSet::new();
+    visited.insert(start);
+    let mut queue = vec![start];
+
+    while let Some(cell) = queue.pop() {
+        for direction in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+            let neighbor = cell + direction;
+            if cells.contains(&neighbor) && visited.insert(neighbor) {
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    visited.len() == cells.len()
+}
+
+
+fn collider_from_hitbox(hitbox: &Hitbox) -> Collider {
+    match hitbox {
+        Hitbox::Cuboid(half) => Collider::cuboid(half.x, half.y),
+        Hitbox::Polygon(points) => Collider::convex_hull(points).unwrap_or_else(|| {
+            error!("failed to build a convex hull for a baked triangle hitbox");
+            Collider::cuboid(0.0, 0.0)
+        }),
+        Hitbox::Cells(cells) => {
+            let max = cells
+                .iter()
+                .fold(IVec2::MIN, |accumulator, cell| accumulator.max(*cell));
+            let size = (max + IVec2::ONE).as_vec2();
+            let parts: Vec<(Vec2, f32, Collider)> = cells
+                .iter()
+                .map(|cell| {
+                    let center = (cell.as_vec2() + Vec2::splat(0.5) - size * 0.5) * GRID_SIZE;
+                    (
+                        center,
+                        0.0,
+                        Collider::cuboid(GRID_SIZE * 0.5, GRID_SIZE * 0.5),
+                    )
+                })
+                .collect();
+            Collider::compound(parts)
+        }
+    }
+}
+
+
+pub fn visual_transform(xform: Xform) -> Transform {
+    let swap = matches!(xform.rotate, Rot90::R90 | Rot90::R270);
+    let (flip_x, flip_y) = if swap {
+        (xform.flip_y, xform.flip_x)
+    } else {
+        (xform.flip_x, xform.flip_y)
+    };
+    Transform {
+        rotation: Quat::from_rotation_z(
+            xform.rotate.turns() as f32 * std::f32::consts::FRAC_PI_2,
+        ),
+        scale: Vec3::new(
+            if flip_x { -1.0 } else { 1.0 },
+            if flip_y { -1.0 } else { 1.0 },
+            1.0,
+        ),
+        ..default()
+    }
+}
+
+
 pub fn spawn_block_entity(
     commands: &mut Commands,
     placement: &BlockPlacement,
@@ -619,9 +1086,11 @@ pub fn spawn_block_entity(
     team: Team,
     config: &GameConfigValue,
 ) -> Entity {
-    let pixel_size = def.get_pixel_size();
-    let half_size = pixel_size / 2.0;
-    let mut transform = def.to_transform(placement.position);
+    let base_pixel_size = def.get_base_pixel_size();
+    let (_, hitbox) = def.shape.get(placement.rotation);
+    let xform = def.shape.xform();
+    let mirror = xform.flip_x ^ xform.flip_y;
+    let mut transform = def.to_transform(placement.position, placement.rotation);
 
     // Use the first texture's z as the block sprite's render layer so the
     // collapsed sprite keeps its original visual stacking.
@@ -639,12 +1108,13 @@ pub fn spawn_block_entity(
             team,
             Visibility::Visible,
             ActiveEvents::COLLISION_EVENTS,
-            Collider::cuboid(half_size.x, half_size.y),
+            collider_from_hitbox(hitbox),
             CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
             ColliderMassProperties::Mass(0.0),
             Sensor,
             BlockRef { id: placement.id },
             BlockOwner { ship },
+            TurretMirror(mirror),
             Health {
                 health: def.health,
                 max_health: def.health,
@@ -654,6 +1124,11 @@ pub fn spawn_block_entity(
 
     commands.entity(ship).add_child(block);
 
+    let visual = commands
+        .spawn((visual_transform(xform), Visual, Visibility::Visible))
+        .id();
+    commands.entity(block).add_child(visual);
+
     let mut textures = def.features.iter().filter_map(|f| f.extra_texture());
     textures.next();
     for extra in textures {
@@ -662,17 +1137,216 @@ pub fn spawn_block_entity(
                 Transform::from_translation(extra.offset.extend(extra.z)),
                 Sprite {
                     image: extra.image.clone(),
-                    custom_size: Some(pixel_size),
+                    custom_size: Some(base_pixel_size),
                     ..default()
                 },
             ))
             .id();
-        commands.entity(block).add_child(layer);
+        commands.entity(visual).add_child(layer);
     }
 
     for feature in &def.features {
-        feature.insert(commands, block, pixel_size, &team, config);
+        feature.insert(commands, block, visual, base_pixel_size, &team, config);
     }
 
     block
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bake(spec: &ShapeSpec) -> BakedShape {
+        BakedShape::try_from(spec).expect("shape bakes")
+    }
+
+    fn rows(art: &[&str]) -> ShapeSpec {
+        ShapeSpec::Rows {
+            art: art.iter().map(|row| row.to_string()).collect(),
+            xform: Xform::default(),
+        }
+    }
+
+    #[test]
+    fn square_and_rect_cells() {
+        let square = bake(&ShapeSpec::Square(2));
+        assert_eq!(square.get(Rot90::R0).0.size(), IVec2::new(2, 2));
+        assert_eq!(square.get(Rot90::R0).0.cells().len(), 4);
+
+        let rect = bake(&ShapeSpec::Rect(UVec2::new(3, 5)));
+        assert_eq!(rect.get(Rot90::R0).0.size(), IVec2::new(3, 5));
+        assert_eq!(rect.get(Rot90::R90).0.size(), IVec2::new(5, 3));
+        assert_eq!(rect.get(Rot90::R180).0.size(), IVec2::new(3, 5));
+        assert_eq!(rect.get(Rot90::R270).0.size(), IVec2::new(5, 3));
+    }
+
+    #[test]
+    fn right_triangle_four_corners() {
+        let spec = ShapeSpec::Triangle {
+            base: TriangleBase::Right,
+            size: UVec2::new(3, 3),
+            xform: Xform::default(),
+        };
+        let shape = bake(&spec);
+
+        let mut seen = std::collections::HashSet::new();
+        for rot in Rot90::ALL {
+            let footprint = shape.get(rot).0;
+            assert_eq!(footprint.size(), IVec2::new(3, 3));
+            assert_eq!(footprint.cells().len(), 6);
+            let min = footprint
+                .cells()
+                .iter()
+                .fold(IVec2::MAX, |a, c| a.min(*c));
+            assert_eq!(min, IVec2::ZERO);
+            assert!(seen.insert(footprint.cells()));
+        }
+        assert_eq!(seen.len(), 4);
+    }
+
+    #[test]
+    fn triangle_raster_matches_spec_examples() {
+        let right = bake(&ShapeSpec::Triangle {
+            base: TriangleBase::Right,
+            size: UVec2::new(3, 3),
+            xform: Xform::default(),
+        });
+        let widths = (0..3)
+            .map(|y| {
+                right
+                    .get(Rot90::R0)
+                    .0
+                    .cells()
+                    .iter()
+                    .filter(|cell| cell.y == y)
+                    .count()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(widths, vec![3, 2, 1]);
+
+        let isosceles = bake(&ShapeSpec::Triangle {
+            base: TriangleBase::Isosceles,
+            size: UVec2::new(5, 3),
+            xform: Xform::default(),
+        });
+        let widths = (0..3)
+            .map(|y| {
+                isosceles
+                    .get(Rot90::R0)
+                    .0
+                    .cells()
+                    .iter()
+                    .filter(|cell| cell.y == y)
+                    .count()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(widths, vec![5, 3, 1]);
+    }
+
+    #[test]
+    fn definition_xform_mirrors_and_renormalizes() {
+        let flipped = bake(&ShapeSpec::Triangle {
+            base: TriangleBase::Right,
+            size: UVec2::new(3, 3),
+            xform: Xform {
+                flip_x: true,
+                ..default()
+            },
+        });
+        let cells = flipped.get(Rot90::R0).0.cells();
+        assert!(cells.contains(&IVec2::new(2, 2)));
+        assert!(!cells.contains(&IVec2::new(0, 2)));
+
+        let flipped_y = bake(&ShapeSpec::Triangle {
+            base: TriangleBase::Right,
+            size: UVec2::new(3, 3),
+            xform: Xform {
+                flip_y: true,
+                ..default()
+            },
+        });
+        let widths = (0..3)
+            .map(|y| {
+                flipped_y
+                    .get(Rot90::R0)
+                    .0
+                    .cells()
+                    .iter()
+                    .filter(|cell| cell.y == y)
+                    .count()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(widths, vec![1, 2, 3]);
+
+        let rotated = bake(&ShapeSpec::Rect(UVec2::new(1, 3)));
+        assert_eq!(rotated.get(Rot90::R90).0.size(), IVec2::new(3, 1));
+    }
+
+    #[test]
+    fn triangle_hitbox_vertices_follow_rotation() {
+        let spec = ShapeSpec::Triangle {
+            base: TriangleBase::Right,
+            size: UVec2::new(3, 3),
+            xform: Xform::default(),
+        };
+        let shape = bake(&spec);
+        let Hitbox::Polygon(base_points) = shape.get(Rot90::R0).1 else {
+            panic!("triangle must bake a polygon hitbox");
+        };
+        let Hitbox::Polygon(rotated_points) = shape.get(Rot90::R90).1 else {
+            panic!("triangle must bake a polygon hitbox");
+        };
+        assert_ne!(base_points, rotated_points);
+        assert!(base_points.iter().all(|p| p.x.abs() <= GRID_SIZE * 1.5 + 1e-3));
+        assert!(
+            rotated_points
+                .iter()
+                .all(|p| p.y.abs() <= GRID_SIZE * 1.5 + 1e-3)
+        );
+    }
+
+    #[test]
+    fn ring_mask_keeps_its_hole() {
+        let shape = bake(&rows(&["###", "#.#", "###"]));
+        let footprint = shape.get(Rot90::R0).0;
+        assert_eq!(footprint.size(), IVec2::new(3, 3));
+        assert_eq!(footprint.cells().len(), 8);
+        assert!(!footprint.cells().contains(&IVec2::new(1, 1)));
+        assert!(matches!(shape.get(Rot90::R0).1, Hitbox::Cells(_)));
+    }
+
+    #[test]
+    fn hitboxes_build_matching_collider_shapes() {
+        let cuboid = collider_from_hitbox(&Hitbox::Cuboid(Vec2::splat(32.0)));
+        assert!(cuboid.as_cuboid().is_some());
+
+        let triangle = collider_from_hitbox(&Hitbox::Polygon(vec![
+            Vec2::new(-32.0, -32.0),
+            Vec2::new(32.0, -32.0),
+            Vec2::new(-32.0, 32.0),
+        ]));
+        assert!(triangle.as_convex_polygon().is_some());
+
+        let cells = collider_from_hitbox(&Hitbox::Cells(vec![IVec2::ZERO, IVec2::X]));
+        let compound = cells.as_compound().expect("compound");
+        assert_eq!(compound.shapes().len(), 2);
+    }
+
+    #[test]
+    fn invalid_shapes_are_rejected() {
+        assert!(BakedShape::try_from(&rows(&["#..", "..#"])).is_err());
+        assert!(BakedShape::try_from(&rows(&["##", "#"])).is_err());
+        assert!(BakedShape::try_from(&rows(&["#x"])).is_err());
+        assert!(BakedShape::try_from(&rows(&["..."])).is_err());
+        assert!(BakedShape::try_from(&rows(&["...", "##.", "###"])).is_err());
+        assert!(BakedShape::try_from(&ShapeSpec::Square(0)).is_err());
+        assert!(BakedShape::try_from(&ShapeSpec::Rect(UVec2::new(0, 3))).is_err());
+
+        let shrinking = ShapeSpec::Triangle {
+            base: TriangleBase::Isosceles,
+            size: UVec2::new(4, 3),
+            xform: Xform::default(),
+        };
+        assert!(BakedShape::try_from(&shrinking).is_err());
+    }
 }

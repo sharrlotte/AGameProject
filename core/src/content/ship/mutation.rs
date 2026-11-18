@@ -206,15 +206,15 @@ fn reachable_from_core(grid: &ShipGrid, registry: &BlockRegistry) -> HashSet<Uui
             continue;
         };
 
-        for y in 0..def.shape.size.y {
-            for x in 0..def.shape.size.x {
-                let cell = block.placement.position + IVec2::new(x, y);
-                for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-                    if let Some(neighbor) = grid.cells.get(&(cell + dir))
-                        && !visited.contains(neighbor)
-                    {
-                        queue.push(*neighbor);
-                    }
+        let footprint = def.shape.get(block.placement.rotation).0;
+        
+        for offset in footprint.cells() {
+            let cell = block.placement.position + *offset;
+            for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+                if let Some(neighbor) = grid.cells.get(&(cell + dir))
+                    && !visited.contains(neighbor)
+                {
+                    queue.push(*neighbor);
                 }
             }
         }
@@ -227,7 +227,7 @@ fn reachable_from_core(grid: &ShipGrid, registry: &BlockRegistry) -> HashSet<Uui
 mod tests {
     use super::*;
     use crate::config::GameConfig;
-    use crate::content::block::{BlockDef, BlockShape};
+    use crate::content::block::{BakedShape, BlockDef, Rot90, ShapeSpec};
     use crate::content::death::ShipDestroyed;
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
@@ -237,7 +237,7 @@ mod tests {
             block_group: group.to_string(),
             mass,
             health,
-            shape: BlockShape::default(),
+            shape: BakedShape::try_from(&ShapeSpec::Square(1)).expect("test shape bakes"),
             cost: 1,
             features: Vec::new(),
             drops: Vec::new(),
@@ -246,8 +246,8 @@ mod tests {
 
     fn layout() -> Vec<BlockPlacement> {
         vec![
-            BlockPlacement::new(IVec2::ZERO, "core", 0),
-            BlockPlacement::new(IVec2::X, "plate", 0),
+            BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
+            BlockPlacement::new(IVec2::X, "plate", Rot90::R0),
         ]
     }
 
@@ -323,6 +323,10 @@ mod tests {
         let stats = app.world().get::<ShipStats>(ship_entity).unwrap();
         assert_eq!(stats.mass, 10.0);
         assert!(app.world().get_entity(ship_entity).is_ok());
+
+        let collider = app.world().get::<Collider>(ship_entity).unwrap();
+        let compound = collider.as_compound().expect("ship compound");
+        assert_eq!(compound.shapes().len(), 1);
     }
 
     #[test]

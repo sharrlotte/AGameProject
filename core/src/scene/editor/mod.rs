@@ -23,11 +23,12 @@ use std::mem;
 use uuid::Uuid;
 
 use crate::{
+    config::GameSetting,
     constant::GRID_SIZE,
     content::{
         block::{
-            BlockPlacement, BlockRef,
-            component::{BlockDef, BlockRegistry, FACE_DOWN, FACE_LEFT, FACE_RIGHT, FACE_UP},
+            BlockPlacement, BlockRef, Rot90,
+            component::{BlockDef, BlockRegistry, Visual, visual_transform},
             feature::{Feature, turret::TurretSprite},
         },
         ship::ai::{AiProfile, PRESETS},
@@ -46,6 +47,23 @@ pub struct EditorUiRoot;
 
 #[derive(Component)]
 pub struct PlacementPreview;
+
+#[derive(Component)]
+pub struct PreviewSprite;
+
+#[derive(Clone, PartialEq, Eq, Default)]
+pub(crate) struct PreviewKey {
+    block: Option<String>,
+    hovered: Option<IVec2>,
+    rotation: Rot90,
+    grid_len: usize,
+}
+
+#[derive(Default)]
+pub(crate) struct PreviewState {
+    key: PreviewKey,
+    built_for: Option<String>,
+}
 
 #[derive(Component)]
 pub struct BlockListPanel;
@@ -103,6 +121,7 @@ impl Plugin for ShipEditorPlugin {
                     sync_tabs,
                     handle_ship_loading,
                     process_input,
+                    handle_rotation_input,
                     draw_grid,
                     update_placement_preview,
                     handle_placement,
@@ -127,6 +146,7 @@ impl Plugin for ShipEditorPlugin {
 pub struct EditorState {
     pub active_tab: EditorTab,
     pub selected_block: Option<String>,
+    pub rotation: Rot90,
     pub hovered_grid_position: Option<IVec2>,
     pub place_req: bool,
     pub delete_req: bool,

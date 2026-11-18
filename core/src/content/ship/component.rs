@@ -24,6 +24,7 @@ use crate::content::ship::throttle::Throttle;
 use crate::content::team::Team;
 
 use crate::resource::SceneState;
+use crate::save::design::DESIGN_SCHEMA_VERSION;
 
 
 #[derive(Component, Debug, Default, Clone)]
@@ -75,7 +76,7 @@ impl ShipDesign {
     #[allow(dead_code)]
     pub fn new(blocks: Vec<BlockPlacement>) -> Self {
         Self {
-            version: 1,
+            version: DESIGN_SCHEMA_VERSION,
             id: Uuid::now_v7(),
             name: String::new(),
             blocks,
@@ -206,7 +207,7 @@ pub enum ShipBehavior {
 
 
 fn default_version() -> u32 {
-    1
+    DESIGN_SCHEMA_VERSION
 }
 
 
@@ -214,7 +215,7 @@ fn default_version() -> u32 {
 mod tests {
     use super::*;
     use crate::config::GameConfig;
-    use crate::content::block::{BlockDef, BlockRef, BlockShape};
+    use crate::content::block::{BakedShape, BlockDef, BlockRef, Rot90, ShapeSpec};
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
         BlockDef {
@@ -223,7 +224,7 @@ mod tests {
             block_group: group.to_string(),
             mass,
             health,
-            shape: BlockShape::default(),
+            shape: BakedShape::try_from(&ShapeSpec::Square(1)).expect("test shape bakes"),
             cost: 1,
             features: Vec::new(),
             drops: Vec::new(),
@@ -236,8 +237,8 @@ mod tests {
         config: Res<GameConfigValue>,
     ) {
         let design = ShipDesign::new(vec![
-            BlockPlacement::new(IVec2::ZERO, "core", 0),
-            BlockPlacement::new(IVec2::X, "plate", 0),
+            BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
+            BlockPlacement::new(IVec2::X, "plate", Rot90::R0),
         ]);
         design
             .spawn(

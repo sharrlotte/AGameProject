@@ -16,11 +16,11 @@ impl ShipGrid {
     }
 
     pub fn insert_block(&mut self, placement: BlockPlacement, entity: Entity, def: &BlockDef) {
-        for y in 0..def.shape.size.y {
-            for x in 0..def.shape.size.x {
-                self.cells
-                    .insert(placement.position + IVec2::new(x, y), placement.id);
-            }
+        let footprint = def.shape.get(placement.rotation).0;
+
+        for offset in footprint.cells() {
+            self.cells
+                .insert(placement.position + *offset, placement.id);
         }
         self.blocks
             .insert(placement.id, GridBlock { placement, entity });
@@ -56,6 +56,7 @@ impl ShipGrid {
         self.blocks.values()
     }
 
+    #[allow(dead_code)]
     pub fn occupied_cells(&self) -> impl Iterator<Item = (&IVec2, &Uuid)> {
         self.cells.iter()
     }
@@ -76,20 +77,20 @@ impl ShipGrid {
     #[allow(dead_code)]
     pub fn refresh_cells(&mut self, registry: &BlockRegistry) {
         self.cells.clear();
-        let blocks: Vec<(Uuid, IVec2, IVec2)> = self
+        let blocks: Vec<(Uuid, IVec2, Vec<IVec2>)> = self
             .blocks
             .iter()
             .filter_map(|(id, block)| {
                 let def = registry.get_symbol(&block.placement.block_type)?;
-                Some((*id, block.placement.position, def.shape.size))
+                let footprint = def.shape.get(block.placement.rotation).0;
+                
+                Some((*id, block.placement.position, footprint.cells().to_vec()))
             })
             .collect();
 
-        for (id, position, size) in blocks {
-            for y in 0..size.y {
-                for x in 0..size.x {
-                    self.cells.insert(position + IVec2::new(x, y), id);
-                }
+        for (id, position, cells) in blocks {
+            for offset in cells {
+                self.cells.insert(position + offset, id);
             }
         }
     }
@@ -99,16 +100,26 @@ impl ShipGrid {
 mod tests {
     use super::*;
     use crate::constant::GRID_SIZE;
-    use crate::content::block::{BlockDef, BlockRegistry, BlockShape};
+    use crate::content::block::{BakedShape, BlockDef, BlockRegistry, Rot90, ShapeSpec, Xform};
 
     fn def(block_type: &str, group: &str, mass: f32, health: f32) -> BlockDef {
+        def_shape(block_type, group, mass, health, ShapeSpec::Square(1))
+    }
+
+    fn def_shape(
+        block_type: &str,
+        group: &str,
+        mass: f32,
+        health: f32,
+        shape: ShapeSpec,
+    ) -> BlockDef {
         BlockDef {
             name: block_type.to_string(),
             block_type: block_type.to_string(),
             block_group: group.to_string(),
             mass,
             health,
-            shape: BlockShape::default(),
+            shape: BakedShape::try_from(&shape).expect("test shape bakes"),
             cost: 1,
             features: Vec::new(),
             drops: Vec::new(),
@@ -124,8 +135,8 @@ mod tests {
 
     fn layout() -> Vec<BlockPlacement> {
         vec![
-            BlockPlacement::new(IVec2::ZERO, "core", 0),
-            BlockPlacement::new(IVec2::X, "plate", 0),
+            BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
+            BlockPlacement::new(IVec2::X, "plate", Rot90::R0),
         ]
     }
 
@@ -185,15 +196,56 @@ mod tests {
         let registry = registry();
 
         let mut overlapping = layout();
-        overlapping.push(BlockPlacement::new(IVec2::X, "plate", 0));
+        overlapping.push(BlockPlacement::new(IVec2::X, "plate", Rot90::R0));
         let errors = registry.validate_ship(&overlapping).unwrap_err();
         assert!(
             errors.iter().any(|e| e.contains("overlapping")),
             "{errors:?}"
         );
 
-        let plate_only = vec![BlockPlacement::new(IVec2::ZERO, "plate", 0)];
+        let plate_only = vec![BlockPlacement::new(IVec2::ZERO, "plate", Rot90::R0)];
         let errors = registry.validate_ship(&plate_only).unwrap_err();
         assert!(errors.iter().any(|e| e.contains("core")), "{errors:?}");
+    }
+
+    #[test]
+    fn rotated_and_masked_footprints_occupy_only_baked_cells() {
+        let mut registry = BlockRegistry::default();
+        registry.register(
+            "core",
+            def_shape(
+                "core",
+                "core",
+                10.0,
+                100.0,
+                ShapeSpec::Rect(UVec2::new(1, 3)),
+            ),
+        );
+        registry.register(
+            "ring",
+            def_shape(
+                "ring",
+                "structure",
+                5.0,
+                50.0,
+                ShapeSpec::Rows {
+                    art: vec!["###".to_string(), "#.#".to_string(), "###".to_string()],
+                    xform: Xform::default(),
+                },
+            ),
+        );
+
+        let mut grid = ShipGrid::new();
+        let rotated = BlockPlacement::new(IVec2::new(10, 10), "core", Rot90::R90);
+        let ring = BlockPlacement::new(IVec2::new(-5, -5), "ring", Rot90::R0);
+        grid.insert_block(rotated.clone(), Entity::PLACEHOLDER, registry.get_symbol("core").unwrap());
+        grid.insert_block(ring.clone(), Entity::PLACEHOLDER, registry.get_symbol("ring").unwrap());
+
+        for x in 10..13 {
+            assert!(grid.block_at(IVec2::new(x, 10)).is_some());
+            assert!(grid.block_at(IVec2::new(x, 11)).is_none());
+        }
+        assert!(grid.block_at(IVec2::new(-5, -5)).is_some());
+        assert!(grid.block_at(IVec2::new(-4, -4)).is_none());
     }
 }

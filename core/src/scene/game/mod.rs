@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
     content::{
-        block::{BlockRegistry, Health},
+        block::{BlockRegistry, Health, Rot90},
         selectable::EntitySelectEvent,
         ship::component::{BoundingBox, Ship},
         ship::{ShipGrid, ShipStats},
@@ -354,8 +354,12 @@ fn update_ship_list(
                                     ((placement.position.x - offset_x) as f32) * SMALL_GRID_SIZE
                                         + SMALL_GRID_SIZE,
                                 ),
-                                width: Val::Px(def.get_block_size().x * SMALL_GRID_SIZE),
-                                height: Val::Px(def.get_block_size().y * SMALL_GRID_SIZE),
+                                width: Val::Px(
+                                    def.get_block_size(Rot90::R0).x * SMALL_GRID_SIZE,
+                                ),
+                                height: Val::Px(
+                                    def.get_block_size(Rot90::R0).y * SMALL_GRID_SIZE,
+                                ),
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },

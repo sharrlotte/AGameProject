@@ -30,13 +30,14 @@ impl Feature {
         &self,
         commands: &mut Commands,
         base: Entity,
+        visual: Entity,
         pixel_size: Vec2,
         _team: &Team,
         config: &GameConfigValue,
     ) {
         match self {
-            Self::Texture(sprite) => sprite.insert(commands, base, pixel_size),
-            Self::Turret(turret) => turret.insert(commands, base, pixel_size),
+            Self::Texture(sprite) => sprite.insert(commands, visual, pixel_size),
+            Self::Turret(turret) => turret.insert(commands, base, visual, pixel_size),
             Self::Thruster(thruster) => thruster.insert(commands, base, config),
             Self::Generator(generator) => generator.insert(commands, base),
             Self::Battery(battery) => battery.insert(commands, base),

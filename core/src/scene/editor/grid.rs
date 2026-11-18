@@ -28,16 +28,17 @@ pub fn check_placement_validity(
     registry: &BlockRegistry,
     block_type: String,
     grid_position: IVec2,
-    _rotation: u8,
+    rotation: Rot90,
 ) -> bool {
     let Some(def) = registry.get(&block_type) else {
         warn!("No block definition for {:?}", block_type);
         return false;
     };
 
-    for voxel in &def.shape.voxels {
-        let target_position = grid_position + voxel.position;
-        if grid.cells.contains_key(&target_position) {
+    let footprint = def.shape.get(rotation).0;
+
+    for offset in footprint.cells() {
+        if grid.cells.contains_key(&(grid_position + *offset)) {
             return false;
         }
     }
@@ -46,37 +47,11 @@ pub fn check_placement_validity(
         return true;
     }
 
-    for voxel in &def.shape.voxels {
-        let my_position = grid_position + voxel.position;
-        let directions = [
-            (IVec2::new(1, 0), FACE_RIGHT, FACE_LEFT),
-            (IVec2::new(-1, 0), FACE_LEFT, FACE_RIGHT),
-            (IVec2::new(0, 1), FACE_UP, FACE_DOWN),
-            (IVec2::new(0, -1), FACE_DOWN, FACE_UP),
-        ];
-
-        for (dir, my_req_face, neighbor_req_face) in directions {
-            if (voxel.connectable_faces & my_req_face) == 0 {
-                continue;
-            }
-
-            let neighbor_position = my_position + dir;
-            if let Some(neighbor_block) = grid.block_at(neighbor_position) {
-                if let Some(neighbor_def) = registry.get(&neighbor_block.placement.block_type) {
-                    let neighbor_local_position =
-                        neighbor_position - neighbor_block.placement.position;
-
-                    if let Some(neighbor_voxel) = neighbor_def
-                        .shape
-                        .voxels
-                        .iter()
-                        .find(|v| v.position == neighbor_local_position)
-                    {
-                        if (neighbor_voxel.connectable_faces & neighbor_req_face) != 0 {
-                            return true;
-                        }
-                    }
-                }
+    for offset in footprint.cells() {
+        let cell = grid_position + *offset;
+        for direction in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
+            if grid.block_at(cell + direction).is_some() {
+                return true;
             }
         }
     }
@@ -88,38 +63,59 @@ pub fn update_placement_preview(
     mut commands: Commands,
     editor: Res<EditorState>,
     registry: Res<BlockRegistry>,
+    mut state: Local<PreviewState>,
     preview: Query<Entity, With<PlacementPreview>>,
+    mut sprites: Query<&mut Sprite, With<PreviewSprite>>,
 ) {
-    if let (Some(selected_type), Some(mouse_grid_position)) =
-        (editor.selected_block.clone(), editor.hovered_grid_position)
-    {
-        let Some(def) = registry.get(&selected_type) else {
-            warn!("No block definition for {:?}", selected_type);
-            for entity in &preview {
-                commands.entity(entity).despawn();
-            }
-            return;
-        };
+    let key = PreviewKey {
+        block: editor.selected_block.clone(),
+        hovered: editor.hovered_grid_position,
+        rotation: editor.rotation,
+        grid_len: editor.grid.blocks.len(),
+    };
+    
+    if key == state.key {
+        return;
+    }
 
-        let size = def.shape.size;
-        let anchor_offset = size / 2;
-        let grid_position = mouse_grid_position - anchor_offset;
+    state.key = key.clone();
 
-        let is_valid =
-            check_placement_validity(&editor.grid, &registry, selected_type, grid_position, 0);
-
-        for entity in &preview {
+    let current = preview.iter().next();
+    let (Some(selected_type), Some(mouse_grid_position)) = (&key.block, key.hovered) else {
+        if let Some(entity) = current {
             commands.entity(entity).despawn();
         }
+        return;
+    };
 
-        let tint = if is_valid {
-            Color::WHITE.with_alpha(0.6)
-        } else {
-            Color::srgb(1.05, 0.0, 0.0).with_alpha(0.8)
-        };
+    let Some(def) = registry.get(selected_type) else {
+        warn!("No block definition for {:?}", selected_type);
+        if let Some(entity) = current {
+            commands.entity(entity).despawn();
+        }
+        return;
+    };
 
-        let transform = def.to_transform(grid_position);
+    let size = def.get_block_size(key.rotation);
+    let grid_position = mouse_grid_position - (size / 2.0).as_ivec2();
+    let is_valid = check_placement_validity(
+        &editor.grid,
+        &registry,
+        selected_type.clone(),
+        grid_position,
+        key.rotation,
+    );
+    let tint = if is_valid {
+        Color::WHITE.with_alpha(0.6)
+    } else {
+        Color::srgb(1.05, 0.0, 0.0).with_alpha(0.8)
+    };
+    let transform = def.to_transform(grid_position, key.rotation);
 
+    let entity = if let Some(entity) = current {
+        commands.entity(entity).insert(transform);
+        entity
+    } else {
         commands
             .spawn((
                 transform,
@@ -127,39 +123,39 @@ pub fn update_placement_preview(
                 PlacementPreview,
                 DespawnOnExit(SceneState::ShipEditor),
             ))
-            .with_children(|icon_parent| {
+            .id()
+    };
+
+    if state.built_for.as_deref() != Some(selected_type.as_str()) {
+        commands.entity(entity).despawn_children();
+        commands.entity(entity).with_children(|root| {
+            root.spawn((visual_transform(def.shape.xform()), Visual)).with_children(|visual| {
                 for feature in &def.features {
-                    match feature {
-                        Feature::Texture(visual) => {
-                            icon_parent.spawn((
-                                Sprite {
-                                    image: visual.image.clone(),
-                                    custom_size: Some(def.get_pixel_size()),
-                                    color: tint,
-                                    ..default()
-                                },
-                                Transform::from_translation(visual.offset.extend(visual.z)),
-                            ));
+                    let (image, offset, z) = match feature {
+                        Feature::Texture(texture) => {
+                            (&texture.image, texture.offset, texture.z)
                         }
-                        Feature::Turret(visual) => {
-                            icon_parent.spawn((
-                                Sprite {
-                                    image: visual.image.clone(),
-                                    custom_size: Some(def.get_pixel_size()),
-                                    color: tint,
-                                    ..default()
-                                },
-                                Transform::from_translation(visual.offset.extend(visual.z)),
-                            ));
-                        }
-                        _ => {}
-                    }
+                        Feature::Turret(turret) => (&turret.image, turret.offset, turret.z),
+                        _ => continue,
+                    };
+                    visual.spawn((
+                        Sprite {
+                            image: image.clone(),
+                            custom_size: Some(def.get_base_pixel_size()),
+                            color: tint,
+                            ..default()
+                        },
+                        Transform::from_translation(offset.extend(z)),
+                        PreviewSprite,
+                    ));
                 }
             });
-    } else {
-        for entity in &preview {
-            commands.entity(entity).despawn();
-        }
+        });
+        state.built_for = Some(selected_type.clone());
+    }
+
+    for mut sprite in &mut sprites {
+        sprite.color = tint;
     }
 }
 

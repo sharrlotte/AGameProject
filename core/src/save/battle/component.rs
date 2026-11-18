@@ -10,7 +10,7 @@ use crate::content::block::{
 use crate::content::ship::Ship;
 use crate::content::ship::ai::{AiBehavior, AiProfile};
 
-pub const SAVE_SCHEMA_VERSION: u32 = 4;
+pub const SAVE_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Message)]
 pub struct SaveWorldEvent;

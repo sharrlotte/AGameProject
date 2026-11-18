@@ -10,11 +10,13 @@ use bevy::reflect::TypePath;
 use serde::Deserialize;
 
 
+use crate::config::{ConfigError, ConfigFile, ConfigState};
 use crate::content::block::{
-    BlockRegistry, BlockShape,
+    BlockRegistry,
     component::{
-        BlockDef, BurstShootPattern, LaserBeamPattern, Loot, PullingBeamPattern,
-        ShootPattern, ShootingProjectile, SingleShootPattern, TargetingStrategy,
+        BlockDef, BakedShape, BurstShootPattern, LaserBeamPattern, Loot, PullingBeamPattern,
+        ShapeError, ShapeSpec, ShootPattern, ShootingProjectile, SingleShootPattern,
+        TargetingStrategy,
     },
     feature::{
         ammo::{Ammo, AmmoBuilder},
@@ -42,7 +44,7 @@ pub struct BlockDefConfig {
     pub mass: f32,
     pub health: f32,
     pub cost: u32,
-    pub shape: BlockShape,
+    pub shape: ShapeSpec,
     pub features: Vec<FeatureConfig>,
     pub drops: Vec<Loot>,
 }
@@ -219,23 +221,27 @@ impl AmmoConfig {
 
 
 impl BlockDefConfig {
-    pub fn into_def(self, assets: &AssetServer, block_type: String) -> BlockDef {
+    pub fn into_def(self, assets: &AssetServer, block_type: String) -> Result<BlockDef, ShapeError> {
+        let shape = BakedShape::try_from(&self.shape)
+            .map_err(|error| ShapeError::new(format!("block {block_type}: {error}")))?;
+
         let features = self
             .features
             .into_iter()
             .map(|feature| feature.into_feature(assets, &block_type))
             .collect();
-        BlockDef {
+            
+        Ok(BlockDef {
             name: self.name,
             block_type,
             block_group: self.block_group,
             mass: self.mass,
             health: self.health,
             cost: self.cost,
-            shape: self.shape,
+            shape,
             features,
             drops: self.drops,
-        }
+        })
     }
 }
 
@@ -288,6 +294,7 @@ pub fn blocks_bridge(
     assets: Res<Assets<BlocksConfig>>,
     server: Res<AssetServer>,
     mut registry: ResMut<BlockRegistry>,
+    mut config_state: ResMut<NextState<ConfigState>>,
 ) {
     for event in events.read() {
         let id = match event {
@@ -297,12 +304,44 @@ pub fn blocks_bridge(
 
         if let Some(config) = assets.get(id) {
             let mut rebuilt = BlockRegistry::default();
+            let mut failed = None;
 
             for (key, block) in &config.blocks {
-                rebuilt.register(key, block.clone().into_def(server.as_ref(), key.clone()));
+                match block.clone().into_def(server.as_ref(), key.clone()) {
+                    Ok(def) => rebuilt.register(key, def),
+                    Err(error) => {
+                        failed = Some(error);
+                        break;
+                    }
+                }
+            }
+
+            if let Some(error) = failed {
+                config_state.set(ConfigState::Error(ConfigError::with_detail(
+                    ConfigFile::Blocks,
+                    error.message(),
+                )));
+                return;
             }
 
             *registry = rebuilt;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shipped_block_config_parses_and_bakes() {
+        let config: BlocksConfig = ron::from_str(include_str!(
+            "../../assets/config/base/block.ron"
+        ))
+        .expect("shipped block config parses");
+        for (key, block) in &config.blocks {
+            BakedShape::try_from(&block.shape)
+                .unwrap_or_else(|error| panic!("block {key} failed to bake: {error}"));
         }
     }
 }

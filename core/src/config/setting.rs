@@ -20,6 +20,27 @@ pub struct GameSetting {
     pub volume: f32,
     #[serde(default = "default_bloom")]
     pub bloom: bool,
+    #[serde(default)]
+    pub keys: KeySettings,
+}
+
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct KeySettings {
+    #[serde(default = "default_rotate_ccw")]
+    pub rotate_ccw: KeyCode,
+    #[serde(default = "default_rotate_cw")]
+    pub rotate_cw: KeyCode,
+}
+
+
+impl Default for KeySettings {
+    fn default() -> Self {
+        Self {
+            rotate_ccw: KeyCode::KeyQ,
+            rotate_cw: KeyCode::KeyE,
+        }
+    }
 }
 
 
@@ -28,6 +49,7 @@ impl Default for GameSetting {
         Self {
             volume: 0.5,
             bloom: true,
+            keys: KeySettings::default(),
         }
     }
 }
@@ -51,6 +73,16 @@ fn default_volume() -> f32 {
 
 fn default_bloom() -> bool {
     true
+}
+
+
+fn default_rotate_ccw() -> KeyCode {
+    KeyCode::KeyQ
+}
+
+
+fn default_rotate_cw() -> KeyCode {
+    KeyCode::KeyE
 }
 
 
@@ -120,4 +152,24 @@ fn asset_root() -> PathBuf {
     env::var("BEVY_ASSET_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("assets"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shipped_setting_parses_with_rotation_keys() {
+        let setting: GameSetting = ron::from_str(include_str!("../../assets/config/setting.ron"))
+            .expect("shipped setting parses");
+        assert_eq!(setting.keys.rotate_ccw, KeyCode::KeyQ);
+        assert_eq!(setting.keys.rotate_cw, KeyCode::KeyE);
+    }
+
+    #[test]
+    fn missing_keys_fall_back_to_defaults() {
+        let setting: GameSetting = ron::from_str("(volume: 0.5, bloom: true)")
+            .expect("setting without keys parses");
+        assert_eq!(setting, GameSetting::default());
+    }
 }

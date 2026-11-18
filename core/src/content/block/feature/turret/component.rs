@@ -49,7 +49,7 @@ pub struct TurretComponent {
 }
 
 impl TurretComponent {
-    pub fn insert(&self, commands: &mut Commands, base: Entity, pixel_size: Vec2) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, visual: Entity, pixel_size: Vec2) {
         commands.entity(base).insert((
             Turret {
                 strategy: self.strategy.clone(),
@@ -91,7 +91,8 @@ impl TurretComponent {
                 TurretSprite,
             ))
             .id();
-        commands.entity(base).add_child(barrel);
+            
+        commands.entity(visual).add_child(barrel);
         commands.entity(base).insert(TurretBarrel(barrel));
     }
 }

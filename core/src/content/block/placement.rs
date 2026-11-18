@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::constant::GRID_SIZE;
+use crate::content::block::Rot90;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -9,11 +10,11 @@ pub struct BlockPlacement {
     pub id: Uuid,
     pub position: IVec2,
     pub block_type: String,
-    pub rotation: u8,
+    pub rotation: Rot90,
 }
 
 impl BlockPlacement {
-    pub fn new(position: IVec2, block_type: impl Into<String>, rotation: u8) -> Self {
+    pub fn new(position: IVec2, block_type: impl Into<String>, rotation: Rot90) -> Self {
         Self {
             id: Uuid::now_v7(),
             position,

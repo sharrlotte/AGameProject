@@ -51,7 +51,7 @@ pub fn handle_block_damage_event(
             .spawn((
                 Sprite {
                     color: FLASH_OVERLAY_COLOR,
-                    custom_size: Some(def.get_pixel_size()),
+                    custom_size: Some(def.get_base_pixel_size()),
                     ..default()
                 },
                 FlashOverlay {

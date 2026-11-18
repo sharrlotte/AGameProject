@@ -55,7 +55,7 @@ mod tests {
         TurretBarrel, TurretCharge, TurretComponent, TurretPower,
     };
     use crate::content::block::{
-        BlockDef, BlockPlacement, BlockRegistry, BlockShape, ItemDrop, Loot,
+        BakedShape, BlockDef, BlockPlacement, BlockRegistry, ItemDrop, Loot, Rot90, ShapeSpec,
         ShootPattern, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
         TargetingStrategy,
     };
@@ -78,7 +78,7 @@ mod tests {
                 block_group: "core".to_string(),
                 mass: 50.0,
                 health: 5000.0,
-                shape: BlockShape::default(),
+                shape: BakedShape::try_from(&ShapeSpec::Square(1)).expect("test shape bakes"),
                 cost: 1,
                 features: vec![Feature::Storage(100), Feature::Battery(Battery { capacity: 100.0 })],
                 drops: vec![Loot::Item(ItemDrop {
@@ -95,7 +95,7 @@ mod tests {
                 block_group: "weapon".to_string(),
                 mass: 10.0,
                 health: 1000.0,
-                shape: BlockShape::default(),
+                shape: BakedShape::try_from(&ShapeSpec::Square(1)).expect("test shape bakes"),
                 cost: 1,
                 features: vec![Feature::Turret(TurretComponent {
                     strategy: TargetingStrategy::Closest,
@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn world_save_v4_roundtrip_and_rejects_v3() {
+    fn world_save_v5_roundtrip_and_rejects_v4() {
         let save = WorldSave {
             version: SAVE_SCHEMA_VERSION,
             saved_at_unix_ms: 1_700_000_000_000,
@@ -153,8 +153,8 @@ mod tests {
         let back: WorldSave = parse_document(&text).unwrap();
         assert_eq!(back, save);
 
-        let v3 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 3");
-        assert!(parse_document::<WorldSave>(&v3).is_err());
+        let v4 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 4");
+        assert!(parse_document::<WorldSave>(&v4).is_err());
 
         assert!(battle_save_path().ends_with("battle.ron"));
         assert!(campaign_save_path().ends_with("campaign.ron"));
@@ -163,8 +163,8 @@ mod tests {
     #[test]
     fn full_two_ship_fidelity_roundtrip() {
         let design = ShipDesign::new(vec![
-            BlockPlacement::new(IVec2::ZERO, "core", 0),
-            BlockPlacement::new(IVec2::X, "gun", 0),
+            BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
+            BlockPlacement::new(IVec2::X, "gun", Rot90::R0),
         ]);
 
         let mut source = App::new();

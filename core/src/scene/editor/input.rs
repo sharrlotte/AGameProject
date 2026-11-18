@@ -24,6 +24,20 @@ pub struct NavPlayButton;
 pub struct TabButton(pub EditorTab);
 
 
+pub fn handle_rotation_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    setting: Res<GameSetting>,
+    mut editor: ResMut<EditorState>,
+) {
+    if keyboard.just_pressed(setting.keys.rotate_ccw) {
+        editor.rotation = editor.rotation.ccw();
+    }
+    if keyboard.just_pressed(setting.keys.rotate_cw) {
+        editor.rotation = editor.rotation.cw();
+    }
+}
+
+
 pub fn send_scroll_events(
     mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
@@ -136,7 +150,7 @@ pub fn on_deploy(
         .map(|block| block.placement.clone())
         .collect();
     deploy.current_ship = Some(ShipDesign {
-        version: 1,
+        version: DESIGN_SCHEMA_VERSION,
         id: Uuid::now_v7(),
         name: editor.filename.clone(),
         blocks,
@@ -291,18 +305,22 @@ pub fn handle_placement(
                 warn!("No block definition for {:?}", selected_type);
                 return;
             };
-            let size = def.shape.size;
-            let anchor_offset = size / 2;
-            let grid_position = mouse_grid_position - anchor_offset;
+            let size = def.get_block_size(editor.rotation);
+            let grid_position = mouse_grid_position - (size / 2.0).as_ivec2();
 
-            let is_valid =
-                check_placement_validity(&editor.grid, &registry, selected_type, grid_position, 0);
+            let is_valid = check_placement_validity(
+                &editor.grid,
+                &registry,
+                selected_type,
+                grid_position,
+                editor.rotation,
+            );
 
             if !is_valid {
                 return;
             }
 
-            let placement = BlockPlacement::new(grid_position, &def.block_type, 0);
+            let placement = BlockPlacement::new(grid_position, &def.block_type, editor.rotation);
             let base = spawn_placed_block(&mut commands, ship_base.entity(), def, &placement);
             editor.grid.insert_block(placement, base, def);
 

@@ -24,8 +24,9 @@ No game entities exist here.
 - Battle-core (see mission.md): mission loads async; ship spawns driven by the mission
   def; outcome is win/lose; overlay on `Ended`. Top-up spawner deleted; `check_ship`
   gone.
-- Ship mutations rebuild stats, bounds, and the collider from `ShipGrid.cells` and emit
-  `ShipChanged`; `update_stats` (`ShipChanged`, `OnMessage`) recomputes `ShipStats`.
+- Ship mutations rebuild stats and bounds from `ShipGrid` and the compound collider from
+  the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
+  (`ShipChanged`, `OnMessage`) recomputes `ShipStats`.
 - `ShipUIRoot` child of each ship (debug builds only): `Text2d` debug dump.
 
 Selection requires `Ctrl` + left-drag; `Home`/`Game` do not scroll-select.
@@ -47,8 +48,15 @@ Mechanics:
 - Virtual grid, z = editor grid (`GRID_SIZE`), camera pans via left-mouse drag
   (`pan_speed = ortho.scale * 0.5`), zoom clamps `[0.1, 5.0]`
   (inconsistent with the game's `[0.2, 30.0]`).
-- Placement requires face-connected placement onto the existing voxels
-  (`check_placement_validity`), except an empty grid accepts anything.
+- Placement requires a shared orthogonal edge (Manhattan distance 1) with an existing
+  block (`check_placement_validity`), using the pending rotated footprint; diagonal
+  contact does not connect. An empty grid accepts anything.
+- **Q / E** rotate the pending block counter-clockwise / clockwise (bindings from
+  `setting.ron` → `keys`). The rotation applies to the anchor (rotated footprint size /
+  2), the preview, validity checks, and the placed `BlockPlacement.rotation`.
+- The placement preview is a single persistent entity that updates in place only when the
+  hovered cell, selected block, rotation, or grid changes; children are rebuilt only when
+  the selected block changes.
 - **Right-click deletes** blocks at cursor.
 - Save triggers: any block add/remove writes `ShipSaveChanged` (`handle_ship_saving`),
   which requires ≥ 2 blocks and exactly one Core (`BlockRegistry::validate_ship`);
