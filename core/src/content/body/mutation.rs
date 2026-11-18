@@ -196,6 +196,7 @@ fn rebuild_ship(
     }
 
     let collider = registry.build_voxel_collider_2d(grid);
+    
     commands
         .entity(*entity)
         .remove::<Collider>()

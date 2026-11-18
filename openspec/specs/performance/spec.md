@@ -3,7 +3,6 @@
 ## Purpose
 
 Background batching, damage-text pooling, and cadenced radar and debug updates keep per-frame and ECS costs bounded.
-
 ## Requirements
 ### Requirement: Background rendering is batched
 
@@ -31,10 +30,10 @@ Radar SHALL rebuild at most 10 times per second or on `ShipChanged`, not every f
 
 ### Requirement: Debug UI and ammo icons update on change
 
-Debug ship text SHALL be behind a `DebugOverlay` toggle and update on change; ammo warning icons SHALL be children of blocks or repositioned on change, not every tick.
+Debug ship text SHALL be compiled only with the `dev` feature, SHALL be rendered only for ships in `ShipDebugSelection`, and SHALL update on change; ammo warning icons SHALL be children of blocks or repositioned on change, not every tick.
 
 #### Scenario: Debug overlay disabled
-- **WHEN** the debug overlay is disabled
+- **WHEN** the `dev` feature is not compiled or no ship is selected
 - **THEN** no debug text is rebuilt per tick
 
 ### Requirement: Registry ordering is cached
@@ -52,3 +51,4 @@ Tests or debug assertions SHALL cover background entity counts, bounded damage-t
 #### Scenario: Performance suite runs
 - **WHEN** the performance suite runs
 - **THEN** the entity-count, pool-bound, and per-tick rebuild invariants hold
+

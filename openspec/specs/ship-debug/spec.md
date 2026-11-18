@@ -1,5 +1,8 @@
-## ADDED Requirements
+# ship-debug Specification
 
+## Purpose
+TBD - created by archiving change ship-debug-gizmos. Update Purpose after archive.
+## Requirements
 ### Requirement: Ship debug is compiled only with the dev feature
 
 The ship debug selection, text, and gizmo systems SHALL exist only when the `dev` feature is enabled and SHALL run only while `SceneState::Game` is active.
@@ -107,3 +110,4 @@ The geometry used by the AI behavior debug gizmos SHALL be computed by shared pu
 #### Scenario: Steering and renderer agree
 - **WHEN** a ship has an `Approach` or `GoAround` behavior
 - **THEN** the renderer draws the same target and ring geometry that the steering system computes, without duplicating the math
+
