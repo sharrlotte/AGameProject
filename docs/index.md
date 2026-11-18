@@ -18,4 +18,5 @@ status journals do not belong here.
 - [ui.md](ui.md) — HUD, ship list, panels
 - [controls.md](controls.md) — input bindings
 - [assets.md](assets.md) — asset folder layout and naming rules
+- [block-art.md](block-art.md) — block sprite art direction, lighting, continuity, palette and generator
 - [defects.md](defects.md) — known defects in the current implementation (facts, not plans)

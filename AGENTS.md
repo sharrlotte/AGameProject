@@ -70,7 +70,7 @@
 
 # ART STYLE
 
-- Chunky pixel art: draw at half resolution (32x32 -> 64x64, 64x64 -> 128x128, 80x80 -> 160x160) and upscale 2x with `NEAREST`
+- Chunky pixel art: draw directly at final resolution with no upscale; every visible detail must be at least 2 pixels wide
 - No black or dark outer outlines on blocks so adjacent blocks tile seamlessly into a ship hull
 - Dark space palette: deep gunmetal / charcoal-steel base (`(38, 42, 50)` to `(86, 94, 106)`) with material/energy accents (cyan/blue for energy/titanium/shields, amber/gold for surge/core/ammo, orange/red for thermal/missiles)
 - Diagonal top-left highlight / bottom-right shadow bevels and chamfered octagonal armor plates

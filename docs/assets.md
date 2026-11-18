@@ -20,7 +20,7 @@ assets/
 The procedural background in `scene/background.rs` loads no textures, so `texture/background/` does not exist.
 
 Bevy paths used in block/item registration are relative to this root, e.g.
-`texture/block/block-2.png`, resolved as `AssetServer::load("texture/{…}")`.
+`texture/block/turret-base.png`, resolved as `AssetServer::load("texture/{…}")`.
 
 ## Conventions
 
@@ -42,7 +42,7 @@ A dev-only `AssetCheckPlugin` in `core/src/asset/` walks the asset tree at start
 
 Referenced by `config/base/block.ron` and code:
 
-- `texture/block/`: `block-2`, `block-iron`, `block-steel`, `cap-1x1`, `colaris`, `core-nucleus`, `fin-1x2`, `foreshadow`, `lancer`, `meltdown`, `plate-2x2`, `shielded-wall`, `spectre`, `spike-1x3`, `surge-wall-large`, `swarmer`, `thruster`, `titanium-wall-large`, `wedge-1x1` (all `.png`); the five triangle hull PNGs are generated deterministically by `tools/gen_triangle_art.py`
+- `texture/block/`: `block-2`, `block-iron`, `block-steel`, `cap-1x1`, `colaris`, `core-nucleus`, `fin-1x2`, `foreshadow`, `lancer`, `meltdown`, `plate-2x2`, `shielded-wall`, `spectre`, `spike-1x3`, `surge-wall-large`, `swarmer`, `thruster`, `titanium-wall-large`, `wedge-1x1` (all `.png`); all block PNGs are generated deterministically by `tools/gen_block_art.py`
 - `audio/bullet/shoot-spectre.ogg`
 - `config/base/game.ron`, `config/base/block.ron`, `config/setting.ron`, `config/mission/quick-battle.ron`, `config/starter/{interceptor,raider}.ron`
 

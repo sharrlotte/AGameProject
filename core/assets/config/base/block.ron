@@ -8,7 +8,7 @@
             cost: 5,
             shape: Square(1),
             features: [
-                Texture((image: "block/surge-wall-large.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/hull.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
@@ -94,7 +94,7 @@ block_group: "core",
             cost: 150,
             shape: Rect((3, 3)),
             features: [
-                Texture((image: "block/core-nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Thruster((force: 200.0, torque: 60.0)),
                 Storage((capacity: 1000)),
                 Generator((output: 10.0)),
@@ -109,7 +109,7 @@ block_group: "core",
             cost: 300,
             shape: Square(1),
             features: [
-                Texture((image: "block/core-nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/nucleus.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Generator((output: 25.0)),
             ],
             drops: [Item((item_type: "steel", amount: 20))],
@@ -122,7 +122,7 @@ block_group: "turret",
             cost: 150,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Burst((
@@ -153,7 +153,7 @@ block_group: "base",
             cost: 200,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-iron.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/scrap.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
@@ -165,7 +165,7 @@ block_group: "base",
             cost: 200,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-steel.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/steel.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
             ],
             drops: [Item((item_type: "steel", amount: 10))],
         ),
@@ -177,7 +177,7 @@ block_group: "turret",
             cost: 150,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Single((
@@ -218,7 +218,7 @@ block_group: "turret",
             cost: 150,
             shape: Rect((3, 3)),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Burst((
@@ -260,7 +260,7 @@ block_group: "turret",
             cost: 150,
             shape: Rect((3, 3)),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: LaserBeam((
@@ -290,7 +290,7 @@ block_group: "turret",
             cost: 150,
             shape: Rect((3, 9)),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Single((
@@ -325,7 +325,7 @@ block_group: "turret",
             cost: 150,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Burst((
@@ -367,7 +367,7 @@ block_group: "turret",
             cost: 150,
             shape: Square(1),
             features: [
-                Texture((image: "block/block-2.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/turret-base.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Turret((
                     strategy: Closest,
                     shooting_pattern: PullingBeam((width: 3.0)),
@@ -392,7 +392,7 @@ block_group: "turret",
             cost: 100,
             shape: Square(1),
             features: [
-                Texture((image: "block/titanium-wall-large.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/battery.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Battery((capacity: 100.0)),
             ],
             drops: [Item((item_type: "steel", amount: 10))],
@@ -405,7 +405,7 @@ block_group: "turret",
             cost: 250,
             shape: Square(1),
             features: [
-                Texture((image: "block/shielded-wall.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
+                Texture((image: "block/booster.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Booster((radius: 256.0, boost: 1.5, rate: 8.0)),
             ],
             drops: [Item((item_type: "steel", amount: 15))],
