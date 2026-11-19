@@ -1,6 +1,6 @@
 # UI Spec — HUD and Panels
 
-All HUD elements are UI nodes (not world-space canvases) except damage numbers (`Text2d` at `LAYER_DAMAGE_TEXT = 400`).
+All HUD elements are UI nodes (not world-space canvases).
 
 ## Game scene HUD
 
@@ -56,8 +56,6 @@ it is north-up (never rotates) and has no inner ring, sweep hand, or center arro
 
 ## Damage / warning icons
 
-- Damage floating text: red `Text2d`, rendered through the `DamageTextPool` (64 slots),
-  lifetime `damage_number_lifetime` (`game.ron`, 1.5 s).
 - No-ammo warning: 3-mesh triangle + exclamation (border triangle black, inner triangle
   yellow, exclamation black) hovering above the block, `LAYER_BLOCK_ICON + offsets`,
   removed when ammo > 0.

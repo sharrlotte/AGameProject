@@ -656,7 +656,7 @@ impl BlockRegistry {
         let min = min.as_vec2() * GRID_SIZE;
         let max = max.as_vec2() * GRID_SIZE;
 
-        Some(BoundingBox { size: max - min })
+        Some(BoundingBox::from_min_max(min, max))
     }
 
     pub fn core_of(&self, grid: &BlockGrid) -> Option<(Uuid, Vec2)> {

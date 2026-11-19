@@ -67,7 +67,7 @@ The continuous laser and pulling-beam visual entities SHALL be children of the r
 
 ### Requirement: Combat edge cases are handled
 
-Empty turret barrels SHALL be rejected at config validation and guarded at runtime without division by zero. A pulling beam SHALL apply pull once per target ship per tick. Damage text SHALL use `LAYER_DAMAGE_TEXT = 400.0`. Missile visual and hitbox z-order SHALL be aligned. Fire and cooldown timers SHALL reset on spawn and pause correctly. Transient combat visuals SHALL be scoped to `SceneState::Game`.
+Empty turret barrels SHALL be rejected at config validation and guarded at runtime without division by zero. A pulling beam SHALL apply pull once per target ship per tick. Missile visual and hitbox z-order SHALL be aligned. Fire and cooldown timers SHALL reset on spawn and pause correctly. Transient combat visuals SHALL be scoped to `SceneState::Game`.
 
 #### Scenario: Empty barrels are safe
 - **WHEN** a turret has no barrels
@@ -76,7 +76,3 @@ Empty turret barrels SHALL be rejected at config validation and guarded at runti
 #### Scenario: Pull once per ship
 - **WHEN** a pulling beam overlaps several blocks of one ship
 - **THEN** that ship receives one pull per tick
-
-#### Scenario: Damage text is in camera range
-- **WHEN** damage text spawns
-- **THEN** its z is inside the 2D camera range

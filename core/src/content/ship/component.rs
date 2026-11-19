@@ -40,7 +40,30 @@ pub struct Ship {
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct BoundingBox {
+    pub min: Vec2,
+    pub max: Vec2,
+    pub center: Vec2,
     pub size: Vec2,
+}
+
+impl BoundingBox {
+    pub fn from_min_max(min: Vec2, max: Vec2) -> Self {
+        Self {
+            min,
+            max,
+            center: (min + max) * 0.5,
+            size: max - min,
+        }
+    }
+
+    pub fn corners(&self) -> [Vec2; 4] {
+        [
+            Vec2::new(self.min.x, self.min.y),
+            Vec2::new(self.max.x, self.min.y),
+            Vec2::new(self.max.x, self.max.y),
+            Vec2::new(self.min.x, self.max.y),
+        ]
+    }
 }
 
 
@@ -250,5 +273,23 @@ mod tests {
         let stats = stats.single(world).unwrap();
         assert_eq!(stats.mass, 15.0);
         assert_eq!(stats.max_health, 150.0);
+    }
+
+    #[test]
+    fn bounding_box_from_min_max_sets_center_size_and_corners() {
+        let bounds = BoundingBox::from_min_max(Vec2::new(-16.0, 32.0), Vec2::new(48.0, 96.0));
+        assert_eq!(bounds.min, Vec2::new(-16.0, 32.0));
+        assert_eq!(bounds.max, Vec2::new(48.0, 96.0));
+        assert_eq!(bounds.center, Vec2::new(16.0, 64.0));
+        assert_eq!(bounds.size, Vec2::new(64.0, 64.0));
+        assert_eq!(
+            bounds.corners(),
+            [
+                Vec2::new(-16.0, 32.0),
+                Vec2::new(48.0, 32.0),
+                Vec2::new(48.0, 96.0),
+                Vec2::new(-16.0, 96.0),
+            ]
+        );
     }
 }

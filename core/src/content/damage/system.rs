@@ -2,81 +2,15 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 
 use super::*;
-use crate::config::GameConfigValue;
-use crate::constant::LAYER_DAMAGE_TEXT;
 use crate::content::block::Health;
-use crate::resource::SceneState;
-
-
-const DAMAGE_TEXT_POOL_SIZE: usize = 64;
-
-pub(super) fn spawn_damage_text_pool(mut commands: Commands) {
-    let slots = (0..DAMAGE_TEXT_POOL_SIZE)
-        .map(|_| {
-            commands
-                .spawn((
-                    DespawnOnExit(SceneState::Game),
-                    Visibility::Hidden,
-                    Transform::default(),
-                    Text2d::new(""),
-                    TextFont {
-                        font_size: FontSize::Px(20.0),
-                        ..default()
-                    },
-                    TextColor(Color::srgb(1.0, 0.0, 0.0)),
-                    DamageTextSlot { remaining: 0.0 },
-                ))
-                .id()
-        })
-        .collect();
-    commands.insert_resource(DamageTextPool { slots, next: 0 });
-}
-
-pub(super) fn tick_damage_text_pool(
-    time: Res<Time>,
-    mut slots: Query<(&mut DamageTextSlot, &mut Visibility)>,
-) {
-    for (mut slot, mut visibility) in &mut slots {
-        if slot.remaining <= 0.0 {
-            continue;
-        }
-        slot.remaining -= time.delta_secs();
-        if slot.remaining <= 0.0 {
-            *visibility = Visibility::Hidden;
-        }
-    }
-}
 
 pub fn handle_damage_events(
     mut events: MessageReader<DamageEvent>,
-    mut healths: Query<(&mut Health, &GlobalTransform)>,
-    mut pool: ResMut<DamageTextPool>,
-    mut slots: Query<(
-        &mut Transform,
-        &mut Text2d,
-        &mut DamageTextSlot,
-        &mut Visibility,
-    )>,
-    config: Res<GameConfigValue>,
+    mut healths: Query<&mut Health>,
 ) {
     for event in events.read() {
-        if let Ok((mut health, transform)) = healths.get_mut(event.target) {
+        if let Ok(mut health) = healths.get_mut(event.target) {
             health.health -= event.damage;
-
-            if pool.slots.is_empty() {
-                continue;
-            }
-            let entity = pool.slots[pool.next % pool.slots.len()];
-            pool.next = (pool.next + 1) % pool.slots.len();
-            if let Ok((mut slot_transform, mut text, mut slot, mut visibility)) =
-                slots.get_mut(entity)
-            {
-                slot_transform.translation =
-                    transform.translation().truncate().extend(LAYER_DAMAGE_TEXT);
-                text.0 = event.damage.to_string();
-                slot.remaining = config.0.damage_number_lifetime;
-                *visibility = Visibility::Visible;
-            }
         }
     }
 }

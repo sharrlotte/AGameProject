@@ -18,7 +18,7 @@ The ship debug gizmo system SHALL exist only when the `dev` feature is enabled a
 
 ### Requirement: Debug gizmos are drawn only for selected ships
 
-The debug gizmo renderer SHALL draw AI steering/radar geometry, hull/bounds with a core marker, heading/velocity/force, and turret aim rays only for the ship in `InspectedShip`.
+The debug gizmo renderer SHALL draw AI steering/radar geometry, hull/bounds aligned to `BoundingBox::corners()` with a core marker, heading/velocity/force, and turret aim rays only for the ship in `InspectedShip`.
 
 #### Scenario: No selection
 - **WHEN** `InspectedShip` is `None`
@@ -26,7 +26,7 @@ The debug gizmo renderer SHALL draw AI steering/radar geometry, hull/bounds with
 
 #### Scenario: Selected ship gizmos
 - **WHEN** `InspectedShip` is `Some(entity)`
-- **THEN** gizmos are drawn from its `Steering`, `Capability` (`max_radar_range`), `BoundingBox`, `Transform`, `Velocity`, `ExternalForce`, and the `TurretState` of blocks owned by that ship
+- **THEN** gizmos are drawn from its `Steering`, `Capability` (`max_radar_range`), `BoundingBox`, `Transform`, `Velocity`, `ExternalForce`, and the `TurretState` of blocks owned by that ship, with the bounding box outline drawn through `bounds.corners()` transformed into world space
 
 #### Scenario: Deselected ship
 - **WHEN** `InspectedShip` becomes `None` or switches to another ship

@@ -10,6 +10,10 @@
   `blocks` on every `rebuild_from_layout` (including collider rebuilds).
 - `ShipStats` — single aggregate per ship (mass, health, ranges, power, cargo,
   thrust). Derived by `BlockRegistry::stats_from_grid` on every `ShipChanged`.
+- `BoundingBox { min, max, center, size }` — ship-local occupied cell bounds built via
+  `BoundingBox::from_min_max` in `BlockRegistry::bounds_from_grid`. `corners()` returns
+  the four local corners for world-space projection in `ship_center`, `draw_ship_debug_gizmos`,
+  and `SelectablePlugin` marquee overlap (world-space AABB of transformed corners).
 
 The old `BlockData`, `Block`, `BlockState`, `Blocks`, `ShipData`, `ShipState`,
 `ShipCalculated*`, and `ComputedShipStats` types are deleted.

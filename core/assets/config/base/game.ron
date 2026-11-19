@@ -12,7 +12,6 @@
     missile_accel_time: 0.35,
     missile_max_turn: 2.0,
     bullet_fade_time: 0.25,
-    damage_number_lifetime: 1.5,
     ai_flee_distance: 1000.0,
     ai_wander_patrol_radius_multiplier: 10.0,
     ai_group_range_multiplier: 2.0,

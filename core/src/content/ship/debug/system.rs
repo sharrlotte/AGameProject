@@ -59,14 +59,10 @@ pub fn draw_ship_debug_gizmos(
             );
         }
 
-        let half = bounds.size / 2.0;
-        let corners = [
-            Vec2::new(-half.x, -half.y),
-            Vec2::new(half.x, -half.y),
-            Vec2::new(half.x, half.y),
-            Vec2::new(-half.x, half.y),
-        ]
-        .map(|corner| transform.transform_point(corner.extend(0.0)).truncate());
+        let corners = bounds
+            .corners()
+            .map(|corner| transform.transform_point(corner.extend(0.0)).truncate());
+            
         gizmos.linestrip_2d(
             [corners[0], corners[1], corners[2], corners[3], corners[0]],
             Color::srgb(0.6, 0.7, 0.9),

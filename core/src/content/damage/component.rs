@@ -1,17 +1,6 @@
 use bevy::prelude::*;
 
 #[derive(Component, Debug)]
-pub struct DamageTextSlot {
-    pub remaining: f32,
-}
-
-#[derive(Resource)]
-pub struct DamageTextPool {
-    pub slots: Vec<Entity>,
-    pub next: usize,
-}
-
-#[derive(Component, Debug)]
 pub struct Damage {
     pub damage: f32,
 }

@@ -89,24 +89,14 @@ pub(super) fn update_selectable(
                     continue;
                 }
 
-                let translation = transform.translation().truncate();
-
                 if let Some(bounding_box) = bounding_box {
-                    let half = bounding_box.size / 2.0;
-                    let min = translation - half;
-                    let max = translation + half;
-
-                    if top_left.x <= max.x
-                        && top_left.y <= max.y
-                        && bottom_right.x >= min.x
-                        && bottom_right.y >= min.y
-                    {
+                    if overlaps_marquee(transform, bounding_box, top_left, bottom_right) {
                         selected.push(entity);
                     }
-
                     continue;
                 }
 
+                let translation = transform.translation().truncate();
                 if top_left.x <= translation.x
                     && top_left.y <= translation.y
                     && bottom_right.x >= translation.x
@@ -122,5 +112,77 @@ pub(super) fn update_selectable(
                 selected_writer.write(EntitySelectEvent { selected });
             }
         }
+    }
+}
+
+fn world_aabb(transform: &GlobalTransform, bounds: &BoundingBox) -> (Vec2, Vec2) {
+    let mut min = Vec2::splat(f32::INFINITY);
+    let mut max = Vec2::splat(f32::NEG_INFINITY);
+    for corner in bounds.corners() {
+        let world = transform.transform_point(corner.extend(0.0)).truncate();
+        min = min.min(world);
+        max = max.max(world);
+    }
+    (min, max)
+}
+
+fn overlaps_marquee(
+    transform: &GlobalTransform,
+    bounds: &BoundingBox,
+    rect_min: Vec2,
+    rect_max: Vec2,
+) -> bool {
+    let (min, max) = world_aabb(transform, bounds);
+    rect_min.x <= max.x && rect_min.y <= max.y && rect_max.x >= min.x && rect_max.y >= min.y
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn marquee_overlap_uses_offset_bounds() {
+        let bounds = BoundingBox::from_min_max(Vec2::ZERO, Vec2::new(64.0, 32.0));
+        let transform = GlobalTransform::from_xyz(100.0, 200.0, 0.0);
+
+        // Inside [100..164, 200..232]
+        assert!(overlaps_marquee(
+            &transform,
+            &bounds,
+            Vec2::new(150.0, 210.0),
+            Vec2::new(170.0, 220.0),
+        ));
+
+        // Left of origin [68..99, 200..232] should NOT match (old centered box would have!)
+        assert!(!overlaps_marquee(
+            &transform,
+            &bounds,
+            Vec2::new(70.0, 205.0),
+            Vec2::new(95.0, 225.0),
+        ));
+    }
+
+    #[test]
+    fn marquee_overlap_accounts_for_rotation() {
+        let bounds = BoundingBox::from_min_max(Vec2::ZERO, Vec2::new(100.0, 20.0));
+        let mut local = Transform::from_xyz(0.0, 0.0, 0.0);
+        local.rotate_z(std::f32::consts::FRAC_PI_2);
+        let transform = GlobalTransform::from(local);
+
+        // Rotated +90 deg: [0..100, 0..20] becomes [-20..0, 0..100]
+        assert!(overlaps_marquee(
+            &transform,
+            &bounds,
+            Vec2::new(-15.0, 80.0),
+            Vec2::new(-5.0, 95.0),
+        ));
+
+        // Along +X where unrotated ship would be, rotated ship is no longer there
+        assert!(!overlaps_marquee(
+            &transform,
+            &bounds,
+            Vec2::new(50.0, 5.0),
+            Vec2::new(90.0, 15.0),
+        ));
     }
 }

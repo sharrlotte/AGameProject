@@ -80,7 +80,7 @@ The simulation-set ordering contract is stated here; set ordering is configured 
 | `FixedUpdate` | `Cleanup` | lifetime countdown |
 | `FixedPostUpdate` | `Damage` | collisions → damage events → health, laser hit resolution |
 | `FixedPostUpdate` | `Death` | block destruction → `BodyMutation` → debris/drops |
-| `PostUpdate` | `Present` | camera, HUD, indicators, damage text, parallax |
+| `PostUpdate` | `Present` | camera, HUD, indicators, parallax |
 | `Last` | `Cleanup` | deferred despawns |
 
 `Damage → Death → BodyMutation` is chained inside one fixed tick: `Damage`
@@ -166,7 +166,7 @@ content/
     inspect/     InspectedShip, click observer, Escape/despawn handling (enemy click gated to dev)
     debug/       (dev feature only) gizmo renderer driven by InspectedShip
   bullet/        Bullet/Laser/Missile components + all projectile systems
-  damage/        Damage/DamageEvent (health decrement + floating text)
+  damage/        Damage/DamageEvent (health decrement)
   death/         Death marker → despawn
   lifetime/      Lifetime → Death
   item/          ItemRegistry/ItemType/Rarity

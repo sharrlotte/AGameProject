@@ -70,9 +70,7 @@ physics tick and places the shot at the origin instead of the muzzle.
 - `Damage` component on projectiles/hitboxes/blast circles.
 - `handle_damage_collisions` (`FixedUpdate`) pairs `Damage` entities with `Health` entities
   on collision `Started` events and emits `DamageEvent`.
-- `handle_damage_events` (`FixedPostUpdate`) applies `health -= damage` and shows the
-  damage number through the pooled `DamageTextPool` (64 `Text2d` slots spawned on
-  `OnEnter(SceneState::Game)`; z = `LAYER_DAMAGE_TEXT`, lifetime `damage_number_lifetime`).
+- `handle_damage_events` (`FixedPostUpdate`) applies `health -= damage`.
 - `handle_block_damage_event` (`FixedPostUpdate`) spawns a 0.1 s white
   `FLASH_OVERLAY_COLOR` flash overlay scaled to the block's pixel size.
 - `Health ≤ 0` → block destruction (see simulation.md).
