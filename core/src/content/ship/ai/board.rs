@@ -8,7 +8,7 @@ use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
 
 #[derive(Clone, Copy)]
-struct AllyCandidate {
+pub struct AllyCandidate {
     entity: Entity,
     position: Vec2,
     offensive_dps: f32,
@@ -19,9 +19,11 @@ pub fn update_tactical_board(
     ai_cfg: Res<AiConfigValue>,
     mut board: ResMut<TacticalBoard>,
     ships: Query<(Entity, &GlobalTransform, &Team, &Ship, &ShipStats, &Capability)>,
+    mut allies_by_team: Local<HashMap<u8, Vec<AllyCandidate>>>,
+    mut hp_by_entity: Local<HashMap<Entity, f32>>,
 ) {
-    let mut allies_by_team: HashMap<u8, Vec<AllyCandidate>> = HashMap::new();
-    let mut hp_by_entity: HashMap<Entity, f32> = HashMap::new();
+    allies_by_team.clear();
+    hp_by_entity.clear();
 
     for (entity, gt, team, ship, stats, cap) in &ships {
         let pos = gt.transform_point(ship.core_position.extend(0.0)).truncate();
@@ -41,7 +43,7 @@ pub fn update_tactical_board(
 
     board.teams.retain(|team_id, _| allies_by_team.contains_key(team_id));
 
-    for (team_id, allies) in allies_by_team {
+    for (&team_id, allies) in &*allies_by_team {
         let plan = board.teams.entry(team_id).or_default();
         plan.ally_count = allies.len();
 

@@ -1,6 +1,12 @@
-## ADDED Requirements
+# HUD Minimap
 
+## Purpose
+
+TBD - created by syncing change vision-and-minimap. Update Purpose after archive.
+
+## Requirements
 ### Requirement: Top-right north-up minimap HUD
+
 The `Game` scene SHALL display an always-on minimap anchored in the top-right corner of the viewport (present in both debug and release builds) and despawned via `DespawnOnExit(SceneState::Game)`. The minimap SHALL maintain a fixed north-up orientation (no map rotation) and clip markers to its circular bounds.
 
 #### Scenario: Minimap spawns on entering Game and despawns on exit
@@ -12,6 +18,7 @@ The `Game` scene SHALL display an always-on minimap anchored in the top-right co
 - **THEN** the enemy dot remains directly above the center of the minimap while only the player center arrow rotates
 
 ### Requirement: Minimap anchor fallback chain and player heading arrow
+
 The minimap SHALL resolve its center anchor using the fallback chain: `ControlledShip.controlling` → `CameraTarget.following` → first alive player-team ship (ordered by `Ship.id`) → active `Camera2d` world position. When anchored to a ship, the minimap SHALL render a centered arrow rotated to match that ship's world heading and a radar range circle matching that ship's `Capability.max_radar_range`. When anchored to the free camera (no alive player-team ships), the center arrow and radar ring SHALL be hidden.
 
 #### Scenario: Piloting a ship centers on it with rotating arrow and radar ring
@@ -27,6 +34,7 @@ The minimap SHALL resolve its center anchor using the fallback chain: `Controlle
 - **THEN** the minimap anchors to the `Camera2d` position and hides the center arrow and radar ring
 
 ### Requirement: Minimap plots allies, live contacts, last-known ghosts, and alerts at fixed world scale
+
 The minimap SHALL map world offsets using a fixed `world_radius` loaded from hot-reloadable config (`core/assets/config/base/minimap.ron`). It SHALL render:
 - Allied player-team ships (other than the anchor ship) as allied-colored dots.
 - Live detected enemies from player `TeamIntel.contacts` as enemy-colored dots.
@@ -47,6 +55,7 @@ Markers outside `world_radius` SHALL be hidden/clipped. Undetected enemies witho
 - **THEN** its marker is hidden and does not render outside the minimap bounds
 
 ### Requirement: Minimap configuration is data-driven and validated
+
 `MinimapConfig` SHALL be loaded from `core/assets/config/base/minimap.ron` with hot-reload support and validated so that `size_px`, `world_radius`, `dot_size_px`, and `arrow_size_px` are strictly positive, `margin_px` is non-negative, and `max_markers >= 1`.
 
 #### Scenario: Invalid minimap config is rejected

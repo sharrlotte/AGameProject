@@ -30,7 +30,9 @@ use crate::simulation::SimulationSet;
 use crate::system::{load_default_fleet, setup_camera};
 use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, PresentMode, WindowMode, WindowPlugin};
+use bevy::window::PresentMode;
+use bevy::window::WindowLevel::AlwaysOnBottom;
+use bevy::window::{MonitorSelection, WindowMode, WindowPlugin};
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
@@ -65,7 +67,7 @@ fn register_engine_plugins(app: &mut App) {
                 primary_window: Some(Window {
                     title: "AGameProject".to_string(),
                     mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
-                    window_level: WindowLevel::AlwaysOnBottom,
+                    window_level: AlwaysOnBottom,
                     present_mode: PresentMode::AutoVsync,
                     ..Default::default()
                 }),

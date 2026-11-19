@@ -120,9 +120,11 @@ document are illustrative, not normative:
 - `config/base/block.ron` — `blocks:` map keyed by plain `String` id; each entry: `name`,
   `block_group`, `mass`, `health`, `cost`, `shape` (`ShapeSpec`), `features` (`Texture`,
   `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`, `Storage`), `drops`.
-- `config/base/minimap.ron` — `MinimapConfig`: `size_px`, `margin_px`, `world_radius`,
-  `dot_size_px`, `arrow_size_px`, `max_markers`. Validation requires positive
-  `size_px`/`world_radius`/`dot_size_px`/`arrow_size_px`, non-negative `margin_px`, and
+- `config/base/minimap.ron` — `MinimapConfig`: `size_px`, `margin_px`,
+  `fallback_world_radius`, `radar_scale_factor`, `refresh_secs`, `dot_size_px`,
+  `lost_flash_count`, `lost_flash_secs`, `glow_blur_px`, `max_markers`. Validation requires
+  positive `size_px`/`fallback_world_radius`/`radar_scale_factor`/`refresh_secs`/`dot_size_px`/
+  `lost_flash_secs`/`glow_blur_px`, non-negative `margin_px`, `lost_flash_count >= 1`, and
   `max_markers >= 1`.
 
 ### Shape spec (`ShapeSpec`)

@@ -43,7 +43,7 @@ pub(super) fn draw_indicators(
                 camera.viewport_to_world_2d(camera_transform, clamped_viewport_position)
             {
                 let color = team.color(1.0);
-                let size = 45.0 * scale.sqrt();
+                let size = 30.0 * scale.sqrt();
 
                 let diff = ship_position.truncate() - world_position;
                 let angle: f32 = if diff.length_squared() > 0.5 {

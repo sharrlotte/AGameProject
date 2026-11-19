@@ -10,9 +10,13 @@ use crate::config::{ConfigError, ConfigFile, ConfigState};
 pub struct MinimapConfig {
     pub size_px: f32,
     pub margin_px: f32,
-    pub world_radius: f32,
+    pub fallback_world_radius: f32,
+    pub radar_scale_factor: f32,
+    pub refresh_secs: f32,
     pub dot_size_px: f32,
-    pub arrow_size_px: f32,
+    pub lost_flash_count: u32,
+    pub lost_flash_secs: f32,
+    pub glow_blur_px: f32,
     pub max_markers: usize,
 }
 
@@ -21,9 +25,13 @@ impl Default for MinimapConfig {
         Self {
             size_px: 200.0,
             margin_px: 12.0,
-            world_radius: 6000.0,
+            fallback_world_radius: 6000.0,
+            radar_scale_factor: 1.2,
+            refresh_secs: 1.0,
             dot_size_px: 6.0,
-            arrow_size_px: 14.0,
+            lost_flash_count: 3,
+            lost_flash_secs: 1.5,
+            glow_blur_px: 4.0,
             max_markers: 128,
         }
     }
@@ -32,15 +40,22 @@ impl Default for MinimapConfig {
 impl MinimapConfig {
     pub fn validate(&self) -> Result<(), String> {
         validate_positive("size_px", self.size_px)?;
-        validate_positive("world_radius", self.world_radius)?;
+        validate_positive("fallback_world_radius", self.fallback_world_radius)?;
+        validate_positive("radar_scale_factor", self.radar_scale_factor)?;
+        validate_positive("refresh_secs", self.refresh_secs)?;
         validate_positive("dot_size_px", self.dot_size_px)?;
-        validate_positive("arrow_size_px", self.arrow_size_px)?;
+        validate_positive("lost_flash_secs", self.lost_flash_secs)?;
+        validate_positive("glow_blur_px", self.glow_blur_px)?;
 
         if !self.margin_px.is_finite() || self.margin_px < 0.0 {
             return Err(format!(
                 "margin_px must be non-negative, got {}",
                 self.margin_px
             ));
+        }
+
+        if self.lost_flash_count == 0 {
+            return Err("lost_flash_count must be >= 1".to_string());
         }
 
         if self.max_markers == 0 {
@@ -54,11 +69,11 @@ impl MinimapConfig {
         self.size_px * 0.5
     }
 
-    pub fn radar_ring_diameter(&self, radar_range: f32) -> f32 {
-        if !radar_range.is_finite() || radar_range <= 0.0 {
-            return 0.0;
+    pub fn scaled_world_radius(&self, radar_range: Option<f32>) -> f32 {
+        match radar_range {
+            Some(range) if range.is_finite() && range > 0.0 => range * self.radar_scale_factor,
+            _ => self.fallback_world_radius,
         }
-        (radar_range / self.world_radius) * self.size_px
     }
 }
 
@@ -112,13 +127,34 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_positive_world_radius() {
+    fn rejects_non_positive_fallback_world_radius() {
         let config = MinimapConfig {
-            world_radius: 0.0,
+            fallback_world_radius: 0.0,
             ..MinimapConfig::default()
         };
         let error = config.validate().expect_err("zero radius is invalid");
-        assert!(error.contains("world_radius"), "{error}");
+        assert!(error.contains("fallback_world_radius"), "{error}");
+    }
+
+    #[test]
+    fn rejects_non_positive_refresh_and_scale() {
+        let bad_refresh = MinimapConfig {
+            refresh_secs: 0.0,
+            ..MinimapConfig::default()
+        };
+        assert!(bad_refresh.validate().is_err());
+
+        let bad_scale = MinimapConfig {
+            radar_scale_factor: 0.0,
+            ..MinimapConfig::default()
+        };
+        assert!(bad_scale.validate().is_err());
+
+        let bad_flashes = MinimapConfig {
+            lost_flash_count: 0,
+            ..MinimapConfig::default()
+        };
+        assert!(bad_flashes.validate().is_err());
     }
 
     #[test]
@@ -146,13 +182,14 @@ mod tests {
     }
 
     #[test]
-    fn radar_ring_scales_with_world_radius() {
+    fn scaled_world_radius_uses_radar_times_factor_or_fallback() {
         let config = MinimapConfig {
-            world_radius: 6000.0,
-            size_px: 200.0,
+            fallback_world_radius: 6000.0,
+            radar_scale_factor: 1.2,
             ..MinimapConfig::default()
         };
-        let diameter = config.radar_ring_diameter(2500.0);
-        assert!((diameter - 200.0 * (2500.0 / 6000.0)).abs() < 1e-4);
+        assert!((config.scaled_world_radius(Some(2500.0)) - 3000.0).abs() < 1e-4);
+        assert!((config.scaled_world_radius(Some(0.0)) - 6000.0).abs() < 1e-4);
+        assert!((config.scaled_world_radius(None) - 6000.0).abs() < 1e-4);
     }
 }

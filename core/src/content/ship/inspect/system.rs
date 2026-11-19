@@ -18,7 +18,7 @@ pub fn ignore_hud_picking(
 pub fn on_ship_click(
     click: On<PointerClick>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    targets: Query<(&Team, &Visibility)>,
+    targets: Query<(&Team, &Visibility), With<Ship>>,
     mut events: MessageWriter<ShipSelected>,
 ) {
     if click.button != PointerButton::Primary || keyboard.pressed(KeyCode::ControlLeft) {
@@ -49,14 +49,15 @@ pub fn clear_selection_on_escape(
 
 pub fn apply_selection(
     mut inspected: ResMut<InspectedShip>,
-    ships: Query<(&Team, &Visibility)>,
+    ships: Query<(&Team, &Visibility), With<Ship>>,
     mut selects: MessageReader<ShipSelected>,
     mut clears: MessageReader<ShipSelectionCleared>,
 ) {
     for event in selects.read() {
-        if let Ok((team, visibility)) = ships.get(event.entity)
-            && (*visibility == Visibility::Hidden || !can_inspect_team(team))
-        {
+        let Ok((team, visibility)) = ships.get(event.entity) else {
+            continue;
+        };
+        if *visibility == Visibility::Hidden || !can_inspect_team(team) {
             continue;
         }
 
@@ -223,5 +224,18 @@ mod tests {
         toggle(&mut app, entity);
 
         assert!(app.world().resource::<Messages<EntitySelectEvent>>().is_empty());
+    }
+
+    #[test]
+    fn non_ship_entity_is_ignored() {
+        let mut app = test_app();
+        let non_ship = app
+            .world_mut()
+            .spawn((Team::new(0), Visibility::Visible))
+            .id();
+
+        toggle(&mut app, non_ship);
+
+        assert_eq!(app.world().resource::<InspectedShip>().0, None);
     }
 }

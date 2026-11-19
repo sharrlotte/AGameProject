@@ -1,17 +1,12 @@
+use std::collections::HashMap;
+
 use bevy::prelude::*;
-use uuid::Uuid;
 
 #[derive(Component)]
 pub struct MinimapRoot;
 
 #[derive(Component)]
-pub struct MinimapRing;
-
-#[derive(Component)]
 pub struct MinimapMarkerLayer;
-
-#[derive(Component)]
-pub struct MinimapArrow;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MinimapMarker {
@@ -19,38 +14,21 @@ pub struct MinimapMarker {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct AnchorCandidate {
-    pub entity: Entity,
-    pub id: Uuid,
-    pub position: Vec2,
-    pub heading: f32,
-    pub radar_range: f32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum MinimapAnchor {
-    Ship(AnchorCandidate),
-    Camera(Vec2),
-}
-
-impl MinimapAnchor {
-    pub fn position(self) -> Vec2 {
-        match self {
-            Self::Ship(candidate) => candidate.position,
-            Self::Camera(position) => position,
-        }
-    }
-
-    pub fn ship(self) -> Option<AnchorCandidate> {
-        match self {
-            Self::Ship(candidate) => Some(candidate),
-            Self::Camera(_) => None,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
 pub struct MarkerSpec {
     pub offset: Vec2,
     pub color: Color,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LostContact {
+    pub entity: Entity,
+    pub world_position: Vec2,
+    pub color: Color,
+    pub elapsed: f32,
+}
+
+#[derive(Resource, Default, Debug)]
+pub struct MinimapState {
+    pub prev_contacts: HashMap<Entity, (Vec2, Color)>,
+    pub lost_flashes: Vec<LostContact>,
 }

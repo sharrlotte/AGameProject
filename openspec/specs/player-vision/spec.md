@@ -1,6 +1,12 @@
-## ADDED Requirements
+# Player Vision
 
+## Purpose
+
+TBD - created by syncing change vision-and-minimap. Update Purpose after archive.
+
+## Requirements
 ### Requirement: Enemy visibility is driven by shared player TeamIntel
+
 The vision system SHALL evaluate enemy ship visibility from `TacticalBoard.teams[DEFAULT_TEAM_ID].intel.contacts` while in `SceneState::Game`. Every non-player ship present in player `intel.contacts` SHALL have `Visibility::Visible`, and every non-player ship absent from player `intel.contacts` SHALL have `Visibility::Hidden`. Player-team ships SHALL always remain `Visibility::Visible`.
 
 #### Scenario: Undetected enemy is hidden

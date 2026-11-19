@@ -14,7 +14,7 @@ use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
 
 #[derive(Clone, Copy)]
-struct ShipSnap {
+pub struct ShipSnap {
     entity: Entity,
     team: u8,
     position: Vec2,
@@ -24,6 +24,7 @@ struct ShipSnap {
     has_fixed_gun: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_sensors_and_intel(
     time: Res<Time>,
     ai_cfg: Res<AiConfigValue>,
@@ -45,11 +46,17 @@ pub fn update_sensors_and_intel(
         Option<&Skill>,
         Option<&mut Sensor>,
     )>,
+    mut snapshots: Local<Vec<ShipSnap>>,
+    mut team_max_skill: Local<HashMap<u8, u8>>,
+    mut ship_map: Local<HashMap<Entity, (u8, Vec2)>>,
+    mut prev_contacts_by_team: Local<HashMap<u8, HashMap<Entity, SharedContact>>>,
+    mut local_contacts: Local<Vec<(f32, Entity)>>,
 ) {
     let dt = time.delta_secs();
-    let mut snapshots: Vec<ShipSnap> = Vec::new();
-    let mut team_max_skill: HashMap<u8, u8> = HashMap::new();
-    let mut ship_map: HashMap<Entity, (u8, Vec2)> = HashMap::new();
+    snapshots.clear();
+    team_max_skill.clear();
+    ship_map.clear();
+    prev_contacts_by_team.clear();
 
     for (entity, gt, team, ship, stats, cap, vel, skill, _) in &ships {
         let pos = gt.transform_point(ship.core_position.extend(0.0)).truncate();
@@ -79,7 +86,6 @@ pub fn update_sensors_and_intel(
     }
 
     // Move previous live contacts into staging so unspotted living enemies become last_known
-    let mut prev_contacts_by_team: HashMap<u8, HashMap<Entity, SharedContact>> = HashMap::new();
     for (&team_id, plan) in &mut board.teams {
         let prev = std::mem::take(&mut plan.intel.contacts);
         prev_contacts_by_team.insert(team_id, prev);
@@ -91,14 +97,14 @@ pub fn update_sensors_and_intel(
         let range_sq = cap.max_radar_range * cap.max_radar_range;
         let plan = board.teams.entry(team.id).or_default();
 
-        let mut local: Vec<(f32, Entity)> = Vec::new();
-        for enemy in &snapshots {
+        local_contacts.clear();
+        for enemy in snapshots.iter() {
             if enemy.team == team.id {
                 continue;
             }
             let dist_sq = origin.distance_squared(enemy.position);
             if dist_sq <= range_sq {
-                local.push((dist_sq, enemy.entity));
+                local_contacts.push((dist_sq, enemy.entity));
                 plan.intel.contacts.insert(
                     enemy.entity,
                     SharedContact {
@@ -114,9 +120,9 @@ pub fn update_sensors_and_intel(
             }
         }
         if let Some(mut sensor) = sensor_opt {
-            local.sort_by(|a, b| a.0.total_cmp(&b.0));
-            local.truncate(ai_cfg.0.bounds.max_local_contacts);
-            sensor.local_contacts = local.into_iter().map(|(_, e)| e).collect();
+            local_contacts.sort_by(|a, b| a.0.total_cmp(&b.0));
+            local_contacts.truncate(ai_cfg.0.bounds.max_local_contacts);
+            sensor.local_contacts = local_contacts.iter().map(|(_, e)| *e).collect();
         }
     }
 

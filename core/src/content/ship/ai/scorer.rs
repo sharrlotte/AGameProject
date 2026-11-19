@@ -343,8 +343,11 @@ pub fn evaluate_utility_and_power(
         &GlobalTransform,
         &Ship,
     )>,
+    mut boosters_by_ship: Local<HashMap<Entity, Vec<Entity>>>,
 ) {
-    let mut boosters_by_ship: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    for list in boosters_by_ship.values_mut() {
+        list.clear();
+    }
     for (booster_entity, owner) in &boosters {
         boosters_by_ship
             .entry(owner.body)

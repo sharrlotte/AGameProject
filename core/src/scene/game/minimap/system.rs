@@ -1,26 +1,24 @@
 use std::collections::HashMap;
-use std::f32::consts::FRAC_PI_2;
 
 use bevy::prelude::*;
 
 use crate::content::ship::Ship;
-use crate::content::ship::ai::{AiConfigValue, Capability, TacticalBoard};
+use crate::content::ship::ai::{Capability, TacticalBoard};
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 use crate::resource::{CameraTarget, ControlledShip, SceneState};
 
 use super::component::{
-    AnchorCandidate, MarkerSpec, MinimapAnchor, MinimapArrow, MinimapMarker, MinimapMarkerLayer,
-    MinimapRing, MinimapRoot,
+    LostContact, MarkerSpec, MinimapMarker, MinimapMarkerLayer, MinimapRoot, MinimapState,
 };
 use super::config::{MinimapConfig, MinimapConfigValue};
 
-const ALERT_COLOR: Color = Color::srgb(1.0, 0.55, 0.15);
 const MINIMAP_BACKGROUND: Color = Color::srgba(0.02, 0.03, 0.05, 0.65);
-const MINIMAP_BORDER: Color = Color::srgba(0.3, 0.5, 0.7, 0.8);
-const RING_COLOR: Color = Color::srgba(0.35, 0.6, 0.85, 0.75);
+const MINIMAP_BORDER: Color = Color::srgba(0.15, 0.85, 0.35, 0.8);
+const GLOW_ALPHA: f32 = 0.65;
 
 pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {
     let cfg = config.0.clone();
+    commands.insert_resource(MinimapState::default());
 
     commands
         .spawn((
@@ -44,19 +42,6 @@ pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {
         ))
         .with_children(|root| {
             root.spawn((
-                MinimapRing,
-                Visibility::Hidden,
-                Node {
-                    position_type: PositionType::Absolute,
-                    border: UiRect::all(Val::Px(1.0)),
-                    border_radius: BorderRadius::MAX,
-                    ..default()
-                },
-                BorderColor::all(RING_COLOR),
-                Pickable::IGNORE,
-            ));
-
-            root.spawn((
                 MinimapMarkerLayer,
                 Node {
                     position_type: PositionType::Absolute,
@@ -72,34 +57,6 @@ pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {
                 for slot in 0..cfg.max_markers {
                     spawn_marker(layer, &cfg, slot);
                 }
-            });
-
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .with_children(|center| {
-                center.spawn((
-                    MinimapArrow,
-                    Visibility::Hidden,
-                    Text::new("\u{25b2}"),
-                    TextFont {
-                        font_size: FontSize::Px(cfg.arrow_size_px),
-                        ..default()
-                    },
-                    TextColor(Team::default().color(1.0)),
-                    UiTransform::IDENTITY,
-                    Pickable::IGNORE,
-                ));
             });
         });
 }
@@ -129,167 +86,161 @@ pub fn sync_marker_pool(
 
 #[allow(clippy::too_many_arguments)]
 pub fn update_minimap(
+    time: Res<Time>,
     config: Res<MinimapConfigValue>,
     board: Res<TacticalBoard>,
-    ai_config: Res<AiConfigValue>,
     controlled: Res<ControlledShip>,
     camera_target: Res<CameraTarget>,
     camera: Single<&GlobalTransform, With<Camera2d>>,
     ships: Query<(Entity, &Ship, &Team, &GlobalTransform, Option<&Capability>)>,
-    mut ui: ParamSet<(
-        Query<&mut Node, With<MinimapRoot>>,
-        Query<(&mut Node, &mut Visibility), With<MinimapRing>>,
-        Query<(&mut UiTransform, &mut Visibility, &mut TextFont), With<MinimapArrow>>,
-        Query<(&MinimapMarker, &mut Node, &mut BackgroundColor, &mut Visibility)>,
-    )>,
+    mut state: ResMut<MinimapState>,
+    mut colors: Local<HashMap<Entity, Color>>,
+    mut player_radars: Local<HashMap<Entity, f32>>,
+    mut current_contacts: Local<HashMap<Entity, (Vec2, Color)>>,
+    mut render_specs: Local<Vec<MarkerSpec>>,
+    mut root_query: Query<&mut Node, With<MinimapRoot>>,
+    mut markers: Query<
+        (
+            &MinimapMarker,
+            &mut Node,
+            &mut BackgroundColor,
+            &mut BoxShadow,
+            &mut Visibility,
+        ),
+        Without<MinimapRoot>,
+    >,
 ) {
     let cfg = &config.0;
     let radius_px = cfg.radius_px();
     let dot_size = cfg.dot_size_px;
+    let center = camera.translation().truncate();
 
-    if let Ok(mut root) = ui.p0().single_mut() {
+    if let Ok(mut root) = root_query.single_mut()
+        && (config.is_changed() || root.width != Val::Px(cfg.size_px))
+    {
         root.width = Val::Px(cfg.size_px);
         root.height = Val::Px(cfg.size_px);
         root.top = Val::Px(cfg.margin_px);
         root.right = Val::Px(cfg.margin_px);
     }
 
-    let camera_position = camera.translation().truncate();
-    let mut candidates = Vec::new();
-    let mut allied = Vec::new();
-    let mut colors: HashMap<Entity, Color> = HashMap::new();
+    colors.clear();
+    player_radars.clear();
+    current_contacts.clear();
+    render_specs.clear();
+
+    let ally_color = Team::default().color(1.0);
+    let mut active_radar_range_candidates = false;
 
     for (entity, ship, team, transform, capability) in &ships {
-        let position = transform
-            .transform_point(ship.core_position.extend(0.0))
-            .truncate();
         colors.insert(entity, team.color(1.0));
+        if team.is_player()
+            && let Some(cap) = capability
+            && cap.max_radar_range > 0.0
+        {
+            player_radars.insert(entity, cap.max_radar_range);
+            active_radar_range_candidates = true;
+        }
+        let _ = (ship, transform);
+    }
 
+    let active_radar = if active_radar_range_candidates {
+        resolve_active_radar_range(
+            controlled.controlling,
+            camera_target.following,
+            &player_radars,
+        )
+    } else {
+        None
+    };
+    let world_radius = cfg.scaled_world_radius(active_radar);
+
+    for (_, ship, team, transform, _) in &ships {
         if !team.is_player() {
             continue;
         }
-
-        let up = transform.up().truncate();
-        let heading = if up.length_squared() > f32::EPSILON {
-            up.y.atan2(up.x)
-        } else {
-            FRAC_PI_2
-        };
-
-        candidates.push(AnchorCandidate {
-            entity,
-            id: ship.id,
-            position,
-            heading,
-            radar_range: capability.map_or(0.0, |cap| cap.max_radar_range),
-        });
-        allied.push((entity, position));
-    }
-
-    let anchor = resolve_minimap_anchor(
-        controlled.controlling,
-        camera_target.following,
-        &mut candidates,
-        camera_position,
-    );
-    let anchor_position = anchor.position();
-    let anchor_entity = anchor.ship().map(|candidate| candidate.entity);
-
-    if let Ok((mut node, mut visibility)) = ui.p1().single_mut() {
-        let diameter = anchor
-            .ship()
-            .map_or(0.0, |candidate| cfg.radar_ring_diameter(candidate.radar_range));
-
-        if diameter > 0.0 {
-            node.width = Val::Px(diameter);
-            node.height = Val::Px(diameter);
-            node.left = Val::Px(radius_px - diameter * 0.5);
-            node.top = Val::Px(radius_px - diameter * 0.5);
-            *visibility = Visibility::Visible;
-        } else {
-            *visibility = Visibility::Hidden;
+        let pos = transform
+            .transform_point(ship.core_position.extend(0.0))
+            .truncate();
+        if let Some(offset) = world_to_minimap(pos - center, world_radius, radius_px) {
+            render_specs.push(MarkerSpec {
+                offset,
+                color: ally_color,
+            });
         }
     }
 
-    if let Ok((mut transform, mut visibility, mut font)) = ui.p2().single_mut() {
-        if let Some(candidate) = anchor.ship() {
-            transform.rotation = Rot2::radians(FRAC_PI_2 - candidate.heading);
-            *visibility = Visibility::Visible;
-        } else {
-            *visibility = Visibility::Hidden;
-        }
+    let state_ref = &mut *state;
 
-        font.font_size = FontSize::Px(cfg.arrow_size_px);
-    }
-
-    let mut specs = Vec::new();
     if let Some(plan) = board.teams.get(&DEFAULT_TEAM_ID) {
         let enemy_color = Team::new(1).color(1.0);
-        let max_memory = ai_config.0.curves.memory_secs.level_10.max(0.001);
-        let max_alert = ai_config.0.curves.alert_ttl_secs.level_10.max(0.001);
-
         for (entity, contact) in &plan.intel.contacts {
-            if let Some(offset) = world_to_minimap(
-                contact.position - anchor_position,
-                cfg.world_radius,
-                radius_px,
-            ) {
-                let color = colors.get(entity).copied().unwrap_or(enemy_color);
-                specs.push(MarkerSpec { offset, color });
+            let color = colors.get(entity).copied().unwrap_or(enemy_color);
+            current_contacts.insert(*entity, (contact.position, color));
+            state_ref.lost_flashes.retain(|lost| lost.entity != *entity);
+
+            if let Some(offset) =
+                world_to_minimap(contact.position - center, world_radius, radius_px)
+            {
+                render_specs.push(MarkerSpec { offset, color });
             }
         }
+    }
 
-        for (entity, position) in &allied {
-            if Some(*entity) == anchor_entity {
+    for (&entity, &(world_position, color)) in &state_ref.prev_contacts {
+        if !current_contacts.contains_key(&entity)
+            && !state_ref
+                .lost_flashes
+                .iter()
+                .any(|lost| lost.entity == entity)
+        {
+            state_ref.lost_flashes.push(LostContact {
+                entity,
+                world_position,
+                color,
+                elapsed: 0.0,
+            });
+        }
+    }
+
+    state_ref.prev_contacts.clear();
+    state_ref
+        .prev_contacts
+        .extend(current_contacts.iter().map(|(&k, &v)| (k, v)));
+
+    if !state_ref.lost_flashes.is_empty() {
+        let dt = time.delta_secs();
+        for lost in &mut state_ref.lost_flashes {
+            lost.elapsed += dt;
+        }
+        state_ref
+            .lost_flashes
+            .retain(|lost| lost.elapsed < cfg.lost_flash_secs);
+
+        for lost in &state_ref.lost_flashes {
+            let phase = (lost.elapsed / cfg.lost_flash_secs) * cfg.lost_flash_count as f32;
+            if phase.fract() >= 0.5 {
                 continue;
             }
-            if let Some(offset) = world_to_minimap(
-                *position - anchor_position,
-                cfg.world_radius,
-                radius_px,
-            ) {
-                specs.push(MarkerSpec {
+            if let Some(offset) =
+                world_to_minimap(lost.world_position - center, world_radius, radius_px)
+            {
+                render_specs.push(MarkerSpec {
                     offset,
-                    color: Team::default().color(1.0),
-                });
-            }
-        }
-
-        for alert in &plan.intel.alerts {
-            if let Some(offset) = world_to_minimap(
-                alert.position - anchor_position,
-                cfg.world_radius,
-                radius_px,
-            ) {
-                let alpha = (alert.ttl / max_alert).clamp(0.0, 1.0);
-                specs.push(MarkerSpec {
-                    offset,
-                    color: ALERT_COLOR.with_alpha(alpha),
-                });
-            }
-        }
-
-        for seen in plan.intel.last_known.values() {
-            if let Some(offset) = world_to_minimap(
-                seen.position - anchor_position,
-                cfg.world_radius,
-                radius_px,
-            ) {
-                let alpha = (seen.ttl / max_memory).clamp(0.0, 1.0);
-                specs.push(MarkerSpec {
-                    offset,
-                    color: enemy_color.with_alpha(alpha),
+                    color: lost.color,
                 });
             }
         }
     }
 
-    specs.truncate(cfg.max_markers);
+    render_specs.truncate(cfg.max_markers);
 
-    let mut markers = ui.p3();
-    for (marker, mut node, mut background, mut visibility) in markers.iter_mut() {
-        let Some(spec) = specs.get(marker.slot) else {
-            *visibility = Visibility::Hidden;
+    for (marker, mut node, mut background, mut shadow, mut visibility) in &mut markers {
+        let Some(spec) = render_specs.get(marker.slot) else {
+            if *visibility != Visibility::Hidden {
+                *visibility = Visibility::Hidden;
+                *shadow = BoxShadow::default();
+            }
             continue;
         };
 
@@ -298,37 +249,26 @@ pub fn update_minimap(
         node.left = Val::Px(radius_px + spec.offset.x - dot_size * 0.5);
         node.top = Val::Px(radius_px + spec.offset.y - dot_size * 0.5);
         *background = BackgroundColor(spec.color);
+        *shadow = BoxShadow::new(
+            spec.color.with_alpha(GLOW_ALPHA),
+            Val::Px(0.0),
+            Val::Px(0.0),
+            Val::Px(1.0),
+            Val::Px(cfg.glow_blur_px),
+        );
         *visibility = Visibility::Visible;
     }
 }
 
-pub fn resolve_minimap_anchor(
+pub fn resolve_active_radar_range(
     controlled: Option<Entity>,
     following: Option<Entity>,
-    candidates: &mut [AnchorCandidate],
-    camera_position: Vec2,
-) -> MinimapAnchor {
-    candidates.sort_by_key(|candidate| candidate.id);
-
-    let find = |entity: Entity| {
-        candidates
-            .iter()
-            .find(|candidate| candidate.entity == entity)
-            .copied()
-    };
-
-    if let Some(anchor) = controlled.and_then(find) {
-        return MinimapAnchor::Ship(anchor);
-    }
-
-    if let Some(anchor) = following.and_then(find) {
-        return MinimapAnchor::Ship(anchor);
-    }
-
-    candidates.first().copied().map_or(
-        MinimapAnchor::Camera(camera_position),
-        MinimapAnchor::Ship,
-    )
+    player_radars: &HashMap<Entity, f32>,
+) -> Option<f32> {
+    controlled
+        .and_then(|entity| player_radars.get(&entity).copied())
+        .or_else(|| following.and_then(|entity| player_radars.get(&entity).copied()))
+        .or_else(|| player_radars.values().copied().reduce(f32::max))
 }
 
 pub fn world_to_minimap(offset: Vec2, world_radius: f32, radius_px: f32) -> Option<Vec2> {
@@ -357,6 +297,7 @@ fn spawn_marker(layer: &mut ChildSpawnerCommands, cfg: &MinimapConfig, slot: usi
             ..default()
         },
         BackgroundColor(Color::NONE),
+        BoxShadow::default(),
         Pickable::IGNORE,
     ));
 }
@@ -365,67 +306,30 @@ fn spawn_marker(layer: &mut ChildSpawnerCommands, cfg: &MinimapConfig, slot: usi
 mod tests {
     use super::*;
 
-    use uuid::Uuid;
-
-    fn candidate(id: u128, entity: Entity) -> AnchorCandidate {
-        AnchorCandidate {
-            entity,
-            id: Uuid::from_u128(id),
-            position: Vec2::new(id as f32, 0.0),
-            heading: FRAC_PI_2,
-            radar_range: 2500.0,
-        }
-    }
-
-    fn entity() -> Entity {
-        World::new().spawn_empty().id()
-    }
-
     #[test]
-    fn controlled_ship_wins_anchor_chain() {
-        let first = entity();
-        let second = entity();
-        let third = entity();
-        let mut candidates = [
-            candidate(1, first),
-            candidate(2, second),
-            candidate(3, third),
-        ];
+    fn resolve_active_radar_range_follows_priority_chain() {
+        let ship_a = Entity::from_bits(1);
+        let ship_b = Entity::from_bits(2);
+        let ship_c = Entity::from_bits(3);
 
-        let anchor =
-            resolve_minimap_anchor(Some(third), Some(second), &mut candidates, Vec2::ZERO);
+        let mut radars = HashMap::new();
+        radars.insert(ship_a, 1200.0);
+        radars.insert(ship_b, 1800.0);
+        radars.insert(ship_c, 2500.0);
 
-        assert_eq!(anchor.ship().map(|anchor| anchor.entity), Some(third));
-    }
-
-    #[test]
-    fn followed_ship_is_used_when_not_controlling() {
-        let first = entity();
-        let second = entity();
-        let mut candidates = [candidate(2, second), candidate(1, first)];
-
-        let anchor = resolve_minimap_anchor(None, Some(second), &mut candidates, Vec2::ZERO);
-
-        assert_eq!(anchor.ship().map(|anchor| anchor.entity), Some(second));
-    }
-
-    #[test]
-    fn first_player_ship_by_id_is_fallback() {
-        let lower = entity();
-        let higher = entity();
-        let mut candidates = [candidate(9, higher), candidate(4, lower)];
-
-        let anchor = resolve_minimap_anchor(None, None, &mut candidates, Vec2::ZERO);
-
-        assert_eq!(anchor.ship().map(|anchor| anchor.entity), Some(lower));
-    }
-
-    #[test]
-    fn camera_position_is_last_resort() {
-        let camera = Vec2::new(120.0, -40.0);
-        let mut candidates = Vec::new();
-        let anchor = resolve_minimap_anchor(None, None, &mut candidates, camera);
-        assert_eq!(anchor, MinimapAnchor::Camera(camera));
+        assert_eq!(
+            resolve_active_radar_range(Some(ship_a), Some(ship_b), &radars),
+            Some(1200.0)
+        );
+        assert_eq!(
+            resolve_active_radar_range(None, Some(ship_b), &radars),
+            Some(1800.0)
+        );
+        assert_eq!(resolve_active_radar_range(None, None, &radars), Some(2500.0));
+        assert_eq!(
+            resolve_active_radar_range(None, None, &HashMap::new()),
+            None
+        );
     }
 
     #[test]
@@ -442,7 +346,8 @@ mod tests {
         let outside = world_to_minimap(Vec2::new(0.0, 1001.0), 1000.0, 50.0);
         assert_eq!(outside, None);
 
-        let edge = world_to_minimap(Vec2::new(600.0, 800.0), 1000.0, 50.0);
-        assert!(edge.is_some());
+        let edge = world_to_minimap(Vec2::new(600.0, 800.0), 1000.0, 50.0)
+            .expect("edge point inside radius");
+        assert!((edge - Vec2::new(30.0, -40.0)).length() < 1e-4);
     }
 }

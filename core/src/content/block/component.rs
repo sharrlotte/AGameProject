@@ -1157,7 +1157,7 @@ pub fn spawn_block_entity(
         .spawn((
             transform,
             team,
-            Visibility::Visible,
+            Visibility::Inherited,
             ActiveEvents::COLLISION_EVENTS,
             collider_from_hitbox(hitbox),
             CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
@@ -1176,7 +1176,7 @@ pub fn spawn_block_entity(
     commands.entity(body).add_child(block);
 
     let visual = commands
-        .spawn((visual_transform(xform), Visual, Visibility::Visible))
+        .spawn((visual_transform(xform), Visual, Visibility::Inherited))
         .id();
     #[cfg(feature = "dev")]
     commands.entity(visual).insert(Pickable::default());

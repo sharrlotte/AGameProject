@@ -22,10 +22,13 @@ pub fn update_readiness(
         Option<&PullingBeamPattern>,
         Option<&TurretState>,
     )>,
+    mut ammo_totals: Local<HashMap<Entity, (u32, u32)>>,
+    mut charge_totals: Local<HashMap<Entity, (f32, f32)>>,
+    mut draining: Local<HashSet<Entity>>,
 ) {
-    let mut ammo_totals: HashMap<Entity, (u32, u32)> = HashMap::new();
-    let mut charge_totals: HashMap<Entity, (f32, f32)> = HashMap::new();
-    let mut draining: HashSet<Entity> = HashSet::new();
+    ammo_totals.clear();
+    charge_totals.clear();
+    draining.clear();
 
     for (owner, ammo_state, turret_charge, laser, pulling, state) in &blocks {
         if let Some(ammo_state) = ammo_state {

@@ -32,21 +32,19 @@ All HUD elements are UI nodes (not world-space canvases) except damage numbers (
 
 `MinimapPlugin` (`scene/game/minimap/`) spawns an always-on top-right `MinimapRoot`
 (`DespawnOnExit(SceneState::Game)`, independent of the debug-only top bar). The widget is a
-circular clipped UI node sized and offset by `config/base/minimap.ron`; it is north-up
-(never rotates) and uses a fixed world scale.
+single-border radar-green circular clipped UI node sized and offset by `config/base/minimap.ron`;
+it is north-up (never rotates) and has no inner ring, sweep hand, or center arrow.
 
-- **Anchor chain**: `ControlledShip.controlling` → `CameraTarget.following` → first alive
-  player-team ship ordered by `Ship.id` → active `Camera2d` world position.
-- **Center arrow**: a rotated glyph following the anchor ship's world heading. Rotating the
-  anchor ship rotates only the arrow; marker positions stay north-up.
-- **Radar ring**: centered circle sized `radar_range / world_radius` of the minimap
-  diameter, from the anchor ship's `Capability.max_radar_range`.
-- **Markers**: pooled UI dots updated in place up to `max_markers`. Priority order is live
-  `TeamIntel.contacts`, allied player ships (excluding the anchor), incoming-fire
-  `TeamIntel.alerts` (opacity fades with TTL), and decaying `TeamIntel.last_known` ghosts
-  (opacity fades with TTL). Markers outside `world_radius` are hidden.
-- **Free-camera anchor**: without a player-team ship, the arrow and ring are hidden and
-  intel markers are plotted relative to the camera.
+- **Center & scale**: Always centered on the active `Camera2d` world position in real time.
+  The world radius scales dynamically as `active_radar_range * radar_scale_factor` (`1.2`),
+  resolving `active_radar_range` via `ControlledShip.controlling` → `CameraTarget.following`
+  → maximum `Capability.max_radar_range` among alive player ships → `fallback_world_radius`.
+- **Real-time markers & glow**: `update_minimap` updates allied player-team ships and live
+  `TeamIntel.contacts` in real time (omitting `alerts` and `last_known` so each enemy renders
+  as one dot), with a `BoxShadow` glow on visible dots.
+- **Lost-contact flash**: When an enemy leaves `TeamIntel.contacts`, it blinks
+  `lost_flash_count` times over `lost_flash_secs` at its world-anchored last position before
+  hiding.
 
 ## Ship Inspector HUD
 

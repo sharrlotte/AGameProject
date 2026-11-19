@@ -21,9 +21,12 @@ pub fn power_boosters(
         (Entity, &BlockOwner, &Transform, &Booster, &mut BoosterState),
         Without<Disabled>,
     >,
+    mut by_ship: Local<HashMap<Entity, Vec<BoosterInput>>>,
 ) {
     let dt = time.delta_secs();
-    let mut by_ship: HashMap<Entity, Vec<BoosterInput>> = HashMap::new();
+    for list in by_ship.values_mut() {
+        list.clear();
+    }
 
     for (entity, owner, transform, booster, _) in &boosters {
         let core_pos = ships

@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
-use crate::content::ship::ai::TacticalBoard;
+use crate::content::ship::{Ship, ai::TacticalBoard};
 use crate::content::team::Team;
 
 use super::lib::visible_to_player;
 
 pub fn sync_enemy_visibility(
     board: Res<TacticalBoard>,
-    mut ships: Query<(Entity, &Team, &mut Visibility)>,
+    mut ships: Query<(Entity, &Team, &mut Visibility), With<Ship>>,
 ) {
     for (entity, team, mut visibility) in &mut ships {
         let target = if visible_to_player(&board, team, entity) {
@@ -38,7 +38,7 @@ mod tests {
 
     fn spawn_ship(app: &mut App, team: u8) -> Entity {
         app.world_mut()
-            .spawn((Team::new(team), Visibility::Visible))
+            .spawn((Ship::default(), Team::new(team), Visibility::Visible))
             .id()
     }
 
@@ -130,5 +130,18 @@ mod tests {
         app.update();
 
         assert_eq!(visibility(&app, enemy), Visibility::Hidden);
+    }
+
+    #[test]
+    fn non_ship_entity_is_not_hidden() {
+        let mut app = test_app();
+        let projectile = app
+            .world_mut()
+            .spawn((Team::new(1), Visibility::Visible))
+            .id();
+
+        app.update();
+
+        assert_eq!(visibility(&app, projectile), Visibility::Visible);
     }
 }

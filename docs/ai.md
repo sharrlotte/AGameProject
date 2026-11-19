@@ -56,9 +56,9 @@ Ships actively controlled by the player (`ControlledShip.controlling == Some(ent
 
 ## Player vision
 
-Player fog-of-war is driven solely by the player team's shared intel in `TacticalBoard.teams[DEFAULT_TEAM_ID].intel`. `VisionPlugin` (`content/ship/vision/`, `PostUpdate` / `SimulationSet::Present`) sets every non-player ship's `Visibility` to `Visible` when its entity is present in player `TeamIntel.contacts`, and to `Hidden` otherwise. Player-team ships are always `Visible`. Child block sprites inherit visibility, while bullets, missiles, and laser beams stay `Visible` regardless of shooter detection.
+Player fog-of-war is driven solely by the player team's shared intel in `TacticalBoard.teams[DEFAULT_TEAM_ID].intel`. `VisionPlugin` (`content/ship/vision/`, `PostUpdate` / `SimulationSet::Present`) filters with `With<Ship>` and sets every non-player ship's `Visibility` to `Visible` when its entity is present in player `TeamIntel.contacts`, and to `Hidden` otherwise. Player-team ships are always `Visible`. Ship blocks and visual layers use `Visibility::Inherited` so hiding the `Ship` hides all hull/turret sprites, while bullets, missiles, and laser beams stay `Visible` regardless of shooter detection.
 
-The same predicate gates anti-leak surfaces: offscreen edge indicators (`draw_indicators`), drag selection, dev ship click inspection, and dev ship debug gizmos skip hidden/undetected enemies. `TeamIntel.last_known` and `TeamIntel.alerts` do not reveal the ship entity; they are only plotted as fading minimap ghosts/pings.
+The same predicate gates anti-leak surfaces: offscreen edge indicators (`draw_indicators`), drag selection, dev ship click inspection (`With<Ship>`), and dev ship debug gizmos skip hidden/undetected enemies. `TeamIntel.last_known` and `TeamIntel.alerts` do not reveal the ship entity or render on the minimap.
 
 ## Camera assist
 
