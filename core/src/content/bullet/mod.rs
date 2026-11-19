@@ -18,7 +18,6 @@ impl Plugin for BulletPlugin {
             FixedUpdate,
             (
                 handle_missiles,
-                handle_bullets,
                 handle_single_shot.after(advance_turret_charge),
                 handle_burst_shot.after(advance_turret_charge),
                 handle_missile_radar_target,

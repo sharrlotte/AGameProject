@@ -50,13 +50,20 @@ no stuck `Shooting` state.
 
 | Projectile | Components | Movement | Notes |
 |---|---|---|---|
-| `Bullet` | `Lifetime`, `Damage`, cuboid Sensor collider (`width/2 × length/2`), `CollisionGroups`, `DespawnOnExit(SceneState::Game)` | direct `Transform`, `velocity` (px/s) | `piercing > 0` keeps hitting; `Sensor` always set at spawn |
+| `Bullet` | `Lifetime`, `Damage`, `RigidBody::KinematicVelocityBased`, `Velocity::linear(dir * speed)`, cuboid Sensor collider (`width/2 × length/2`), `CollisionGroups`, `Ccd`, `DespawnOnExit(SceneState::Game)` | Rapier-integrated via `Velocity` (px/s) with swept CCD | `Transform` + `GlobalTransform::from(transform)` set at `FixedUpdate` spawn so Rapier reads the true position; `piercing > 0` keeps hitting; `Sensor` always set at spawn |
 | `Laser` | `Damage`, `DespawnOnExit(SceneState::Game)` | instant raycast from origin along turret forward | `Laser::Init` → `Laser::Fired { fired_at }`; visual sprite with width = ray length; color fades linearly to black over `bullet_fade_time` (0.25 s) |
 | `Missile` | child `MissileHitbox`, `Radar::new(lock_range, 1.0)` when untargeted, `DespawnOnExit(SceneState::Game)` | accelerating ease `powf(1.2)`, `t.clamp(0.4, 1.0)`; homing with `max_turn = 2.0 rad/s` | `accel_time = 0.35` |
 | Block spoiler | — | Missile hit children carry `Damage { blast_damage }` | explodes on collision into a `ball(blast_radius)` Sensor dealing `blast_damage` | |
 
 `Bullet::range` (defaults from turret range) is the hard lifetime limit
-(`destroy_out_of_range_bullet`); `Lifetime` is the fallback.
+(`destroy_out_of_range_bullet`, which reads `Transform.translation` directly because
+bullets are root entities); `Lifetime` is the fallback.
+
+**Spawn invariant:** any root projectile or blast-sensor collider spawned in
+`FixedUpdate` must insert `GlobalTransform::from(transform)` alongside its `Transform`.
+`TransformSystems::Propagate` only runs in `PostUpdate`, after Rapier's fixed step, so
+omitting it leaves the collider at `GlobalTransform::IDENTITY` `(0, 0)` on the first
+physics tick and places the shot at the origin instead of the muzzle.
 
 ## Damage model
 

@@ -27,23 +27,14 @@ use crate::content::team::Team;
 use crate::resource::SceneState;
 
 
-pub fn handle_bullets(
-    mut query: Query<(&mut Bullet, &mut Transform)>,
-    time: Res<Time>,
-) {
-    for (bullet, mut transform) in query.iter_mut() {
-        transform.translation += bullet.velocity.extend(0.0) * time.delta_secs();
-    }
-}
-
 pub fn destroy_out_of_range_bullet(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Bullet, &GlobalTransform)>,
+    query: Query<(Entity, &Bullet, &Transform)>,
 ) {
-    for (entity, bullet, global_transform) in query.iter_mut() {
+    for (entity, bullet, transform) in query.iter() {
         if bullet.range.squared()
-            < global_transform
-                .translation()
+            < transform
+                .translation
                 .truncate()
                 .distance_squared(bullet.shooted_at)
         {
@@ -612,6 +603,11 @@ pub fn spawn_bullet(
     let offset = rotation * barrel_position.extend(LAYER_BULLET);
     let spawn_position = turret_transform.translation() + offset;
     let dir = (rotation * Vec3::Y).truncate().normalize_or_zero();
+    let transform = Transform {
+        translation: spawn_position,
+        rotation,
+        ..default()
+    };
 
     match &projectile {
         ShootingProjectile::Bullet {
@@ -630,7 +626,6 @@ pub fn spawn_bullet(
                         shooted_at: spawn_position.truncate(),
                         range,
                         piercing: *piercing,
-                        velocity: dir * *speed,
                     },
                     Damage { damage: *damage },
                     ProjectileOwner { team: team.id },
@@ -640,11 +635,12 @@ pub fn spawn_bullet(
                         custom_size: Some(Vec2::new(*width, *length)),
                         ..default()
                     },
-                    Transform {
-                        translation: spawn_position,
-                        rotation,
-                        ..default()
-                    },
+                    transform,
+                    GlobalTransform::from(transform),
+                ))
+                .insert((
+                    RigidBody::KinematicVelocityBased,
+                    Velocity::linear(dir * *speed),
                     Collider::cuboid(*width / 2.0, *length / 2.0),
                     CollisionGroups::new(team.bullet_group(), team.bullet_filter()),
                     ActiveEvents::COLLISION_EVENTS,
@@ -702,11 +698,8 @@ pub fn spawn_bullet(
                         custom_size: Some(Vec2::new(*width, *length)),
                         ..default()
                     },
-                    Transform {
-                        translation: spawn_position,
-                        rotation,
-                        ..default()
-                    },
+                    transform,
+                    GlobalTransform::from(transform),
                     *team,
                 ))
                 .id();
@@ -876,9 +869,12 @@ fn handle_missile_collision(
 ) {
     commands.entity(hitbox.missile).despawn();
 
+    let transform = Transform::from(*transform);
+
     commands.spawn((
         hitbox.team,
-        Transform::from(*transform),
+        transform,
+        GlobalTransform::from(transform),
         Lifetime::seconds(0.1),
         Collider::ball(hitbox.blast_radius),
         CollisionGroups::new(hitbox.team.bullet_group(), hitbox.team.bullet_filter()),
