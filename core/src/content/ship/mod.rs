@@ -4,11 +4,13 @@ pub mod inspect;
 pub mod stat;
 pub mod system;
 pub mod throttle;
+pub mod vision;
 pub use component::*;
 pub use inspect::*;
 pub use stat::*;
 pub use system::*;
 pub use throttle::*;
+pub use vision::*;
 
 mod indicator;
 
@@ -65,6 +67,6 @@ impl Plugin for ShipPlugin {
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Stats),
         )
-        .add_plugins((IndicatorsPlugin, AiPlugin, ShipInspectPlugin));
+        .add_plugins((IndicatorsPlugin, AiPlugin, ShipInspectPlugin, VisionPlugin));
     }
 }

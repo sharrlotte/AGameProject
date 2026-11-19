@@ -1,5 +1,9 @@
 # Controls
 
+The game launches borderless fullscreen on the primary monitor. Window size, aspect
+ratio, and DPI change pixel density only; the visible world height is fixed at
+`VIEW_HEIGHT * ortho.scale` (see camera.md).
+
 ## Game scene
 
 | Input | Action |

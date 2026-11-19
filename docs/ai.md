@@ -54,6 +54,12 @@ Ships actively controlled by the player (`ControlledShip.controlling == Some(ent
 
 `update_ship_steering` aligns ship rotation via PD torque toward `Steering.desired_heading` (or thrust heading when `None`) and applies `Steering.thrust_world * thrust_power * throttle_cap`. Ships at or above `omnidirectional_thrust_level` use full omnidirectional thrust (matching player controls); ships below that threshold project thrust onto `local_y()`.
 
+## Player vision
+
+Player fog-of-war is driven solely by the player team's shared intel in `TacticalBoard.teams[DEFAULT_TEAM_ID].intel`. `VisionPlugin` (`content/ship/vision/`, `PostUpdate` / `SimulationSet::Present`) sets every non-player ship's `Visibility` to `Visible` when its entity is present in player `TeamIntel.contacts`, and to `Hidden` otherwise. Player-team ships are always `Visible`. Child block sprites inherit visibility, while bullets, missiles, and laser beams stay `Visible` regardless of shooter detection.
+
+The same predicate gates anti-leak surfaces: offscreen edge indicators (`draw_indicators`), drag selection, dev ship click inspection, and dev ship debug gizmos skip hidden/undetected enemies. `TeamIntel.last_known` and `TeamIntel.alerts` do not reveal the ship entity; they are only plotted as fading minimap ghosts/pings.
+
 ## Camera assist
 
 `ControlMode::Pilot` follows the controlled ship; `ControlMode::FreeLook` lets WASD pan the camera. `F` toggles the mode and middle-mouse drag pans in either mode. Zoom is via the mouse wheel between `min_zoom` and `max_zoom`.

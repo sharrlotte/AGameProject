@@ -1,18 +1,26 @@
 use std::f32::consts::PI;
 
-use crate::content::{ship::Ship, team::Team};
+use crate::content::ship::Ship;
+use crate::content::ship::ai::TacticalBoard;
+use crate::content::ship::vision::visible_to_player;
+use crate::content::team::Team;
 use bevy::prelude::*;
 
 pub(super) fn draw_indicators(
     mut gizmos: Gizmos,
-    ships: Query<(&GlobalTransform, &Team, &Ship)>,
+    board: Res<TacticalBoard>,
+    ships: Query<(Entity, &GlobalTransform, &Team, &Ship)>,
     camera: Single<(&Camera, &GlobalTransform, &Projection), With<Camera2d>>,
     window: Single<&Window>,
 ) {
     let (camera, camera_transform, projection) = *camera;
     let window_size = Vec2::new(window.width(), window.height());
 
-    for (ship_transform, team, ship) in &ships {
+    for (entity, ship_transform, team, ship) in &ships {
+        if !visible_to_player(&board, team, entity) {
+            continue;
+        }
+
         let ship_position = ship_transform.transform_point(ship.core_position.extend(0.0));
 
         if let Ok(viewport_position) = camera.world_to_viewport(camera_transform, ship_position) {

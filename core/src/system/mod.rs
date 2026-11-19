@@ -1,3 +1,4 @@
+use bevy::camera::ScalingMode;
 use bevy::post_process::bloom::BloomCompositeMode;
 use bevy::prelude::*;
 use bevy::{
@@ -6,6 +7,7 @@ use bevy::{
 };
 
 use crate::config::GameConfigValue;
+use crate::constant::VIEW_HEIGHT;
 use crate::resource::DeployPayload;
 use crate::save::design::ShipCatalog;
 use crate::save::fleet::load_or_seed_fleet;
@@ -14,6 +16,12 @@ use crate::save::fleet::load_or_seed_fleet;
 pub fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: VIEW_HEIGHT,
+            },
+            ..OrthographicProjection::default_2d()
+        }),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
@@ -99,5 +107,31 @@ pub mod debug_audit {
                 untagged
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::camera::{CameraProjection, ScalingMode};
+    use bevy::prelude::*;
+
+    use crate::constant::VIEW_HEIGHT;
+
+    fn projection_area(width: f32, height: f32) -> Vec2 {
+        let mut projection = OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: VIEW_HEIGHT,
+            },
+            ..OrthographicProjection::default_2d()
+        };
+        projection.update(width, height);
+        projection.area.size()
+    }
+
+    #[test]
+    fn camera_fixed_vertical_preserves_design_frame() {
+        assert_eq!(projection_area(1280.0, 720.0), Vec2::new(1920.0, 1080.0));
+        assert_eq!(projection_area(2560.0, 1080.0), Vec2::new(2560.0, 1080.0));
+        assert_eq!(projection_area(1440.0, 1080.0), Vec2::new(1440.0, 1080.0));
     }
 }

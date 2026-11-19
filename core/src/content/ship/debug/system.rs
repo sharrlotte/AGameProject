@@ -17,6 +17,7 @@ pub fn draw_ship_debug_gizmos(
         Option<&Capability>,
         &Velocity,
         &ExternalForce,
+        &Visibility,
     )>,
     turrets: Query<(&TurretState, &TurretBarrel, &BlockOwner)>,
     global_transforms: Query<&GlobalTransform>,
@@ -25,7 +26,10 @@ pub fn draw_ship_debug_gizmos(
         return;
     };
 
-    if let Ok((ship, transform, bounds, steering, cap, velocity, force)) = ships.get(entity) {
+    if let Ok((ship, transform, bounds, steering, cap, velocity, force, visibility)) =
+        ships.get(entity)
+        && *visibility != Visibility::Hidden
+    {
         let center = ship_center(transform, bounds);
         let core = transform
             .transform_point(ship.core_position.extend(0.0))

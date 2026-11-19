@@ -14,6 +14,7 @@ status journals do not belong here.
 - [economy.md](economy.md) — items, storage, ammo, rarity
 - [ai.md](ai.md) — AI ship controller, behaviors, ship movement
 - [scenes.md](scenes.md) — Home, Game, Ship Editor, Pause, Settings, background
+- [camera.md](camera.md) — projection, design frame, window mode, zoom, pan
 - [save.md](save.md) — schematic format, world save format, persistence
 - [ui.md](ui.md) — HUD, ship list, panels
 - [controls.md](controls.md) — input bindings

@@ -18,7 +18,7 @@ pub fn ignore_hud_picking(
 pub fn on_ship_click(
     click: On<PointerClick>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    teams: Query<&Team>,
+    targets: Query<(&Team, &Visibility)>,
     mut events: MessageWriter<ShipSelected>,
 ) {
     if click.button != PointerButton::Primary || keyboard.pressed(KeyCode::ControlLeft) {
@@ -26,10 +26,10 @@ pub fn on_ship_click(
     }
 
     let entity = click.event().event_target();
-    let Ok(team) = teams.get(entity) else {
+    let Ok((team, visibility)) = targets.get(entity) else {
         return;
     };
-    if !can_inspect_team(team) {
+    if *visibility == Visibility::Hidden || !can_inspect_team(team) {
         return;
     }
 
@@ -49,13 +49,13 @@ pub fn clear_selection_on_escape(
 
 pub fn apply_selection(
     mut inspected: ResMut<InspectedShip>,
-    teams: Query<&Team>,
+    ships: Query<(&Team, &Visibility)>,
     mut selects: MessageReader<ShipSelected>,
     mut clears: MessageReader<ShipSelectionCleared>,
 ) {
     for event in selects.read() {
-        if let Ok(team) = teams.get(event.entity)
-            && !can_inspect_team(team)
+        if let Ok((team, visibility)) = ships.get(event.entity)
+            && (*visibility == Visibility::Hidden || !can_inspect_team(team))
         {
             continue;
         }
@@ -110,7 +110,9 @@ mod tests {
     }
 
     fn spawn_ship(app: &mut App, team: Team) -> Entity {
-        app.world_mut().spawn((Ship::default(), team)).id()
+        app.world_mut()
+            .spawn((Ship::default(), team, Visibility::Visible))
+            .id()
     }
 
     fn toggle(app: &mut App, entity: Entity) {
@@ -171,6 +173,19 @@ mod tests {
         assert_eq!(app.world().resource::<InspectedShip>().0, Some(enemy));
 
         #[cfg(not(feature = "dev"))]
+        assert_eq!(app.world().resource::<InspectedShip>().0, None);
+    }
+
+    #[test]
+    fn hidden_enemy_cannot_be_inspected() {
+        let mut app = test_app();
+        let enemy = spawn_ship(&mut app, Team::new(1));
+        *app.world_mut()
+            .get_mut::<Visibility>(enemy)
+            .expect("enemy has visibility") = Visibility::Hidden;
+
+        toggle(&mut app, enemy);
+
         assert_eq!(app.world().resource::<InspectedShip>().0, None);
     }
 

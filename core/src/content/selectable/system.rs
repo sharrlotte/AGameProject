@@ -12,7 +12,7 @@ pub(super) fn update_selectable(
     keyboard: Res<ButtonInput<KeyCode>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     selectable_query: Query<
-        (Entity, &GlobalTransform, Option<&BoundingBox>, &Team),
+        (Entity, &GlobalTransform, Option<&BoundingBox>, &Team, &Visibility),
         With<Selectable>,
     >,
 ) {
@@ -84,8 +84,8 @@ pub(super) fn update_selectable(
 
             let mut selected: Vec<Entity> = Vec::new();
 
-            for (entity, transform, bounding_box, team) in selectable_query.iter() {
-                if !team.is_player() {
+            for (entity, transform, bounding_box, team, visibility) in selectable_query.iter() {
+                if !is_selectable(team, visibility) {
                     continue;
                 }
 

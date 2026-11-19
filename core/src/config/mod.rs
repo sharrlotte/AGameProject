@@ -21,6 +21,9 @@ use bevy::prelude::*;
 
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ai::{AiConfig, AiConfigValue, ai_config_bridge};
+use crate::scene::game::minimap::{
+    MinimapConfig, MinimapConfigValue, minimap_config_bridge,
+};
 
 use crate::resource::SceneState;
 
@@ -48,6 +51,7 @@ pub enum ConfigFile {
     Game,
     Blocks,
     Ai,
+    Minimap,
 }
 
 
@@ -71,6 +75,7 @@ impl ConfigError {
             ConfigFile::Game => "config/base/game.ron failed to load",
             ConfigFile::Blocks => "config/base/block.ron failed to load",
             ConfigFile::Ai => "config/base/ai.ron failed to load",
+            ConfigFile::Minimap => "config/base/minimap.ron failed to load",
         };
         
         match &self.detail {
@@ -86,6 +91,7 @@ struct ConfigHandles {
     game: Handle<GameConfig>,
     blocks: Handle<BlocksConfig>,
     ai: Handle<AiConfig>,
+    minimap: Handle<MinimapConfig>,
     settings: Handle<GameSetting>,
 }
 
@@ -99,13 +105,16 @@ impl Plugin for ConfigPlugin {
 
         app.init_state::<ConfigState>()
             .init_resource::<SettingSaveTimer>()
+            .init_resource::<MinimapConfigValue>()
             .init_asset::<GameConfig>()
             .init_asset::<BlocksConfig>()
             .init_asset::<AiConfig>()
+            .init_asset::<MinimapConfig>()
             .init_asset::<GameSetting>()
             .register_asset_loader(loader::RonAssetLoader::<GameConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<BlocksConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<AiConfig>::new(&["ron"]))
+            .register_asset_loader(loader::RonAssetLoader::<MinimapConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<GameSetting>::new(&["ron"]))
             .add_systems(Startup, load_config_handles)
             .add_systems(
@@ -120,6 +129,7 @@ impl Plugin for ConfigPlugin {
                     game::game_config_bridge,
                     block::blocks_bridge,
                     ai_config_bridge,
+                    minimap_config_bridge,
                     setting::game_setting_bridge,
                     setting::save_setting_on_change,
                 )
@@ -150,6 +160,7 @@ fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
         game: assets.load("config/base/game.ron"),
         blocks: assets.load("config/base/block.ron"),
         ai: assets.load("config/base/ai.ron"),
+        minimap: assets.load("config/base/minimap.ron"),
         settings: assets.load("config/setting.ron"),
     });
 }
@@ -161,6 +172,7 @@ fn check_config_ready(
     game_assets: Res<Assets<GameConfig>>,
     block_assets: Res<Assets<BlocksConfig>>,
     ai_assets: Res<Assets<AiConfig>>,
+    minimap_assets: Res<Assets<MinimapConfig>>,
     setting_assets: Res<Assets<GameSetting>>,
     assets: Res<AssetServer>,
     mut config_state: ResMut<NextState<ConfigState>>,
@@ -194,6 +206,14 @@ fn check_config_ready(
         return;
     }
 
+    if matches!(
+        assets.get_load_state(&handles.minimap),
+        Some(LoadState::Failed(_))
+    ) {
+        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Minimap)));
+        return;
+    }
+
     let Some(game) = game_assets.get(&handles.game) else {
         return;
     };
@@ -213,6 +233,18 @@ fn check_config_ready(
     if let Err(reason) = ai.validate() {
         config_state.set(ConfigState::Error(ConfigError::with_detail(
             ConfigFile::Ai,
+            reason,
+        )));
+        return;
+    }
+
+    let Some(minimap) = minimap_assets.get(&handles.minimap) else {
+        return;
+    };
+
+    if let Err(reason) = minimap.validate() {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Minimap,
             reason,
         )));
         return;
@@ -246,6 +278,7 @@ fn check_config_ready(
 
     commands.insert_resource(GameConfigValue(game.clone()));
     commands.insert_resource(AiConfigValue(ai.clone()));
+    commands.insert_resource(MinimapConfigValue(minimap.clone()));
     commands.insert_resource(registry);
     let mut loaded_setting = setting_assets
         .get(&handles.settings)

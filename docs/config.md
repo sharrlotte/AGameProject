@@ -14,7 +14,7 @@
 
 - Save format stays RON (`save/document.rs`).
 - Structural/layout constants stay in code: `GRID_SIZE`, `SMALL_GRID_SIZE`, `LAYER_*`,
-  `AUDIO_SCALE`, `FLASH_OVERLAY_COLOR`.
+  `AUDIO_SCALE`, `FLASH_OVERLAY_COLOR`, `VIEW_HEIGHT`.
 - Camera feel (zoom speed, smooth speed, boost, pan speed) and beam/laser feel (laser
   intensity `*10.0`, bulge `0.5` ease floor, clamp `0.4..1.0`) stay in code.
 - Items (`ItemDef`) out of scope; can follow the same pattern later.
@@ -43,6 +43,7 @@
 | `config/base/game.ron` | `GameConfig` asset | error screen | keep last good + error log |
 | `config/base/block.ron` | `BlocksConfig` asset | error screen | keep last good + error log |
 | `config/base/ai.ron` | `AiConfig` asset | error screen | keep last good + error log |
+| `config/base/minimap.ron` | `MinimapConfig` asset | error screen | keep last good + error log |
 | `config/setting.ron` | `GameSetting` asset | defaults + warn | keep last good + error log |
 
 Asset root resolution for settings write-back: `BEVY_ASSET_ROOT` env var, else `assets`
@@ -68,6 +69,7 @@ on `AssetEvent::LoadedWithDependencies` / `Modified`:
 | `GameConfig` | `GameConfigValue(pub GameConfig)` | systems replacing `constant::X` |
 | `BlocksConfig` | rebuilds `BlockRegistry` | existing registry consumers |
 | `AiConfig` | `AiConfigValue(pub AiConfig)` | `content/ship/ai/*`, `mission/state.rs`, `ship/system.rs` |
+| `MinimapConfig` | `MinimapConfigValue(pub MinimapConfig)` | `scene/game/minimap/*` |
 | `GameSetting` | `GameSetting` (existing resource + `ai_level` + `Serialize`/`PartialEq` + `Asset`/`TypePath`) | `scene/setting.rs`, `mission/state.rs` |
 
 - Bridge on `Modified`: `GameConfig` → overwrite `GameConfigValue`; `BlocksConfig` →
@@ -83,7 +85,8 @@ on `AssetEvent::LoadedWithDependencies` / `Modified`:
 2. `SceneState::Loading` variant, `#[default]`; black screen, zero spawns; `ConfigPlugin`
    sets `NextState<SceneState> = Home` in the same system that sets `ConfigState::Ready`.
 3. `Startup`: `asset_server.load("config/base/game.ron")`, `"config/base/block.ron"`,
-   `"config/setting.ron"`; handles stored in `ConfigHandles` resource.
+   `"config/base/ai.ron"`, `"config/base/minimap.ron"`, `"config/setting.ron"`; handles stored
+   in `ConfigHandles` resource.
 4. `Update` while `Loading`: poll `LoadState` of game + blocks handles:
    - `Failed` / `Error` → move `ConfigState` to `Error(ConfigError)`; the render path
      shows the full-screen error. No panic.
@@ -117,6 +120,10 @@ document are illustrative, not normative:
 - `config/base/block.ron` — `blocks:` map keyed by plain `String` id; each entry: `name`,
   `block_group`, `mass`, `health`, `cost`, `shape` (`ShapeSpec`), `features` (`Texture`,
   `Turret`, `Generator`, `Battery`, `Consumer`, `Booster`, `Thruster`, `Storage`), `drops`.
+- `config/base/minimap.ron` — `MinimapConfig`: `size_px`, `margin_px`, `world_radius`,
+  `dot_size_px`, `arrow_size_px`, `max_markers`. Validation requires positive
+  `size_px`/`world_radius`/`dot_size_px`/`arrow_size_px`, non-negative `margin_px`, and
+  `max_markers >= 1`.
 
 ### Shape spec (`ShapeSpec`)
 
@@ -155,8 +162,8 @@ connection only. The `Visual` child applies definition rotation and flips as sig
 the block entity carries only placement rotation so colliders never see negative scale.
 
 Usage sites read `Res<GameConfigValue>` / `BlockRegistry` instead of `constant::X`.
-`constant.rs` keeps only grid/layer/color/audio constants; gameplay constants moved into
-`game.ron`.
+`constant.rs` keeps only grid/layer/color/audio/camera-design constants; gameplay
+constants moved into `game.ron`.
 
 - Serde mirror types in `config/block.rs` for `Feature` (`FeatureConfig`) and any struct
   holding `Handle`s (`Texture`, `TurretComponent` image, `Ammo` icon) with
@@ -182,6 +189,9 @@ core/src/config/
   block.rs     BlocksConfig asset + BlockDefConfig/FeatureConfig mirrors + into_def + bridge/rebuild
   setting.rs   GameSetting, bridge + save-on-change systems
 ```
+
+The minimap asset lives with its owning feature: `scene/game/minimap/config.rs`
+(`MinimapConfig` asset, `MinimapConfigValue` resource, validation, hot-reload bridge).
 
 ## Touch points
 

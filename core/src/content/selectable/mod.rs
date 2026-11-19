@@ -1,7 +1,9 @@
 pub mod component;
+pub mod lib;
 pub mod system;
 
 pub use component::*;
+pub use lib::*;
 
 use bevy::prelude::*;
 

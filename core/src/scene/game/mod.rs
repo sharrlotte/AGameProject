@@ -1,9 +1,12 @@
 mod inspector;
 
+pub mod minimap;
+
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use inspector::{ShipInspectorPlugin, spawn_inspector_panel};
+use minimap::MinimapPlugin;
 
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
@@ -52,7 +55,7 @@ impl Plugin for GameScenePlugin {
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Input),
             )
-            .add_plugins((BackgroundPlugin, ShipInspectorPlugin));
+            .add_plugins((BackgroundPlugin, ShipInspectorPlugin, MinimapPlugin));
     }
 }
 
