@@ -116,7 +116,14 @@ pub fn steer_ships(
                 &ship_transforms,
             ),
             Tactic::Recharge { threat, safe_range } => (
-                steer_away_from(pos, threat, Some(safe_range), 0.65, contact, &ship_transforms),
+                steer_away_from(
+                    pos,
+                    threat,
+                    Some(safe_range),
+                    ai_cfg.0.combat_tuning.recharge_throttle_cap,
+                    contact,
+                    &ship_transforms,
+                ),
                 Some(threat),
             ),
             Tactic::Retreat { threat } => (
@@ -146,7 +153,7 @@ pub fn steer_ships(
                     position,
                     ai_cfg.0.investigate_arrival_radius,
                     game_cfg.0.linear_damping,
-                    0.85,
+                    ai_cfg.0.combat_tuning.arrive_throttle_cap,
                 ),
                 None,
             ),
@@ -190,6 +197,7 @@ fn steer_engage(
     let lead_accuracy = cfg.curves.lead_accuracy.sample(skill);
     let evasion = cfg.curves.evasion_strength.sample(skill);
 
+    let ct = &cfg.combat_tuning;
     let mut desired_heading = None;
     let mut thrust_world = Vec2::ZERO;
 
@@ -224,15 +232,15 @@ fn steer_engage(
             let radial_err = (dist - range) / (range * 0.35).max(100.0);
             let radial = dir * radial_err.clamp(-1.0, 1.0);
             let tangent_weight = if matches!(posture, Posture::Brawl) {
-                0.35
+                ct.brawl_tangent_weight
             } else {
-                0.85
+                ct.orbit_tangent_weight
             };
             let tangent = dir.perp() * brain.strafe_sign * tangent_weight;
             thrust_world = radial + tangent;
 
             if skill >= cfg.unlocks.armor_angling_level
-                && let Some(angle) = best_armor_heading(cap, dir)
+                && let Some(angle) = best_armor_heading(cap, dir, ct.armor_angle_hp_ratio)
             {
                 desired_heading = Some(angle);
             }
@@ -241,9 +249,9 @@ fn steer_engage(
 
     if skill >= cfg.unlocks.spinal_dodge_level
         && has_fixed_gun
-        && enemy_heading.dot(-dir) > 0.975
+        && enemy_heading.dot(-dir) > ct.spinal_dodge_cos_threshold
     {
-        thrust_world += dir.perp() * brain.strafe_sign * 1.15;
+        thrust_world += dir.perp() * brain.strafe_sign * ct.spinal_dodge_impulse;
     }
 
     // Damp excess radial speed near target range
@@ -257,10 +265,10 @@ fn steer_engage(
     let mut throttle_cap = 1.0;
     if skill >= cfg.unlocks.power_management_level
         && readiness.firing_drain_beam
-        && readiness.power_supply < 0.95
+        && readiness.power_supply < ct.drain_beam_supply_threshold
         && (dist - range).abs() < range * 0.25
     {
-        throttle_cap = 0.25;
+        throttle_cap = ct.drain_beam_throttle_cap;
     }
 
     (
@@ -323,7 +331,7 @@ fn steer_support(
                 .or_else(|| plan.intel.contacts.values().next())
             {
                 let to_threat = (threat.position - vip_pos).normalize_or_zero();
-                vip_pos + to_threat * 320.0
+                vip_pos + to_threat * cfg.combat_tuning.support_screen_offset
             } else {
                 vip_pos
             }
@@ -332,9 +340,16 @@ fn steer_support(
     let hold_radius = if cap.booster_radius > 0.0 {
         cap.booster_radius * cfg.support_orbit_factor
     } else {
-        260.0
+        cfg.combat_tuning.support_default_radius
     };
-    steer_arrive(pos, vel, anchor, hold_radius, damping, 0.9)
+    steer_arrive(
+        pos,
+        vel,
+        anchor,
+        hold_radius,
+        damping,
+        cfg.combat_tuning.support_throttle_cap,
+    )
 }
 
 fn steer_arrive(
@@ -385,7 +400,7 @@ fn resolve_contact_kinematics(
     Some((pos, Vec2::ZERO, false, gt.up().truncate().normalize_or_zero()))
 }
 
-fn best_armor_heading(cap: &Capability, dir_to_enemy: Vec2) -> Option<f32> {
+fn best_armor_heading(cap: &Capability, dir_to_enemy: Vec2, hp_ratio_threshold: f32) -> Option<f32> {
     let (best_q, &best_hp) = cap
         .quadrant_hp
         .iter()
@@ -396,7 +411,7 @@ fn best_armor_heading(cap: &Capability, dir_to_enemy: Vec2) -> Option<f32> {
         .iter()
         .copied()
         .fold(f32::INFINITY, f32::min);
-    if best_hp <= min_hp * 1.25 || best_hp <= 0.0 {
+    if best_hp <= min_hp * hp_ratio_threshold || best_hp <= 0.0 {
         return None;
     }
     let enemy_angle = dir_to_enemy.y.atan2(dir_to_enemy.x);

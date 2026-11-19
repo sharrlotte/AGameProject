@@ -91,13 +91,14 @@ pub fn update_sensors_and_intel(
         let range_sq = cap.max_radar_range * cap.max_radar_range;
         let plan = board.teams.entry(team.id).or_default();
 
-        let mut local = Vec::new();
+        let mut local: Vec<(f32, Entity)> = Vec::new();
         for enemy in &snapshots {
             if enemy.team == team.id {
                 continue;
             }
-            if origin.distance_squared(enemy.position) <= range_sq {
-                local.push(enemy.entity);
+            let dist_sq = origin.distance_squared(enemy.position);
+            if dist_sq <= range_sq {
+                local.push((dist_sq, enemy.entity));
                 plan.intel.contacts.insert(
                     enemy.entity,
                     SharedContact {
@@ -113,11 +114,13 @@ pub fn update_sensors_and_intel(
             }
         }
         if let Some(mut sensor) = sensor_opt {
-            sensor.local_contacts = local;
+            local.sort_by(|a, b| a.0.total_cmp(&b.0));
+            local.truncate(ai_cfg.0.bounds.max_local_contacts);
+            sensor.local_contacts = local.into_iter().map(|(_, e)| e).collect();
         }
     }
 
-    // Decay memory & alerts; migrate lost living targets to last_known
+    // Decay memory & alerts; migrate lost living targets to last_known (bounded)
     for (&team_id, plan) in &mut board.teams {
         let skill_lvl = team_max_skill
             .get(&team_id)
@@ -125,7 +128,7 @@ pub fn update_sensors_and_intel(
             .unwrap_or(ai_cfg.0.default_enemy_level);
         let mem_secs = ai_cfg.0.curves.memory_secs.sample(skill_lvl);
 
-        tick_team_memory(&mut plan.intel, dt);
+        tick_team_memory(&mut plan.intel, dt, ai_cfg.0.bounds.alert_spotted_radius);
 
         if let Some(prev) = prev_contacts_by_team.remove(&team_id) {
             for (enemy_entity, contact) in prev {
@@ -143,6 +146,7 @@ pub fn update_sensors_and_intel(
                 }
             }
         }
+        trim_last_known(&mut plan.intel.last_known, ai_cfg.0.bounds.max_last_known);
     }
 
     // Record shared DamageEvent hit alerts for unseen attackers
@@ -169,20 +173,35 @@ pub fn update_sensors_and_intel(
         let ttl = ai_cfg.0.curves.alert_ttl_secs.sample(skill_lvl);
         let plan = board.teams.entry(victim_team).or_default();
 
-        // Only add alert if no live contact is already near the attacker's origin
+        let spotted_sq =
+            ai_cfg.0.bounds.alert_spotted_radius * ai_cfg.0.bounds.alert_spotted_radius;
         let already_spotted = plan
             .intel
             .contacts
             .values()
-            .any(|c| c.position.distance_squared(alert_pos) <= 600.0 * 600.0);
-            
+            .any(|c| c.position.distance_squared(alert_pos) <= spotted_sq);
+
         if !already_spotted {
-            push_or_refresh_alert(&mut plan.intel.alerts, alert_pos, ttl);
+            push_or_refresh_alert(&mut plan.intel.alerts, alert_pos, ttl, &ai_cfg.0.bounds);
         }
     }
 }
 
-fn tick_team_memory(intel: &mut TeamIntel, dt: f32) {
+fn trim_last_known(last_known: &mut HashMap<Entity, LastSeen>, max_entries: usize) {
+    while last_known.len() > max_entries {
+        let Some(oldest) = last_known
+            .iter()
+            .min_by(|a, b| a.1.ttl.total_cmp(&b.1.ttl))
+            .map(|(e, _)| *e)
+        else {
+            break;
+        };
+        last_known.remove(&oldest);
+    }
+}
+
+fn tick_team_memory(intel: &mut TeamIntel, dt: f32, spotted_radius: f32) {
+    let spotted_sq = spotted_radius * spotted_radius;
     intel.last_known.retain(|entity, seen| {
         if intel.contacts.contains_key(entity) {
             return false;
@@ -199,20 +218,28 @@ fn tick_team_memory(intel: &mut TeamIntel, dt: f32) {
         let spotted_near = intel
             .contacts
             .values()
-            .any(|c| c.position.distance_squared(alert.position) <= 600.0 * 600.0);
+            .any(|c| c.position.distance_squared(alert.position) <= spotted_sq);
         !spotted_near
     });
 }
 
-fn push_or_refresh_alert(alerts: &mut Vec<TeamAlert>, position: Vec2, ttl: f32) {
+fn push_or_refresh_alert(
+    alerts: &mut Vec<TeamAlert>,
+    position: Vec2,
+    ttl: f32,
+    bounds: &IntelBounds,
+) {
+    let merge_sq = bounds.alert_merge_radius * bounds.alert_merge_radius;
     if let Some(existing) = alerts
         .iter_mut()
-        .find(|a| a.position.distance_squared(position) <= 450.0 * 450.0)
+        .find(|a| a.position.distance_squared(position) <= merge_sq)
     {
         existing.position = position;
         existing.ttl = ttl;
-    } else if alerts.len() < 8 {
+    } else if alerts.len() < bounds.max_team_alerts {
         alerts.push(TeamAlert { position, ttl });
+    } else if let Some(oldest) = alerts.iter_mut().min_by(|a, b| a.ttl.total_cmp(&b.ttl)) {
+        *oldest = TeamAlert { position, ttl };
     }
 }
 

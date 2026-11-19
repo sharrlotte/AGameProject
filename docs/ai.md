@@ -15,7 +15,7 @@ pub enum Doctrine {
 }
 ```
 
-Numeric difficulty curves, feature unlock thresholds, radar baseline, and utility weights live in one global hot-reloadable config asset: `core/assets/config/base/ai.ron` (`AiConfig` / `AiConfigValue`).
+Numeric difficulty curves, feature unlock thresholds, radar baseline, bounded intel list caps (`bounds`), role/board/combat tuning (`role_tuning`, `board_tuning`, `combat_tuning`), and utility weights live in one global hot-reloadable config asset: `core/assets/config/base/ai.ron` (`AiConfig` / `AiConfigValue`).
 
 Each ship receives `Skill(u8)` (`1..=10`), resolved on mission spawn in precedence:
 `ShipSpawn.ai_level` -> (`ai_cfg.default_ally_level` if `team.is_player()`, else `MissionDef.ai_level` -> `GameSetting.ai_level` -> `ai_cfg.default_enemy_level`), clamped to `1..=10`.

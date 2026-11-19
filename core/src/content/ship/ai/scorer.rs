@@ -88,13 +88,15 @@ impl Scorer for RechargeScorer {
             return None;
         }
 
+        let ct = &ctx.cfg.combat_tuning;
         let dist = ctx.position.distance(threat.position);
-        if dist > ctx.cap.max_range * 1.25 {
+        if dist > ctx.cap.max_range * ct.recharge_threat_range_factor {
             return None;
         }
 
         let deficit = ((threshold - ctx.readiness.energy_ratio) / threshold.max(0.01)).clamp(0.0, 1.0);
-        let safe_range = (ctx.cap.max_range * 1.15).max(3000.0);
+        let safe_range =
+            (ctx.cap.max_range * ct.recharge_safe_range_factor).max(ct.recharge_min_safe_range);
 
         Some((
             Tactic::Recharge {
@@ -127,7 +129,10 @@ impl Scorer for SupportScorer {
             SupportKind::Screen
         };
         
-        let bonus = if ctx.vip_position.is_some_and(|p| p.distance(ctx.position) > 450.0) {
+        let bonus = if ctx
+            .vip_position
+            .is_some_and(|p| p.distance(ctx.position) > ctx.cfg.combat_tuning.support_approach_bonus_dist)
+        {
             0.06
         } else {
             0.0
@@ -251,31 +256,40 @@ impl Scorer for SearchScorer {
 
 fn select_posture_and_range(ctx: &EvalContext) -> (Posture, f32) {
     let cap = ctx.cap;
+    let ct = &ctx.cfg.combat_tuning;
     let precision = ctx.cfg.curves.range_precision.sample(ctx.skill);
     if let Some(fixed) = cap.fixed_mount
-        && (cap.fixed_dps_ratio >= 0.45 || cap.role == Role::Sniper)
+        && (cap.fixed_dps_ratio >= ctx.cfg.role_tuning.sniper_fixed_dps_ratio
+            || cap.role == Role::Sniper)
     {
-        let hold = (fixed.range * 0.78).max(cap.optimal_range * precision);
-        return (Posture::SpinalAim, hold.max(1200.0));
+        let hold = (fixed.range * ct.spinal_range_factor).max(cap.optimal_range * precision);
+        return (Posture::SpinalAim, hold.max(ct.spinal_min_range));
     }
 
     if matches!(cap.role, Role::Sniper | Role::Skirmisher)
         || (cap.has_pulling_beam && cap.offensive_dps <= 0.0)
-        || (ctx.readiness.hp_ratio < 0.55 && ctx.skill >= 5)
+        || (ctx.readiness.hp_ratio < ct.kite_hp_threshold
+            && ctx.skill >= ctx.cfg.unlocks.focus_fire_level)
     {
-        return (Posture::Kite, (cap.optimal_range * precision).max(800.0));
+        return (
+            Posture::Kite,
+            (cap.optimal_range * precision).max(ct.kite_min_range),
+        );
     }
 
     if cap.has_rotating_turrets {
         let range = if cap.role == Role::Brawler && cap.has_laser_beam {
-            cap.optimal_range * 0.75
+            cap.optimal_range * ct.orbit_beam_range_factor
         } else {
-            cap.optimal_range * 0.9
+            cap.optimal_range * ct.orbit_range_factor
         };
-        return (Posture::Orbit, range.max(600.0));
+        return (Posture::Orbit, range.max(ct.orbit_min_range));
     }
 
-    (Posture::Brawl, (cap.optimal_range * 0.7).max(450.0))
+    (
+        Posture::Brawl,
+        (cap.optimal_range * ct.brawl_range_factor).max(ct.brawl_min_range),
+    )
 }
 
 pub fn select_tactic(ctx: &EvalContext) -> Tactic {
@@ -350,7 +364,9 @@ pub fn evaluate_utility_and_power(
         brain.strafe_timer -= dt_secs;
         if brain.strafe_timer <= 0.0 {
             brain.strafe_sign = -brain.strafe_sign;
-            brain.strafe_timer = 2.5 + rand::random::<f32>() * 2.5;
+            let min_s = ai_cfg.0.combat_tuning.strafe_flip_min_secs;
+            let span = (ai_cfg.0.combat_tuning.strafe_flip_max_secs - min_s).max(0.1);
+            brain.strafe_timer = min_s + rand::random::<f32>() * span;
         }
 
         let desired_interval = 1.0 / ai_cfg.0.curves.think_rate_hz.sample(skill.level()).max(0.1);

@@ -466,3 +466,50 @@ fn steering_respects_skill_omnidirectional_thrust_and_skill_precedence() {
     assert!(app.world().get::<ExternalForce>(high).unwrap().force.x > 90.0);
     assert!(app.world().get::<ExternalForce>(low).unwrap().force.length() < 1e-3);
 }
+
+#[test]
+fn team_intel_alerts_and_last_known_respect_config_bounds() {
+    let mut cfg = AiConfig::default();
+    cfg.bounds.max_team_alerts = 2;
+    cfg.bounds.alert_merge_radius = 50.0;
+
+    let mut app = App::new();
+    app.insert_resource(AiConfigValue(cfg))
+        .init_resource::<TacticalBoard>()
+        .init_resource::<Time>()
+        .add_message::<DamageEvent>()
+        .add_systems(Update, update_sensors_and_intel);
+
+    let victim = app
+        .world_mut()
+        .spawn((
+            Team::new(1),
+            Ship::default(),
+            ShipStats::default(),
+            Capability {
+                max_radar_range: 100.0,
+                ..default()
+            },
+            Skill::new(5),
+            Sensor::default(),
+            GlobalTransform::from_xyz(0.0, 0.0, 0.0),
+        ))
+        .id();
+    let block = app.world_mut().spawn(BlockOwner { body: victim }).id();
+
+    for i in 1..=4 {
+        let shot = app
+            .world_mut()
+            .spawn(GlobalTransform::from_xyz(i as f32 * 1000.0, 0.0, 0.0))
+            .id();
+        app.world_mut().write_message(DamageEvent {
+            attacker: shot,
+            target: block,
+            damage: 10.0,
+        });
+    }
+    app.update();
+
+    let team1 = app.world().resource::<TacticalBoard>().teams.get(&1).unwrap();
+    assert_eq!(team1.intel.alerts.len(), 2);
+}
