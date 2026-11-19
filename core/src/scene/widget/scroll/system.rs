@@ -66,8 +66,10 @@ pub fn on_scroll_handler(
 
 pub fn sync_scrollbars(
     viewports: Query<(Entity, &ComputedNode, &ScrollPosition), With<ScrollViewport>>,
-    mut tracks: Query<(&ScrollTarget, &mut Node), With<ScrollbarTrack>>,
-    mut thumbs: Query<(&ScrollTarget, &mut Node), With<ScrollbarThumb>>,
+    mut scrollbars: Query<
+        (Has<ScrollbarTrack>, &ScrollTarget, &mut Node),
+        Or<(With<ScrollbarTrack>, With<ScrollbarThumb>)>,
+    >,
 ) {
     for (viewport, computed, scroll_position) in &viewports {
         let content_height = computed.content_size().y;
@@ -85,28 +87,25 @@ pub fn sync_scrollbars(
             0.0
         };
         let thumb_top = (100.0 - thumb_height) * ratio;
+        let display = if hidden { Display::None } else { Display::Flex };
+        let height = Val::Percent(thumb_height);
+        let top = Val::Percent(thumb_top);
 
-        for (target, mut track) in &mut tracks {
+        for (is_track, target, mut node) in &mut scrollbars {
             if target.0 != viewport {
                 continue;
             }
-            let display = if hidden { Display::None } else { Display::Flex };
-            if track.display != display {
-                track.display = display;
-            }
-        }
-
-        for (target, mut thumb) in &mut thumbs {
-            if target.0 != viewport {
-                continue;
-            }
-            let height = Val::Percent(thumb_height);
-            if thumb.height != height {
-                thumb.height = height;
-            }
-            let top = Val::Percent(thumb_top);
-            if thumb.top != top {
-                thumb.top = top;
+            if is_track {
+                if node.display != display {
+                    node.display = display;
+                }
+            } else {
+                if node.height != height {
+                    node.height = height;
+                }
+                if node.top != top {
+                    node.top = top;
+                }
             }
         }
     }

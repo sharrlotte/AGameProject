@@ -1,11 +1,7 @@
 (
     name: "Quick Battle",
     briefing: "Two Hive lances hold the frontier. Break their Cores.",
-    player: (
-        team: 0,
-        position: (5000.0, 0.0),
-        schematic_name: "Interceptor",
-    ),
+    spawn: (5000.0, 0.0),
     enemies: [
         (
             team: 1,

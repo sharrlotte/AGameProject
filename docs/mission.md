@@ -15,18 +15,43 @@ mission system consumes that message and queries remaining ships by team to deci
 outcome. Leaving Game resets the phase to `Idle` and clears `BattleResult`. On `Ended`,
 the overlay spawns.
 
+## Player fleet is the source of truth
+
+Missions do not declare player ships. `MissionDef` contains `spawn: Vec2` (the fleet
+anchor), `enemies: Vec<ShipSpawn>`, `objective`, and optional metadata. Every team-0
+ship is spawned from `DeployPayload.fleet: Vec<ShipDesign>`, forced to
+`Team::new(DEFAULT_TEAM_ID)`. `ShipSpawn.team` therefore applies to enemies only.
+
+A fresh install seeds the fleet by resolving `default_fleet` names from
+`config/base/game.ron` against `ShipCatalog`. The configured defaults on a fresh install
+are `["Interceptor", "B2"]`. Unresolved names are warned and skipped. A persisted fleet
+replaces the config defaults; config entries are never merged into it. If the persisted
+fleet is empty, defaults are restored with a warning so a battle can never start with
+zero player ships.
+
+The fleet is persisted as a versioned RON document at `<data_dir>/fleet.ron` using the
+shared atomic document writer. Deploy and remove actions rewrite it; a failed write warns
+and keeps the in-memory fleet. Removing a ship changes fleet membership only and never
+deletes its design from `ShipCatalog`. Because the fleet stores full design snapshots, an
+edit to a catalog design is reflected only after redeploying that design.
+
+Fleet ships spawn on a line centered on `MissionDef.spawn`, spaced by `fleet_spacing`
+from `game.ron` (default `400.0`). The arrangement is a pure function of anchor, index,
+count, and spacing; it has no hardcoded geometry.
+
 ## Quick Battle flow
 
-Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`BattleMode::QuickBattle`) → `SceneState::Game`:
+Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle**
+(`BattleMode::QuickBattle`) → `SceneState::Game`:
 
 1. `setup` spawns the HUD; `MissionPlugin::setup_battle` inserts `MissionAsset` (loads
    `assets/config/mission/quick-battle.ron`) and resets `BattlePhase` to `Loading`.
 2. `poll_mission_loaded` spawns the mission when the asset read finishes (~1 frame; the
    asset is cached afterward).
-3. Player ship = `DeployPayload.current_ship` if the editor Deployed one, otherwise the
-   `Interceptor` starter design. Enemies = the `Raider` starter design from their absolute
-   spawn positions, team 1. (`find_schematic` falls back to the first available design when
-   a name is missing — see defects.md.)
+3. Player ships = `DeployPayload.fleet`, each at `formation(spawn, index, count,
+   fleet_spacing)`, team 0. Enemies are resolved by `schematic_name` from their absolute
+   positions in the mission, team 1. (`find_schematic` falls back to the first available
+   design when a name is missing — see defects.md.)
 4. Core loss in `apply_body_mutations` emits `ShipDestroyed` and wrecks the surviving
    components as debris bodies.
 5. The outcome system consumes `ShipDestroyed` in `FixedPostUpdate` after the mutation
@@ -49,31 +74,33 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle** (`
 (
     name: "Quick Battle",
     briefing: "Two Hive lances hold the frontier. Break their Cores.",
-    player: (team: 0, position: (0.0, 0.0), schematic_name: "Interceptor"),
+    spawn: (5000.0, 0.0),
     enemies: [
-        (team: 1, position: (6000.0, 0.0), schematic_name: "Raider"),
-        (team: 1, position: (-6000.0, 0.0), schematic_name: "Raider"),
+        (team: 1, position: (-3000.0, 0.0), schematic_name: "Blackbird"),
+        (team: 1, position: (0.0, 3000.0), schematic_name: "Raider"),
+        (team: 1, position: (0.0, -3000.0), schematic_name: "Interceptor"),
     ],
     objective: DestroyEnemyCore,
 )
 ```
 
-`MissionDef` — derives `Asset`, `TypePath`, `Deserialize`, `deny_unknown_fields`; mirrors
-`ShipSpawn { team: u8, position: Vec2, schematic_name: String }` and
-`MissionObjective` (only `DestroyEnemyCore` valid today).
+`MissionDef` — derives `Asset`, `TypePath`, `Deserialize`, `Clone`, `PartialEq`, `Debug`
+and uses `deny_unknown_fields`. It mirrors `ShipSpawn { team: u8, position: Vec2,
+schematic_name: String, ai_level: Option<u8> }` for enemies only and `MissionObjective`
+(only `DestroyEnemyCore` valid today). A `player` field is rejected by the schema.
 
-Schematic name lookup: `find_schematic` resolves by `name` (starter designs are
-`Interceptor` and `Raider`, seeded by `ShipCatalog::load_or_seed`). A missing name falls
-back to the first available design — see defects.md. `ShipDesign::spawn` generates fresh
-UUIDs as usual. Empty/missing schematics spawn nothing and log a warning.
+`assets/config/base/game.ron` adds `default_fleet: ["Interceptor", "B2"]` and
+`fleet_spacing: 400.0`. `fleet_spacing` is validated as non-negative by `GameConfig`.
 
 ## Guarantees and invariants
 
 - Mission spawn path is the **only** ship spawn path in Game — the old top-up spawner
-  (`check_ship`) is deleted; `MAX_FACTIONS` deleted; `SchematicCache`, `mark_schematics_dirty`
-  deleted; `utils::random_vec2_step` deleted.
-- Player fallback order: Deploy → `Interceptor` → (missing) first available schematic.
-- The mission asset is cached after first read; Retry/Home re-entry re-uses it.
+  (`check_ship`) is deleted; `MAX_FACTIONS` deleted; `SchematicCache`,
+  `mark_schematics_dirty` deleted; `utils::random_vec2_step` deleted.
+- `DeployPayload.fleet` is the only source of player ships; every fleet ship is team 0.
+- Mission configs never carry a player slot or player team.
+- Fleet ownership survives restarts via `fleet.ron`; config defaults apply only when no
+  fleet is persisted, and an empty persisted fleet is never accepted.
 - Outcome detection is event-driven: `ShipDestroyed` is emitted only when a ship's core
   is lost; scene teardown does not emit it. Counting uses only `Ship` entities —
   blocks/bullets/lasers/missiles don't count toward attrition.
@@ -88,6 +115,6 @@ UUIDs as usual. Empty/missing schematics spawn nothing and log a warning.
 
 - Other objectives (survive/collect/escort/waves), mission select screen, campaign map.
 - Difficulty scaling and mission-specific AI profiles beyond the starter designs.
-- `quick-battle.ron` is the only mission; no mission hot reload pipeline beyond the
-  existing loader (it reloads only on scene re-entry).
+- Grid/circular fleet formations or per-design spawn positions.
+- A fleet size cap via `max_ships`, or fleet persistence inside the campaign/world save.
 - Victory rewards/meta progression of any kind.

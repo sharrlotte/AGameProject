@@ -9,7 +9,7 @@ pub struct MissionDef {
     pub briefing: String,
     #[serde(default)]
     pub ai_level: Option<u8>,
-    pub player: ShipSpawn,
+    pub spawn: Vec2,
     pub enemies: Vec<ShipSpawn>,
     pub objective: MissionObjective,
 }

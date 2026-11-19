@@ -7,7 +7,7 @@ use crate::content::ship::ShipDesign;
 
 #[derive(Resource, Default, Debug)]
 pub struct DeployPayload {
-    pub current_ship: Option<ShipDesign>,
+    pub fleet: Vec<ShipDesign>,
 }
 
 #[derive(Resource)]

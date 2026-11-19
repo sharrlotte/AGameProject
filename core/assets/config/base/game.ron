@@ -22,4 +22,6 @@
     auto_save_interval_secs: 30.0,
     debris_lifetime_min_seconds: 30.0,
     debris_lifetime_max_seconds: 60.0,
+    default_fleet: ["Interceptor", "B2"],
+    fleet_spacing: 400.0,
 )

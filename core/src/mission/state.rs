@@ -7,7 +7,6 @@ use crate::config::{GameConfigValue, GameSetting};
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ShipDesign;
 use crate::content::ship::ai::{AiConfig, AiConfigValue, Brain, Skill};
-use crate::resource::DeployPayload;
 use crate::save::design::ShipCatalog;
 
 #[derive(States, Default, Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -125,52 +124,36 @@ fn spawn_ship(
     );
 }
 
+pub fn formation(anchor: Vec2, index: usize, count: usize, spacing: f32) -> Vec2 {
+    let offset = (index as f32 - (count.saturating_sub(1) as f32) / 2.0) * spacing;
+    anchor + Vec2::Y * offset
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_mission(
     commands: &mut Commands,
     registry: &BlockRegistry,
     config: &GameConfigValue,
     mission: &MissionDef,
-    state: &DeployPayload,
+    fleet: &[ShipDesign],
     catalog: &ShipCatalog,
     setting: &GameSetting,
     ai_cfg: &AiConfigValue,
+    spacing: f32,
 ) {
-    let schematics = catalog.designs();
-
-    match &state.current_ship {
-        Some(deployed) => {
-            let team = Team::new(DEFAULT_TEAM_ID);
-            let skill = resolve_skill(
-                mission.player.ai_level,
-                team,
-                mission.ai_level,
-                setting.ai_level,
-                &ai_cfg.0,
-            );
-            spawn_ship_entity(
-                commands,
-                registry,
-                config,
-                deployed,
-                team,
-                mission.player.position,
-                skill,
-                &ai_cfg.0,
-            );
-        }
-        None => {
-            spawn_ship(
-                commands,
-                registry,
-                config,
-                schematics,
-                &mission.player,
-                mission.ai_level,
-                setting,
-                &ai_cfg.0,
-            );
-        }
+    for (index, design) in fleet.iter().enumerate() {
+        let team = Team::new(DEFAULT_TEAM_ID);
+        let skill = resolve_skill(None, team, None, setting.ai_level, &ai_cfg.0);
+        spawn_ship_entity(
+            commands,
+            registry,
+            config,
+            design,
+            team,
+            formation(mission.spawn, index, fleet.len(), spacing),
+            skill,
+            &ai_cfg.0,
+        );
     }
 
     for enemy in &mission.enemies {
@@ -178,11 +161,35 @@ pub fn spawn_mission(
             commands,
             registry,
             config,
-            schematics,
+            catalog.designs(),
             enemy,
             mission.ai_level,
             setting,
             &ai_cfg.0,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn three_ships_are_centered_on_anchor() {
+        let anchor = Vec2::new(5000.0, 0.0);
+        assert_eq!(formation(anchor, 0, 3, 400.0), anchor - Vec2::Y * 400.0);
+        assert_eq!(formation(anchor, 1, 3, 400.0), anchor);
+        assert_eq!(formation(anchor, 2, 3, 400.0), anchor + Vec2::Y * 400.0);
+    }
+
+    #[test]
+    fn two_ships_straddle_anchor() {
+        assert_eq!(formation(Vec2::ZERO, 0, 2, 400.0), Vec2::Y * -200.0);
+        assert_eq!(formation(Vec2::ZERO, 1, 2, 400.0), Vec2::Y * 200.0);
+    }
+
+    #[test]
+    fn single_ship_sits_at_anchor() {
+        assert_eq!(formation(Vec2::X, 0, 1, 400.0), Vec2::X);
     }
 }

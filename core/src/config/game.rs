@@ -29,6 +29,10 @@ pub struct GameConfig {
     pub auto_save_interval_secs: f32,
     pub debris_lifetime_min_seconds: f32,
     pub debris_lifetime_max_seconds: f32,
+    #[serde(default)]
+    pub default_fleet: Vec<String>,
+    #[serde(default = "default_fleet_spacing")]
+    pub fleet_spacing: f32,
 }
 
 impl Default for GameConfig {
@@ -57,6 +61,8 @@ impl Default for GameConfig {
             auto_save_interval_secs: 30.0,
             debris_lifetime_min_seconds: 30.0,
             debris_lifetime_max_seconds: 60.0,
+            default_fleet: Vec::new(),
+            fleet_spacing: default_fleet_spacing(),
         }
     }
 }
@@ -78,12 +84,23 @@ impl GameConfig {
             ));
         }
 
+        if self.fleet_spacing < 0.0 {
+            return Err(format!(
+                "fleet_spacing ({}) must be non-negative",
+                self.fleet_spacing
+            ));
+        }
+
         Ok(())
     }
 }
 
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GameConfigValue(pub GameConfig);
+
+fn default_fleet_spacing() -> f32 {
+    400.0
+}
 
 pub fn game_config_bridge(
     mut events: MessageReader<AssetEvent<GameConfig>>,

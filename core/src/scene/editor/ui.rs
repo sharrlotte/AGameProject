@@ -13,6 +13,7 @@ pub fn setup_editor_ui(
     }
     let mut block_buttons = Vec::new();
     let mut ship_list_content = None;
+    let mut fleet_list_content = None;
     commands.spawn((
         ShipBase,
         Visibility::Inherited,
@@ -222,10 +223,26 @@ pub fn setup_editor_ui(
                         },
                     ));
 
-                    right_panel.spawn(Node {
-                        flex_grow: 1.0,
-                        ..default()
-                    });
+                    right_panel.spawn((
+                        Text::new("Deployed Fleet"),
+                        TextFont {
+                            font_size: FontSize::Px(16.0),
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(CORNER_RADIUS)),
+                            ..default()
+                        },
+                    ));
+
+                    fleet_list_content = Some(spawn_scroll_area(
+                        right_panel,
+                        Display::Flex,
+                        4.0,
+                        FleetListPanel,
+                        |_| {},
+                    ));
 
                     spawn_button(
                         right_panel,
@@ -253,6 +270,10 @@ pub fn setup_editor_ui(
 
     if let Some(content) = ship_list_content {
         commands.entity(content).insert(ShipListContent);
+    }
+
+    if let Some(content) = fleet_list_content {
+        commands.entity(content).insert(FleetListContent);
     }
 
     for (button, def) in block_buttons {

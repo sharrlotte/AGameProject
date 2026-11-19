@@ -56,7 +56,7 @@ pub struct GridBuildResult {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ShipDesign {
     #[serde(default = "default_version")]
     pub version: u32,

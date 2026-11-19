@@ -13,10 +13,12 @@ pub fn spawn_scroll_area<M: Component>(
     marker: M,
     build_content: impl FnOnce(&mut ChildSpawnerCommands),
 ) -> Entity {
+    let target = parent.target_entity();
     let mut commands = parent.commands();
 
     let wrapper = commands
         .spawn((
+            ChildOf(target),
             Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Row,

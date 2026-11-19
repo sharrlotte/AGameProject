@@ -222,10 +222,11 @@ fn poll_mission_loaded(
         &registry,
         &config,
         &mission,
-        &state,
+        &state.fleet,
         &catalog,
         &setting,
         &ai_cfg,
+        config.0.fleet_spacing,
     );
 
     result.started_at = Some(time.elapsed_secs());

@@ -94,6 +94,18 @@ Fixed-height list items (`BlockSelectButton`, ship rows, `AiPresetButton`) use
 are cleared and repopulated in the inner `ShipListContent` viewport, leaving the sibling
 scrollbar intact across refreshes.
 
+## Ship editor deployed fleet
+
+The editor's right panel lists the deployed fleet in a scroll area (`FleetListPanel` with
+an inner `FleetListContent` viewport). Each row is a `RemoveFleetButton` labelled with the
+design name; removing it changes `DeployPayload.fleet` only and rewrites `<data_dir>/fleet.ron`.
+The list is rebuilt when the deploy payload changes and on editor entry.
+
+The Deploy button upserts the current grid design into the fleet by name. It is disabled
+only while the current grid matches the fleet entry of that name — comparing name,
+doctrine, and block position/type/rotation while ignoring `BlockPlacement.id`. An edited
+grid therefore re-enables Deploy so the fleet entry can be updated.
+
 ## Setting panel
 
 See scenes.md (Volume / Bloom / Close).

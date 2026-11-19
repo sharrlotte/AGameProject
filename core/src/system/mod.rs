@@ -5,8 +5,10 @@ use bevy::{
     post_process::bloom::Bloom,
 };
 
+use crate::config::GameConfigValue;
 use crate::resource::DeployPayload;
 use crate::save::design::ShipCatalog;
+use crate::save::fleet::load_or_seed_fleet;
 
 
 pub fn setup_camera(mut commands: Commands) {
@@ -30,10 +32,12 @@ pub fn setup_camera(mut commands: Commands) {
     ));
 }
 
-pub fn load_current_ship(mut state: ResMut<DeployPayload>, catalog: Res<ShipCatalog>) {
-    if let Some(ship) = catalog.designs().first() {
-        state.current_ship = Some(ship.clone());
-    }
+pub fn load_default_fleet(
+    mut deploy: ResMut<DeployPayload>,
+    catalog: Res<ShipCatalog>,
+    config: Res<GameConfigValue>,
+) {
+    deploy.fleet = load_or_seed_fleet(&config.0, &catalog);
 }
 
 #[cfg(debug_assertions)]

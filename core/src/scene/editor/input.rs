@@ -5,6 +5,7 @@ use bevy::{
 
 use super::*;
 
+use crate::save::fleet::{design_matches, upsert};
 use crate::scene::widget::ButtonVisualState;
 
 
@@ -70,6 +71,21 @@ pub fn sync_block_selection(
 }
 
 
+fn current_design(editor: &EditorState) -> ShipDesign {
+    ShipDesign {
+        version: DESIGN_SCHEMA_VERSION,
+        id: Uuid::now_v7(),
+        name: editor.filename.clone(),
+        blocks: editor
+            .grid
+            .blocks()
+            .map(|block| block.placement.clone())
+            .collect(),
+        doctrine: editor.doctrine,
+    }
+}
+
+
 pub fn on_deploy(
     click: On<PointerClick>,
     buttons: Query<&DeployButton>,
@@ -79,30 +95,20 @@ pub fn on_deploy(
     if !buttons.contains(click.event().entity) {
         return;
     }
-    let blocks = editor
-        .grid
-        .blocks()
-        .map(|block| block.placement.clone())
-        .collect();
-    deploy.current_ship = Some(ShipDesign {
-        version: DESIGN_SCHEMA_VERSION,
-        id: Uuid::now_v7(),
-        name: editor.filename.clone(),
-        blocks,
-        doctrine: editor.doctrine,
-    });
+    upsert(&mut deploy.fleet, current_design(&editor));
 }
 
 
 pub fn sync_deploy_button(
-    app_var: Res<DeployPayload>,
+    deploy: Res<DeployPayload>,
     editor: Res<EditorState>,
     mut buttons: Query<(&DeployButton, &mut ButtonVisualState)>,
 ) {
-    let is_deployed = app_var
-        .current_ship
-        .as_ref()
-        .is_some_and(|current| current.name == editor.filename);
+    let design = current_design(&editor);
+    let is_deployed = deploy
+        .fleet
+        .iter()
+        .any(|current| design_matches(current, &design));
 
     for (_, mut state) in &mut buttons {
         *state = if is_deployed {

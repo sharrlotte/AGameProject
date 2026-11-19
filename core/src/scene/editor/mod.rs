@@ -1,4 +1,5 @@
 pub mod ai_panel;
+pub mod fleet;
 pub mod grid;
 pub mod input;
 pub mod save;
@@ -6,6 +7,7 @@ pub mod ship_list;
 pub mod ui;
 
 pub use ai_panel::*;
+pub use fleet::*;
 pub use grid::*;
 pub use input::*;
 pub use save::*;
@@ -106,7 +108,8 @@ impl Plugin for ShipEditorPlugin {
             .init_resource::<EditorState>()
             .add_systems(
                 OnEnter(SceneState::ShipEditor),
-                (setup_editor_ui, load_initial_ship, refresh_ship_list).chain(),
+                (setup_editor_ui, load_initial_ship, refresh_ship_list, refresh_fleet_list)
+                    .chain(),
             )
             .add_systems(
                 Update,
@@ -122,6 +125,7 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_deletion,
                     update_block_properties_panel,
                     sync_deploy_button,
+                    refresh_fleet_list.run_if(resource_changed::<DeployPayload>),
                     sync_doctrine,
                     handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),

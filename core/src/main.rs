@@ -11,7 +11,7 @@ mod simulation;
 mod system;
 mod ui;
 
-use crate::config::{ConfigPlugin, GameConfigValue};
+use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
 use crate::content::ContentPlugin;
 use crate::mission::MissionPlugin;
@@ -27,7 +27,7 @@ use crate::scene::pause::PauseScenePlugin;
 use crate::scene::setting::SettingScenePlugin;
 use crate::control::ControlPlugin;
 use crate::simulation::SimulationSet;
-use crate::system::{load_current_ship, setup_camera};
+use crate::system::{load_default_fleet, setup_camera};
 use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
@@ -136,7 +136,8 @@ fn register_simulation_sets(app: &mut App) {
 }
 
 fn register_game_plugins(app: &mut App) {
-    app.add_systems(Startup, (setup_camera, load_current_ship))
+    app.add_systems(Startup, setup_camera)
+        .add_systems(OnEnter(ConfigState::Ready), load_default_fleet)
         .add_plugins((
             ConfigPlugin,
             ControlPlugin,
