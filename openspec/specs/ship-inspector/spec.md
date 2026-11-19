@@ -1,4 +1,9 @@
-## ADDED Requirements
+# ship-inspector Specification
+
+## Purpose
+Production single-ship click selection (`InspectedShip`) and bottom-right Ship Inspector HUD with block sprite diagram and near-real-time stats, with enemy ship selection and debug fields gated to `dev`.
+
+## Requirements
 
 ### Requirement: Single-ship inspection selection in Game scene
 The system SHALL maintain an `InspectedShip(Option<Entity>)` resource in `SceneState::Game` across all builds, independent of `Ctrl+drag` (`EntitySelectEvent`), `CameraTarget`, and `ControlledShip` (except when triggered from `ShipList`).
