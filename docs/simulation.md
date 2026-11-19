@@ -146,12 +146,15 @@ non-overlapping, and satisfy `validate_ship`. Composition:
 
 The interceptor is a narrow arrow with an isosceles nose spike and wedge leading
 edges; the raider is a broad swept wedge with turrets at the wingtips and nose.
-`B2` is a broad flying wing with two `plate_2x2` wingtips and serrated wedge leading
-and trailing edges; it has 32 hull blocks and only 2 thrusters. Alongside its two
-`colaris` it carries one `foreshadow` spinal railgun at `(0, 2)` with `R0`, occupying
-`(0,2)..(0,5)` and pointing along the ship's nose; the fixed weapon is aimed by the
-ship-level `AimAt` behavior. Its AI opens with `Attack(target: NearestEnemy)`, kites at
-4500 while an enemy is within 6000, and flees only below 20% health. `Blackbird` is a
+`B2` is a long, narrow dreadnought with its nose at `+Y` and two thrusters at `-Y`;
+its 3x3 core at `(-1,-1)` is ringed by hull on all four sides, and two `plate_2x2`
+armor wings flank the core. Serrated `wedge_1x1` edges run down both flanks with their
+empty sides facing outward: left edge `R180`/`R90`, right edge `R0`/`R270`, and nose
+`R90`/`R0`. Alongside its two `colaris` it carries one `foreshadow` spinal railgun at
+`(0, 6)` with `R0`, occupying `(0,6)..(0,9)` and pointing along the ship's nose; the
+fixed weapon is aimed by the ship-level `AimAt` behavior. Its AI opens with
+`Attack(target: NearestEnemy)`, kites at 4500 while an enemy is within 6000, and flees
+only below 20% health. `Blackbird` is a
 long slender dart with a nose spike, two horizontal `fin_1x2` wings, a single laser and
 4 thrusters; its AI opens with `Chase(target: NearestEnemy)`, kites at 2500 within 4000,
 and flees below 40% health. The bomber therefore has greater hull, weapon count,
@@ -160,7 +163,7 @@ rate (260 vs 460) than the scout.
 
 Every triangle sits on the silhouette boundary with its empty side facing outward,
 so no block touches a triangle's empty edge. The new starters fit within
-`x=-9..9, y=-2..5` (`B2`) and `x=-3..3, y=-3..5` (`Blackbird`); generation covers
+`x=-4..4, y=-6..9` (`B2`) and `x=-3..3, y=-3..5` (`Blackbird`); generation covers
 consumer demand on both (60/6 and 35/25).
 AI profiles, design names, ids, and schema version are defined by the starter
 documents and are independent of the block layout.

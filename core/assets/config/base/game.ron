@@ -1,7 +1,7 @@
 (
     thrust_power_factor: 100.0,
     turn_speed_factor: 9000.0,
-    linear_damping: 0.9,
+    linear_damping: 0.8,
     angular_damping: 0.999,
     drop_size: 10.0,
     drop_despawn_in_seconds: 300.0,
