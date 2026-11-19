@@ -12,6 +12,7 @@ pub struct RadarPlugin;
 
 impl Plugin for RadarPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, radar_scan.in_set(SimulationSet::Weapons));
+        app.add_observer(reset_disabled_radar)
+            .add_systems(Update, radar_scan.in_set(SimulationSet::Weapons));
     }
 }

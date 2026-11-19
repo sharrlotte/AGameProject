@@ -1,5 +1,5 @@
 use super::Radar;
-use crate::content::{ship::Ship, team::Team};
+use crate::content::{block::Disabled, ship::Ship, team::Team};
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
 
@@ -7,7 +7,7 @@ use bevy_rapier2d::{parry::shape::Ball, prelude::*};
 pub fn radar_scan(
     time: Res<Time>,
     rapier: ReadRapierContext,
-    mut radars: Query<(Entity, &mut Radar, &Team, &GlobalTransform)>,
+    mut radars: Query<(Entity, &mut Radar, &Team, &GlobalTransform), Without<Disabled>>,
     ships: Query<&Team, With<Ship>>,
 ) {
     let Ok(collision) = rapier.single() else {
@@ -46,5 +46,14 @@ pub fn radar_scan(
                 should_continue
             },
         );
+    }
+}
+
+pub fn reset_disabled_radar(
+    trigger: On<Add<Disabled>>,
+    mut radars: Query<&mut Radar>,
+) {
+    if let Ok(mut radar) = radars.get_mut(trigger.event().entity) {
+        radar.targets.clear();
     }
 }

@@ -43,3 +43,7 @@ pub struct BlockRef {
 pub struct BlockOwner {
     pub body: Entity,
 }
+
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct Disabled;

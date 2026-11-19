@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::*;
 use crate::content::block::{
-    BlockOwner,
+    BlockOwner, Disabled,
     feature::power::{Boost, Consumer, Demand, STARVATION_THRESHOLD, Supply},
     stat::make_stat_system,
 };
@@ -13,7 +13,7 @@ pub fn update_thruster_demand(
     ships: Query<&Throttle>,
     mut thrusters: Query<
         (&BlockOwner, &Consumer, &mut Demand, Option<&Boost>),
-        With<ThrustPowerBase>,
+        (With<ThrustPowerBase>, Without<Disabled>),
     >,
 ) {
     for (owner, consumer, mut demand, boost) in &mut thrusters {

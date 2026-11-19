@@ -14,7 +14,8 @@ pub struct TurretPlugin;
 
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedFirst, update_turret_demand.in_set(PowerSet::Demand))
+        app.add_observer(reset_disabled_turret)
+            .add_systems(FixedFirst, update_turret_demand.in_set(PowerSet::Demand))
             .add_systems(
                 FixedUpdate,
                 (

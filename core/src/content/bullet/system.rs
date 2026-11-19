@@ -15,9 +15,10 @@ use crate::content::block::feature::turret::{
 };
 use crate::content::block::radar::Radar;
 use crate::content::block::{
-    BlockOwner, BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState, Health,
-    LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPattern,
-    PullingBeamPatternState, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
+    BlockOwner, BurstShootPattern, BurstShootPatternShootingState, BurstShootPatternState,
+    Disabled, Health, LaserBeamPattern, LaserBeamPatternShootingState, LaserBeamPatternState,
+    PullingBeamPattern, PullingBeamPatternState, ShootingProjectile, SingleShootPattern,
+    SingleShootPatternState,
 };
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::lifetime::Lifetime;
@@ -100,17 +101,20 @@ pub fn handle_single_shot(
     time: Res<Time>,
     mut commands: Commands,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    mut query: Query<(
-        &Turret,
-        &mut TurretState,
-        &SingleShootPattern,
-        &mut SingleShootPatternState,
-        &Team,
-        Option<&mut AmmoState>,
-        &TurretBarrel,
-        Option<(&TurretPower, &mut TurretCharge)>,
-        Option<&Boost>,
-    )>,
+    mut query: Query<
+        (
+            &Turret,
+            &mut TurretState,
+            &SingleShootPattern,
+            &mut SingleShootPatternState,
+            &Team,
+            Option<&mut AmmoState>,
+            &TurretBarrel,
+            Option<(&TurretPower, &mut TurretCharge)>,
+            Option<&Boost>,
+        ),
+        Without<Disabled>,
+    >,
     config: Res<GameConfigValue>,
 ) {
     let dt = time.delta_secs();
@@ -179,17 +183,20 @@ pub fn handle_burst_shot(
     time: Res<Time>,
     mut commands: Commands,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    mut query: Query<(
-        &Turret,
-        &mut TurretState,
-        &BurstShootPattern,
-        &mut BurstShootPatternState,
-        &Team,
-        Option<&mut AmmoState>,
-        &TurretBarrel,
-        Option<(&TurretPower, &mut TurretCharge)>,
-        Option<&Boost>,
-    )>,
+    mut query: Query<
+        (
+            &Turret,
+            &mut TurretState,
+            &BurstShootPattern,
+            &mut BurstShootPatternState,
+            &Team,
+            Option<&mut AmmoState>,
+            &TurretBarrel,
+            Option<(&TurretPower, &mut TurretCharge)>,
+            Option<&Boost>,
+        ),
+        Without<Disabled>,
+    >,
     config: Res<GameConfigValue>,
 ) {
     let dt = time.delta_secs();
@@ -310,17 +317,20 @@ pub fn handle_laser_beam(
     healths: Query<(Entity, &Health)>,
     mut commands: Commands,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    mut query: Query<(
-        Entity,
-        &Turret,
-        &mut TurretState,
-        &LaserBeamPattern,
-        &mut LaserBeamPatternState,
-        &Team,
-        &TurretBarrel,
-        Option<&Supply>,
-        Option<&Boost>,
-    )>,
+    mut query: Query<
+        (
+            Entity,
+            &Turret,
+            &mut TurretState,
+            &LaserBeamPattern,
+            &mut LaserBeamPatternState,
+            &Team,
+            &TurretBarrel,
+            Option<&Supply>,
+            Option<&Boost>,
+        ),
+        Without<Disabled>,
+    >,
     mut events: MessageWriter<DamageEvent>,
 ) {
     let Ok(collision) = rapier.single() else {
@@ -453,16 +463,19 @@ pub fn handle_pulling_beam(
     block_owners: Query<&BlockOwner>,
     mut ships: Query<(&GlobalTransform, &mut Velocity), With<Ship>>,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    mut query: Query<(
-        Entity,
-        &Turret,
-        &TurretState,
-        &PullingBeamPattern,
-        &mut PullingBeamPatternState,
-        &Team,
-        &TurretBarrel,
-        Option<&Supply>,
-    )>,
+    mut query: Query<
+        (
+            Entity,
+            &Turret,
+            &TurretState,
+            &PullingBeamPattern,
+            &mut PullingBeamPatternState,
+            &Team,
+            &TurretBarrel,
+            Option<&Supply>,
+        ),
+        Without<Disabled>,
+    >,
 ) {
     const PULL_SPEED: f32 = 500.0;
 
@@ -884,4 +897,32 @@ fn handle_missile_collision(
             damage: hitbox.blast_damage,
         },
     ));
+}
+
+pub fn reset_disabled_beams(
+    trigger: On<Add<Disabled>>,
+    mut commands: Commands,
+    mut beams: Query<(
+        Option<&mut LaserBeamPatternState>,
+        Option<&PullingBeamPatternState>,
+    )>,
+) {
+    let Ok((laser, pulling)) = beams.get_mut(trigger.event().entity) else {
+        return;
+    };
+
+    if let Some(mut laser) = laser {
+        laser.shooting = LaserBeamPatternShootingState::Cooldown {
+            cooldown_remaining: 0.0,
+        };
+        if let Some(beam) = laser.beam {
+            commands.entity(beam).insert(Visibility::Hidden);
+        }
+    }
+
+    if let Some(pulling) = pulling
+        && let Some(beam) = pulling.beam
+    {
+        commands.entity(beam).insert(Visibility::Hidden);
+    }
 }

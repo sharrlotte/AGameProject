@@ -1,7 +1,7 @@
 use bevy::{math::FloatPow, prelude::*};
 
 use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
-use crate::content::block::TurretMirror;
+use crate::content::block::{Disabled, TurretMirror};
 use crate::{
     content::{
         block::{
@@ -20,15 +20,18 @@ use bevy_rapier2d::prelude::Velocity;
 
 
 pub fn update_turret_demand(
-    mut turrets: Query<(
-        &TurretPower,
-        &TurretState,
-        &mut Demand,
-        Option<&TurretCharge>,
-        Option<&Boost>,
-        Option<&LaserBeamPatternState>,
-        Option<&PullingBeamPattern>,
-    )>,
+    mut turrets: Query<
+        (
+            &TurretPower,
+            &TurretState,
+            &mut Demand,
+            Option<&TurretCharge>,
+            Option<&Boost>,
+            Option<&LaserBeamPatternState>,
+            Option<&PullingBeamPattern>,
+        ),
+        Without<Disabled>,
+    >,
 ) {
     for (power, state, mut demand, charge, boost, laser_state, pulling) in &mut turrets {
         let boost = boost.map_or(1.0, Boost::value);
@@ -56,12 +59,15 @@ pub fn update_turret_demand(
 
 pub fn advance_turret_charge(
     time: Res<Time>,
-    mut turrets: Query<(
-        &TurretPower,
-        &mut TurretCharge,
-        Option<&Supply>,
-        Option<&Boost>,
-    )>,
+    mut turrets: Query<
+        (
+            &TurretPower,
+            &mut TurretCharge,
+            Option<&Supply>,
+            Option<&Boost>,
+        ),
+        Without<Disabled>,
+    >,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
@@ -178,7 +184,10 @@ pub fn update_turret_target(
         ),
         With<Interceptable>,
     >,
-    mut turrets: Query<(&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel)>,
+    mut turrets: Query<
+        (&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel),
+        Without<Disabled>,
+    >,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
 ) {
     for (turret, mut state, team, radar, barrel_ref) in turrets.iter_mut() {
@@ -284,7 +293,10 @@ pub fn update_turret_target(
 pub fn turret_tracking(
     mut barrel_transforms: Query<&mut Transform, With<TurretSprite>>,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
-    turrets: Query<(&Turret, &TurretState, &TurretBarrel, Option<&TurretMirror>)>,
+    turrets: Query<
+        (&Turret, &TurretState, &TurretBarrel, Option<&TurretMirror>),
+        Without<Disabled>,
+    >,
     time: Res<Time>,
     transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
@@ -338,6 +350,17 @@ pub fn turret_tracking(
                 transform.rotate_z(turn);
             }
         }
+    }
+}
+
+pub fn reset_disabled_turret(
+    trigger: On<Add<Disabled>>,
+    mut turrets: Query<&mut TurretState>,
+) {
+    if let Ok(mut state) = turrets.get_mut(trigger.event().entity) {
+        state.active = false;
+        state.can_fire = false;
+        state.target = None;
     }
 }
 

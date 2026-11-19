@@ -7,13 +7,20 @@ use super::{
     component::{Boost, Booster, BoosterState},
     grid::{BoosterInput, GridScratch, allocate_boosters},
 };
-use crate::content::{block::BlockOwner, ship::Ship, team::Team};
+use crate::content::{
+    block::{BlockOwner, Disabled},
+    ship::Ship,
+    team::Team,
+};
 
 pub fn power_boosters(
     time: Res<Time>,
     mut scratch: ResMut<GridScratch>,
     ships: Query<&Ship>,
-    mut boosters: Query<(Entity, &BlockOwner, &Transform, &Booster, &mut BoosterState)>,
+    mut boosters: Query<
+        (Entity, &BlockOwner, &Transform, &Booster, &mut BoosterState),
+        Without<Disabled>,
+    >,
 ) {
     let dt = time.delta_secs();
     let mut by_ship: HashMap<Entity, Vec<BoosterInput>> = HashMap::new();
@@ -67,7 +74,7 @@ pub fn power_boosters(
 
 pub fn apply_boosts(
     mut blocks: Query<(&mut Boost, &Team)>,
-    boosters: Query<(&GlobalTransform, &Booster, &BoosterState, &Team)>,
+    boosters: Query<(&GlobalTransform, &Booster, &BoosterState, &Team), Without<Disabled>>,
     rapier_context: ReadRapierContext,
 ) {
     for (mut boost, _) in &mut blocks {
@@ -94,5 +101,14 @@ pub fn apply_boosts(
             }
             true
         });
+    }
+}
+
+pub fn reset_disabled_booster(
+    trigger: On<Add<Disabled>>,
+    mut boosters: Query<&mut BoosterState>,
+) {
+    if let Ok(mut booster) = boosters.get_mut(trigger.event().entity) {
+        booster.powered = false;
     }
 }

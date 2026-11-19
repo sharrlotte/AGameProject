@@ -21,7 +21,9 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BlockRegistry>()
+            .register_type::<Disabled>()
             .add_message::<DropEvent>()
+            .add_observer(sync_debris_disabled)
             .add_systems(
                 FixedPostUpdate,
                 (

@@ -53,6 +53,8 @@ impl Plugin for PowerPlugin {
                     .chain()
                     .in_set(PowerSet::Boost),
             )
+            .add_observer(booster::reset_disabled_booster)
+            .add_observer(grid::reset_disabled_demand)
             .add_systems(FixedFirst, grid::solve_power_grid.in_set(PowerSet::Solve));
     }
 }

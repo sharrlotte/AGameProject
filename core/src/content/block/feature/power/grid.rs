@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use super::component::{Battery, Boost, Charge, Demand, Generator, Supply};
-use crate::content::{block::BlockOwner, ship::stat::ShipStats};
+use crate::content::{
+    block::{BlockOwner, Disabled},
+    ship::stat::ShipStats,
+};
 
 #[derive(Default, Clone, Copy)]
 pub struct ShipPowerScratch {
@@ -136,6 +139,15 @@ pub fn solve_power_grid(
         } else {
             charge.value = 0.0;
         }
+    }
+}
+
+pub fn reset_disabled_demand(
+    trigger: On<Add<Disabled>>,
+    mut demands: Query<&mut Demand>,
+) {
+    if let Ok(mut demand) = demands.get_mut(trigger.event().entity) {
+        demand.value = 0.0;
     }
 }
 

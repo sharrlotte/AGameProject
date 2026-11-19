@@ -96,7 +96,11 @@ each body's compound collider from live baked hitboxes, emit drops, and send
 
 A `Debris` body is a first-class inert grid body: `Debris`, its own `BlockGrid`, `Team`,
 `RigidBody::Dynamic`, compound collider, mass, `Velocity`, `Lifetime`, and
-`GROUP_DEBRIS`. Blocks keep `Health` and stay damageable. Destroying a debris block
+`GROUP_DEBRIS`. Blocks keep `Health` and stay damageable. When `BlockOwner` is inserted
+or updated to reference a `Debris` body, `Disabled` is automatically added to the block,
+resetting `TurretState`, `Radar.targets`, `BoosterState`, `Demand`, and hiding active
+laser/pulling beams; all active turret, shooting, radar, booster, and thruster systems
+exclude `Disabled` blocks via `Without<Disabled>`. Destroying a debris block
 splits the body recursively: the largest component keeps the entity and the rest become
 new debris bodies. Debris never carries `Ship`, `ShipStats`, `AiRuntime`, or `Throttle`,
 so ship list, AI, HUD, power, turret, cargo, and mission systems ignore it.
