@@ -100,14 +100,14 @@ pub fn setup_editor_ui(
                         ))
                         .with_children(|panel| {
                             panel.spawn((
-                                Text::new("AI Profile"),
+                                Text::new("AI Doctrine"),
                                 TextFont {
                                     font_size: FontSize::Px(16.0),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
                             ));
-                            for preset in PRESETS {
+                            for doctrine in Doctrine::ALL {
                                 spawn_button(
                                     panel,
                                     Node {
@@ -118,23 +118,14 @@ pub fn setup_editor_ui(
                                         border_radius: BorderRadius::all(Val::Px(4.0)),
                                         ..default()
                                     },
-                                    *preset,
+                                    doctrine.label(),
                                     13.0,
                                     Color::WHITE,
-                                    AiPresetButton(preset),
-                                    on_ai_preset,
+                                    DoctrineButton(doctrine),
+                                    on_doctrine,
                                     ButtonVisuals::green(),
                                 );
                             }
-                            panel.spawn((
-                                AiPreviewText,
-                                Text::new(""),
-                                TextFont {
-                                    font_size: FontSize::Px(11.0),
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                            ));
                         });
 
                     left_panel

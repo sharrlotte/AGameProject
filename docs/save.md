@@ -1,4 +1,4 @@
-# Persistence Spec — Designs, Campaign, and World Save (v5 / design v2)
+# Persistence Spec — Designs, Campaign, and World Save (v7 / design v3)
 
 ## Module Layout
 
@@ -34,24 +34,21 @@ All persistent save domains are cached in ECS memory as Bevy `Resource`s initial
 - `CampaignSave` (`save::campaign::CampaignSave`): loaded once at startup; updated via `CampaignSave::record_victory` and `CampaignSave::reset`.
 - `BattleSaveState` (`save::battle::BattleSaveState`): tracks `has_save: bool` in memory so `Home` and `Settings` never poll the filesystem on UI updates.
 
-## Design Format (`DESIGN_SCHEMA_VERSION = 2`)
+## Design Format (`DESIGN_SCHEMA_VERSION = 3`)
 
 `designs/<name>.ron`, written by `ShipCatalog::save_design`. `BlockPlacement.rotation` is
-a `Rot90` (`R0`, `R90`, `R180`, `R270`) serialized by variant name. v1 designs are rejected
+a `Rot90` (`R0`, `R90`, `R180`, `R270`) serialized by variant name. v2 designs are rejected
 by the version check and left untouched on disk.
 
 ```ron
 (
-  version: 2,
+  version: 3,
   id: "<uuid-v7>",
   name: "My Ship",
   blocks: [
     (id: "<uuid>", position: (0, 0), block_type: "core", rotation: R0),
   ],
-  ai: (
-    initial: Idle,
-    rules: [],
-  ),
+  doctrine: Auto,
 )
 ```
 
@@ -59,15 +56,15 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
 
 ## Document API
 
-`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 6), `CampaignSave` (version 1), and `ShipDesign` (version 2).
+`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 7), `CampaignSave` (version 1), and `ShipDesign` (version 3).
 
-## World Battle Format (`SAVE_SCHEMA_VERSION = 6`)
+## World Battle Format (`SAVE_SCHEMA_VERSION = 7`)
 
 `SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active. `BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
 
 ```ron
 (
-  version: 6,
+  version: 7,
   saved_at_unix_ms: 1700000000000,
   battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: None),
   camera: (x: 12.0, y: -4.0, zoom: 3.0, following: Some("<ship-uuid>")),
@@ -79,12 +76,15 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
       transform: (x: 0.0, y: 0.0, rotation: 0.0),
       velocity: (x: 0.0, y: 0.0, angvel: 0.0),
       cargo: (used: 10, items: {"steel": 10}),
-      ai: (initial: Idle, rules: []),
-      ai_runtime: (
-        current: Attack(target: Some("<target-ship-uuid>")),
+      doctrine: Auto,
+      skill: 5,
+      brain: (
+        current: Engage(target: Some("<target-ship-uuid>"), range: 1200.0, posture: Orbit),
         spawn_position: (0.0, 0.0),
-        rule_cooldowns: [0.0],
-        timer_secs: 0.25,
+        timer_secs: 0.2,
+        strafe_sign: 1.0,
+        strafe_timer: 2.0,
+        shed_boosters: false,
       ),
       blocks: [
         (
@@ -127,6 +127,13 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
       ],
     )),
   ],
+  team_intel: [
+    (
+      team: 1,
+      last_known: [(target_id: "<ship-uuid>", position: (100.0, 0.0), velocity: (0.0, 0.0), ttl: 8.0)],
+      alerts: [(position: (500.0, 0.0), ttl: 6.0)],
+    ),
+  ],
   drops: [
     (position: (10.0, 2.0), item_type: "steel", amount: 10, remaining_secs: 30.0),
   ],
@@ -138,6 +145,6 @@ When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesig
 
 - **Direct Hierarchical Capture ($O(1)$ Block Lookup)**: `WorldSave::capture` → `BodySnapshot::capture` → `ShipSnapshot`/`DebrisSnapshot` → `BlockSnapshot::capture(world, grid_block)` reads directly from `&GridBlock` without scanning `world.iter_entities()`.
 - **Two-Pass Restore**:
-  1. **Pass 1**: Spawns all ships with their saved instance `Ship.id`, restores velocity, `ShipStats` cargo (`cargo_used`, `cargo_items`), and block state (`Health`, battery `Charge`, `TurretState`, `TurretCharge`, barrel rotation on `TurretBarrel`, `AmmoState`, and session-independent relative weapon pattern timers), and builds `ship_map: HashMap<Uuid, Entity>`. Debris bodies are then spawned outside that map, with their saved transform, velocity, blocks, team, and remaining lifetime.
-  2. **Pass 2**: Resolves `Option<Uuid>` references through `ship_map` to restore `AiRuntime` (`AiBehavior` target `Entity`, `spawn_position`, `rule_cooldowns`, `think_timer`), `CameraTarget`, `ControlledShip`, and `ControlMode`. Debris is never resolved as a camera, control, or AI target.
+  1. **Pass 1**: Spawns all ships with their saved instance `Ship.id`, restores velocity, `ShipStats` cargo (`cargo_used`, `cargo_items`), and block state (`Health`, battery `Charge`, `TurretState`, `TurretCharge`, barrel rotation on `TurretBarrel`, `AmmoState`, `Booster` `Disabled` shed state, and session-independent relative weapon pattern timers), and builds `ship_map: HashMap<Uuid, Entity>`. Debris bodies are then spawned outside that map, with their saved transform, velocity, blocks, team, and remaining lifetime.
+  2. **Pass 2**: Resolves `Option<Uuid>` references through `ship_map` to restore `Skill`, `Brain` (`Tactic` target `Entity`, `spawn_position`, `think_timer`, `strafe_sign`, `strafe_timer`, `shed_boosters`), `TacticalBoard` (`TeamIntel` `last_known` and `alerts`), `CameraTarget`, `ControlledShip`, and `ControlMode`. Debris is never resolved as a camera, control, or AI target.
 - **Drops & Battle Outcome**: Restored item drops include a visible `Sprite` (colored by `ItemRegistry` rarity and sized by `config.0.drop_size`). When `save.battle.outcome` is `Some(...)`, `spawn_loaded_world` restores `BattlePhase::Ended` so the outcome overlay is displayed.

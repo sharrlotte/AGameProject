@@ -1,48 +1,33 @@
 use super::*;
 
-use crate::content::ship::ai::{preset, validate_profile};
+use crate::content::ship::ai::Doctrine;
 use crate::scene::widget::ButtonVisualState;
 
 #[derive(Component)]
-pub struct AiPresetButton(pub &'static str);
+pub struct DoctrineButton(pub Doctrine);
 
-pub fn on_ai_preset(
+pub fn on_doctrine(
     click: On<PointerClick>,
-    buttons: Query<&AiPresetButton>,
+    buttons: Query<&DoctrineButton>,
     mut editor: ResMut<EditorState>,
+    mut save_events: MessageWriter<ShipSaveChanged>,
 ) {
-    let Ok(button) = buttons.get(click.event().entity) else { return; };
-    let profile = preset(button.0);
-    if validate_profile(&profile).is_empty() {
-        editor.ai_profile = profile;
-    }
+    let Ok(button) = buttons.get(click.event().entity) else {
+        return;
+    };
+    editor.doctrine = button.0;
+    save_events.write(ShipSaveChanged);
 }
 
-pub fn sync_ai_preset(
+pub fn sync_doctrine(
     editor: Res<EditorState>,
-    mut buttons: Query<(&AiPresetButton, &mut ButtonVisualState)>,
+    mut buttons: Query<(&DoctrineButton, &mut ButtonVisualState)>,
 ) {
     for (button, mut state) in &mut buttons {
-        *state = if preset(button.0) == editor.ai_profile {
+        *state = if button.0 == editor.doctrine {
             ButtonVisualState::Selected
         } else {
             ButtonVisualState::Normal
         };
     }
-}
-
-pub fn update_ai_preview(
-    editor: Res<EditorState>,
-    mut texts: Query<&mut Text, With<AiPreviewText>>,
-) {
-    if editor.active_tab != EditorTab::Ai {
-        return;
-    }
-    let Ok(mut text) = texts.single_mut() else {
-        return;
-    };
-    let Ok(ron) = to_string_pretty(&editor.ai_profile, PrettyConfig::default()) else {
-         return;
-    };
-    text.0 = ron;
 }

@@ -18,7 +18,13 @@ pub struct VolumeText;
 pub struct BloomText;
 
 #[derive(Component)]
+pub struct AiSkillText;
+
+#[derive(Component)]
 struct VolumeButton(pub f32);
+
+#[derive(Component)]
+struct AiSkillButton(pub i8);
 
 #[derive(Component)]
 struct BloomButton;
@@ -72,6 +78,17 @@ fn on_bloom(
     if buttons.contains(click.event().entity) {
         setting.bloom = !setting.bloom;
     }
+}
+
+fn on_ai_skill(
+    click: On<PointerClick>,
+    buttons: Query<&AiSkillButton>,
+    mut setting: ResMut<GameSetting>,
+) {
+    let Ok(button) = buttons.get(click.event().entity) else {
+        return;
+    };
+    setting.ai_level = (setting.ai_level as i16 + button.0 as i16).clamp(1, 10) as u8;
 }
 
 fn on_close(
@@ -308,6 +325,53 @@ pub fn setup_setting_ui(
                     ));
                 });
 
+            parent
+                .spawn(Node {
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(20.0),
+                    ..default()
+                })
+                .with_children(|row| {
+                    row.spawn((
+                        Text::new("AI Skill"),
+                        TextFont {
+                            font_size: FontSize::Px(24.0),
+                            ..default()
+                        },
+                    ));
+
+                    spawn_button(
+                        row,
+                        small_button_node(40.0, 40.0),
+                        "-",
+                        20.0,
+                        Color::WHITE,
+                        AiSkillButton(-1),
+                        on_ai_skill,
+                        ButtonVisuals::dark(),
+                    );
+
+                    row.spawn((
+                        Text::new(format!("{}", setting.ai_level.clamp(1, 10))),
+                        TextFont {
+                            font_size: FontSize::Px(24.0),
+                            ..default()
+                        },
+                        AiSkillText,
+                    ));
+
+                    spawn_button(
+                        row,
+                        small_button_node(40.0, 40.0),
+                        "+",
+                        20.0,
+                        Color::WHITE,
+                        AiSkillButton(1),
+                        on_ai_skill,
+                        ButtonVisuals::dark(),
+                    );
+                });
+
             if is_home {
                 parent
                     .spawn((
@@ -371,8 +435,9 @@ fn small_button_node(width: f32, height: f32) -> Node {
 
 pub fn sync_settings_to_ui(
     setting: Res<GameSetting>,
-    mut volume_text: Query<&mut Text, (With<VolumeText>, Without<BloomText>)>,
-    mut bloom_text: Query<&mut Text, (With<BloomText>, Without<VolumeText>)>,
+    mut volume_text: Query<&mut Text, (With<VolumeText>, Without<BloomText>, Without<AiSkillText>)>,
+    mut bloom_text: Query<&mut Text, (With<BloomText>, Without<VolumeText>, Without<AiSkillText>)>,
+    mut ai_skill_text: Query<&mut Text, (With<AiSkillText>, Without<VolumeText>, Without<BloomText>)>,
 ) {
     if setting.is_changed() {
         for mut text in &mut volume_text {
@@ -384,6 +449,9 @@ pub fn sync_settings_to_ui(
             } else {
                 "Off".to_string()
             };
+        }
+        for mut text in &mut ai_skill_text {
+            text.0 = format!("{}", setting.ai_level.clamp(1, 10));
         }
     }
 }

@@ -154,7 +154,7 @@ pub fn on_deploy(
         id: Uuid::now_v7(),
         name: editor.filename.clone(),
         blocks,
-        ai: editor.ai_profile.clone(),
+        doctrine: editor.doctrine,
     });
 }
 

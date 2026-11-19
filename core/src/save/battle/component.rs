@@ -8,9 +8,9 @@ use crate::content::block::{
     BlockPlacement, BurstShootPatternState, LaserBeamPatternShootingState, SingleShootPatternState,
 };
 use crate::content::ship::Ship;
-use crate::content::ship::ai::{AiBehavior, AiProfile};
+use crate::content::ship::ai::{Doctrine, Posture, SupportKind, Tactic};
 
-pub const SAVE_SCHEMA_VERSION: u32 = 6;
+pub const SAVE_SCHEMA_VERSION: u32 = 7;
 
 #[derive(Message)]
 pub struct SaveWorldEvent;
@@ -89,123 +89,144 @@ pub struct CargoSave {
     pub items: BTreeMap<String, u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-pub enum AiBehaviorSave {
-    #[default]
-    Idle,
-    Wander {
-        point: Vec2,
-    },
-    Patrol {
-        around: Vec2,
-        radius: f32,
-    },
-    Guard {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TacticSave {
+    Engage {
         target: Option<Uuid>,
-        radius: f32,
+        range: f32,
+        posture: Posture,
     },
-    Follow {
-        target: Option<Uuid>,
-        radius: f32,
+    Recharge {
+        threat: Option<Uuid>,
+        safe_range: f32,
+    },
+    Retreat {
+        threat: Option<Uuid>,
+    },
+    Support {
+        ally: Option<Uuid>,
+        kind: SupportKind,
     },
     Regroup {
         position: Vec2,
-        radius: f32,
     },
-    Kite {
-        target: Option<Uuid>,
-        range: f32,
+    Investigate {
+        position: Vec2,
     },
-    Chase {
-        target: Option<Uuid>,
-    },
-    Attack {
-        target: Option<Uuid>,
-    },
-    Flee {
-        from: Option<Uuid>,
-        distance: f32,
+    Search {
+        waypoint: Vec2,
     },
 }
 
-impl AiBehaviorSave {
-    pub fn from_runtime(world: &World, behavior: &AiBehavior) -> Self {
-        let ship_uuid = |target: Option<Entity>| -> Option<Uuid> {
-            target.and_then(|e| world.get::<Ship>(e).map(|s| s.id))
+impl Default for TacticSave {
+    fn default() -> Self {
+        Self::Search {
+            waypoint: Vec2::ZERO,
+        }
+    }
+}
+
+impl TacticSave {
+    pub fn from_runtime(world: &World, tactic: &Tactic) -> Self {
+        let ship_uuid = |target: Entity| -> Option<Uuid> {
+            world.get::<Ship>(target).map(|s| s.id)
         };
 
-        match *behavior {
-            AiBehavior::Idle => Self::Idle,
-            AiBehavior::Wander { point } => Self::Wander { point },
-            AiBehavior::Patrol { around, radius } => Self::Patrol { around, radius },
-            AiBehavior::Guard { target, radius } => Self::Guard {
-                target: ship_uuid(target),
-                radius,
-            },
-            AiBehavior::Follow { target, radius } => Self::Follow {
-                target: ship_uuid(target),
-                radius,
-            },
-            AiBehavior::Regroup { position, radius } => Self::Regroup { position, radius },
-            AiBehavior::Kite { target, range } => Self::Kite {
+        match *tactic {
+            Tactic::Engage {
+                target,
+                range,
+                posture,
+            } => Self::Engage {
                 target: ship_uuid(target),
                 range,
+                posture,
             },
-            AiBehavior::Chase { target } => Self::Chase {
-                target: ship_uuid(target),
+            Tactic::Recharge { threat, safe_range } => Self::Recharge {
+                threat: ship_uuid(threat),
+                safe_range,
             },
-            AiBehavior::Attack { target } => Self::Attack {
-                target: ship_uuid(target),
+            Tactic::Retreat { threat } => Self::Retreat {
+                threat: ship_uuid(threat),
             },
-            AiBehavior::Flee { from, distance } => Self::Flee {
-                from: ship_uuid(from),
-                distance,
+            Tactic::Support { ally, kind } => Self::Support {
+                ally: ship_uuid(ally),
+                kind,
             },
+            Tactic::Regroup { position } => Self::Regroup { position },
+            Tactic::Investigate { position } => Self::Investigate { position },
+            Tactic::Search { waypoint } => Self::Search { waypoint },
         }
     }
 
-    pub fn into_runtime(self, ship_map: &HashMap<Uuid, Entity>) -> AiBehavior {
+    pub fn into_runtime(self, ship_map: &HashMap<Uuid, Entity>, fallback_pos: Vec2) -> Tactic {
         let resolve = |id: Option<Uuid>| -> Option<Entity> {
             id.and_then(|uuid| ship_map.get(&uuid).copied())
         };
 
         match self {
-            Self::Idle => AiBehavior::Idle,
-            Self::Wander { point } => AiBehavior::Wander { point },
-            Self::Patrol { around, radius } => AiBehavior::Patrol { around, radius },
-            Self::Guard { target, radius } => AiBehavior::Guard {
-                target: resolve(target),
-                radius,
-            },
-            Self::Follow { target, radius } => AiBehavior::Follow {
-                target: resolve(target),
-                radius,
-            },
-            Self::Regroup { position, radius } => AiBehavior::Regroup { position, radius },
-            Self::Kite { target, range } => AiBehavior::Kite {
-                target: resolve(target),
+            Self::Engage {
+                target,
                 range,
-            },
-            Self::Chase { target } => AiBehavior::Chase {
-                target: resolve(target),
-            },
-            Self::Attack { target } => AiBehavior::Attack {
-                target: resolve(target),
-            },
-            Self::Flee { from, distance } => AiBehavior::Flee {
-                from: resolve(from),
-                distance,
-            },
+                posture,
+            } => resolve(target).map_or(Tactic::Search { waypoint: fallback_pos }, |target| {
+                Tactic::Engage {
+                    target,
+                    range,
+                    posture,
+                }
+            }),
+            Self::Recharge { threat, safe_range } => {
+                resolve(threat).map_or(Tactic::Search { waypoint: fallback_pos }, |threat| {
+                    Tactic::Recharge { threat, safe_range }
+                })
+            }
+            Self::Retreat { threat } => {
+                resolve(threat).map_or(Tactic::Search { waypoint: fallback_pos }, |threat| {
+                    Tactic::Retreat { threat }
+                })
+            }
+            Self::Support { ally, kind } => {
+                resolve(ally).map_or(Tactic::Search { waypoint: fallback_pos }, |ally| {
+                    Tactic::Support { ally, kind }
+                })
+            }
+            Self::Regroup { position } => Tactic::Regroup { position },
+            Self::Investigate { position } => Tactic::Investigate { position },
+            Self::Search { waypoint } => Tactic::Search { waypoint },
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-pub struct AiRuntimeSave {
-    pub current: AiBehaviorSave,
+pub struct BrainSave {
+    pub current: TacticSave,
     pub spawn_position: Vec2,
-    pub rule_cooldowns: Vec<f32>,
     pub timer_secs: f32,
+    pub strafe_sign: f32,
+    pub strafe_timer: f32,
+    pub shed_boosters: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LastSeenSave {
+    pub target_id: Uuid,
+    pub position: Vec2,
+    pub velocity: Vec2,
+    pub ttl: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TeamAlertSave {
+    pub position: Vec2,
+    pub ttl: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct TeamIntelSave {
+    pub team: u8,
+    pub last_known: Vec<LastSeenSave>,
+    pub alerts: Vec<TeamAlertSave>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -216,8 +237,9 @@ pub struct ShipSnapshot {
     pub velocity: VelocitySave,
     #[serde(default)]
     pub cargo: CargoSave,
-    pub ai: AiProfile,
-    pub ai_runtime: AiRuntimeSave,
+    pub doctrine: Doctrine,
+    pub skill: u8,
+    pub brain: BrainSave,
     pub blocks: Vec<BlockSnapshot>,
 }
 
@@ -280,6 +302,8 @@ pub struct WorldSave {
     #[serde(default)]
     pub control: ControlSave,
     pub bodies: Vec<BodySnapshot>,
+    #[serde(default)]
+    pub team_intel: Vec<TeamIntelSave>,
     pub drops: Vec<DropSave>,
     pub rng: RngSave,
 }

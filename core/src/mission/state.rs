@@ -3,9 +3,10 @@ use bevy::prelude::*;
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 
 use super::def::{MissionDef, ShipSpawn};
-use crate::config::GameConfigValue;
+use crate::config::{GameConfigValue, GameSetting};
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ShipDesign;
+use crate::content::ship::ai::{AiConfig, AiConfigValue, Brain, Skill};
 use crate::resource::DeployPayload;
 use crate::save::design::ShipCatalog;
 
@@ -42,12 +43,65 @@ pub fn find_schematic<'a>(schematics: &'a [ShipDesign], name: &str) -> Option<&'
         .or_else(|| schematics.first())
 }
 
+pub fn resolve_skill(
+    spawn_level: Option<u8>,
+    team: Team,
+    mission_level: Option<u8>,
+    setting_level: u8,
+    ai_cfg: &AiConfig,
+) -> Skill {
+    let raw = spawn_level.unwrap_or_else(|| {
+        if team.is_player() {
+            ai_cfg.default_ally_level
+        } else {
+            mission_level.unwrap_or_else(|| {
+                if (1..=10).contains(&setting_level) {
+                    setting_level
+                } else {
+                    ai_cfg.default_enemy_level
+                }
+            })
+        }
+    });
+    Skill::new(raw)
+}
+
+fn spawn_ship_entity(
+    commands: &mut Commands,
+    registry: &BlockRegistry,
+    config: &GameConfigValue,
+    design: &ShipDesign,
+    team: Team,
+    position: Vec2,
+    skill: Skill,
+    ai_cfg: &AiConfig,
+) {
+    let Some((ship_entity, _)) = design.spawn(
+        commands,
+        registry,
+        team,
+        Transform::from_translation(position.extend(0.0)),
+        config,
+    ) else {
+        return;
+    };
+
+    let think_hz = ai_cfg.curves.think_rate_hz.sample(skill.level());
+    commands
+        .entity(ship_entity)
+        .insert((skill, Brain::new(position, think_hz)));
+}
+
+#[allow(clippy::too_many_arguments)]
 fn spawn_ship(
     commands: &mut Commands,
     registry: &BlockRegistry,
     config: &GameConfigValue,
     schematics: &[ShipDesign],
     spawn: &ShipSpawn,
+    mission_level: Option<u8>,
+    setting: &GameSetting,
+    ai_cfg: &AiConfig,
 ) {
     let Some(schematic) = find_schematic(schematics, &spawn.schematic_name) else {
         warn!(
@@ -57,15 +111,21 @@ fn spawn_ship(
         return;
     };
 
-    schematic.spawn(
+    let team = Team::new(spawn.team);
+    let skill = resolve_skill(spawn.ai_level, team, mission_level, setting.ai_level, ai_cfg);
+    spawn_ship_entity(
         commands,
         registry,
-        Team::new(spawn.team),
-        Transform::from_translation(spawn.position.extend(0.0)),
         config,
+        schematic,
+        team,
+        spawn.position,
+        skill,
+        ai_cfg,
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_mission(
     commands: &mut Commands,
     registry: &BlockRegistry,
@@ -73,25 +133,56 @@ pub fn spawn_mission(
     mission: &MissionDef,
     state: &DeployPayload,
     catalog: &ShipCatalog,
+    setting: &GameSetting,
+    ai_cfg: &AiConfigValue,
 ) {
     let schematics = catalog.designs();
 
     match &state.current_ship {
         Some(deployed) => {
-            deployed.spawn(
+            let team = Team::new(DEFAULT_TEAM_ID);
+            let skill = resolve_skill(
+                mission.player.ai_level,
+                team,
+                mission.ai_level,
+                setting.ai_level,
+                &ai_cfg.0,
+            );
+            spawn_ship_entity(
                 commands,
                 registry,
-                Team::new(DEFAULT_TEAM_ID),
-                Transform::from_translation(mission.player.position.extend(0.0)),
                 config,
+                deployed,
+                team,
+                mission.player.position,
+                skill,
+                &ai_cfg.0,
             );
         }
         None => {
-            spawn_ship(commands, registry, config, schematics, &mission.player);
+            spawn_ship(
+                commands,
+                registry,
+                config,
+                schematics,
+                &mission.player,
+                mission.ai_level,
+                setting,
+                &ai_cfg.0,
+            );
         }
     }
 
     for enemy in &mission.enemies {
-        spawn_ship(commands, registry, config, schematics, enemy);
+        spawn_ship(
+            commands,
+            registry,
+            config,
+            schematics,
+            enemy,
+            mission.ai_level,
+            setting,
+            &ai_cfg.0,
+        );
     }
 }

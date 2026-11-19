@@ -39,10 +39,10 @@ impl Plugin for ShipPlugin {
             .register_type::<Throttle>()
             .add_message::<ShipChanged>();
         app.add_systems(
-            PostUpdate,
-            update_ship_behavior
+            FixedUpdate,
+            (update_ship_steering, collect_drop)
                 .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Present),
+                .in_set(SimulationSet::Control),
         )
         .add_systems(
             FixedPreUpdate,
@@ -57,12 +57,6 @@ impl Plugin for ShipPlugin {
                 .run_if(on_message::<ShipChanged>)
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Stats),
-        )
-        .add_systems(
-            FixedUpdate,
-            collect_drop
-                .run_if(in_state(SceneState::Game))
-                .in_set(SimulationSet::Control),
         )
         .add_plugins((IndicatorsPlugin, AiPlugin));
     }

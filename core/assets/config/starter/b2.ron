@@ -1,5 +1,5 @@
 (
-    version: 2,
+    version: 3,
     id: "cc8d7728-6cda-4b37-b2e0-3eef9ee78618",
     name: "B2",
     blocks: [
@@ -60,11 +60,4 @@
         (id: "3d5e484b-1ff1-4017-8f8e-bd3a0230f344", position: (-4, 0), block_type: "plate_2x2", rotation: R180),
         (id: "0b107b77-1f4d-4e1f-a87a-6d3c4243d803", position: (3, 0), block_type: "plate_2x2", rotation: R270),
     ],
-    ai: (
-        initial: Attack(target: NearestEnemy),
-        rules: [
-            (priority: 10, when: HpBelow(0.2), then: Flee(from: NearestEnemy, distance: 800.0), cooldown_secs: 8.0),
-            (priority: 5, when: EnemyInRange(6000.0), then: Kite(range: 4500.0), cooldown_secs: 0.0),
-        ],
-    ),
 )

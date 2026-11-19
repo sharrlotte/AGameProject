@@ -7,12 +7,12 @@ use crate::constant::LAYER_SHIP_UI;
 use crate::content::block::feature::ammo::{Ammo, AmmoState};
 use crate::content::block::feature::turret::{TurretBarrel, TurretState};
 use crate::content::block::BlockOwner;
-use crate::content::ship::ai::AiRuntime;
+use crate::content::ship::ai::{
+    Brain, Capability, Doctrine, Readiness, Skill, Steering, steering_gizmo_vectors,
+};
 use crate::content::ship::stat::ShipStats;
 use crate::scene::widget::ButtonVisualState;
-use crate::content::ship::{
-    BehaviorGeometry, BoundingBox, Ship, ShipBehavior, behavior_geometry, ship_center,
-};
+use crate::content::ship::{BoundingBox, Ship, ship_center};
 
 use super::*;
 
@@ -82,8 +82,12 @@ pub fn update_ship_ui(
     mut ui_roots: Query<(&ShipUIRoot, &mut Visibility, &mut Text2d, &mut Transform)>,
     ships: Query<(
         &Ship,
-        &AiRuntime,
-        Option<&ShipBehavior>,
+        &Brain,
+        &Skill,
+        &Doctrine,
+        &Capability,
+        &Readiness,
+        Option<&Steering>,
         &GlobalTransform,
         &ShipStats,
     )>,
@@ -122,7 +126,8 @@ pub fn update_ship_ui(
             continue;
         }
 
-        let Ok((ship, ai_runtime, behavior, global_transform, stats)) = ships.get(ui_root.ship)
+        let Ok((ship, brain, skill, doctrine, cap, readiness, steering, global_transform, stats)) =
+            ships.get(ui_root.ship)
         else {
             *visibility = Visibility::Hidden;
             continue;
@@ -132,8 +137,15 @@ pub fn update_ship_ui(
 
         let dump = data.get(&ui_root.ship).map_or("", String::as_str);
         let next_text = format!(
-            "Ship: {ship:?}\nC: {}\nB: {behavior:?}\nCARGO {}/{} {:?}\nS: {stats:?}\n{dump}",
-            ai_runtime.current.label(),
+            "Ship: {ship:?}\nTactic: {} | Skill: {} | Doctrine: {} ({})\nHP: {:.0}% | Energy: {:.0}% | Ammo: {:.0}% | Radar: {:.0}\nSteering: {steering:?}\nCARGO {}/{} {:?}\nS: {stats:?}\n{dump}",
+            brain.current.label(),
+            skill.level(),
+            doctrine.label(),
+            cap.role.label(),
+            readiness.hp_ratio * 100.0,
+            readiness.energy_ratio * 100.0,
+            readiness.ammo_ratio * 100.0,
+            cap.max_radar_range,
             stats.cargo_used, stats.cargo_capacity, stats.cargo_items,
         );
         if text.0 != next_text {
@@ -158,7 +170,8 @@ pub fn draw_ship_debug_gizmos(
         &Ship,
         &Transform,
         &BoundingBox,
-        Option<&ShipBehavior>,
+        Option<&Steering>,
+        Option<&Capability>,
         &Velocity,
         &ExternalForce,
     )>,
@@ -166,7 +179,8 @@ pub fn draw_ship_debug_gizmos(
     global_transforms: Query<&GlobalTransform>,
 ) {
     for entity in &selection.selected {
-        let Ok((ship, transform, bounds, behavior, velocity, force)) = ships.get(*entity) else {
+        let Ok((ship, transform, bounds, steering, cap, velocity, force)) = ships.get(*entity)
+        else {
             continue;
         };
 
@@ -175,34 +189,28 @@ pub fn draw_ship_debug_gizmos(
             .transform_point(ship.core_position.extend(0.0))
             .truncate();
 
-        if let Some(behavior) = behavior {
-            match behavior_geometry(behavior, transform, bounds) {
-                BehaviorGeometry::Approach(approach) => {
-                    gizmos.line_2d(
-                        approach.current,
-                        approach.target,
-                        Color::srgba(0.0, 1.0, 1.0, 0.5),
-                    );
-                    gizmos.circle_2d(approach.target, 30.0, Color::srgb(0.0, 1.0, 1.0));
-                }
-                BehaviorGeometry::GoAround(around) => {
-                    gizmos.line_2d(
-                        center,
-                        around.next_position,
-                        Color::srgba(0.0, 1.0, 0.0, 0.5),
-                    );
-                    gizmos.circle_2d(
-                        around.ring_center,
-                        around.ring_radius,
-                        Color::srgb(1.0, 1.0, 0.0),
-                    );
-                    gizmos.circle_2d(around.next_position, 30.0, Color::srgb(0.0, 1.0, 0.0));
-                }
-                BehaviorGeometry::AimAt { current, target } => {
-                    gizmos.line_2d(current, target, Color::srgba(1.0, 0.5, 0.0, 0.5));
-                    gizmos.circle_2d(target, 30.0, Color::srgb(1.0, 0.5, 0.0));
-                }
+        if let Some(steering) = steering {
+            let gizmo = steering_gizmo_vectors(steering, transform, bounds);
+            gizmos.line_2d(
+                gizmo.origin,
+                gizmo.origin + gizmo.thrust_world * 120.0,
+                Color::srgba(0.0, 1.0, 1.0, 0.7),
+            );
+            if let Some(desired_heading) = gizmo.desired_heading {
+                let dir = Vec2::from_angle(desired_heading + std::f32::consts::FRAC_PI_2);
+                gizmos.line_2d(
+                    gizmo.origin,
+                    gizmo.origin + dir * 140.0,
+                    Color::srgba(1.0, 0.6, 0.0, 0.7),
+                );
             }
+        }
+        if let Some(cap) = cap {
+            gizmos.circle_2d(
+                core,
+                cap.max_radar_range,
+                Color::srgba(0.3, 0.5, 0.9, 0.15),
+            );
         }
 
         let half = bounds.size / 2.0;

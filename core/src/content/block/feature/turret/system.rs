@@ -1,7 +1,8 @@
 use bevy::{math::FloatPow, prelude::*};
 
 use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
-use crate::content::block::{Disabled, TurretMirror};
+use crate::content::block::{BlockOwner, Disabled, TurretMirror};
+use crate::content::ship::ai::FireOrder;
 use crate::{
     content::{
         block::{
@@ -174,6 +175,7 @@ fn better_intercept(candidate: Candidate, best: Option<Candidate>) -> bool {
 
 pub fn update_turret_target(
     ships: Query<(&GlobalTransform, &Ship, &BlockGrid, &ShipStats, Option<&Velocity>)>,
+    orders: Query<&FireOrder>,
     projectiles: Query<
         (
             Entity,
@@ -185,55 +187,92 @@ pub fn update_turret_target(
         With<Interceptable>,
     >,
     mut turrets: Query<
-        (&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel),
+        (&Turret, &mut TurretState, &Team, &Radar, &TurretBarrel, Option<&BlockOwner>),
         Without<Disabled>,
     >,
     barrels: Query<&GlobalTransform, With<TurretSprite>>,
 ) {
-    for (turret, mut state, team, radar, barrel_ref) in turrets.iter_mut() {
+    for (turret, mut state, team, radar, barrel_ref, owner) in turrets.iter_mut() {
         let Ok(transform) = barrels.get(barrel_ref.0) else {
             continue;
         };
         let turret_position = transform.translation().truncate();
         let range_sq = turret.range.squared();
+        let order = owner
+            .and_then(|o| orders.get(o.body).ok())
+            .copied()
+            .unwrap_or_default();
+
         let mut best: Option<Candidate> = None;
 
-        for entity in radar.targets.iter().copied() {
-            let Ok((target_transform, ship, grid, stats, velocity)) = ships.get(entity) else {
-                continue;
-            };
-            if !has_core(grid, ship) {
-                continue;
-            }
+        if !matches!(turret.strategy, TargetingStrategy::EnemyBullet)
+            && let Some(primary) = order.primary_target
+            && let Ok((target_transform, ship, grid, stats, velocity)) = ships.get(primary)
+            && has_core(grid, ship)
+        {
             let core_world = target_transform
                 .transform_point(ship.core_position.extend(0.0))
                 .truncate();
-            let dist_sq = turret_position.distance_squared(core_world);
-            if dist_sq > range_sq {
-                continue;
-            }
-            let aim = lead_point(
-                turret_position,
-                core_world,
-                velocity.map_or(Vec2::ZERO, |v| v.linear),
-                turret.shooting_pattern.projectile_speed(),
-            );
 
-            let candidate = Candidate {
-                target: TurretTarget::Ship(entity),
-                aim,
-                dist_sq,
-                health: stats.health,
-                priority: 0.0,
-                id: entity.to_bits(),
-            };
-            let is_better = match turret.strategy {
-                TargetingStrategy::Closest => better_closest(candidate, best),
-                TargetingStrategy::MostHP => better_most_hp(candidate, best),
-                TargetingStrategy::EnemyBullet => false,
-            };
-            if is_better {
-                best = Some(candidate);
+            let dist_sq = turret_position.distance_squared(core_world);
+
+            if dist_sq <= range_sq {
+                let aim = lead_point(
+                    turret_position,
+                    core_world,
+                    velocity.map_or(Vec2::ZERO, |v| v.linear) * order.lead_accuracy,
+                    turret.shooting_pattern.projectile_speed(),
+                );
+                
+                best = Some(Candidate {
+                    target: TurretTarget::Ship(primary),
+                    aim,
+                    dist_sq,
+                    health: stats.health,
+                    priority: 1.0,
+                    id: primary.to_bits(),
+                });
+            }
+        }
+
+        if best.is_none() {
+            for entity in radar.targets.iter().copied() {
+                let Ok((target_transform, ship, grid, stats, velocity)) = ships.get(entity) else {
+                    continue;
+                };
+                if !has_core(grid, ship) {
+                    continue;
+                }
+                let core_world = target_transform
+                    .transform_point(ship.core_position.extend(0.0))
+                    .truncate();
+                let dist_sq = turret_position.distance_squared(core_world);
+                if dist_sq > range_sq {
+                    continue;
+                }
+                let aim = lead_point(
+                    turret_position,
+                    core_world,
+                    velocity.map_or(Vec2::ZERO, |v| v.linear) * order.lead_accuracy,
+                    turret.shooting_pattern.projectile_speed(),
+                );
+
+                let candidate = Candidate {
+                    target: TurretTarget::Ship(entity),
+                    aim,
+                    dist_sq,
+                    health: stats.health,
+                    priority: 0.0,
+                    id: entity.to_bits(),
+                };
+                let is_better = match turret.strategy {
+                    TargetingStrategy::Closest => better_closest(candidate, best),
+                    TargetingStrategy::MostHP => better_most_hp(candidate, best),
+                    TargetingStrategy::EnemyBullet => false,
+                };
+                if is_better {
+                    best = Some(candidate);
+                }
             }
         }
 
@@ -298,7 +337,6 @@ pub fn turret_tracking(
         Without<Disabled>,
     >,
     time: Res<Time>,
-    transforms: Query<(&Ship, &GlobalTransform)>,
 ) {
     for (turret, state, barrel_ref, mirror) in &turrets {
         let turn_speed = turret.turn_speed;
@@ -311,19 +349,8 @@ pub fn turret_tracking(
             continue;
         };
 
-        let mut target_position: Option<Vec2> = None;
-
-        if let Some(TurretTarget::Ship(target)) = state.target {
-            if let Ok((ship, position)) = transforms.get(target) {
-                target_position = Some(
-                    position
-                        .transform_point(ship.core_position.extend(0.0))
-                        .truncate(),
-                );
-            }
-        }
-
-        if let Some(shoot_at_position) = target_position {
+        if state.target.is_some() {
+            let shoot_at_position = state.aim_point;
             let current_position = global_transform.translation().truncate();
             let diff = shoot_at_position - current_position;
             let dist_sq = diff.length_squared();
@@ -333,8 +360,7 @@ pub fn turret_tracking(
             }
 
             let forward: Vec2 = global_transform.up().truncate();
-
-            let to_target = shoot_at_position - global_transform.translation().truncate();
+            let to_target = shoot_at_position - current_position;
 
             if to_target.length_squared() < 0.0001 {
                 continue;
@@ -528,5 +554,149 @@ mod tests {
         let tolerance = 0.035_f32;
         assert!(0.02_f32.abs() < tolerance);
         assert!(!(0.1_f32.abs() < tolerance));
+    }
+
+    #[test]
+    fn fire_order_and_turret_tracking_use_aim_point_and_lead_accuracy() {
+        use std::f32::consts::PI;
+        use std::time::Duration;
+        use crate::content::block::feature::turret::TurretSprite;
+        use crate::content::block::{
+            BakedShape, BlockDef, BlockPlacement, BlockRegistry, Rot90, ShapeSpec,
+            ShootPattern, ShootingProjectile, SingleShootPattern,
+        };
+
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.add_systems(Update, (update_turret_target, turret_tracking).chain());
+
+        let mut registry = BlockRegistry::default();
+        registry.register(
+            "core",
+            BlockDef {
+                name: "core".into(),
+                block_type: "core".into(),
+                block_group: "core".into(),
+                mass: 10.0,
+                health: 100.0,
+                shape: BakedShape::try_from(&ShapeSpec::Square(1)).unwrap(),
+                cost: 1,
+                features: vec![],
+                drops: vec![],
+            },
+        );
+        let core_placement = BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0);
+        let mut grid_a = BlockGrid::new();
+        grid_a.rebuild_from_layout(&[core_placement.clone()], &registry);
+        let core_a = grid_a.blocks().next().unwrap().placement.id;
+        let mut grid_b = BlockGrid::new();
+        grid_b.rebuild_from_layout(&[core_placement], &registry);
+        let core_b = grid_b.blocks().next().unwrap().placement.id;
+
+        let enemy_a = app
+            .world_mut()
+            .spawn((
+                GlobalTransform::from_xyz(0.0, 200.0, 0.0),
+                Ship {
+                    core_id: core_a,
+                    core_position: Vec2::ZERO,
+                    ..default()
+                },
+                grid_a,
+                ShipStats {
+                    health: 100.0,
+                    ..default()
+                },
+                Velocity {
+                    linear: Vec2::new(100.0, 0.0),
+                    angular: 0.0,
+                },
+            ))
+            .id();
+        let enemy_b = app
+            .world_mut()
+            .spawn((
+                GlobalTransform::from_xyz(0.0, 100.0, 0.0),
+                Ship {
+                    core_id: core_b,
+                    core_position: Vec2::ZERO,
+                    ..default()
+                },
+                grid_b,
+                ShipStats {
+                    health: 100.0,
+                    ..default()
+                },
+                Velocity::zero(),
+            ))
+            .id();
+
+        let owner_ship = app
+            .world_mut()
+            .spawn(FireOrder {
+                primary_target: Some(enemy_a),
+                lead_accuracy: 1.0,
+            })
+            .id();
+        let barrel = app
+            .world_mut()
+            .spawn((Transform::default(), GlobalTransform::default(), TurretSprite))
+            .id();
+        let turret = app
+            .world_mut()
+            .spawn((
+                BlockOwner { body: owner_ship },
+                Turret {
+                    range: 500.0,
+                    turn_speed: 4.0,
+                    aim_tolerance: PI / 16.0,
+                    barrels: vec![Vec2::ZERO],
+                    strategy: TargetingStrategy::Closest,
+                    shooting_pattern: ShootPattern::Single(SingleShootPattern {
+                        fire_rate: 1.0,
+                        projectile: ShootingProjectile::Bullet {
+                            speed: 200.0,
+                            damage: 10.0,
+                            lifetime: 5.0,
+                            piercing: 0,
+                            width: 2.0,
+                            length: 10.0,
+                        },
+                    }),
+                },
+                TurretState::default(),
+                Team::new(0),
+                Radar {
+                    range: 500.0,
+                    timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+                    targets: vec![enemy_b, enemy_a],
+                },
+                TurretBarrel(barrel),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<Time<()>>()
+            .advance_by(Duration::from_millis(100));
+        app.update();
+
+        let state = app.world().get::<TurretState>(turret).unwrap();
+        assert_eq!(state.target, Some(TurretTarget::Ship(enemy_a)));
+        assert!(
+            state.aim_point.x > 10.0,
+            "expected lead aim_point, got {:?}",
+            state.aim_point
+        );
+        let barrel_rot = app
+            .world()
+            .get::<Transform>(barrel)
+            .unwrap()
+            .rotation
+            .to_euler(EulerRot::ZYX)
+            .0;
+        assert!(
+            barrel_rot < 0.0,
+            "barrel should rotate clockwise toward +X lead point"
+        );
     }
 }

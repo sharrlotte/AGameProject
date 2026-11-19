@@ -75,6 +75,7 @@ mod tests {
             camera: CameraSave::default(),
             control: ControlSave::default(),
             bodies: Vec::new(),
+            team_intel: Vec::new(),
             drops: Vec::new(),
             rng: RngSave { seed: 1234 },
         };

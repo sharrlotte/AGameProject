@@ -4,8 +4,8 @@
 
 - Hardcoded game balance data lives in `.ron` files under `core/assets/config/` with hot
   reload (bevy AssetServer + `file_watcher`, dev-only).
-- Game settings (`GameSetting`: volume, bloom, `keys`) are file-backed `.ron` with hot reload
-  and save-on-change. `keys` holds `rotate_ccw`/`rotate_cw` (defaults `KeyQ`/`KeyE`) and is
+- Game settings (`GameSetting`: volume, bloom, `ai_level`, `keys`) are file-backed `.ron` with hot reload
+  and save-on-change. `ai_level` clamps `1..=10` (default `5`); `keys` holds `rotate_ccw`/`rotate_cw` (defaults `KeyQ`/`KeyE`) and is
   merged field-by-field with defaults when absent.
 - Single source of truth: the `.ron` files are the only definition of balance data; this
   doc describes the design, not the current values.
@@ -42,6 +42,7 @@
 |---|---|---|---|
 | `config/base/game.ron` | `GameConfig` asset | error screen | keep last good + error log |
 | `config/base/block.ron` | `BlocksConfig` asset | error screen | keep last good + error log |
+| `config/base/ai.ron` | `AiConfig` asset | error screen | keep last good + error log |
 | `config/setting.ron` | `GameSetting` asset | defaults + warn | keep last good + error log |
 
 Asset root resolution for settings write-back: `BEVY_ASSET_ROOT` env var, else `assets`
@@ -66,7 +67,8 @@ on `AssetEvent::LoadedWithDependencies` / `Modified`:
 |---|---|---|
 | `GameConfig` | `GameConfigValue(pub GameConfig)` | systems replacing `constant::X` |
 | `BlocksConfig` | rebuilds `BlockRegistry` | existing registry consumers |
-| `GameSetting` | `GameSetting` (existing resource, unchanged shape + `Serialize`/`PartialEq` + `Asset`/`TypePath` derives for the asset side) | `scene/setting.rs`, unchanged |
+| `AiConfig` | `AiConfigValue(pub AiConfig)` | `content/ship/ai/*`, `mission/state.rs`, `ship/system.rs` |
+| `GameSetting` | `GameSetting` (existing resource + `ai_level` + `Serialize`/`PartialEq` + `Asset`/`TypePath`) | `scene/setting.rs`, `mission/state.rs` |
 
 - Bridge on `Modified`: `GameConfig` → overwrite `GameConfigValue`; `BlocksConfig` →
   rebuild `BlockRegistry` map wholesale; `GameSetting` → `set_if_neq` clone into resource

@@ -20,6 +20,7 @@ use bevy::prelude::*;
 
 
 use crate::content::block::BlockRegistry;
+use crate::content::ship::ai::{AiConfig, AiConfigValue, ai_config_bridge};
 
 use crate::resource::SceneState;
 
@@ -46,6 +47,7 @@ pub struct ConfigError {
 pub enum ConfigFile {
     Game,
     Blocks,
+    Ai,
 }
 
 
@@ -68,6 +70,7 @@ impl ConfigError {
         let base = match self.failed {
             ConfigFile::Game => "config/base/game.ron failed to load",
             ConfigFile::Blocks => "config/base/block.ron failed to load",
+            ConfigFile::Ai => "config/base/ai.ron failed to load",
         };
         
         match &self.detail {
@@ -82,6 +85,7 @@ impl ConfigError {
 struct ConfigHandles {
     game: Handle<GameConfig>,
     blocks: Handle<BlocksConfig>,
+    ai: Handle<AiConfig>,
     settings: Handle<GameSetting>,
 }
 
@@ -97,9 +101,11 @@ impl Plugin for ConfigPlugin {
             .init_resource::<SettingSaveTimer>()
             .init_asset::<GameConfig>()
             .init_asset::<BlocksConfig>()
+            .init_asset::<AiConfig>()
             .init_asset::<GameSetting>()
             .register_asset_loader(loader::RonAssetLoader::<GameConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<BlocksConfig>::new(&["ron"]))
+            .register_asset_loader(loader::RonAssetLoader::<AiConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<GameSetting>::new(&["ron"]))
             .add_systems(Startup, load_config_handles)
             .add_systems(
@@ -113,6 +119,7 @@ impl Plugin for ConfigPlugin {
                 (
                     game::game_config_bridge,
                     block::blocks_bridge,
+                    ai_config_bridge,
                     setting::game_setting_bridge,
                     setting::save_setting_on_change,
                 )
@@ -142,6 +149,7 @@ fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(ConfigHandles {
         game: assets.load("config/base/game.ron"),
         blocks: assets.load("config/base/block.ron"),
+        ai: assets.load("config/base/ai.ron"),
         settings: assets.load("config/setting.ron"),
     });
 }
@@ -152,6 +160,7 @@ fn check_config_ready(
     handles: Option<Res<ConfigHandles>>,
     game_assets: Res<Assets<GameConfig>>,
     block_assets: Res<Assets<BlocksConfig>>,
+    ai_assets: Res<Assets<AiConfig>>,
     setting_assets: Res<Assets<GameSetting>>,
     assets: Res<AssetServer>,
     mut config_state: ResMut<NextState<ConfigState>>,
@@ -177,6 +186,14 @@ fn check_config_ready(
         return;
     }
 
+    if matches!(
+        assets.get_load_state(&handles.ai),
+        Some(LoadState::Failed(_))
+    ) {
+        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Ai)));
+        return;
+    }
+
     let Some(game) = game_assets.get(&handles.game) else {
         return;
     };
@@ -184,6 +201,18 @@ fn check_config_ready(
     if let Err(reason) = game.validate() {
         config_state.set(ConfigState::Error(ConfigError::with_detail(
             ConfigFile::Game,
+            reason,
+        )));
+        return;
+    }
+
+    let Some(ai) = ai_assets.get(&handles.ai) else {
+        return;
+    };
+
+    if let Err(reason) = ai.validate() {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Ai,
             reason,
         )));
         return;
@@ -216,13 +245,14 @@ fn check_config_ready(
     }
 
     commands.insert_resource(GameConfigValue(game.clone()));
+    commands.insert_resource(AiConfigValue(ai.clone()));
     commands.insert_resource(registry);
-    commands.insert_resource(
-        setting_assets
-            .get(&handles.settings)
-            .cloned()
-            .unwrap_or_default(),
-    );
+    let mut loaded_setting = setting_assets
+        .get(&handles.settings)
+        .cloned()
+        .unwrap_or_default();
+    loaded_setting.ai_level = loaded_setting.ai_level.clamp(1, 10);
+    commands.insert_resource(loaded_setting);
 
     config_state.set(ConfigState::Ready);
     scene_state.set(SceneState::Home);

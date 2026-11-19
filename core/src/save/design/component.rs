@@ -5,7 +5,7 @@ use crate::save::document::DocumentError;
 
 use super::lib::save_design_file;
 
-pub const DESIGN_SCHEMA_VERSION: u32 = 2;
+pub const DESIGN_SCHEMA_VERSION: u32 = 3;
 
 crate::ron_document!(ShipDesign, DESIGN_SCHEMA_VERSION, "ship design");
 

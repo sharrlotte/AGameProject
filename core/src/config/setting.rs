@@ -20,6 +20,8 @@ pub struct GameSetting {
     pub volume: f32,
     #[serde(default = "default_bloom")]
     pub bloom: bool,
+    #[serde(default = "default_ai_level")]
+    pub ai_level: u8,
     #[serde(default)]
     pub keys: KeySettings,
 }
@@ -49,6 +51,7 @@ impl Default for GameSetting {
         Self {
             volume: 0.5,
             bloom: true,
+            ai_level: default_ai_level(),
             keys: KeySettings::default(),
         }
     }
@@ -76,6 +79,11 @@ fn default_bloom() -> bool {
 }
 
 
+fn default_ai_level() -> u8 {
+    10
+}
+
+
 fn default_rotate_ccw() -> KeyCode {
     KeyCode::KeyQ
 }
@@ -98,7 +106,9 @@ pub fn game_setting_bridge(
         };
 
         if let Some(asset) = assets.get(id) {
-            setting.set_if_neq(asset.clone());
+            let mut next = asset.clone();
+            next.ai_level = next.ai_level.clamp(1, 10);
+            setting.set_if_neq(next);
         }
     }
 }

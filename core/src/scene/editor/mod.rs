@@ -18,7 +18,6 @@ use bevy::{
     prelude::*,
     window::PrimaryWindow,
 };
-use ron::ser::{PrettyConfig, to_string_pretty};
 use std::mem;
 use uuid::Uuid;
 
@@ -32,7 +31,7 @@ use crate::{
             feature::{Feature, turret::TurretSprite},
         },
         body::BlockGrid,
-        ship::ai::{AiProfile, PRESETS},
+        ship::ai::Doctrine,
         ship::ShipDesign,
     },
     resource::{DeployPayload, SceneState},
@@ -87,9 +86,6 @@ pub enum EditorTab {
 pub struct AiPanel;
 
 #[derive(Component)]
-pub struct AiPreviewText;
-
-#[derive(Component)]
 pub struct BlockPropertiesText;
 
 #[derive(Message)]
@@ -129,8 +125,7 @@ impl Plugin for ShipEditorPlugin {
                     handle_block_deletion,
                     update_block_properties_panel,
                     sync_deploy_button,
-                    sync_ai_preset,
-                    update_ai_preview,
+                    sync_doctrine,
                     handle_ship_saving.run_if(on_message::<ShipSaveChanged>),
                     refresh_ship_list.run_if(on_message::<ShipSavesChanged>),
                 )
@@ -156,7 +151,7 @@ pub struct EditorState {
     pub filename: String,
     pub grid: BlockGrid,
     pub ships: Vec<ShipDesign>,
-    pub ai_profile: AiProfile,
+    pub doctrine: Doctrine,
 }
 
 #[derive(EntityEvent, Debug)]

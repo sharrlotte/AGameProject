@@ -1,329 +1,333 @@
 use std::collections::HashMap;
 
-
 use bevy::prelude::*;
-
 use serde::{Deserialize, Serialize};
 
-
-use crate::constant::AI_THINK_RATE_HZ;
-
-
-pub const PRESETS: &[&str] = &["Aggressive", "Guard", "Escort", "Skirmisher"];
-
-
-#[derive(Clone, Copy, Debug)]
-pub struct ShipInfo {
-    pub entity: Entity,
-    pub position: Vec2,
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[reflect(Component)]
+pub enum Doctrine {
+    #[default]
+    Auto,
+    Brawler,
+    Skirmisher,
+    Sniper,
+    Support,
+    Escort,
 }
 
+impl Doctrine {
+    pub const ALL: [Self; 6] = [
+        Self::Auto,
+        Self::Brawler,
+        Self::Skirmisher,
+        Self::Sniper,
+        Self::Support,
+        Self::Escort,
+    ];
 
-#[derive(Resource, Default)]
-pub struct ShipIndex {
-    pub teams: HashMap<u8, Vec<ShipInfo>>,
-    pub enemies: HashMap<u8, Vec<ShipInfo>>,
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "Auto",
+            Self::Brawler => "Brawler",
+            Self::Skirmisher => "Skirmisher",
+            Self::Sniper => "Sniper",
+            Self::Support => "Support",
+            Self::Escort => "Escort",
+        }
+    }
 }
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Serialize, Deserialize)]
+#[reflect(Component)]
+pub struct Skill(pub u8);
 
-#[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AiProfile {
-    pub initial: BehaviorSpec,
-    #[serde(default)]
-    pub rules: Vec<AiRule>,
+impl Default for Skill {
+    fn default() -> Self {
+        Self(5)
+    }
 }
 
+impl Skill {
+    pub fn new(level: u8) -> Self {
+        Self(level.clamp(1, 10))
+    }
 
-impl Default for AiProfile {
+    pub fn level(self) -> u8 {
+        self.0.clamp(1, 10)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect)]
+pub enum Role {
+    #[default]
+    Brawler,
+    Skirmisher,
+    Sniper,
+    Support,
+    Escort,
+}
+
+impl Role {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Brawler => "Brawler",
+            Self::Skirmisher => "Skirmisher",
+            Self::Sniper => "Sniper",
+            Self::Support => "Support",
+            Self::Escort => "Escort",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+pub struct FixedMount {
+    pub mount_angle: f32,
+    pub range: f32,
+    pub dps: f32,
+    pub aim_tolerance: f32,
+    pub projectile_speed: f32,
+}
+
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component)]
+pub struct Capability {
+    pub role: Role,
+    pub max_range: f32,
+    pub optimal_range: f32,
+    pub max_radar_range: f32,
+    pub offensive_dps: f32,
+    pub support_weight: f32,
+    pub fixed_mount: Option<FixedMount>,
+    pub fixed_dps_ratio: f32,
+    pub has_rotating_turrets: bool,
+    pub has_laser_beam: bool,
+    pub has_pulling_beam: bool,
+    pub has_point_defense: bool,
+    pub uses_energy_weapons: bool,
+    pub uses_ammo_weapons: bool,
+    pub booster_count: usize,
+    pub booster_radius: f32,
+    pub booster_rate: f32,
+    pub thrust_to_mass: f32,
+    pub can_move: bool,
+    pub quadrant_hp: [f32; 4],
+    pub drain_rate: f32,
+}
+
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
+pub struct Readiness {
+    pub hp_ratio: f32,
+    pub energy_ratio: f32,
+    pub ammo_ratio: f32,
+    pub disarmed: bool,
+    pub firing_drain_beam: bool,
+    pub power_supply: f32,
+    pub battery_ratio: f32,
+}
+
+impl Default for Readiness {
     fn default() -> Self {
         Self {
-            initial: BehaviorSpec::Idle,
-            rules: Vec::new(),
+            hp_ratio: 1.0,
+            energy_ratio: 1.0,
+            ammo_ratio: 1.0,
+            disarmed: false,
+            firing_drain_beam: false,
+            power_supply: 1.0,
+            battery_ratio: 1.0,
         }
     }
 }
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AiRule {
-    pub priority: i32,
-    pub when: AiCondition,
-    pub then: BehaviorSpec,
-    #[serde(default)]
-    pub cooldown_secs: f32,
+#[derive(Component, Debug, Clone, Default)]
+pub struct Sensor {
+    pub local_contacts: Vec<Entity>,
 }
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum AiCondition {
-    Always,
-    HpBelow(f32),
-    HpAbove(f32),
-    EnemyInRange(f32),
-    AllyCountBelow(u32),
-    AllyCountAbove(u32),
-    TargetLost,
+#[derive(Debug, Clone, Copy)]
+pub struct SharedContact {
+    pub entity: Entity,
+    pub position: Vec2,
+    pub velocity: Vec2,
+    pub estimated_threat: f32,
+    pub has_fixed_gun: bool,
+    pub heading: Vec2,
 }
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum BehaviorSpec {
-    Idle,
-    Wander { radius: f32 },
-    Patrol { around: PositionRef, radius: f32 },
-    Guard { target: TargetRef, radius: f32 },
-    Follow { target: TargetRef, radius: f32 },
-    Regroup { position: PositionRef, radius: f32 },
-    Kite { range: f32 },
-    Chase { target: TargetRef },
-    Attack { target: TargetRef },
-    Flee { from: TargetRef, distance: f32 },
+#[derive(Debug, Clone, Copy)]
+pub struct LastSeen {
+    pub position: Vec2,
+    pub velocity: Vec2,
+    pub ttl: f32,
 }
 
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TargetRef {
-    NearestEnemy,
-    HighestHpEnemy,
-    NearestAlly,
-    Leader,
-    SpawnPoint,
-    SquadCenter,
+#[derive(Debug, Clone, Copy)]
+pub struct TeamAlert {
+    pub position: Vec2,
+    pub ttl: f32,
 }
 
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PositionRef {
-    SpawnPoint,
-    SquadCenter,
-    Leader,
-    SelfCore,
+#[derive(Debug, Clone, Default)]
+pub struct TeamIntel {
+    pub contacts: HashMap<Entity, SharedContact>,
+    pub last_known: HashMap<Entity, LastSeen>,
+    pub alerts: Vec<TeamAlert>,
 }
 
-
-#[derive(Component, Debug, Clone, PartialEq)]
-pub enum AiBehavior {
-    Idle,
-    Wander { point: Vec2 },
-    Patrol { around: Vec2, radius: f32 },
-    Guard { target: Option<Entity>, radius: f32 },
-    Follow { target: Option<Entity>, radius: f32 },
-    Regroup { position: Vec2, radius: f32 },
-    Kite { target: Option<Entity>, range: f32 },
-    Chase { target: Option<Entity> },
-    Attack { target: Option<Entity> },
-    Flee { from: Option<Entity>, distance: f32 },
+#[derive(Debug, Clone, Default)]
+pub struct TeamPlan {
+    pub intel: TeamIntel,
+    pub focus_target: Option<Entity>,
+    pub vip_ally: Option<Entity>,
+    pub rally_point: Vec2,
+    pub ally_count: usize,
 }
 
+#[derive(Resource, Default, Debug)]
+pub struct TacticalBoard {
+    pub teams: HashMap<u8, TeamPlan>,
+}
 
-impl AiBehavior {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+pub enum Posture {
+    SpinalAim,
+    Orbit,
+    Kite,
+    Brawl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+pub enum SupportKind {
+    Overdrive,
+    Screen,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+pub enum Tactic {
+    Engage {
+        target: Entity,
+        range: f32,
+        posture: Posture,
+    },
+    Recharge {
+        threat: Entity,
+        safe_range: f32,
+    },
+    Retreat {
+        threat: Entity,
+    },
+    Support {
+        ally: Entity,
+        kind: SupportKind,
+    },
+    Regroup {
+        position: Vec2,
+    },
+    Investigate {
+        position: Vec2,
+    },
+    Search {
+        waypoint: Vec2,
+    },
+}
+
+impl Tactic {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::Idle => "Idle",
-            Self::Wander { .. } => "Wander",
-            Self::Patrol { .. } => "Patrol",
-            Self::Guard { .. } => "Guard",
-            Self::Follow { .. } => "Follow",
+            Self::Engage { .. } => "Engage",
+            Self::Recharge { .. } => "Recharge",
+            Self::Retreat { .. } => "Retreat",
+            Self::Support { .. } => "Support",
             Self::Regroup { .. } => "Regroup",
-            Self::Kite { .. } => "Kiting",
-            Self::Chase { .. } => "Chase",
-            Self::Attack { .. } => "Attack",
-            Self::Flee { .. } => "Flee",
+            Self::Investigate { .. } => "Investigate",
+            Self::Search { .. } => "Search",
+        }
+    }
+
+    pub fn same_kind(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::Engage { .. }, Self::Engage { .. })
+                | (Self::Recharge { .. }, Self::Recharge { .. })
+                | (Self::Retreat { .. }, Self::Retreat { .. })
+                | (Self::Support { .. }, Self::Support { .. })
+                | (Self::Regroup { .. }, Self::Regroup { .. })
+                | (Self::Investigate { .. }, Self::Investigate { .. })
+                | (Self::Search { .. }, Self::Search { .. })
+        )
+    }
+
+    pub fn target_entity(&self) -> Option<Entity> {
+        match *self {
+            Self::Engage { target, .. }
+            | Self::Recharge { threat: target, .. }
+            | Self::Retreat { threat: target }
+            | Self::Support { ally: target, .. } => Some(target),
+            _ => None,
         }
     }
 }
 
-
-#[derive(Component, Debug, Clone)]
-pub struct AiRuntime {
-    pub current: AiBehavior,
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct Brain {
+    pub current: Tactic,
     pub spawn_position: Vec2,
-    pub rule_cooldowns: Vec<f32>,
     pub think_timer: Timer,
+    pub strafe_sign: f32,
+    pub strafe_timer: f32,
+    pub shed_boosters: bool,
 }
 
-
-impl AiRuntime {
-    pub fn new(profile: &AiProfile, spawn_position: Vec2) -> Self {
+impl Brain {
+    pub fn new(spawn_position: Vec2, think_rate_hz: f32) -> Self {
         Self {
-            current: behavior_from_spec(&profile.initial, spawn_position, spawn_position, None),
+            current: Tactic::Search {
+                waypoint: spawn_position,
+            },
             spawn_position,
-            rule_cooldowns: vec![0.0; profile.rules.len()],
             think_timer: Timer::from_seconds(
-                1.0 / AI_THINK_RATE_HZ.max(f32::EPSILON),
+                1.0 / think_rate_hz.max(0.1),
                 TimerMode::Repeating,
             ),
+            strafe_sign: 1.0,
+            strafe_timer: 2.0,
+            shed_boosters: false,
         }
     }
 }
 
-
-impl AiBehavior {
-    fn with_radius(self, _radius: f32) -> Self {
-        // Wander stores only its current point; radius is applied by the
-        // evaluator when re-rolling.
-        self
-    }
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct Steering {
+    pub desired_heading: Option<f32>,
+    pub thrust_world: Vec2,
+    pub throttle_cap: f32,
 }
 
-
-pub fn behavior_from_spec(
-    spec: &BehaviorSpec,
-    spawn_position: Vec2,
-    position: Vec2,
-    target: Option<Entity>,
-) -> AiBehavior {
-    match spec {
-        BehaviorSpec::Idle => AiBehavior::Idle,
-        BehaviorSpec::Wander { radius } => AiBehavior::Wander {
-            point: spawn_position,
-        }
-        .with_radius(*radius),
-        BehaviorSpec::Patrol { radius, .. } => AiBehavior::Patrol {
-            around: position,
-            radius: *radius,
-        },
-        BehaviorSpec::Guard { radius, .. } => AiBehavior::Guard {
-            target,
-            radius: *radius,
-        },
-        BehaviorSpec::Follow { radius, .. } => AiBehavior::Follow {
-            target,
-            radius: *radius,
-        },
-        BehaviorSpec::Regroup { radius, .. } => AiBehavior::Regroup {
-            position,
-            radius: *radius,
-        },
-        BehaviorSpec::Kite { range } => AiBehavior::Kite {
-            target,
-            range: *range,
-        },
-        BehaviorSpec::Chase { .. } => AiBehavior::Chase { target },
-        BehaviorSpec::Attack { .. } => AiBehavior::Attack { target },
-        BehaviorSpec::Flee { distance, .. } => AiBehavior::Flee {
-            from: target,
-            distance: *distance,
-        },
-    }
-}
-
-
-pub fn preset(name: &str) -> AiProfile {
-    let (initial, rules) = match name {
-        "Aggressive" => (
-            BehaviorSpec::Chase {
-                target: TargetRef::NearestEnemy,
-            },
-            vec![AiRule {
-                priority: 10,
-                when: AiCondition::HpBelow(0.25),
-                then: BehaviorSpec::Flee {
-                    from: TargetRef::NearestEnemy,
-                    distance: 1000.0,
-                },
-                cooldown_secs: 8.0,
-            }],
-        ),
-        "Guard" => (
-            BehaviorSpec::Guard {
-                target: TargetRef::SpawnPoint,
-                radius: 400.0,
-            },
-            vec![AiRule {
-                priority: 10,
-                when: AiCondition::EnemyInRange(800.0),
-                then: BehaviorSpec::Attack {
-                    target: TargetRef::NearestEnemy,
-                },
-                cooldown_secs: 0.0,
-            }],
-        ),
-        "Escort" => (
-            BehaviorSpec::Follow {
-                target: TargetRef::NearestAlly,
-                radius: 300.0,
-            },
-            vec![AiRule {
-                priority: 10,
-                when: AiCondition::TargetLost,
-                then: BehaviorSpec::Regroup {
-                    position: PositionRef::SquadCenter,
-                    radius: 300.0,
-                },
-                cooldown_secs: 2.0,
-            }],
-        ),
-        "Skirmisher" => (
-            BehaviorSpec::Wander { radius: 600.0 },
-            vec![AiRule {
-                priority: 10,
-                when: AiCondition::EnemyInRange(1500.0),
-                then: BehaviorSpec::Kite { range: 900.0 },
-                cooldown_secs: 0.0,
-            }],
-        ),
-        _ => (BehaviorSpec::Idle, vec![]),
-    };
-
-    AiProfile { initial, rules }
-}
-
-
-pub fn validate_profile(profile: &AiProfile) -> Vec<String> {
-    let mut errors = Vec::new();
-    for (index, rule) in profile.rules.iter().enumerate() {
-        if !rule.cooldown_secs.is_finite() || rule.cooldown_secs < 0.0 {
-            errors.push(format!("rule {index}: cooldown must be non-negative"));
+impl Default for Steering {
+    fn default() -> Self {
+        Self {
+            desired_heading: None,
+            thrust_world: Vec2::ZERO,
+            throttle_cap: 1.0,
         }
     }
-    errors
 }
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct FireOrder {
+    pub primary_target: Option<Entity>,
+    pub lead_accuracy: f32,
+}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::content::ship::ShipDesign;
-
-    #[test]
-    fn profile_round_trips_through_ron() {
-        let profile = AiProfile {
-            initial: BehaviorSpec::Wander { radius: 500.0 },
-            rules: vec![AiRule {
-                priority: 10,
-                when: AiCondition::HpBelow(0.3),
-                then: BehaviorSpec::Flee {
-                    from: TargetRef::NearestEnemy,
-                    distance: 1000.0,
-                },
-                cooldown_secs: 5.0,
-            }],
-        };
-        let text = ron::ser::to_string_pretty(&profile, ron::ser::PrettyConfig::default()).unwrap();
-        let back: AiProfile = ron::from_str(&text).unwrap();
-        assert_eq!(back, profile);
-    }
-
-    #[test]
-    fn all_presets_validate() {
-        for name in PRESETS {
-            let profile = preset(name);
-            assert!(
-                validate_profile(&profile).is_empty(),
-                "preset {name} is invalid"
-            );
-        }
-    }
-
-    #[test]
-    fn starter_profiles_parse() {
-        for text in [
-            include_str!("../../../../assets/config/starter/interceptor.ron"),
-            include_str!("../../../../assets/config/starter/raider.ron"),
-        ] {
-            let design: ShipDesign = ron::from_str(text).unwrap();
-            assert!(!design.ai.rules.is_empty());
+impl Default for FireOrder {
+    fn default() -> Self {
+        Self {
+            primary_target: None,
+            lead_accuracy: 1.0,
         }
     }
 }

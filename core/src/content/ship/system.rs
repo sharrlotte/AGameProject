@@ -6,18 +6,18 @@ use std::f32::consts::PI;
 use crate::config::GameConfigValue;
 use crate::constant::DROP_PICKUP_RADIUS;
 use crate::content::block::Loot;
+use crate::content::ship::ai::{AiConfigValue, Skill, Steering};
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
 
 use super::*;
 
-pub fn update_ship_behavior(
+pub fn update_ship_steering(
     mut ships: Query<(
         Entity,
-        &Ship,
-        &BoundingBox,
-        &ShipBehavior,
+        &Steering,
+        &Skill,
         &Transform,
         &mut ExternalForce,
         &mut Velocity,
@@ -25,159 +25,67 @@ pub fn update_ship_behavior(
         &mut Throttle,
     )>,
     controlled: Res<ControlledShip>,
-    config: Res<GameConfigValue>,
+    ai_cfg: Res<AiConfigValue>,
 ) {
-    for (entity, _, size, behavior, transform, mut force, mut velocity, stats, mut throttle) in
-        ships.iter_mut()
+    for (entity, steering, skill, transform, mut force, mut velocity, stats, mut throttle) in
+        &mut ships
     {
-        if let Some(controlling) = controlled.controlling
-            && controlling == entity
-        {
+        if controlled.controlling == Some(entity) {
             continue;
         }
 
         let thrust_power = stats.thrust_power;
         let turn_speed = stats.rotate_speed;
+        let current_angle = transform.rotation.to_euler(EulerRot::XYZ).2;
 
-        let current_position = ship_center(transform, size);
-        let forward = transform.local_y().truncate();
+        let thrust_len = steering.thrust_world.length();
+        let thrust_world = if thrust_len > 1.0 {
+            steering.thrust_world / thrust_len
+        } else {
+            steering.thrust_world
+        };
 
-        match behavior {
-            ShipBehavior::Approach { position, radius } => {
-                let direction = (position - current_position).normalize_or_zero();
-                let angle = direction.y.atan2(direction.x) - PI / 2.0;
-                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_position.distance(*position);
-
-                let force_multiplier = if distance > *radius {
-                    1.0
-                } else {
-                    (distance / radius).squared()
-                };
-
-                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angular.abs())
-                    .clamp(0.0, 1.0)
-                    .squared();
-
-                let mut torque: f32 = if angle_diff > 0.0 {
-                    turn_speed
-                } else {
-                    -turn_speed
-                } * torque_multiplier;
-
-                if angle_diff.abs() < 0.01 && velocity.angular.abs() < 0.01 {
-                    torque = 0.0;
-                    velocity.angular = 0.0;
-                }
-
-                force.torque = torque;
-
-                let speed = velocity.linear.length();
-                let stop_distance = speed * speed / (2.0 * config.0.linear_damping);
-
-                let linear = if distance <= stop_distance {
-                    force.force = Vec2::ZERO;
-                    0.0
-                } else if angle_diff.abs() < PI / 3.0 && distance > *radius {
-                    force.force = forward * thrust_power * force_multiplier;
-                    force_multiplier
-                } else {
-                    force.force = Vec2::ZERO;
-                    0.0
-                };
-                let angular = if torque.abs() > 0.0 {
-                    torque_multiplier
-                } else {
-                    0.0
-                };
-                throttle.set(linear, angular);
+        let desired_angle = steering.desired_heading.unwrap_or_else(|| {
+            if thrust_world.length_squared() > 1e-4 {
+                thrust_world.y.atan2(thrust_world.x) - PI / 2.0
+            } else {
+                current_angle
             }
-            ShipBehavior::GoAround { position, radius } => {
-                let geometry = go_around_geometry(current_position, *position, *radius);
-                let next_position = geometry.next_position;
+        });
+        let angle_diff = wrap_angle(desired_angle - current_angle);
+        let (torque, torque_multiplier) =
+            compute_aim_torque(angle_diff, turn_speed, &mut velocity);
+        force.torque = torque;
 
-                let direction = (next_position - current_position).normalize_or_zero();
-
-                let angle = direction.y.atan2(direction.x) - PI / 2.0;
-                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_position.distance(next_position);
-
-                let force_multiplier = if distance > *radius {
-                    1.0
-                } else {
-                    distance / radius
-                };
-
-                let torque_multiplier: f32 = (angle_diff.abs() / velocity.angular.abs())
-                    .clamp(0.0, 1.0)
-                    .squared();
-
-                let mut torque: f32 = if angle_diff > 0.0 {
-                    turn_speed
-                } else {
-                    -turn_speed
-                } * torque_multiplier;
-
-                if angle_diff.abs() < 0.01 && velocity.angular.abs() < 0.01 {
-                    torque = 0.0;
-                    velocity.angular = 0.0;
-                }
-
-                force.torque = torque;
-
-                let linear = if angle_diff.abs() < PI / 3.0 {
-                    force.force = forward * thrust_power * force_multiplier;
-                    force_multiplier
-                } else {
-                    force.force = Vec2::ZERO;
-                    0.0
-                };
-                let angular = if torque.abs() > 0.0 {
-                    torque_multiplier
-                } else {
-                    0.0
-                };
-                throttle.set(linear, angular);
+        let cap = steering.throttle_cap.clamp(0.0, 1.0);
+        let linear = if skill.level() >= ai_cfg.0.unlocks.omnidirectional_thrust_level {
+            let applied = thrust_world * cap;
+            force.force = applied * thrust_power;
+            applied.length()
+        } else {
+            let forward = transform.local_y().truncate();
+            let forward_proj = thrust_world.dot(forward).max(0.0);
+            if angle_diff.abs() < PI / 3.0 && forward_proj > 0.0 {
+                let mag = (forward_proj * cap).clamp(0.0, 1.0);
+                force.force = forward * thrust_power * mag;
+                mag
+            } else {
+                force.force = Vec2::ZERO;
+                0.0
             }
-            ShipBehavior::AimAt {
-                target,
-                hold_distance,
-                aim_offset_angle,
-            } => {
-                let direction = (*target - current_position).normalize_or_zero();
-                let angle = desired_ship_angle(direction, *aim_offset_angle);
-                let angle_diff = wrap_angle(angle - transform.rotation.to_euler(EulerRot::XYZ).2);
-                let distance = current_position.distance(*target);
+        };
 
-                let (torque, torque_multiplier) =
-                    compute_aim_torque(angle_diff, turn_speed, &mut velocity);
-                force.torque = torque;
-
-                let linear = if distance > *hold_distance * 1.1 && angle_diff.abs() < PI / 3.0 {
-                    let ratio = ((distance - *hold_distance) / hold_distance.max(1.0)).clamp(0.0, 1.0);
-                    force.force = forward * thrust_power * ratio;
-                    ratio
-                } else {
-                    force.force = Vec2::ZERO;
-                    0.0
-                };
-                let angular = if torque.abs() > 0.0 {
-                    torque_multiplier
-                } else {
-                    0.0
-                };
-                throttle.set(linear, angular);
-            }
-        }
+        let angular = if torque.abs() > 0.0 {
+            torque_multiplier
+        } else {
+            0.0
+        };
+        throttle.set(linear, angular);
     }
 }
 
-fn desired_ship_angle(direction: Vec2, aim_offset_angle: f32) -> f32 {
-    direction.y.atan2(direction.x) - PI / 2.0 - aim_offset_angle
-}
-
 fn compute_aim_torque(angle_diff: f32, turn_speed: f32, velocity: &mut Velocity) -> (f32, f32) {
-    let torque_multiplier = (angle_diff.abs() / velocity.angular.abs())
+    let torque_multiplier = (angle_diff.abs() / velocity.angular.abs().max(1e-4))
         .clamp(0.0, 1.0)
         .squared();
     let mut torque = if angle_diff > 0.0 {
@@ -400,6 +308,7 @@ mod tests {
 
     #[test]
     fn aim_at_rot90_offset_aligns_mounted_gun() {
+        use crate::content::ship::ai::desired_ship_angle;
         // Target is to the right (+X), so atan2(0, 1) = 0.
         // Forward-mounted (R0, offset 0): ship Z = -PI/2 (nose points +X).
         let r0 = desired_ship_angle(Vec2::X, 0.0);

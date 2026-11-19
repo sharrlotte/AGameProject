@@ -1,74 +1,59 @@
-# AI Spec — Per-Ship Inline Profiles
+# AI Spec — Block-Introspective Utility AI & Team Intel
 
 ## Authoring model
 
-AI is data, not Rust marker components. Each `ShipDesign` carries an inline
-`AiProfile` (`content/ship/ai/component.rs`):
+Ships require no inline AI rule lists in RON. `ShipDesign` carries only an optional high-level `Doctrine` (`Auto | Brawler | Skirmisher | Sniper | Support | Escort`, defaulting to `Doctrine::Auto`):
 
 ```rust
-pub struct AiProfile {
-    pub initial: BehaviorSpec,
-    pub rules: Vec<AiRule>,
-}
-pub struct AiRule {
-    pub priority: i32,
-    pub when: AiCondition,
-    pub then: BehaviorSpec,
-    pub cooldown_secs: f32,
+pub enum Doctrine {
+    Auto,
+    Brawler,
+    Skirmisher,
+    Sniper,
+    Support,
+    Escort,
 }
 ```
 
-`AiCondition` is one of `Always`, `HpBelow`, `HpAbove`, `EnemyInRange`,
-`AllyCountBelow`, `AllyCountAbove`, `TargetLost`. `BehaviorSpec` selects one of
-`Idle`, `Wander`, `Patrol`, `Guard`, `Follow`, `Regroup`, `Kite`, `Chase`,
-`Attack`, `Flee` with a `TargetRef`/`PositionRef` where needed.
-All of these derive serde and round-trip through RON.
+Numeric difficulty curves, feature unlock thresholds, radar baseline, and utility weights live in one global hot-reloadable config asset: `core/assets/config/base/ai.ron` (`AiConfig` / `AiConfigValue`).
 
-Editor presets (`Aggressive`, `Guard`, `Escort`, `Skirmisher`) copy
-a complete profile into the inline field; the AI tab shows a RON preview and
-validation errors before saving.
+Each ship receives `Skill(u8)` (`1..=10`), resolved on mission spawn in precedence:
+`ShipSpawn.ai_level` -> (`ai_cfg.default_ally_level` if `team.is_player()`, else `MissionDef.ai_level` -> `GameSetting.ai_level` -> `ai_cfg.default_enemy_level`), clamped to `1..=10`.
 
-## Runtime
+Editor AI tab exposes `Doctrine` selector buttons (`Auto`, `Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`) persisted on `ShipDesign`.
 
-`ShipDesign::spawn` inserts `AiProfile` and `AiRuntime` on the ship entity.
-`AiRuntime` holds a single `AiBehavior` enum (the old 11 `BehaviorX` markers,
-`BehaviorTimer`, `ShipBehavior`, and `AIShipController` are gone), the spawn
-position, leader, per-rule cooldowns, and a think timer.
+## Module layout
 
-`AiPlugin` runs three chained systems in `FixedUpdate`, `SimulationSet::Ai`:
+```
+core/src/content/ship/ai/
+├── mod.rs          AiPlugin, chained FixedUpdate SimulationSet::Ai systems
+├── component.rs    Doctrine, Skill, Role, Capability, Readiness, Sensor, Brain, Tactic, Steering, FireOrder, TacticalBoard, TeamPlan, TeamIntel
+├── config.rs       AiConfig, AiConfigValue, validation, hot-reload bridge
+├── capability.rs   Pure Feature introspection + live Readiness + DamageEvent quadrant HP refresh
+├── sensor.rs       max_radar_range scanning, TeamIntel sharing, DamageEvent alerts, decaying memory
+├── board.rs        Per-team TeamPlan (focus_target, vip_ally, rally_point)
+├── scorer.rs       Modular Utility Scorers + hysteresis + Booster power-shedding
+└── steer.rs        Tactic -> Steering + FireOrder + shared debug gizmo helpers
+```
 
-1. `build_ship_index` — rebuilds per-team and enemy snapshots (`ShipIndex`).
-2. `evaluate_ai_rules` — at the shared `AI_THINK_RATE_HZ`, ticks cooldowns, tests conditions,
-   and applies the highest-priority matching rule. Ties keep the current
-   behavior. Wander points re-roll on arrival.
-3. `apply_ai_behaviors` — converts the current `AiBehavior` into a
-   `ShipBehavior` steering intent consumed by `update_ship_behavior`.
+## Runtime pipeline (`FixedUpdate`, `SimulationSet::Ai`)
 
-## Behavior semantics
+1. `init_missing_capabilities` / `rebuild_capabilities_on_change` / `refresh_quadrant_hp_on_damage` — Pure `Feature` introspection builds `Capability` on spawn, `ShipChanged`, and `DamageEvent` (fixed `turn_speed == 0.0` vs. rotating turrets, `Rot90` mount angles, `LaserBeam` / `PullingBeam` / `EnemyBullet` PD, energy/ammo dependencies, `Booster` aura, 4-quadrant armor HP, `max_radar_range`, mobility, and inferred `Role`). Dedicated support hulls are auto-detected under `Doctrine::Auto` when `support_weight > offensive_dps * support_auto_ratio`.
+2. `update_readiness` — Computes live `Readiness` (`hp_ratio`, `energy_ratio`, `ammo_ratio`, `disarmed`, `firing_drain_beam`, `power_supply`, `battery_ratio`). Loot drops remain player-only.
+3. `update_sensors_and_intel` — Scans enemy ships within each ship's live `Capability.max_radar_range`. Any sighting immediately publishes a `SharedContact` into that team's `TeamIntel.contacts` (always active at all `Skill` levels `1..=10`). Lost living contacts persist in `TeamIntel.last_known` for `memory_secs`, and unseen `DamageEvent` hits publish shared `TeamAlert` bearings.
+4. `update_tactical_board` — Updates `TacticalBoard` per-team `TeamPlan` (`rally_point`, `vip_ally`, and `focus_target`).
+5. `evaluate_utility_and_power` — At `Skill`-scaled `think_rate_hz`, runs composable `Scorer`s (`Retreat`, `Recharge`, `Support`, `Engage`, `Regroup`, `Investigate`, `Search`) with `hysteresis` to update `Brain.current`. When `skill >= power_management_level`, toggles `Disabled` on owned `Booster` blocks during brownouts and restores them on recovery.
+6. `steer_ships` — Translates `Brain.current` into `Steering { desired_heading, thrust_world, throttle_cap }` and `FireOrder { primary_target, lead_accuracy }`:
+   - `SpinalAim` aligns fixed weapons at any `Rot90` mount to the target lead point.
+   - High-skill ships unlock strafe evasion (`strafe_evade_level`), perpendicular spinal dodging (`spinal_dodge_level`), 4-quadrant armor angling (`armor_angling_level`), and drain-beam throttle budgeting (`power_management_level`).
+   - Combat turrets (`Closest`, `MostHP`) prefer `FireOrder.primary_target` when in range and scale target velocity by `FireOrder.lead_accuracy`; `EnemyBullet` point-defense turrets remain autonomous.
 
-- `Idle` — hold position.
-- `Wander` — re-rolled point around the spawn.
-- `Patrol`/`Regroup` — approach a position (spawn, squad center, leader).
-- `Guard`/`Follow` — stay within radius of the resolved ally/target.
-- `Kite` — retreat when closer than the configured range, orbit otherwise.
-- `Chase`/`Attack` — approach to `ai_min_range_factor × weapon range`, then
-  orbit; `Attack` reacquires the nearest enemy when its target is lost.
-- `Flee` — move **away** from the threat until `distance` is reached (the old
-  inverted-sign bug is fixed).
+Ships actively controlled by the player (`ControlledShip.controlling == Some(entity)`) are skipped by AI evaluation and steering.
 
-Targets are invalidated when the entity no longer has a core or leaves radar
-range; the next think tick reacquires via `TargetRef`.
+## Movement application (`FixedUpdate`, `SimulationSet::Control`)
 
-Ships followed by the camera (`CameraTarget.following`) or controlled by the
-player (`ControlledShip.controlling`) are skipped by AI.
-
-## Movement application
-
-`PostUpdate::update_ship_behavior` turns `ShipBehavior::Approach`/`GoAround`
-into `ExternalForce` with a braking model based on `linear_damping`.
+`update_ship_steering` aligns ship rotation via PD torque toward `Steering.desired_heading` (or thrust heading when `None`) and applies `Steering.thrust_world * thrust_power * throttle_cap`. Ships at or above `omnidirectional_thrust_level` use full omnidirectional thrust (matching player controls); ships below that threshold project thrust onto `local_y()`.
 
 ## Camera assist
 
-`ControlMode::Pilot` follows the controlled ship; `ControlMode::FreeLook` lets
-WASD pan the camera. `F` toggles the mode and middle-mouse drag pans in either
-mode. Zoom is via the mouse wheel between `min_zoom` and `max_zoom`.
+`ControlMode::Pilot` follows the controlled ship; `ControlMode::FreeLook` lets WASD pan the camera. `F` toggles the mode and middle-mouse drag pans in either mode. Zoom is via the mouse wheel between `min_zoom` and `max_zoom`.

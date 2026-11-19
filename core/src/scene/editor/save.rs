@@ -28,7 +28,7 @@ pub fn handle_ship_saving(
         Uuid::now_v7(),
         state.filename.clone(),
         &state.grid,
-        &state.ai_profile,
+        state.doctrine,
         &mut catalog,
         &mut ship_saved_event,
     );
@@ -38,7 +38,7 @@ pub fn perform_save_schematic(
     id: Uuid,
     name: String,
     grid: &BlockGrid,
-    profile: &AiProfile,
+    doctrine: Doctrine,
     catalog: &mut ShipCatalog,
     ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
@@ -47,7 +47,7 @@ pub fn perform_save_schematic(
         id,
         name,
         blocks: grid.blocks().map(|b| b.placement.clone()).collect(),
-        ai: profile.clone(),
+        doctrine,
     };
 
     if let Err(e) = catalog.save_design(&design) {

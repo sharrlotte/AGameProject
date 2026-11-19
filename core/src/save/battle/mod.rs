@@ -63,7 +63,7 @@ mod tests {
     };
     use crate::content::body::Debris;
     use crate::content::lifetime::Lifetime;
-    use crate::content::ship::ai::{AiBehavior, AiRuntime};
+    use crate::content::ship::ai::{Brain, Doctrine, Posture, Skill, Tactic};
     use crate::content::ship::stat::ShipStats;
     use crate::content::body::BlockGrid;
     use crate::content::ship::ShipDesign;
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn world_save_v6_roundtrip_rejects_v5_and_v4() {
+    fn world_save_v7_roundtrip_rejects_v6_and_v5() {
         let save = WorldSave {
             version: SAVE_SCHEMA_VERSION,
             saved_at_unix_ms: 1_700_000_000_000,
@@ -165,6 +165,7 @@ mod tests {
                 remaining_secs: 42.0,
                 blocks: Vec::new(),
             })],
+            team_intel: Vec::new(),
             drops: Vec::new(),
             rng: RngSave { seed: 1234 },
         };
@@ -172,15 +173,15 @@ mod tests {
         let back: WorldSave = parse_document(&text).unwrap();
         assert_eq!(back, save);
 
-        let v5 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 5");
-        let error = parse_document::<WorldSave>(&v5).expect_err("v5 is rejected");
+        let v6 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 6");
+        let error = parse_document::<WorldSave>(&v6).expect_err("v6 is rejected");
         assert!(
-            error.to_string().contains("expected version 6, found 5"),
+            error.to_string().contains("expected version 7, found 6"),
             "{error}"
         );
 
-        let v4 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 4");
-        assert!(parse_document::<WorldSave>(&v4).is_err());
+        let v5 = text.replace(&format!("version: {SAVE_SCHEMA_VERSION}"), "version: 5");
+        assert!(parse_document::<WorldSave>(&v5).is_err());
 
         assert!(battle_save_path().ends_with("battle.ron"));
         assert!(campaign_save_path().ends_with("campaign.ron"));
@@ -217,12 +218,22 @@ mod tests {
                     cam_target.following = Some(ship_a);
                     controlled.controlling = Some(ship_a);
                     *mode = ControlMode::Pilot;
-                    commands.entity(ship_b).insert(AiRuntime {
-                        current: AiBehavior::Attack { target: Some(ship_a) },
-                        spawn_position: Vec2::new(-30.0, 40.0),
-                        rule_cooldowns: vec![3.5],
-                        think_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-                    });
+                    commands.entity(ship_b).insert((
+                        Doctrine::Skirmisher,
+                        Skill::new(8),
+                        Brain {
+                            current: Tactic::Engage {
+                                target: ship_a,
+                                range: 450.0,
+                                posture: Posture::Orbit,
+                            },
+                            spawn_position: Vec2::new(-30.0, 40.0),
+                            think_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
+                            strafe_sign: -1.0,
+                            strafe_timer: 1.5,
+                            shed_boosters: true,
+                        },
+                    ));
                     commands.spawn((
                         Loot::Item(ItemDrop {
                             item_type: "steel".to_string(),
@@ -343,12 +354,21 @@ mod tests {
         assert_eq!(stats.cargo_items.get("steel"), Some(&25));
 
         let mut enemy_ai_checked = false;
-        let mut ship_query = world.query::<(Entity, &Team, &AiRuntime, &BlockGrid)>();
-        for (entity, team, ai_runtime, ship_grid) in ship_query.iter(world) {
+        let mut ship_query = world.query::<(Entity, &Team, &Brain, &Skill, &Doctrine, &BlockGrid)>();
+        for (entity, team, brain, skill, doctrine, ship_grid) in ship_query.iter(world) {
             if !team.is_player() {
-                assert_eq!(ai_runtime.current, AiBehavior::Attack { target: Some(controlled_entity) });
-                assert_eq!(ai_runtime.spawn_position, Vec2::new(-30.0, 40.0));
-                assert_eq!(ai_runtime.rule_cooldowns, vec![3.5]);
+                assert_eq!(
+                    brain.current,
+                    Tactic::Engage {
+                        target: controlled_entity,
+                        range: 450.0,
+                        posture: Posture::Orbit,
+                    }
+                );
+                assert_eq!(brain.spawn_position, Vec2::new(-30.0, 40.0));
+                assert_eq!(skill.level(), 8);
+                assert_eq!(*doctrine, Doctrine::Skirmisher);
+                assert!(brain.shed_boosters);
                 enemy_ai_checked = true;
             } else {
                 assert_eq!(entity, controlled_entity);

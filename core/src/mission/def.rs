@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct MissionDef {
     pub name: String,
     pub briefing: String,
+    #[serde(default)]
+    pub ai_level: Option<u8>,
     pub player: ShipSpawn,
     pub enemies: Vec<ShipSpawn>,
     pub objective: MissionObjective,
@@ -17,6 +19,8 @@ pub struct ShipSpawn {
     pub team: u8,
     pub position: Vec2,
     pub schematic_name: String,
+    #[serde(default)]
+    pub ai_level: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]

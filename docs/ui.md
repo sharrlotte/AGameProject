@@ -34,8 +34,9 @@ updated only when a ship is selected and the content changes (`dev` feature only
 
 ```
 Ship: <Entity id>
-C: <AiBehavior label>
-B: <ShipBehavior or None>
+Tactic: <Tactic label> | Skill: <1..=10> | Doctrine: <Doctrine label> (<Role label>)
+HP: <pct>% | Energy: <pct>% | Ammo: <pct>% | Radar: <max_radar_range>
+Steering: <Steering debug>
 CARGO <used> / <capacity> {item breakdown}
 S: <ShipStats debug>
 <ammo debug dump for each ammo-capable child>

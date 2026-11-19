@@ -40,9 +40,10 @@ independent `ShipDebugSelection`, and `Escape` clears that selection.
 `SceneState::ShipEditor`. Purpose: assemble player ship designs and persist them as
 schematics.
 
-Layout: left panel (220 px wide) — Back button, tab strip (**Blocks** / **Ships**),
+Layout: left panel (220 px wide) — Back button, tab strip (**Blocks** / **Ships** / **AI**),
 block palette (scrollable, one button per registered block type, with block icon layers +
-name) or ship-list (saved schematics, click to load); center grid area; right panel
+name), ship-list (saved schematics, click to load), or AI **Doctrine** selector buttons (`Auto`,
+`Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`); center grid area; right panel
 (250 px) — selected block properties (Name/Cost/Mass/HP), instructions, **Deploy** button
 (stores the assembled ship as `DeployPayload.current_ship` — consumed by the next mission
 spawn as the player's ship), **Start Game**.
@@ -94,6 +95,8 @@ panel (opacity 0.8). Controls:
 - Volume — ±10 % linear (`GlobalVolume`); persisted to `config/setting.ron` by
   `save_setting_on_change` (0.5 s debounce after the change settles).
 - Bloom — toggles `Bloom.intensity` between `0.3` (default) and `0.0` (OFF); also
+  persisted to `config/setting.ron`.
+- AI Skill — `[-]` / `[+]` stepper clamping `GameSetting.ai_level` within `1..=10`;
   persisted to `config/setting.ron`.
 - Data (Home only) — **Reset Mission / Campaign** with 2-step confirmation (**Confirm Reset** /
   **Cancel**); deletes `battle.ron` and `campaign.ron` while keeping `designs/*.ron` intact,

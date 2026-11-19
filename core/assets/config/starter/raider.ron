@@ -1,5 +1,5 @@
 (
-    version: 2,
+    version: 3,
     id: "3434dbb8-1a60-503e-8ab6-3d4f875c04bd",
     name: "Raider",
     blocks: [
@@ -53,10 +53,4 @@
         (id: "572a5ab8-3be7-42bb-ae3e-2ab13702c555", position: (1, -4), block_type: "thruster_small", rotation: R0),
         (id: "d3e21455-2a02-4952-9f90-d3da33eb01f4", position: (0, -5), block_type: "thruster_small", rotation: R0),
     ],
-    ai: (
-        initial: Wander(radius: 600.0),
-        rules: [
-            (priority: 10, when: EnemyInRange(2000.0), then: Attack(target: NearestEnemy), cooldown_secs: 0.0),
-        ],
-    ),
 )

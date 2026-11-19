@@ -9,6 +9,8 @@ use std::collections::HashSet;
 pub use def::MissionDef;
 
 pub use state::{BattleOutcome, BattlePhase, BattleRestart, BattleResult};
+#[cfg(test)]
+pub use state::resolve_skill;
 
 
 use bevy::asset::LoadState;
@@ -16,9 +18,7 @@ use bevy::asset::LoadState;
 use bevy::prelude::*;
 
 
-use crate::config::ConfigState;
-
-use crate::config::GameConfigValue;
+use crate::config::{ConfigState, GameConfigValue, GameSetting};
 
 use crate::config::loader::RonAssetLoader;
 
@@ -29,6 +29,7 @@ use crate::content::death::ShipDestroyed;
 use crate::content::body::mutation::apply_body_mutations;
 
 use crate::content::ship::Ship;
+use crate::content::ship::ai::AiConfigValue;
 
 use crate::content::team::Team;
 
@@ -191,6 +192,8 @@ fn poll_mission_loaded(
     handle: Option<Res<MissionAsset>>,
     registry: Res<BlockRegistry>,
     config: Res<GameConfigValue>,
+    setting: Res<GameSetting>,
+    ai_cfg: Res<AiConfigValue>,
     state: Res<DeployPayload>,
     catalog: Res<ShipCatalog>,
     mut result: ResMut<BattleResult>,
@@ -214,7 +217,16 @@ fn poll_mission_loaded(
         return;
     };
 
-    spawn_mission(&mut commands, &registry, &config, &mission, &state, &catalog);
+    spawn_mission(
+        &mut commands,
+        &registry,
+        &config,
+        &mission,
+        &state,
+        &catalog,
+        &setting,
+        &ai_cfg,
+    );
 
     result.started_at = Some(time.elapsed_secs());
     result.outcome = None;

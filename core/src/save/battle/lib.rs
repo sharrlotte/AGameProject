@@ -8,16 +8,18 @@ use uuid::Uuid;
 use crate::config::GameConfigValue;
 use crate::constant::LAYER_DROP;
 use crate::content::block::feature::ammo::AmmoState;
-use crate::content::block::feature::power::Charge;
+use crate::content::block::feature::power::{Booster, Charge};
 use crate::content::block::feature::turret::{TurretBarrel, TurretCharge, TurretState};
 use crate::content::block::{
-    BlockPlacement, BlockRegistry, BurstShootPatternState, GridBlock, Health, ItemDrop,
+    BlockPlacement, BlockRegistry, BurstShootPatternState, Disabled, GridBlock, Health, ItemDrop,
     LaserBeamPatternState, Loot, PullingBeamPatternState, SingleShootPatternState,
     spawn_block_entity,
 };
 use crate::content::item::ItemRegistry;
 use crate::content::lifetime::Lifetime;
-use crate::content::ship::ai::{AiProfile, AiRuntime};
+use crate::content::ship::ai::{
+    Brain, Doctrine, LastSeen, Skill, TacticalBoard, TeamAlert, TeamPlan,
+};
 use crate::content::body::debris::{component_mass, spawn_debris_body};
 use crate::content::body::{BlockGrid, Debris};
 use crate::content::ship::stat::ShipStats;
@@ -29,9 +31,10 @@ use crate::save::design::DESIGN_SCHEMA_VERSION;
 use crate::save::document::{DocumentError, data_dir, remove_with_backup};
 
 use super::component::{
-    AiBehaviorSave, AiRuntimeSave, BattleSave, BlockSnapshot, BodySnapshot, CameraSave,
-    CaptureContext, CargoSave, ControlSave, DebrisSnapshot, DropSave, RngSave, SAVE_SCHEMA_VERSION,
-    ShipSnapshot, TransformSave, TurretSaveState, VelocitySave, WorldSave,
+    BattleSave, BlockSnapshot, BodySnapshot, BrainSave, CameraSave, CaptureContext, CargoSave,
+    ControlSave, DebrisSnapshot, DropSave, LastSeenSave, RngSave, SAVE_SCHEMA_VERSION,
+    ShipSnapshot, TacticSave, TeamAlertSave, TeamIntelSave, TransformSave, TurretSaveState,
+    VelocitySave, WorldSave,
 };
 
 impl BlockSnapshot {
@@ -143,7 +146,8 @@ impl ShipSnapshot {
         let team = entity.get::<Team>().map(|t| t.id).unwrap_or(0);
         let transform = entity.get::<Transform>().cloned().unwrap_or_default();
         let velocity = entity.get::<Velocity>().cloned().unwrap_or_default();
-        let ai = entity.get::<AiProfile>().cloned().unwrap_or_default();
+        let doctrine = entity.get::<Doctrine>().copied().unwrap_or_default();
+        let skill = entity.get::<Skill>().map_or(5, |s| s.level());
         let cargo = entity
             .get::<ShipStats>()
             .map(|stats| CargoSave {
@@ -162,13 +166,15 @@ impl ShipSnapshot {
             .map(|b| BlockSnapshot::capture(world, b))
             .collect();
 
-        let ai_runtime = entity
-            .get::<AiRuntime>()
-            .map(|r| AiRuntimeSave {
-                current: AiBehaviorSave::from_runtime(world, &r.current),
-                spawn_position: r.spawn_position,
-                rule_cooldowns: r.rule_cooldowns.clone(),
-                timer_secs: r.think_timer.remaining_secs(),
+        let brain = entity
+            .get::<Brain>()
+            .map(|b| BrainSave {
+                current: TacticSave::from_runtime(world, &b.current),
+                spawn_position: b.spawn_position,
+                timer_secs: b.think_timer.duration().as_secs_f32(),
+                strafe_sign: b.strafe_sign,
+                strafe_timer: b.strafe_timer,
+                shed_boosters: b.shed_boosters,
             })
             .unwrap_or_default();
 
@@ -186,8 +192,9 @@ impl ShipSnapshot {
                 angvel: velocity.angular,
             },
             cargo,
-            ai,
-            ai_runtime,
+            doctrine,
+            skill,
+            brain,
             blocks,
         })
     }
@@ -197,7 +204,7 @@ impl ShipSnapshot {
         commands: &mut Commands,
         registry: &BlockRegistry,
         config: &GameConfigValue,
-    ) -> Result<(Uuid, Entity, AiRuntimeSave), DocumentError> {
+    ) -> Result<(Uuid, Entity, u8, BrainSave), DocumentError> {
         let placements: Vec<BlockPlacement> = self
             .blocks
             .iter()
@@ -208,7 +215,7 @@ impl ShipSnapshot {
             id: self.id,
             name: String::new(),
             blocks: placements,
-            ai: self.ai.clone(),
+            doctrine: self.doctrine,
         };
         let team = Team::new(self.team);
         let transform = Transform::from_xyz(self.transform.x, self.transform.y, 0.0)
@@ -239,9 +246,16 @@ impl ShipSnapshot {
 
         for (entity, snapshot) in block_entities.iter().zip(self.blocks) {
             snapshot.apply(commands, *entity);
+            if self.brain.shed_boosters {
+                commands.entity(*entity).queue(|mut block: EntityWorldMut| {
+                    if block.get::<Booster>().is_some() {
+                        block.insert(Disabled);
+                    }
+                });
+            }
         }
 
-        Ok((self.id, ship, self.ai_runtime))
+        Ok((self.id, ship, self.skill, self.brain))
     }
 }
 
@@ -411,6 +425,42 @@ impl WorldSave {
             .get_resource::<ControlMode>()
             .is_some_and(|m| *m == ControlMode::Pilot);
 
+        let team_intel = world
+            .get_resource::<TacticalBoard>()
+            .map(|board| {
+                board
+                    .teams
+                    .iter()
+                    .map(|(&team, plan)| TeamIntelSave {
+                        team,
+                        last_known: plan
+                            .intel
+                            .last_known
+                            .iter()
+                            .filter_map(|(entity, seen)| {
+                                let target_id = world.get::<Ship>(*entity).map(|s| s.id)?;
+                                Some(LastSeenSave {
+                                    target_id,
+                                    position: seen.position,
+                                    velocity: seen.velocity,
+                                    ttl: seen.ttl,
+                                })
+                            })
+                            .collect(),
+                        alerts: plan
+                            .intel
+                            .alerts
+                            .iter()
+                            .map(|a| TeamAlertSave {
+                                position: a.position,
+                                ttl: a.ttl,
+                            })
+                            .collect(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Self {
             version: SAVE_SCHEMA_VERSION,
             saved_at_unix_ms: ctx.saved_at_unix_ms,
@@ -425,6 +475,7 @@ impl WorldSave {
                 pilot_mode,
             },
             bodies,
+            team_intel,
             drops,
             rng: RngSave { seed: ctx.seed },
         }
@@ -449,9 +500,9 @@ impl WorldSave {
             let BodySnapshot::Ship(ship) = body else {
                 continue;
             };
-            let (id, entity, ai_runtime) = ship.restore(commands, registry, config)?;
+            let (id, entity, skill, brain) = ship.restore(commands, registry, config)?;
             ship_map.insert(id, entity);
-            pending_ai.push((entity, ai_runtime));
+            pending_ai.push((entity, skill, brain));
         }
 
         for body in debris_bodies {
@@ -461,17 +512,51 @@ impl WorldSave {
             debris.restore(commands, registry, config);
         }
 
-        for (entity, ai_runtime) in pending_ai {
-            let behavior = ai_runtime.current.into_runtime(&ship_map);
-            let duration = ai_runtime.timer_secs.max(f32::EPSILON);
+        for (entity, skill, brain) in pending_ai {
+            let tactic = brain.current.into_runtime(&ship_map, brain.spawn_position);
+            let duration = brain.timer_secs.max(0.05);
             let timer = Timer::from_seconds(duration, TimerMode::Repeating);
-            commands.entity(entity).insert(AiRuntime {
-                current: behavior,
-                spawn_position: ai_runtime.spawn_position,
-                rule_cooldowns: ai_runtime.rule_cooldowns,
-                think_timer: timer,
-            });
+            commands.entity(entity).insert((
+                Skill::new(skill),
+                Brain {
+                    current: tactic,
+                    spawn_position: brain.spawn_position,
+                    think_timer: timer,
+                    strafe_sign: if brain.strafe_sign == 0.0 {
+                        1.0
+                    } else {
+                        brain.strafe_sign
+                    },
+                    strafe_timer: brain.strafe_timer.max(0.1),
+                    shed_boosters: brain.shed_boosters,
+                },
+            ));
         }
+
+        let mut board = TacticalBoard::default();
+        for saved_intel in self.team_intel {
+            let mut plan = TeamPlan::default();
+            for seen in saved_intel.last_known {
+                if let Some(&target_entity) = ship_map.get(&seen.target_id) {
+                    plan.intel.last_known.insert(
+                        target_entity,
+                        LastSeen {
+                            position: seen.position,
+                            velocity: seen.velocity,
+                            ttl: seen.ttl,
+                        },
+                    );
+                }
+            }
+            for alert in saved_intel.alerts {
+                plan.intel.alerts.push(TeamAlert {
+                    position: alert.position,
+                    ttl: alert.ttl,
+                });
+            }
+            board.teams.insert(saved_intel.team, plan);
+        }
+        commands.insert_resource(board);
 
         let following = self
             .camera

@@ -240,7 +240,7 @@ pub fn spawn_ship(
         .cloned()
     {
         editor.filename = ship_to_load.name.clone();
-        editor.ai_profile = ship_to_load.ai.clone();
+        editor.doctrine = ship_to_load.doctrine;
 
         if ship_to_load.blocks.is_empty() {
             warn!("Ship {} is empty", editor.filename);

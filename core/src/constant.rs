@@ -3,8 +3,6 @@ use bevy::color::Color;
 pub const GRID_SIZE: f32 = 64.0;
 pub const SMALL_GRID_SIZE: f32 = 6.0;
 
-pub const AI_THINK_RATE_HZ: f32 = 4.0;
-
 pub const FLASH_OVERLAY_COLOR: Color = Color::srgba(5.0, 5.0, 5.0, 0.8);
 pub const AUDIO_SCALE: f32 = 1. / 8000.0;
 

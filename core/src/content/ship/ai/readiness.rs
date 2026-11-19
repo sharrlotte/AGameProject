@@ -1,0 +1,147 @@
+use std::collections::{HashMap, HashSet};
+
+use bevy::prelude::*;
+
+use super::component::{Brain, Capability, Readiness};
+use super::config::AiConfig;
+use crate::content::block::feature::ammo::AmmoState;
+use crate::content::block::feature::turret::{TurretCharge, TurretPower, TurretState};
+use crate::content::block::{
+    BlockOwner, Disabled, LaserBeamPatternShootingState, LaserBeamPatternState,
+    PullingBeamPattern,
+};
+use crate::content::ship::ShipStats;
+
+pub fn update_readiness(
+    mut ships: Query<(Entity, &ShipStats, &Capability, &mut Readiness)>,
+    blocks: Query<(
+        &BlockOwner,
+        Option<&AmmoState>,
+        Option<(&TurretPower, &TurretCharge)>,
+        Option<&LaserBeamPatternState>,
+        Option<&PullingBeamPattern>,
+        Option<&TurretState>,
+    )>,
+) {
+    let mut ammo_totals: HashMap<Entity, (u32, u32)> = HashMap::new();
+    let mut charge_totals: HashMap<Entity, (f32, f32)> = HashMap::new();
+    let mut draining: HashSet<Entity> = HashSet::new();
+
+    for (owner, ammo_state, turret_charge, laser, pulling, state) in &blocks {
+        if let Some(ammo_state) = ammo_state {
+            let entry = ammo_totals.entry(owner.body).or_default();
+            entry.0 += ammo_state.current();
+            entry.1 += 1;
+        }
+        if let Some((TurretPower::Charge { capacity, .. }, charge)) = turret_charge {
+            let entry = charge_totals.entry(owner.body).or_default();
+            entry.0 += charge.value;
+            entry.1 += capacity;
+        }
+        let beam_on = laser.is_some_and(|l| {
+            matches!(l.shooting, LaserBeamPatternShootingState::Shooting { .. })
+        }) || (pulling.is_some() && state.is_some_and(|s| s.active));
+        if beam_on {
+            draining.insert(owner.body);
+        }
+    }
+
+    for (entity, stats, cap, mut readiness) in &mut ships {
+        let hp_ratio = if stats.max_health > 0.0 {
+            (stats.health / stats.max_health).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+
+        let battery_ratio = if stats.power_capacity > 0.0 {
+            (stats.power_stored / stats.power_capacity).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+
+        let charge_ratio = match charge_totals.get(&entity) {
+            Some(&(cur, max)) if max > 0.0 => (cur / max).clamp(0.0, 1.0),
+            _ => 1.0,
+        };
+
+        let energy_ratio = if cap.uses_energy_weapons {
+            (stats.power_supply * 0.5 + battery_ratio * 0.25 + charge_ratio * 0.25).clamp(0.0, 1.0)
+        } else {
+            (stats.power_supply * 0.7 + battery_ratio * 0.3).clamp(0.0, 1.0)
+        };
+
+        let steel = stats.cargo_items.get("steel").copied().unwrap_or(0);
+        let ammo_ratio = match ammo_totals.get(&entity) {
+            Some(&(current, count)) if count > 0 => {
+                if current > 0 || steel > 0 {
+                    ((current as f32 + steel as f32 * 50.0) / (count as f32 * 500.0)).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                }
+            }
+            _ => 1.0,
+        };
+
+        let is_support_role = matches!(cap.role, super::component::Role::Support | super::component::Role::Escort);
+        let disarmed = (!is_support_role && cap.offensive_dps <= 0.0)
+            || (!is_support_role
+                && cap.uses_ammo_weapons
+                && !cap.uses_energy_weapons
+                && ammo_ratio <= 0.0);
+
+        *readiness = Readiness {
+            hp_ratio,
+            energy_ratio,
+            ammo_ratio,
+            disarmed,
+            firing_drain_beam: draining.contains(&entity),
+            power_supply: stats.power_supply,
+            battery_ratio,
+        };
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn update_booster_shedding(
+    commands: &mut Commands,
+    ship_entity: Entity,
+    brain: &mut Brain,
+    skill: u8,
+    cap: &Capability,
+    readiness: &Readiness,
+    cfg: &AiConfig,
+    boosters_by_ship: &HashMap<Entity, Vec<Entity>>,
+) {
+    let Some(list) = boosters_by_ship.get(&ship_entity) else {
+        brain.shed_boosters = false;
+        return;
+    };
+    
+    if skill < cfg.unlocks.power_management_level || cap.booster_count == 0 {
+        if brain.shed_boosters {
+            brain.shed_boosters = false;
+            for &b in list {
+                commands.entity(b).remove::<Disabled>();
+            }
+        }
+        return;
+    }
+
+    if !brain.shed_boosters
+        && readiness.power_supply < cfg.booster_shed_supply_threshold
+        && readiness.battery_ratio < cfg.booster_shed_battery_threshold
+    {
+        brain.shed_boosters = true;
+        for &b in list {
+            commands.entity(b).insert(Disabled);
+        }
+    } else if brain.shed_boosters
+        && (readiness.battery_ratio >= cfg.booster_restore_battery_threshold
+            || readiness.power_supply >= 0.99)
+    {
+        brain.shed_boosters = false;
+        for &b in list {
+            commands.entity(b).remove::<Disabled>();
+        }
+    }
+}

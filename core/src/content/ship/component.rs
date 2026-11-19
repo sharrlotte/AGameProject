@@ -19,7 +19,7 @@ use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
 
 use crate::content::selectable::Selectable;
 
-use crate::content::ship::ai::{AiProfile, AiRuntime};
+use crate::content::ship::ai::{Brain, Doctrine, FireOrder, Readiness, Sensor, Skill, Steering};
 
 use crate::content::body::BlockGrid;
 
@@ -65,7 +65,7 @@ pub struct ShipDesign {
     pub name: String,
     pub blocks: Vec<BlockPlacement>,
     #[serde(default)]
-    pub ai: AiProfile,
+    pub doctrine: Doctrine,
 }
 
 
@@ -77,7 +77,7 @@ impl ShipDesign {
             id: Uuid::now_v7(),
             name: String::new(),
             blocks,
-            ai: AiProfile::default(),
+            doctrine: Doctrine::default(),
         }
     }
 
@@ -145,8 +145,13 @@ impl ShipDesign {
                 ActiveCollisionTypes::all(),
             ))
             .insert((
-                self.ai.clone(),
-                AiRuntime::new(&self.ai, transform.translation.truncate()),
+                self.doctrine,
+                Skill::default(),
+                Sensor::default(),
+                Readiness::default(),
+                Brain::new(transform.translation.truncate(), 5.0),
+                Steering::default(),
+                FireOrder::default(),
                 Damping {
                     linear_damping: config.0.linear_damping,
                     angular_damping: config.0.angular_damping,
@@ -192,14 +197,6 @@ impl ShipDesign {
 
         Some((ship_entity, block_entities))
     }
-}
-
-
-#[derive(Component, Debug)]
-pub enum ShipBehavior {
-    Approach { position: Vec2, radius: f32 },
-    GoAround { position: Vec2, radius: f32 },
-    AimAt { target: Vec2, hold_distance: f32, aim_offset_angle: f32 },
 }
 
 
