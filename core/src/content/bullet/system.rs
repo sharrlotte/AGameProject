@@ -39,7 +39,7 @@ pub fn destroy_out_of_range_bullet(
                 .truncate()
                 .distance_squared(bullet.shooted_at)
         {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }
@@ -581,6 +581,8 @@ pub fn handle_point_defense_hits(
     interceptables: Query<Entity, With<Interceptable>>,
     mut commands: Commands,
 ) {
+    let mut despawned = HashSet::new();
+
     for event in collision_events.read() {
         let CollisionEvent::Started(first, second, _) = event else {
             continue;
@@ -594,9 +596,13 @@ pub fn handle_point_defense_hits(
             if interceptor_owner.team == target_owner.team {
                 continue;
             }
-            if interceptables.contains(target) {
-                commands.entity(target).despawn();
-                commands.entity(interceptor).despawn();
+            if interceptables.contains(target)
+                && despawned.insert(target)
+                && despawned.insert(interceptor)
+            {
+                commands.entity(target).try_despawn();
+                commands.entity(interceptor).try_despawn();
+                break;
             }
         }
     }
@@ -852,24 +858,37 @@ pub fn handle_collisions(
     mut bullets: Query<(Entity, &mut Bullet)>,
     missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
 ) {
+    let mut despawned = HashSet::new();
+
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
             if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e1) {
-                handle_bullet_collision(&mut commands, bullet, &mut bulletc);
+                handle_bullet_collision(&mut commands, &mut despawned, bullet, &mut bulletc);
             } else if let Ok((bullet, mut bulletc)) = bullets.get_mut(*e2) {
-                handle_bullet_collision(&mut commands, bullet, &mut bulletc);
+                handle_bullet_collision(&mut commands, &mut despawned, bullet, &mut bulletc);
             } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e1) {
-                handle_missile_collision(&mut commands, hitbox, transform);
-            } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e2) {
+                if despawned.insert(hitbox.missile) {
+                    handle_missile_collision(&mut commands, hitbox, transform);
+                }
+            } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e2)
+                && despawned.insert(hitbox.missile)
+            {
                 handle_missile_collision(&mut commands, hitbox, transform);
             }
         }
     }
 }
 
-fn handle_bullet_collision(commands: &mut Commands, bullet: Entity, bulletc: &mut Bullet) {
+fn handle_bullet_collision(
+    commands: &mut Commands,
+    despawned: &mut HashSet<Entity>,
+    bullet: Entity,
+    bulletc: &mut Bullet,
+) {
     if bulletc.piercing <= 0 {
-        commands.entity(bullet).despawn();
+        if despawned.insert(bullet) {
+            commands.entity(bullet).try_despawn();
+        }
     } else {
         bulletc.piercing -= 1;
     }
@@ -880,7 +899,7 @@ fn handle_missile_collision(
     hitbox: &MissileHitbox,
     transform: &GlobalTransform,
 ) {
-    commands.entity(hitbox.missile).despawn();
+    commands.entity(hitbox.missile).try_despawn();
 
     let transform = Transform::from(*transform);
 
@@ -924,5 +943,78 @@ pub fn reset_disabled_beams(
         && let Some(beam) = pulling.beam
     {
         commands.entity(beam).insert(Visibility::Hidden);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
+
+    #[test]
+    fn collision_deduplicates_missile_despawn_and_blast() {
+        let mut app = App::new();
+        app.add_message::<CollisionEvent>();
+        app.add_systems(Update, handle_collisions);
+
+        let missile = app.world_mut().spawn_empty().id();
+        let hitbox = app
+            .world_mut()
+            .spawn((
+                MissileHitbox {
+                    missile,
+                    team: Team::new(0),
+                    blast_radius: 20.0,
+                    blast_damage: 10.0,
+                },
+                GlobalTransform::default(),
+            ))
+            .id();
+        let block_a = app.world_mut().spawn_empty().id();
+        let block_b = app.world_mut().spawn_empty().id();
+
+        app.world_mut().write_message(CollisionEvent::Started(
+            hitbox,
+            block_a,
+            CollisionEventFlags::empty(),
+        ));
+        app.world_mut().write_message(CollisionEvent::Started(
+            hitbox,
+            block_b,
+            CollisionEventFlags::empty(),
+        ));
+
+        app.update();
+
+        assert!(app.world().get_entity(missile).is_err());
+        let mut blasts = app.world_mut().query::<&Damage>();
+        assert_eq!(blasts.iter(app.world()).count(), 1);
+    }
+
+    #[test]
+    fn point_defense_deduplicates_mutual_interceptable_hits() {
+        let mut app = App::new();
+        app.add_message::<CollisionEvent>();
+        app.add_systems(Update, handle_point_defense_hits);
+
+        let proj_a = app
+            .world_mut()
+            .spawn((ProjectileOwner { team: 0 }, Interceptable))
+            .id();
+        let proj_b = app
+            .world_mut()
+            .spawn((ProjectileOwner { team: 1 }, Interceptable))
+            .id();
+
+        app.world_mut().write_message(CollisionEvent::Started(
+            proj_a,
+            proj_b,
+            CollisionEventFlags::empty(),
+        ));
+
+        app.update();
+
+        assert!(app.world().get_entity(proj_a).is_err());
+        assert!(app.world().get_entity(proj_b).is_err());
     }
 }

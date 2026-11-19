@@ -1,4 +1,9 @@
-## ADDED Requirements
+# block-disabled Specification
+
+## Purpose
+Defines the `Disabled` block marker component, automatic synchronization from `Debris` ownership, state/visual cleanup on disable, and system exclusion via `Without<Disabled>`.
+
+## Requirements
 
 ### Requirement: Blocks can be marked Disabled
 The block module SHALL provide a `Disabled` marker component. Active block systems for turrets, shooting patterns, radars, boosters, and thrusters SHALL exclude entities with `Disabled` using `Without<Disabled>`.

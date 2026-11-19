@@ -78,7 +78,10 @@ fn register_engine_plugins(app: &mut App) {
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0)
             .with_custom_initialization(
                 RapierContextInitialization::InitializeDefaultRapierContext {
-                    integration_parameters: IntegrationParameters { ..default() },
+                    integration_parameters: IntegrationParameters { 
+                        normalized_max_linear_velocity: f32::MAX,
+                        ..default() 
+                    },
                     rapier_configuration: RapierConfiguration {
                         gravity: Vec2::ZERO,
                         physics_pipeline_active: true,
