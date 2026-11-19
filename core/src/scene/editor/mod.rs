@@ -12,13 +12,7 @@ pub use save::*;
 pub use ship_list::*;
 pub use ui::*;
 
-use bevy::{
-    input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
-    picking::hover::HoverMap,
-    prelude::*,
-    window::PrimaryWindow,
-};
-use std::mem;
+use bevy::prelude::*;
 use uuid::Uuid;
 
 use crate::{
@@ -70,6 +64,9 @@ pub struct BlockListPanel;
 
 #[derive(Component)]
 pub struct ShipListPanel;
+
+#[derive(Component)]
+pub struct ShipListContent;
 
 #[derive(Component)]
 pub struct ShipBase;
@@ -132,9 +129,7 @@ impl Plugin for ShipEditorPlugin {
                     .chain()
                     .run_if(in_state(SceneState::ShipEditor))
                     .in_set(SimulationSet::Input),
-            )
-            .add_systems(Update, send_scroll_events.in_set(SimulationSet::Input))
-            .add_observer(on_scroll_handler);
+            );
     }
 }
 
@@ -152,11 +147,4 @@ pub struct EditorState {
     pub grid: BlockGrid,
     pub ships: Vec<ShipDesign>,
     pub doctrine: Doctrine,
-}
-
-#[derive(EntityEvent, Debug)]
-#[entity_event(propagate, auto_propagate)]
-pub struct Scroll {
-    entity: Entity,
-    delta: Vec2,
 }

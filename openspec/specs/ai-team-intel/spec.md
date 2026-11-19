@@ -1,5 +1,10 @@
-## ADDED Requirements
+# AI Team Intel
 
+## Purpose
+
+Live `max_radar_range` scanning (`Sensor`), always-on team-wide `TeamIntel` contact/alert sharing with bounded memory, and two-tier `TacticalBoard` coordination.
+
+## Requirements
 ### Requirement: Live radar scanning bounded by max_radar_range
 AI ships SHALL NOT use an omniscient global ship map for targeting. Each ship's `Sensor` SHALL scan enemy ships strictly within its live `Capability.max_radar_range` (computed from surviving blocks and `base_core_radar_range`).
 

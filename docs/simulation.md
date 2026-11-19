@@ -115,17 +115,21 @@ Debris collides with ships and other debris, radar ignores it, and bodies never 
 
 `ShipDesign::spawn` builds a `BlockGrid` from a layout (using each placement's rotated
 footprint), derives `GridBuildResult`, spawns the ship with `RigidBody::Dynamic`,
-compound hitbox collider, `ShipStats`, `BlockGrid`, `AiProfile`, `AiRuntime`,
-`DespawnOnExit(SceneState::Game)`, and spawns each block entity with its identity. With
-the `dev` feature, a `ShipUIRoot` child holds a `Text2d` debug dump that is visible only
-for ships in `ShipDebugSelection`.
+compound hitbox collider, `ShipStats`, `BlockGrid`, `Doctrine`, `Skill`, `Sensor`,
+`Readiness`, `Brain`, `Steering`, `FireOrder`, `DespawnOnExit(SceneState::Game)`, and
+spawns each block entity with its identity. With the `dev` feature, a `ShipUIRoot` child
+holds a `Text2d` debug dump that is visible only for ships in `ShipDebugSelection`.
+
+`FixedUpdate` chains `(SimulationSet::Ai, SimulationSet::Control, SimulationSet::Weapons,
+SimulationSet::Cleanup, PhysicsSet::SyncBackend)` so entity spawns/despawns never race
+between `PhysicsSet::SyncBackend` and `PhysicsSet::Writeback`.
 
 Movement: player control uses `ExternalForce` (WASD/QE, Pilot mode); AI uses
-`update_ship_behavior` steering intents from `AiBehavior`. Approach and go-around
-geometry comes from shared pure helpers in `content/ship/geometry.rs`, which are also
-used by the dev-only `ShipDebugPlugin` gizmo renderer so steering and diagnostics
-cannot diverge. Damping is configured in `game.ron` (`linear_damping = 0.9`,
-`angular_damping = 0.999`).
+`update_ship_steering` from `Steering` (`desired_heading`, `thrust_world`,
+`throttle_cap`). Steering gizmo geometry comes from shared pure helpers in
+`content/ship/ai/steer.rs`, which are also used by the dev-only `ShipDebugPlugin` gizmo
+renderer so steering and diagnostics cannot diverge. Damping is configured in `game.ron`
+(`linear_damping = 0.9`, `angular_damping = 0.999`).
 
 ## Starter designs
 

@@ -119,6 +119,7 @@ fn register_simulation_sets(app: &mut App) {
                 SimulationSet::Control,
                 SimulationSet::Weapons,
                 SimulationSet::Cleanup,
+                PhysicsSet::SyncBackend,
             )
                 .chain(),
         )

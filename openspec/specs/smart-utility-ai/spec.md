@@ -1,5 +1,10 @@
-## ADDED Requirements
+# Smart Utility AI
 
+## Purpose
+
+Block-introspective live `Capability` analysis, `Skill(1..=10)` difficulty curves in `base/ai.ron`, modular Utility AI (`Brain` + `Scorer`s with hysteresis), power/ammo/support block tactics, and decoupled `Steering`.
+
+## Requirements
 ### Requirement: Pure feature-based live ship capability introspection
 Every ship SHALL maintain a `Capability` component computed strictly from its live `BlockGrid` and `BlockDef.features` (with zero hardcoded block type names), recomputed on spawn and on `ShipChanged`. `Capability` SHALL capture fixed vs. rotating turret inventory (including mounted `Rot90` angles and `aim_tolerance`), weapon archetypes (`Single`, `Burst`, `LaserBeam`, `PullingBeam`, `Missile`, `Bullet`, `Laser`, `EnemyBullet` point defense), DPS-weighted optimal and maximum ranges, energy vs. ammo dependency, `Booster` overdrive support, `Generator`/`Battery` presence, 4-quadrant hull armor HP, mobility (`thrust_to_mass`, `can_move`), live `max_radar_range`, and inferred `Role`.
 

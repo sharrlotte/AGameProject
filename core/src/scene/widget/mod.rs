@@ -3,6 +3,10 @@ use bevy::prelude::*;
 
 use crate::simulation::SimulationSet;
 
+pub mod scroll;
+
+use scroll::ScrollPlugin;
+
 #[derive(Component, Clone, Copy)]
 pub struct ButtonVisuals {
     pub base: Color,
@@ -72,7 +76,8 @@ pub struct WidgetPlugin;
 
 impl Plugin for WidgetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, sync_button_colors.in_set(SimulationSet::Present));
+        app.add_plugins(ScrollPlugin)
+            .add_systems(Update, sync_button_colors.in_set(SimulationSet::Present));
     }
 }
 

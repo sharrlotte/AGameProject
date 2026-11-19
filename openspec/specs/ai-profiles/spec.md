@@ -2,81 +2,45 @@
 
 ## Purpose
 
-Per-ship inline AI profiles of prioritized rules drive one runtime behavior enum, replacing marker-based behavior FSMs.
+Per-ship `Doctrine` overrides combined with live `Capability` introspection, `Skill(1..=10)`, `Sensor`, and `Brain` Utility AI.
 
 ## Requirements
 ### Requirement: AI profiles are per-ship and inline
 
-Every `ShipDesign` SHALL contain an inline `AiProfile { think_rate_hz, initial, rules }`; there SHALL be no global faction behavior config. Each rule SHALL contain priority, condition, behavior, and cooldown.
+Every `ShipDesign` SHALL contain an optional `doctrine: Doctrine` (`Auto`, `Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`, defaulting to `Doctrine::Auto`) instead of inline rule lists (`AiProfile` / `AiRule`). Per-ship behavior SHALL be derived dynamically from live `Capability` introspection, `Skill(1..=10)`, `Doctrine`, and `TeamIntel`.
 
-#### Scenario: Two ships, two profiles
-- **WHEN** two ships are spawned from different designs
-- **THEN** they run different rule sets without a shared resource
+#### Scenario: Ship design omits doctrine
+- **WHEN** a `ShipDesign` RON omits `doctrine`
+- **THEN** it deserializes with `Doctrine::Auto` and derives its combat role from its live blocks
 
-### Requirement: Rules are prioritized and cooldown-gated
-
-At `think_rate_hz` in `FixedUpdate`, the AI SHALL evaluate rules in descending priority, apply the first matching condition, continue the current behavior when none match, and respect per-rule cooldowns to prevent thrash.
-
-#### Scenario: Priority wins
-- **WHEN** two rules match
-- **THEN** the higher-priority behavior runs
-
-#### Scenario: Cooldown allows fallback
-- **WHEN** a rule is on cooldown
-- **THEN** a lower-priority matching rule may run
-
-#### Scenario: No matching rule
-- **WHEN** no rule matches
-- **THEN** the current behavior continues
-
-### Requirement: All authored behaviors are reachable
-
-The AI SHALL implement `Idle`, `Wander`, `Patrol`, `Guard`, `Follow`, `Regroup`, `Kite`, `Chase`, `Attack`, `Flee`, and `Kamikaze` semantics, and each SHALL be selectable by at least one rule without Rust changes.
-
-#### Scenario: Previously unreachable behaviors run
-- **WHEN** a rule selects `Regroup`, `Follow`, `Flee`, or `Kamikaze`
-- **THEN** the behavior executes instead of being unreachable
-
-#### Scenario: Flee moves away
-- **WHEN** `Flee` runs
-- **THEN** the ship moves away from the target until the configured distance is reached
-
-#### Scenario: Kamikaze detonates
-- **WHEN** `Kamikaze` contacts its target
-- **THEN** it applies its configured blast and dies
-
-#### Scenario: Attack targets a real entity
-- **WHEN** `Attack` runs
-- **THEN** it resolves a real target entity and never aims at `Vec2::ZERO`
-
-#### Scenario: Wander uses distinct chances
-- **WHEN** `Wander` runs
-- **THEN** it uses distinct attack and guard chances and re-rolls on arrival
+#### Scenario: Two identical hulls use different doctrines
+- **WHEN** two ships with identical blocks are configured with `Doctrine::Escort` and `Doctrine::Brawler`
+- **THEN** each ship executes its respective doctrine without any shared rule list
 
 ### Requirement: AI runtime state is saved and invalidated
 
-`AiRuntime { current, target, spawn_position, leader, rule_cooldowns }` SHALL be included in `ShipSnapshot`, restored on load, and invalidated when a target dies or leaves radar.
+`Brain { current, spawn_position, think_timer, strafe_sign, strafe_timer, shed_boosters }` along with `Doctrine` and `Skill` SHALL be included in `ShipSnapshot`, restored on load, and invalidated when a target entity no longer exists or is absent from `TeamIntel`.
 
 #### Scenario: Runtime round-trip
-- **WHEN** a saved ship has a current behavior and cooldowns
-- **THEN** loading restores them
+- **WHEN** a saved ship has an active `Tactic`, `Skill`, `Doctrine`, `spawn_position`, and `shed_boosters` state
+- **THEN** loading restores them accurately
 
 #### Scenario: Target invalidation
-- **WHEN** a target dies or leaves radar
-- **THEN** the AI re-resolves a valid target
+- **WHEN** a target ship dies or leaves `TeamIntel`
+- **THEN** the AI clears the stale target and re-evaluates via Utility scorers
 
 ### Requirement: One runtime behavior enum replaces marker components
 
-The system SHALL use one `AiBehavior` enum as the current runtime behavior; the 11 `BehaviorX` marker components, `ShipBehavior`, and `AIShipController` SHALL NOT exist.
+The system SHALL use one `Tactic` enum inside `Brain` as the current runtime behavior; `AiBehavior`, `AiRuntime`, `AiProfile`, `AiRule`, `ShipBehavior`, and legacy marker components SHALL NOT exist.
 
 #### Scenario: Debug overlay reads runtime behavior
-- **WHEN** the debug overlay reads a ship's behavior
-- **THEN** it reads `AiRuntime.current` and no marker component
+- **WHEN** the dev debug overlay reads a ship's behavior
+- **THEN** it reads `Brain.current`, `Skill`, `Doctrine`, `Capability`, and `Steering`
 
 ### Requirement: The editor authors AI profiles
 
-The editor SHALL provide an AI panel with a rule list (add, remove, reorder), priority, condition, behavior, and cooldown fields, validation messages, preset buttons (`Aggressive`, `Guard`, `Escort`, `Skirmisher`, `Kamikaze`), a current-behavior preview label, and RON round-trip with the design.
+The editor AI panel SHALL provide `Doctrine` selector buttons (`Auto`, `Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`) that persist with `ShipDesign` through RON round-trip, replacing the legacy rule list, presets, and RON rule preview.
 
-#### Scenario: Rule persists across save and reopen
-- **WHEN** a designer adds a rule, saves, and reopens the design
-- **THEN** the rule is present with the same values
+#### Scenario: Doctrine persists across save and reopen
+- **WHEN** a designer selects `Doctrine::Sniper`, saves, and reopens the design
+- **THEN** the design loads with `Doctrine::Sniper` selected

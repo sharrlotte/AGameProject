@@ -65,6 +65,35 @@ text sections to the button, so clicks and hover feedback work over both the lab
 blank space. Domain systems set `ButtonVisualState` (`Normal` / `Selected` / `Disabled`);
 one generic system derives the final color from `ButtonVisuals` and that state.
 
+## Reusable scroll widget
+
+`scene/widget/scroll/` provides `ScrollPlugin` and `spawn_scroll_area`. A scroll area is a
+`ScrollWrapper` (caller-supplied `Display` and tab marker) containing a `ScrollViewport`
+(`Overflow::scroll_y()`, `flex_grow: 1.0`, `flex_basis: 0`, `min_height: 0`, `row_gap` supplied
+by the caller) and a sibling `ScrollbarTrack` holding an absolutely positioned
+`ScrollbarThumb`. Each scroll area occupies only the remaining space in a column panel, and
+the builder returns the inner viewport entity so callers can attach a content marker.
+
+`send_scroll_events` translates `MouseWheel` input on hovered UI entities into bubbling `Scroll`
+events. `on_scroll_handler` applies a scroll event to the nearest scrollable ancestor, consumes
+only the delta actually applied, and clamps `ScrollPosition` to `0.0..=max_offset` per axis.
+`sync_scrollbars` hides the track when `ComputedNode.content_size().y <= size().y + 1.0`, and
+otherwise sizes the thumb to `clamp(view / content * 100, 10, 100)%` and sets its top offset
+from the scroll ratio over the remaining track space. The thumb is a visual indicator;
+drag-to-scroll is not part of the widget.
+
+## Ship editor left panel
+
+The left panel has a fixed "Back to Home" button, a tab bar, and three mutually exclusive tabs
+(`Blocks`, `Ships`, `AI`) built with `spawn_scroll_area`. The tab marker and `Display` live on
+the wrapper, so switching tabs hides/shows the list and its scrollbar together: `sync_tabs`
+sets `Display::Flex` on the active wrapper and `Display::None` on the others.
+
+Fixed-height list items (`BlockSelectButton`, ship rows, `AiPresetButton`) use
+`flex_shrink: 0.0` so long lists overflow the viewport instead of being compressed. Ship rows
+are cleared and repopulated in the inner `ShipListContent` viewport, leaving the sibling
+scrollbar intact across refreshes.
+
 ## Setting panel
 
 See scenes.md (Volume / Bloom / Close).

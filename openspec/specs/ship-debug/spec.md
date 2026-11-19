@@ -57,7 +57,7 @@ Per-ship debug text SHALL be visible only for ships in `ShipDebugSelection`, and
 
 #### Scenario: Selected ship text
 - **WHEN** a ship is selected
-- **THEN** its `ShipUIRoot` shows `AiRuntime.current`, behavior, stats, cargo, and block ammo dumps
+- **THEN** its `ShipUIRoot` shows `Brain.current`, `Skill`, `Doctrine`, inferred `Role`, `Steering`, stats, cargo, and block ammo dumps
 
 #### Scenario: Unselected ship text
 - **WHEN** a ship is not selected
@@ -69,7 +69,7 @@ Per-ship debug text SHALL be visible only for ships in `ShipDebugSelection`, and
 
 ### Requirement: Debug gizmos are drawn only for selected ships
 
-The debug gizmo renderer SHALL draw AI behavior geometry, hull/bounds with a core marker, heading/velocity/force, and turret aim rays only for ships in `ShipDebugSelection`.
+The debug gizmo renderer SHALL draw AI steering/radar geometry, hull/bounds with a core marker, heading/velocity/force, and turret aim rays only for ships in `ShipDebugSelection`.
 
 #### Scenario: No selection
 - **WHEN** `ShipDebugSelection` is empty
@@ -77,7 +77,7 @@ The debug gizmo renderer SHALL draw AI behavior geometry, hull/bounds with a cor
 
 #### Scenario: Selected ship gizmos
 - **WHEN** a ship is selected
-- **THEN** gizmos are drawn from its `ShipBehavior`, `BoundingBox`, `Transform`, `Velocity`, `ExternalForce`, and the `TurretState` of blocks owned by that ship
+- **THEN** gizmos are drawn from its `Steering`, `Capability` (`max_radar_range`), `BoundingBox`, `Transform`, `Velocity`, `ExternalForce`, and the `TurretState` of blocks owned by that ship
 
 #### Scenario: Deselected ship
 - **WHEN** a ship is removed from the selection
@@ -105,9 +105,9 @@ When a selected ship despawns, its entity SHALL be removed from `ShipDebugSelect
 
 ### Requirement: AI debug geometry has a single source of truth
 
-The geometry used by the AI behavior debug gizmos SHALL be computed by shared pure helpers used by both `update_ship_behavior` and the debug gizmo renderer.
+The geometry used by the AI steering debug gizmos SHALL be computed by shared pure helpers used by both `steer` / `update_ship_steering` and the debug gizmo renderer.
 
 #### Scenario: Steering and renderer agree
-- **WHEN** a ship has an `Approach` or `GoAround` behavior
-- **THEN** the renderer draws the same target and ring geometry that the steering system computes, without duplicating the math
+- **WHEN** a ship has an active `Steering` intent
+- **THEN** the renderer draws the same desired heading and thrust vector geometry that the steering system computes, without duplicating the math
 

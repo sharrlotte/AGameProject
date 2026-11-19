@@ -31,11 +31,11 @@ The editor SHALL emit one `ShipDesignChanged` message, autosave after 500 ms of 
 
 ### Requirement: The AI panel edits profiles
 
-The AI panel SHALL list rules, allow add, remove, and reorder, edit priority, condition, behavior, and cooldown, show validation, apply presets, show the current behavior preview, and round-trip through RON.
+The editor AI panel SHALL display `Doctrine` selector buttons (`Auto`, `Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`), highlight the active doctrine, update `EditorState.doctrine`, and round-trip `ShipDesign.doctrine` through RON without rule lists or RON preview text.
 
-#### Scenario: Profile round-trip
-- **WHEN** a profile is saved and reloaded
-- **THEN** rules and presets match
+#### Scenario: Doctrine round-trip
+- **WHEN** a designer selects a `Doctrine`, saves the ship, and reopens it
+- **THEN** the saved `Doctrine` is loaded and highlighted in the AI panel
 
 ### Requirement: Save slots are usable
 
@@ -63,11 +63,15 @@ Play and Deploy SHALL build a fresh validated payload from the current editor gr
 
 ### Requirement: Settings are debounced and merged
 
-Settings saves SHALL be debounced and merged with defaults; one settings source of truth SHALL exist.
+Settings saves SHALL be debounced and merged with defaults; one settings source of truth (`GameSetting`) SHALL exist and include `ai_level: u8` (`1..=10`). The Settings UI overlay SHALL provide an `AI Skill` `[-]` / `[+]` stepper displaying the current level (`1..=10`) and updating `GameSetting.ai_level`.
 
 #### Scenario: Rapid settings changes
-- **WHEN** several settings change quickly
-- **THEN** one write occurs and unspecified values keep defaults
+- **WHEN** several settings including `ai_level` change quickly
+- **THEN** one debounced write occurs and unspecified values keep defaults
+
+#### Scenario: AI Skill stepper clamps to 1..=10
+- **WHEN** the player clicks `-` at level `1` or `+` at level `10` in the Settings overlay
+- **THEN** `GameSetting.ai_level` remains clamped within `1..=10` and the displayed value matches
 
 ### Requirement: Layout constants replace magic numbers
 

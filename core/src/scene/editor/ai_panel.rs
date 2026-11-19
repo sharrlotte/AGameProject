@@ -4,11 +4,11 @@ use crate::content::ship::ai::Doctrine;
 use crate::scene::widget::ButtonVisualState;
 
 #[derive(Component)]
-pub struct DoctrineButton(pub Doctrine);
+pub struct AiPresetButton(pub Doctrine);
 
 pub fn on_doctrine(
     click: On<PointerClick>,
-    buttons: Query<&DoctrineButton>,
+    buttons: Query<&AiPresetButton>,
     mut editor: ResMut<EditorState>,
     mut save_events: MessageWriter<ShipSaveChanged>,
 ) {
@@ -21,7 +21,7 @@ pub fn on_doctrine(
 
 pub fn sync_doctrine(
     editor: Res<EditorState>,
-    mut buttons: Query<(&DoctrineButton, &mut ButtonVisualState)>,
+    mut buttons: Query<(&AiPresetButton, &mut ButtonVisualState)>,
 ) {
     for (button, mut state) in &mut buttons {
         *state = if button.0 == editor.doctrine {

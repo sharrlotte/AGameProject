@@ -51,20 +51,21 @@ pub fn refresh_ship_list(
     mut commands: Commands,
     mut available_ships: ResMut<EditorState>,
     catalog: Res<ShipCatalog>,
-    ship_list_panel: Single<Entity, With<ShipListPanel>>,
+    ship_list_content: Single<Entity, With<ShipListContent>>,
 ) {
     available_ships.ships = catalog.designs().to_vec();
 
-    commands.entity(ship_list_panel.entity()).despawn_children();
+    commands.entity(ship_list_content.entity()).despawn_children();
 
     commands
-        .entity(ship_list_panel.entity())
+        .entity(ship_list_content.entity())
         .with_children(|parent| {
             for ship in &available_ships.ships {
                 parent
                     .spawn((Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Row,
+                        flex_shrink: 0.0,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
                         margin: UiRect::bottom(Val::Px(4.0)),

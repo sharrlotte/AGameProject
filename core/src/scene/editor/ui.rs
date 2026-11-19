@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::scene::widget::scroll::spawn_scroll_area;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 
 pub fn setup_editor_ui(
@@ -11,6 +12,7 @@ pub fn setup_editor_ui(
         transform.translation = Vec3::new(0.0, 0.0, 0.0);
     }
     let mut block_buttons = Vec::new();
+    let mut ship_list_content = None;
     commands.spawn((
         ShipBase,
         Visibility::Inherited,
@@ -86,19 +88,12 @@ pub fn setup_editor_ui(
                             );
                         });
 
-                    left_panel
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                width: Val::Percent(100.0),
-                                height: Val::Percent(100.0),
-                                row_gap: Val::Px(6.0),
-                                display: Display::None,
-                                ..default()
-                            },
-                            AiPanel,
-                        ))
-                        .with_children(|panel| {
+                    spawn_scroll_area(
+                        left_panel,
+                        Display::None,
+                        6.0,
+                        AiPanel,
+                        |panel| {
                             panel.spawn((
                                 Text::new("AI Doctrine"),
                                 TextFont {
@@ -106,6 +101,10 @@ pub fn setup_editor_ui(
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
+                                Node {
+                                    flex_shrink: 0.0,
+                                    ..default()
+                                },
                             ));
                             for doctrine in Doctrine::ALL {
                                 spawn_button(
@@ -113,6 +112,7 @@ pub fn setup_editor_ui(
                                     Node {
                                         width: Val::Percent(100.0),
                                         height: Val::Px(ROW_HEIGHT),
+                                        flex_shrink: 0.0,
                                         justify_content: JustifyContent::Center,
                                         align_items: AlignItems::Center,
                                         border_radius: BorderRadius::all(Val::Px(4.0)),
@@ -121,33 +121,27 @@ pub fn setup_editor_ui(
                                     doctrine.label(),
                                     13.0,
                                     Color::WHITE,
-                                    DoctrineButton(doctrine),
+                                    AiPresetButton(doctrine),
                                     on_doctrine,
                                     ButtonVisuals::green(),
                                 );
                             }
-                        });
+                        },
+                    );
 
-                    left_panel
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                width: Val::Percent(100.0),
-                                height: Val::Percent(100.0),
-                                row_gap: Val::Px(8.0),
-                                display: Display::Flex,
-                                overflow: Overflow::scroll_y(),
-                                ..default()
-                            },
-                            BlockListPanel,
-                        ))
-                        .with_children(|list_content| {
+                    spawn_scroll_area(
+                        left_panel,
+                        Display::Flex,
+                        8.0,
+                        BlockListPanel,
+                        |list_content| {
                             for (block_type, def) in registry.iter() {
                                 let button = spawn_widget(
                                     list_content,
                                     Node {
                                         width: Val::Percent(100.0),
                                         height: Val::Px(60.0),
+                                        flex_shrink: 0.0,
                                         justify_content: JustifyContent::Start,
                                         align_items: AlignItems::Center,
                                         border: UiRect::all(Val::Px(1.0)),
@@ -161,17 +155,15 @@ pub fn setup_editor_ui(
                                 );
                                 block_buttons.push((button, def));
                             }
-                        });
-
-                    left_panel.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            width: Val::Percent(100.0),
-                            row_gap: Val::Px(8.0),
-                            display: Display::None,
-                            ..default()
                         },
+                    );
+
+                    ship_list_content = Some(spawn_scroll_area(
+                        left_panel,
+                        Display::None,
+                        8.0,
                         ShipListPanel,
+                        |_| {},
                     ));
                 });
 
@@ -258,6 +250,10 @@ pub fn setup_editor_ui(
                     );
                 });
         });
+
+    if let Some(content) = ship_list_content {
+        commands.entity(content).insert(ShipListContent);
+    }
 
     for (button, def) in block_buttons {
         commands.entity(button).with_children(|btn| {
