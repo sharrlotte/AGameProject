@@ -4,7 +4,9 @@ use crate::content::team::{DEFAULT_TEAM_ID, Team};
 
 use super::def::{MissionDef, ShipSpawn};
 use crate::config::{GameConfigValue, GameSetting};
+use crate::constant::GRID_SIZE;
 use crate::content::block::BlockRegistry;
+use crate::content::body::BlockGrid;
 use crate::content::ship::ShipDesign;
 use crate::content::ship::ai::{AiConfig, AiConfigValue, Brain, Skill};
 use crate::save::design::ShipCatalog;
@@ -124,9 +126,49 @@ fn spawn_ship(
     );
 }
 
-pub fn formation(anchor: Vec2, index: usize, count: usize, spacing: f32) -> Vec2 {
-    let offset = (index as f32 - (count.saturating_sub(1) as f32) / 2.0) * spacing;
-    anchor + Vec2::Y * offset
+pub fn hull_extent_y(design: &ShipDesign, registry: &BlockRegistry) -> Vec2 {
+    let mut grid = BlockGrid::new();
+    grid.rebuild_from_layout(&design.blocks, registry);
+
+    let Some(min) = grid.cells.keys().map(|cell| cell.y).min() else {
+        return Vec2::ZERO;
+    };
+    let Some(max) = grid.cells.keys().map(|cell| cell.y).max() else {
+        return Vec2::ZERO;
+    };
+
+    Vec2::new(min as f32 * GRID_SIZE, (max + 1) as f32 * GRID_SIZE)
+}
+
+pub fn line_positions(anchor: Vec2, extents: &[Vec2], gap: f32) -> Vec<Vec2> {
+    let total = extents
+        .iter()
+        .map(|extent| extent.y - extent.x)
+        .sum::<f32>()
+        + gap * extents.len().saturating_sub(1) as f32;
+
+    let mut cursor = -total * 0.5;
+    extents
+        .iter()
+        .map(|extent| {
+            let offset = cursor - extent.x;
+            cursor += extent.y - extent.x + gap;
+            anchor + Vec2::Y * offset
+        })
+        .collect()
+}
+
+pub fn formation_positions(
+    anchor: Vec2,
+    fleet: &[ShipDesign],
+    registry: &BlockRegistry,
+    gap: f32,
+) -> Vec<Vec2> {
+    let extents = fleet
+        .iter()
+        .map(|design| hull_extent_y(design, registry))
+        .collect::<Vec<_>>();
+    line_positions(anchor, &extents, gap)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -141,7 +183,8 @@ pub fn spawn_mission(
     ai_cfg: &AiConfigValue,
     spacing: f32,
 ) {
-    for (index, design) in fleet.iter().enumerate() {
+    let positions = formation_positions(mission.spawn, fleet, registry, spacing);
+    for (design, position) in fleet.iter().zip(positions) {
         let team = Team::new(DEFAULT_TEAM_ID);
         let skill = resolve_skill(None, team, None, setting.ai_level, &ai_cfg.0);
         spawn_ship_entity(
@@ -150,7 +193,7 @@ pub fn spawn_mission(
             config,
             design,
             team,
-            formation(mission.spawn, index, fleet.len(), spacing),
+            position,
             skill,
             &ai_cfg.0,
         );
@@ -175,21 +218,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn three_ships_are_centered_on_anchor() {
+    fn hulls_are_separated_by_the_configured_gap() {
         let anchor = Vec2::new(5000.0, 0.0);
-        assert_eq!(formation(anchor, 0, 3, 400.0), anchor - Vec2::Y * 400.0);
-        assert_eq!(formation(anchor, 1, 3, 400.0), anchor);
-        assert_eq!(formation(anchor, 2, 3, 400.0), anchor + Vec2::Y * 400.0);
+        let positions = line_positions(
+            anchor,
+            &[Vec2::new(-512.0, 512.0), Vec2::new(-288.0, 288.0)],
+            50.0,
+        );
+        assert_eq!(positions[0], anchor - Vec2::Y * 313.0);
+        assert_eq!(positions[1], anchor + Vec2::Y * 537.0);
     }
 
     #[test]
-    fn two_ships_straddle_anchor() {
-        assert_eq!(formation(Vec2::ZERO, 0, 2, 400.0), Vec2::Y * -200.0);
-        assert_eq!(formation(Vec2::ZERO, 1, 2, 400.0), Vec2::Y * 200.0);
+    fn three_hulls_are_centered_on_anchor() {
+        let extents = [Vec2::new(-50.0, 50.0); 3];
+        let positions = line_positions(Vec2::ZERO, &extents, 100.0);
+        assert_eq!(positions[0], Vec2::Y * -200.0);
+        assert_eq!(positions[1], Vec2::ZERO);
+        assert_eq!(positions[2], Vec2::Y * 200.0);
     }
 
     #[test]
     fn single_ship_sits_at_anchor() {
-        assert_eq!(formation(Vec2::X, 0, 1, 400.0), Vec2::X);
+        assert_eq!(
+            line_positions(Vec2::X, &[Vec2::new(-50.0, 50.0)], 400.0),
+            vec![Vec2::X]
+        );
     }
 }

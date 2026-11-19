@@ -126,9 +126,7 @@ pixels-per-meter 1.0.
 (debug builds only), the scene plugins, plus `ConfigPlugin` (ron config boot gate),
 `ContentPlugin` (bullet, ship, block, item, lifetime, death, damage, selectable),
 `MissionPlugin` (battle-core scaffolding), `SavePlugin`, and (debug builds / feature
-`dev`) `WorldInspectorPlugin` / `RemotePlugin`. With feature `dev`, `ContentPlugin` also
-registers `ShipDebugPlugin`, which owns click selection, the scoped debug label, and
-ship gizmos; all of it is compiled out without the feature.
+`dev`) `WorldInspectorPlugin` / `RemotePlugin`. With feature `dev`, `ContentPlugin` also registers `ShipDebugPlugin`, which draws ship gizmos for the currently inspected ship; all of it is compiled out without the feature.
 
 State gating on systems uses `run_if(in_state(SceneState::…))`, `on_timer`,
 `on_message`, and explicit state `States` (`BattlePhase`, `ConfigState`).
@@ -165,7 +163,8 @@ content/
   block/         BlockPlacement/GridBlock/BlockRef/BlockOwner, BlockRegistry, BlockDef/Shape/Voxel, features (turret, thruster, power, storage, ammo, sprite), radar, stats (StackRule, StatEffect)
   body/          BlockGrid + BodyMutation; debris/ (Debris body, detach/split, expiry drops)
   ship/          Ship, AI controller, movement, geometry helpers, indicators, Stat computation
-    debug/       (dev feature only) ShipDebugSelection, click observer, scoped text, gizmo renderer
+    inspect/     InspectedShip, click observer, Escape/despawn handling (enemy click gated to dev)
+    debug/       (dev feature only) gizmo renderer driven by InspectedShip
   bullet/        Bullet/Laser/Missile components + all projectile systems
   damage/        Damage/DamageEvent (health decrement + floating text)
   death/         Death marker → despawn

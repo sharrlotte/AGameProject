@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use super::BoundingBox;
 
+#[cfg(any(feature = "dev", test))]
 pub fn ship_center(transform: &Transform, bounds: &BoundingBox) -> Vec2 {
     transform
         .transform_point((bounds.size / 2.0).extend(0.0))

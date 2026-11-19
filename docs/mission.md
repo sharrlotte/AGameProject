@@ -35,9 +35,13 @@ and keeps the in-memory fleet. Removing a ship changes fleet membership only and
 deletes its design from `ShipCatalog`. Because the fleet stores full design snapshots, an
 edit to a catalog design is reflected only after redeploying that design.
 
-Fleet ships spawn on a line centered on `MissionDef.spawn`, spaced by `fleet_spacing`
-from `game.ron` (default `400.0`). The arrangement is a pure function of anchor, index,
-count, and spacing; it has no hardcoded geometry.
+Fleet ships spawn on a line centered on `MissionDef.spawn`. Each design's hull extent is
+measured from its block layout via `BlockRegistry` and `BlockGrid`, and ships are placed
+edge-to-edge with `fleet_spacing` from `game.ron` (default `400.0`) as the **gap between
+hulls**, never between centers. Asymmetric hulls are handled by using each design's own
+minimum/maximum cell offsets relative to its origin. This prevents large designs such as
+`B2` from overlapping smaller ones at spawn. The offset math is a pure function of the
+anchor, hull extents, and gap; only the extent lookup needs the registry.
 
 ## Quick Battle flow
 
@@ -48,10 +52,11 @@ Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle**
    `assets/config/mission/quick-battle.ron`) and resets `BattlePhase` to `Loading`.
 2. `poll_mission_loaded` spawns the mission when the asset read finishes (~1 frame; the
    asset is cached afterward).
-3. Player ships = `DeployPayload.fleet`, each at `formation(spawn, index, count,
-   fleet_spacing)`, team 0. Enemies are resolved by `schematic_name` from their absolute
-   positions in the mission, team 1. (`find_schematic` falls back to the first available
-   design when a name is missing — see defects.md.)
+3. Player ships = `DeployPayload.fleet`, each at a bounds-aware line position derived
+   from `MissionDef.spawn` and `fleet_spacing`, team 0. Enemies are resolved by
+   `schematic_name` from their absolute positions in the mission, team 1.
+   (`find_schematic` falls back to the first available design when a name is missing —
+   see defects.md.)
 4. Core loss in `apply_body_mutations` emits `ShipDestroyed` and wrecks the surviving
    components as debris bodies.
 5. The outcome system consumes `ShipDestroyed` in `FixedPostUpdate` after the mutation

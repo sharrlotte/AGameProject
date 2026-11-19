@@ -1,13 +1,11 @@
 pub mod ai;
-#[cfg(feature = "dev")]
-pub mod debug;
 pub mod component;
-pub mod geometry;
+pub mod inspect;
 pub mod stat;
 pub mod system;
 pub mod throttle;
 pub use component::*;
-pub use geometry::*;
+pub use inspect::*;
 pub use stat::*;
 pub use system::*;
 pub use throttle::*;
@@ -22,6 +20,15 @@ use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
 
 use indicator::draw_indicators;
+
+#[cfg(feature = "dev")]
+pub mod debug;
+
+#[cfg(any(feature = "dev", test))]
+pub mod geometry;
+
+#[cfg(feature = "dev")]
+pub use geometry::*;
 
 pub struct IndicatorsPlugin;
 
@@ -58,6 +65,6 @@ impl Plugin for ShipPlugin {
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Stats),
         )
-        .add_plugins((IndicatorsPlugin, AiPlugin));
+        .add_plugins((IndicatorsPlugin, AiPlugin, ShipInspectPlugin));
     }
 }

@@ -1,7 +1,6 @@
 # UI Spec — HUD and Panels
 
-All HUD elements are UI nodes (not world-space canvases) except the per-ship debug label
-(`ShipUIRoot`, `Text2d` in-world) and damage numbers (`Text2d` at `LAYER_DAMAGE_TEXT = 400`).
+All HUD elements are UI nodes (not world-space canvases) except damage numbers (`Text2d` at `LAYER_DAMAGE_TEXT = 400`).
 
 ## Game scene HUD
 
@@ -21,30 +20,19 @@ All HUD elements are UI nodes (not world-space canvases) except the per-ship deb
   dragging rectangle and entourage highlights use world-space gizmos.
 - **Ship debug gizmos** — with the `dev` feature, `ShipDebugPlugin` draws AI behavior
   geometry, hull/bounds with a core marker, heading/velocity/force, and turret aim rays
-  only for ships in `ShipDebugSelection`.
-- **Ship click picking** — with the `dev` feature, block visual sprites receive `Pickable`
-  so clicks bubble to the ship root, and non-interactive HUD nodes are `Pickable::IGNORE`
-  so they do not swallow world clicks. Interactive buttons keep their picking behavior.
+  only for the ship in `InspectedShip`.
+- **Ship click picking** — block visual sprites receive `Pickable` so clicks bubble to
+  the ship root, and non-interactive HUD nodes are `Pickable::IGNORE` so they do not
+  swallow world clicks. Interactive buttons keep their picking behavior. Non-player ships
+  can be clicked only when the `dev` feature is enabled.
 
-## Per-ship in-world label
+## Ship Inspector HUD
 
-`ShipUIRoot` child of the ship; contains one `Text2d` spawned at ship creation and
-updated only when a ship is selected and the content changes (`dev` feature only —
-`#[cfg(feature = "dev")]`). Unselected roots stay hidden and their text is not rebuilt.
+`ShipInspectorRoot` (`scene/game/inspector/`) is anchored at the bottom-right of `SceneState::Game` (`Visibility::Hidden` / `Display::None` when `InspectedShip` is `None`).
 
-```
-Ship: <Entity id>
-Tactic: <Tactic label> | Skill: <1..=10> | Doctrine: <Doctrine label> (<Role label>)
-HP: <pct>% | Energy: <pct>% | Ammo: <pct>% | Radar: <max_radar_range>
-Steering: <Steering debug>
-CARGO <used> / <capacity> {item breakdown}
-S: <ShipStats debug>
-<ammo debug dump for each ammo-capable child>
-```
-
-Reverse-rotated to face screen upright (`global_transform.rotation().inverse()`),
-z = `LAYER_SHIP_UI = 300`. The root is `Pickable::IGNORE`; compiled out of builds
-without the `dev` feature.
+- **Block diagram** (`InspectorBlockGrid`): rebuilt only when `InspectedShip` changes or `ShipChanged` fires for the inspected ship. Renders each block's `Feature::Texture` and `Feature::Turret` `ImageNode`s scaled to fit `140×140` px and oriented with `placement.rotation` and `def.shape.xform()`.
+- **Live refresh** (`on_timer(80ms)`): mutates `InspectorBlockNode` `ImageNode.color` from block `Health` (`> 0.75` white, `0.4..=0.75` amber, `< 0.4` red) and updates Hull HP, Power (`production`/`demand`/`supply`), Battery (`stored`/`capacity`), Ammo readiness, Cargo, Mobility (`mass`/`thrust`/`turn`), Combat (`range`/`radar`), and AI (`Role`/`Doctrine`/`Brain.current`) in-place.
+- **Dev section** (`#[cfg(feature = "dev")]`): appends `Skill`, `Steering`, and per-block `AmmoState` totals.
 
 ## Damage / warning icons
 

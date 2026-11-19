@@ -28,12 +28,9 @@ No game entities exist here.
   from the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
   (`ShipChanged`, `OnMessage`) recomputes `ShipStats`. Detached components become
   `Debris` bodies with their own grid, collider, lifetime, and drops.
-- `ShipUIRoot` child of each ship (`dev` feature only): a persistent `Text2d` debug dump
-  that is visible only while the ship is in `ShipDebugSelection`.
+- Bottom-right `ShipInspectorRoot` (`scene/game/inspector/`): hidden when `InspectedShip` is `None`; displays the ship's block sprite diagram (rebuilt on `InspectedShip` change or `ShipChanged`, tinted in-place by block `Health`) and near-real-time stats (`ShipStats`, `Readiness`, `Brain`, `Doctrine`, `Capability`, plus `Skill`/`Steering`/block `Ammo` in `dev`).
 
-Gameplay selection requires `Ctrl` + left-drag and remains player-only; `Home`/`Game` do
-not scroll-select. With the `dev` feature, left-clicking any ship toggles it in the
-independent `ShipDebugSelection`, and `Escape` clears that selection.
+Gameplay selection requires `Ctrl` + left-drag and remains player-only; `Home`/`Game` do not scroll-select. Left-clicking a player ship in-world or clicking a ship in `ShipList` sets `InspectedShip` (left-clicking enemy ships is gated to `dev`), and `Escape` clears `InspectedShip`.
 
 ## Ship Editor
 

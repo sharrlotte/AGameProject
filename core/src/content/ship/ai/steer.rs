@@ -10,10 +10,14 @@ use super::component::{
 use super::config::{AiConfig, AiConfigValue};
 use crate::config::GameConfigValue;
 use crate::content::block::feature::turret::lead_point;
-use crate::content::ship::{BoundingBox, Ship, ship_center};
+use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
 
+#[cfg(feature = "dev")]
+use crate::content::ship::{BoundingBox, ship_center};
+
+#[cfg(feature = "dev")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SteeringGizmo {
     pub origin: Vec2,
@@ -21,6 +25,7 @@ pub struct SteeringGizmo {
     pub thrust_world: Vec2,
 }
 
+#[cfg(feature = "dev")]
 pub fn steering_gizmo_vectors(
     steering: &Steering,
     transform: &Transform,

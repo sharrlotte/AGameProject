@@ -1,4 +1,10 @@
-## ADDED Requirements
+# Deploy Fleet
+
+## Purpose
+
+The deployed fleet is the sole source of player ships. Missions define the battlefield and enemies only; the fleet is configured, persisted, and managed by the player.
+
+## Requirements
 
 ### Requirement: The deployed fleet is the sole source of player ships
 
@@ -14,15 +20,19 @@ The system SHALL spawn every team-0 ship from `DeployPayload.fleet`. A mission d
 
 ### Requirement: Fleet ships spawn in a configurable line formation
 
-Fleet ships SHALL be placed on a line centered on the mission `spawn` anchor with spacing read from `game.ron`. The arrangement SHALL be computed by a pure function of anchor, ship index, ship count, and spacing.
+Fleet ships SHALL be placed on a line centered on the mission `spawn` anchor. Each design's hull extent SHALL be measured from its block layout, and hulls SHALL be placed edge-to-edge with `fleet_spacing` from `game.ron` as the gap between hulls, never the distance between centers. Asymmetric hulls SHALL use their own minimum and maximum cell offsets relative to the ship origin. The offset calculation SHALL be a pure function of the anchor, hull extents, and gap.
 
-#### Scenario: Three ships centered on the anchor
-- **WHEN** a fleet of three ships spawns at anchor `A` with spacing `S`
-- **THEN** their positions are `A - S`, `A`, and `A + S` along the formation axis
+#### Scenario: Large and small hulls do not overlap
+- **WHEN** a fleet contains a tall design and a short design at anchor `A` with gap `G`
+- **THEN** the distance between the tall hull's edge and the short hull's edge is exactly `G`
 
-#### Scenario: Spacing comes from config
+#### Scenario: Three hulls centered on the anchor
+- **WHEN** three identical hulls of height `H` spawn at anchor `A` with gap `G`
+- **THEN** their center offsets are `-(H + G)`, `0`, and `H + G`
+
+#### Scenario: Gap comes from config
 - **WHEN** `fleet_spacing` changes in `game.ron`
-- **THEN** the next battle uses the new spacing without a code change
+- **THEN** the next battle uses the new gap without a code change
 
 ### Requirement: Default fleet is seeded from game config
 

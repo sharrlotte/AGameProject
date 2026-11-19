@@ -1,5 +1,9 @@
+mod inspector;
+
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
+
+use inspector::{ShipInspectorPlugin, spawn_inspector_panel};
 
 use crate::{
     constant::{GRID_SIZE, SMALL_GRID_SIZE},
@@ -8,7 +12,7 @@ use crate::{
         body::BlockGrid,
         selectable::EntitySelectEvent,
         ship::component::{BoundingBox, Ship},
-        ship::ShipStats,
+        ship::{ShipSelected, ShipStats},
         team::Team,
     },
     resource::{CameraTarget, ControlMode, ControlledShip, SceneState},
@@ -48,7 +52,7 @@ impl Plugin for GameScenePlugin {
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Input),
             )
-            .add_plugins(BackgroundPlugin);
+            .add_plugins((BackgroundPlugin, ShipInspectorPlugin));
     }
 }
 
@@ -58,9 +62,11 @@ fn on_ship_button(
     mut camera_target: ResMut<CameraTarget>,
     mut controlled: ResMut<ControlledShip>,
     mut mode: ResMut<ControlMode>,
+    mut selected: MessageWriter<ShipSelected>,
 ) {
     let Ok(button) = buttons.get(click.event().entity) else { return; };
     let entity = button.0;
+    selected.write(ShipSelected::select(entity));
     if camera_target.following == Some(entity) {
         if controlled.controlling == Some(entity) {
             camera_target.following = None;
@@ -178,6 +184,8 @@ fn setup(mut commands: Commands) {
                         },
                     ));
                 });
+
+            spawn_inspector_panel(game_ui);
         });
 }
 

@@ -117,8 +117,7 @@ Debris collides with ships and other debris, radar ignores it, and bodies never 
 footprint), derives `GridBuildResult`, spawns the ship with `RigidBody::Dynamic`,
 compound hitbox collider, `ShipStats`, `BlockGrid`, `Doctrine`, `Skill`, `Sensor`,
 `Readiness`, `Brain`, `Steering`, `FireOrder`, `DespawnOnExit(SceneState::Game)`, and
-spawns each block entity with its identity. With the `dev` feature, a `ShipUIRoot` child
-holds a `Text2d` debug dump that is visible only for ships in `ShipDebugSelection`.
+spawns each block entity with its identity, observing `on_ship_click` for `InspectedShip`.
 
 `FixedUpdate` chains `(SimulationSet::Ai, SimulationSet::Control, SimulationSet::Weapons,
 SimulationSet::Cleanup, PhysicsSet::SyncBackend)` so entity spawns/despawns never race
