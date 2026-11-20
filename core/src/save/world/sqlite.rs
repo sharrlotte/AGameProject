@@ -14,16 +14,30 @@ use crate::save::world::component::{
 use crate::save::world::store::{WorldStore, decode, encode, now_unix_ms};
 
 pub struct SqliteWorldStore {
+    path: PathBuf,
     conn: Mutex<Connection>,
 }
 
 impl std::fmt::Debug for SqliteWorldStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SqliteWorldStore").finish_non_exhaustive()
+        f.debug_struct("SqliteWorldStore")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
     }
 }
 
 impl SqliteWorldStore {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn slot_id(&self) -> Option<Uuid> {
+        self.path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .and_then(|s| Uuid::parse_str(s).ok())
+    }
+
     pub fn create(path: &Path, meta: &WorldMeta, designs: &[ShipDesign]) -> Result<Self, WorldStoreError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -37,6 +51,7 @@ impl SqliteWorldStore {
         }
 
         let store = Self {
+            path: path.to_path_buf(),
             conn: Mutex::new(Connection::open(path).map_err(sql_err)?),
         };
 
@@ -51,7 +66,56 @@ impl SqliteWorldStore {
             return Err(WorldStoreError::NotFound(path.display().to_string()));
         }
 
+        let (version, has_meta): (u32, bool) = {
+            let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(sql_err)?;
+
+            let v: u32 = conn
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .map_err(sql_err)?;
+                
+            let has: bool = conn
+                .query_row(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='world_meta'",
+                    [],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            (v, has)
+        };
+
+        if version > WORLD_DB_SCHEMA_VERSION {
+            return Err(WorldStoreError::VersionMismatch {
+                expected: WORLD_DB_SCHEMA_VERSION,
+                found: version,
+            });
+        }
+
+        if version < WORLD_DB_SCHEMA_VERSION {
+            let new_id = Uuid::now_v7();
+            let parent = path.parent().unwrap_or(Path::new(""));
+            let new_path = parent.join(format!("{new_id}.db"));
+
+            fs::copy(path, &new_path)?;
+
+            let conn = Connection::open_with_flags(&new_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+                .map_err(sql_err)?;
+            let store = Self {
+                path: new_path,
+                conn: Mutex::new(conn),
+            };
+            store.configure()?;
+            store.migrate()?;
+
+            if has_meta {
+                store.append_migrated_name()?;
+            }
+
+            return Ok(store);
+        }
+
         let store = Self {
+            path: path.to_path_buf(),
             conn: Mutex::new(
                 Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
                     .map_err(sql_err)?,
@@ -101,6 +165,28 @@ impl SqliteWorldStore {
                 .map_err(sql_err)?;
         }
 
+        Ok(())
+    }
+
+    fn append_migrated_name(&self) -> Result<(), WorldStoreError> {
+        let conn = self.lock()?;
+        let current_name: Option<String> = conn
+            .query_row("SELECT name FROM world_meta WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(sql_err)?;
+
+        if let Some(name) = current_name {
+            if !name.ends_with("(Migrated)") {
+                let new_name = format!("{name} (Migrated)");
+                conn.execute(
+                    "UPDATE world_meta SET name = ?1 WHERE id = 1",
+                    params![new_name],
+                )
+                .map_err(sql_err)?;
+            }
+        }
         Ok(())
     }
 
@@ -601,12 +687,24 @@ mod tests {
             assert_eq!(v, 0, "new raw db starts at user_version 0");
         }
 
-        let store = SqliteWorldStore::open(&path).expect("open runs migration ladder");
+        let store = SqliteWorldStore::open(&path).expect("open forks and runs migration ladder");
+        assert_ne!(store.path(), path, "store operates on a new forked file");
+        assert!(store.slot_id().is_some(), "new file has a valid slot uuid");
+
+        {
+            let orig = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .expect("open original db");
+            let v: u32 = orig
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .expect("query original version");
+            assert_eq!(v, 0, "original database file was left completely unmodified");
+        }
+
         let conn = store.lock().expect("lock connection");
         let v: u32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .expect("query migrated version");
-        assert_eq!(v, WORLD_DB_SCHEMA_VERSION);
+        assert_eq!(v, WORLD_DB_SCHEMA_VERSION, "forked database migrated to schema version");
 
         let count: i64 = conn
             .query_row(
@@ -615,7 +713,7 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("count migrated tables");
-        assert_eq!(count, 5, "all 5 schema tables exist after migration");
+        assert_eq!(count, 5, "all 5 schema tables exist on the forked database");
 
         let _ = fs::remove_dir_all(dir);
     }

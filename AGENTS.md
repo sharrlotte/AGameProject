@@ -43,6 +43,7 @@
 - The order of defnification in code should be enum + struct + trait + impl on top, function next, test on the bottom
 - Prefer enum to create state machine to avoid invalid state for complex state
 - Avoid fail silently, we must fail loud or log depend on which is better for UX
+- Method should be stateless and have no side-effect so we can test the easier
 
 ## Bevy
 
