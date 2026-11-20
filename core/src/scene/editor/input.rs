@@ -247,6 +247,7 @@ pub fn handle_placement(
     mut editor: ResMut<EditorState>,
     mut events: MessageWriter<ShipSaveChanged>,
     ship_base: Single<Entity, With<ShipBase>>,
+    field_assets: Option<Res<FieldAssets>>,
 ) {
     if editor.place_req {
         if let (Some(selected_type), Some(mouse_grid_position)) =
@@ -272,7 +273,13 @@ pub fn handle_placement(
             }
 
             let placement = BlockPlacement::new(grid_position, &def.block_type, editor.rotation);
-            let base = spawn_placed_block(&mut commands, ship_base.entity(), def, &placement);
+            let base = spawn_placed_block(
+                &mut commands,
+                ship_base.entity(),
+                def,
+                &placement,
+                field_assets.as_deref(),
+            );
             editor.grid.insert_block(placement, base, def);
 
             events.write(ShipSaveChanged);

@@ -43,3 +43,22 @@ Boost SHALL scale thruster force and torque, turret charge speed and cooldown, b
 #### Scenario: Turret damage unchanged
 - **WHEN** a turret is boosted by 2
 - **THEN** its projectile damage and range are unchanged
+
+### Requirement: Overdrive field visual
+Every `Booster` block SHALL have an associated visual overdrive field indicating its coverage radius. The field SHALL render as an orange circle filled with low opacity and a crisp orange border ring. In battle scenes, the field SHALL be visible if and only if the booster is powered (`BoosterState.powered == true`) and not `Disabled`, for both player and opponent teams. In the ship editor scene, the field SHALL render for placed booster blocks and on the block placement cursor preview when a booster block is selected. The visual field SHALL be positioned over ship blocks (above hull layer `z = 10.0` and below projectile layer `z = 100.0`).
+
+#### Scenario: Powered booster displays field in battle
+- **WHEN** a booster block on any team is powered and not disabled during battle
+- **THEN** its overdrive field visual is visible centered at the booster block with radius equal to `Booster.radius`
+
+#### Scenario: Unpowered or disabled booster hides field
+- **WHEN** a booster block lacks power or gains the `Disabled` component
+- **THEN** its overdrive field visual becomes hidden
+
+#### Scenario: Editor displays field for placed booster
+- **WHEN** a booster block is placed on a ship in the ship editor
+- **THEN** its overdrive field visual is rendered and visible
+
+#### Scenario: Editor cursor preview displays field
+- **WHEN** the player selects a booster block in the editor palette and hovers over the grid
+- **THEN** the placement cursor visual includes the overdrive field preview

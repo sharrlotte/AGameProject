@@ -10,6 +10,8 @@ pub const INTERCEPTOR: &str = include_str!("../../../assets/config/starter/inter
 pub const RAIDER: &str = include_str!("../../../assets/config/starter/raider.ron");
 pub const B2: &str = include_str!("../../../assets/config/starter/b2.ron");
 pub const BLACKBIRD: &str = include_str!("../../../assets/config/starter/blackbird.ron");
+pub const AEGIS: &str = include_str!("../../../assets/config/starter/aegis.ron");
+pub const VANGUARD: &str = include_str!("../../../assets/config/starter/vanguard.ron");
 
 pub fn sandbox_designs_dir_in(base: &Path) -> PathBuf {
     base.join("sandbox_designs")
@@ -28,7 +30,7 @@ pub fn design_file_name(design: &ShipDesign) -> String {
 }
 
 pub fn starter_designs() -> Vec<ShipDesign> {
-    [INTERCEPTOR, RAIDER, B2, BLACKBIRD]
+    [INTERCEPTOR, RAIDER, B2, BLACKBIRD, AEGIS, VANGUARD]
         .iter()
         .filter_map(|text| match parse_document::<ShipDesign>(text) {
             Ok(design) => Some(design),
@@ -134,12 +136,14 @@ pub fn design_matches(design: &ShipDesign, other: &ShipDesign) -> bool {
             .all(|(a, b)| a.position == b.position && a.block_type == b.block_type && a.rotation == b.rotation)
 }
 
-fn starters() -> [(&'static str, &'static str); 4] {
+fn starters() -> [(&'static str, &'static str); 6] {
     [
         ("interceptor.ron", INTERCEPTOR),
         ("raider.ron", RAIDER),
         ("b2.ron", B2),
         ("blackbird.ron", BLACKBIRD),
+        ("aegis.ron", AEGIS),
+        ("vanguard.ron", VANGUARD),
     ]
 }
 
@@ -154,7 +158,7 @@ mod tests {
 
     #[test]
     fn starters_are_valid_documents() {
-        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD] {
+        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD, AEGIS, VANGUARD] {
             let design = parse_document::<ShipDesign>(text).expect("starter parses");
             assert_eq!(design.version, DESIGN_SCHEMA_VERSION);
             assert!(!design.blocks.is_empty());
@@ -188,7 +192,7 @@ mod tests {
             registry.register(key, def);
         }
 
-        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD] {
+        for text in [INTERCEPTOR, RAIDER, B2, BLACKBIRD, AEGIS, VANGUARD] {
             let design = parse_document::<ShipDesign>(text).expect("starter parses");
             registry
                 .validate_ship(&design.blocks)

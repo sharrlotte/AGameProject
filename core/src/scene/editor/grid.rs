@@ -75,6 +75,7 @@ pub fn update_placement_preview(
     mut state: Local<PreviewState>,
     preview: Query<Entity, With<PlacementPreview>>,
     mut sprites: Query<&mut Sprite, With<PreviewSprite>>,
+    field_assets: Option<Res<FieldAssets>>,
 ) {
     let key = PreviewKey {
         block: editor.selected_block.clone(),
@@ -140,23 +141,47 @@ pub fn update_placement_preview(
         commands.entity(entity).with_children(|root| {
             root.spawn((visual_transform(def.shape.xform()), Visual)).with_children(|visual| {
                 for feature in &def.features {
-                    let (image, offset, z) = match feature {
+                    match feature {
                         Feature::Texture(texture) => {
-                            (&texture.image, texture.offset, texture.z)
+                            visual.spawn((
+                                Sprite {
+                                    image: texture.image.clone(),
+                                    custom_size: Some(def.get_base_pixel_size()),
+                                    color: tint,
+                                    ..default()
+                                },
+                                Transform::from_translation(texture.offset.extend(texture.z)),
+                                PreviewSprite,
+                            ));
                         }
-                        Feature::Turret(turret) => (&turret.image, turret.offset, turret.z),
-                        _ => continue,
-                    };
-                    visual.spawn((
-                        Sprite {
-                            image: image.clone(),
-                            custom_size: Some(def.get_base_pixel_size()),
-                            color: tint,
-                            ..default()
-                        },
-                        Transform::from_translation(offset.extend(z)),
-                        PreviewSprite,
-                    ));
+                        Feature::Turret(turret) => {
+                            visual.spawn((
+                                Sprite {
+                                    image: turret.image.clone(),
+                                    custom_size: Some(def.get_base_pixel_size()),
+                                    color: tint,
+                                    ..default()
+                                },
+                                Transform::from_translation(turret.offset.extend(turret.z)),
+                                PreviewSprite,
+                            ));
+                        }
+                        Feature::Booster(booster) => {
+                            if let Some(assets) = field_assets.as_deref() {
+                                visual.spawn((
+                                    Field,
+                                    Mesh2d(assets.mesh.clone()),
+                                    MeshMaterial2d(assets.material.clone()),
+                                    Transform::from_translation(
+                                        Vec2::ZERO.extend(LAYER_OVERDRIVE_FIELD),
+                                    )
+                                    .with_scale(Vec3::new(booster.radius, booster.radius, 1.0)),
+                                    Visibility::Inherited,
+                                ));
+                            }
+                        }
+                        _ => {}
+                    }
                 }
             });
         });

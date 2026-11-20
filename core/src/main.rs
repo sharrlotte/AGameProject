@@ -60,13 +60,24 @@ fn main() {
     app.run();
 }
 
+fn window_mode() -> WindowMode {
+    #[cfg(feature = "dev")]
+    {
+        WindowMode::Windowed
+    }
+    #[cfg(not(feature = "dev"))]
+    {
+        WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
+    }
+}
+
 fn register_engine_plugins(app: &mut App) {
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "AGameProject".to_string(),
-                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+                    mode: window_mode(),
                     window_level: AlwaysOnBottom,
                     present_mode: PresentMode::AutoVsync,
                     ..Default::default()

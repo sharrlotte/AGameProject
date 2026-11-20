@@ -18,6 +18,16 @@
             position: (0.0, -3000.0),
             schematic_name: "Interceptor",
         ),
+        (
+            team: 1,
+            position: (0.0, -4000.0),
+            schematic_name: "Aegis",
+        ),
+        (
+            team: 1,
+            position: (0.0, 4000.0),
+            schematic_name: "Vanguard",
+        ),
     ],
     objective: DestroyEnemyCore,
 )

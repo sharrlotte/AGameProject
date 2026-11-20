@@ -1,7 +1,7 @@
 (
     default_enemy_level: 5,
     default_ally_level: 8,
-    base_core_radar_range: 2500.0,
+    base_core_radar_range: 1500.0,
     hysteresis: 0.12,
     investigate_arrival_radius: 350.0,
     search_patrol_radius: 2400.0,

@@ -2,13 +2,12 @@ use bevy::prelude::*;
 
 use crate::config::GameConfigValue;
 use crate::content::{
-    block::{
-        feature::{
-            power::{Battery, Booster, Consumer, Generator},
-            sprite::Texture,
-            thruster::Thruster,
-            turret::TurretComponent,
-        },
+    block::feature::{
+        power::{Battery, Booster, Consumer, Generator},
+        shield::Shield,
+        sprite::Texture,
+        thruster::Thruster,
+        turret::TurretComponent,
     },
     team::Team,
 };
@@ -23,6 +22,7 @@ pub enum Feature {
     Booster(Booster),
     Thruster(Thruster),
     Storage(u32),
+    Shield(Shield),
 }
 
 impl Feature {
@@ -32,7 +32,7 @@ impl Feature {
         base: Entity,
         visual: Entity,
         pixel_size: Vec2,
-        _team: &Team,
+        team: &Team,
         config: &GameConfigValue,
     ) {
         match self {
@@ -43,8 +43,8 @@ impl Feature {
             Self::Battery(battery) => battery.insert(commands, base),
             Self::Consumer(consumer) => consumer.insert(commands, base),
             Self::Booster(booster) => booster.insert(commands, base),
-            Self::Storage(_) => {
-            }
+            Self::Storage(_) => {}
+            Self::Shield(shield) => shield.insert(commands, base, visual, pixel_size, team, config),
         }
     }
 

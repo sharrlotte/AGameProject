@@ -22,6 +22,7 @@ use crate::content::block::{
         ammo::{Ammo, AmmoBuilder},
         component::Feature,
         power::{Battery, Booster, Consumer, Generator},
+        shield::{Shield, ShieldShape},
         sprite::Texture,
         thruster::Thruster,
         turret::{TurretComponent, TurretPower},
@@ -60,6 +61,7 @@ pub enum FeatureConfig {
     Booster(Booster),
     Thruster(Thruster),
     Storage(StorageConfig),
+    Shield(ShieldConfig),
 }
 
 
@@ -150,6 +152,38 @@ pub struct StorageConfig {
 }
 
 
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ShieldConfig {
+    pub shape: ShieldShapeConfig,
+    pub max_hp: f32,
+    pub cooldown: f32,
+    pub regen_rate: f32,
+    #[serde(default)]
+    pub demand: Option<f32>,
+}
+
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+pub enum ShieldShapeConfig {
+    Circle {
+        radius: f32,
+    },
+    Plane {
+        width: f32,
+        #[serde(default = "default_plane_thickness")]
+        thickness: f32,
+        #[serde(default)]
+        offset: Vec2,
+    },
+}
+
+
+fn default_plane_thickness() -> f32 {
+    8.0
+}
+
+
 impl FeatureConfig {
     fn into_feature(self, assets: &AssetServer, block_type: &str) -> Feature {
         match self {
@@ -190,6 +224,27 @@ impl FeatureConfig {
             FeatureConfig::Booster(booster) => Feature::Booster(booster.validated(block_type)),
             FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster),
             FeatureConfig::Storage(config) => Feature::Storage(config.capacity),
+            FeatureConfig::Shield(config) => {
+                let shape = match config.shape {
+                    ShieldShapeConfig::Circle { radius } => ShieldShape::Circle { radius },
+                    ShieldShapeConfig::Plane {
+                        width,
+                        thickness,
+                        offset,
+                    } => ShieldShape::Plane {
+                        width,
+                        thickness,
+                        offset,
+                    },
+                };
+                Feature::Shield(Shield::new(
+                    shape,
+                    config.max_hp,
+                    config.cooldown,
+                    config.regen_rate,
+                    config.demand,
+                ))
+            }
         }
     }
 }

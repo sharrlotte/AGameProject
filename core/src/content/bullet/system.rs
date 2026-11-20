@@ -20,6 +20,7 @@ use crate::content::block::{
     PullingBeamPattern, PullingBeamPatternState, ShootingProjectile, SingleShootPattern,
     SingleShootPatternState,
 };
+use crate::content::block::feature::shield::Barrier;
 use crate::content::damage::{Damage, DamageEvent};
 use crate::content::lifetime::Lifetime;
 use crate::content::body::BlockGrid;
@@ -388,27 +389,30 @@ pub fn handle_laser_beam(
                     team.bullet_filter(),
                 ));
 
+                let dir = (transform.rotation() * Vec3::Y).truncate().normalize_or_zero();
+                let mut hit_distance = *range;
+                let mut hit_target = None;
+
                 for barrel in barrels {
-                    let origin = transform.translation().truncate() + barrel + Vec2::new(0.0, 0.0);
+                    let origin = transform.translation().truncate() + *barrel;
+                    if let Some((target, toi)) =
+                        collision.cast_ray(origin, dir, *range, false, filter)
+                    {
+                        if toi < hit_distance {
+                            hit_distance = toi;
+                            hit_target = Some(target);
+                        }
+                    }
+                }
 
-                    let shape = &Cuboid::new(Vec2::new(shoot_pattern.width, *range));
-
-                    collision.intersect_shape(
-                        origin,
-                        transform.rotation().to_euler(EulerRot::XYZ).2,
-                        shape,
-                        filter,
-                        |entity, _collider| {
-                            if let Ok((health, _)) = healths.get(entity) {
-                                events.write(DamageEvent {
-                                    attacker: entity,
-                                    target: health,
-                                    damage: shoot_pattern.damage * supply_val,
-                                });
-                            }
-                            true
-                        },
-                    );
+                if let Some(target) = hit_target {
+                    if healths.contains(target) {
+                        events.write(DamageEvent {
+                            attacker: _entity,
+                            target,
+                            damage: shoot_pattern.damage * supply_val,
+                        });
+                    }
                 }
 
                 if let Some(beam) = shoot_pattern_state.beam {
@@ -416,20 +420,23 @@ pub fn handle_laser_beam(
                         Visibility::Visible,
                         Sprite {
                             color: team.color(intensitive),
-                            custom_size: Some(Vec2::new(shoot_pattern.width, *range)),
+                            custom_size: Some(Vec2::new(shoot_pattern.width, hit_distance)),
                             ..default()
                         },
+                        Transform::from_translation(
+                            Vec2::new(0.0, hit_distance / 2.0).extend(LAYER_BULLET),
+                        ),
                     ));
                 } else {
                     let beam = commands
                         .spawn((
                             Sprite {
                                 color: team.color(intensitive),
-                                custom_size: Some(Vec2::new(shoot_pattern.width, *range)),
+                                custom_size: Some(Vec2::new(shoot_pattern.width, hit_distance)),
                                 ..default()
                             },
                             Transform::from_translation(
-                                Vec2::new(0.0, *range / 2.0).extend(LAYER_BULLET),
+                                Vec2::new(0.0, hit_distance / 2.0).extend(LAYER_BULLET),
                             ),
                             Visibility::Hidden,
                         ))
@@ -857,6 +864,8 @@ pub fn handle_collisions(
     mut collision_events: MessageReader<CollisionEvent>,
     mut bullets: Query<(Entity, &mut Bullet)>,
     missile_hitboxes: Query<(&MissileHitbox, &GlobalTransform)>,
+    barriers: Query<(Entity, &Barrier)>,
+    mut damage_writer: MessageWriter<DamageEvent>,
 ) {
     let mut despawned = HashSet::new();
 
@@ -868,12 +877,30 @@ pub fn handle_collisions(
                 handle_bullet_collision(&mut commands, &mut despawned, bullet, &mut bulletc);
             } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e1) {
                 if despawned.insert(hitbox.missile) {
-                    handle_missile_collision(&mut commands, hitbox, transform);
+                    if let Ok((barrier_entity, _)) = barriers.get(*e2) {
+                        commands.entity(hitbox.missile).try_despawn();
+                        damage_writer.write(DamageEvent {
+                            attacker: hitbox.missile,
+                            target: barrier_entity,
+                            damage: hitbox.blast_damage,
+                        });
+                    } else {
+                        handle_missile_collision(&mut commands, hitbox, transform);
+                    }
                 }
             } else if let Ok((hitbox, transform)) = missile_hitboxes.get(*e2)
                 && despawned.insert(hitbox.missile)
             {
-                handle_missile_collision(&mut commands, hitbox, transform);
+                if let Ok((barrier_entity, _)) = barriers.get(*e1) {
+                    commands.entity(hitbox.missile).try_despawn();
+                    damage_writer.write(DamageEvent {
+                        attacker: hitbox.missile,
+                        target: barrier_entity,
+                        damage: hitbox.blast_damage,
+                    });
+                } else {
+                    handle_missile_collision(&mut commands, hitbox, transform);
+                }
             }
         }
     }
@@ -950,11 +977,13 @@ pub fn reset_disabled_beams(
 mod tests {
     use super::*;
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
+    use crate::content::block::feature::shield::ShieldShape;
 
     #[test]
     fn collision_deduplicates_missile_despawn_and_blast() {
         let mut app = App::new();
         app.add_message::<CollisionEvent>();
+        app.add_message::<DamageEvent>();
         app.add_systems(Update, handle_collisions);
 
         let missile = app.world_mut().spawn_empty().id();
@@ -1016,5 +1045,53 @@ mod tests {
 
         assert!(app.world().get_entity(proj_a).is_err());
         assert!(app.world().get_entity(proj_b).is_err());
+    }
+
+    #[test]
+    fn missile_collision_with_barrier_absorbs_damage_and_skips_blast() {
+        let mut app = App::new();
+        app.add_message::<CollisionEvent>();
+        app.add_message::<DamageEvent>();
+        app.add_systems(Update, handle_collisions);
+
+        let missile = app.world_mut().spawn_empty().id();
+        let hitbox = app
+            .world_mut()
+            .spawn((
+                MissileHitbox {
+                    missile,
+                    team: Team::new(1),
+                    blast_radius: 20.0,
+                    blast_damage: 50.0,
+                },
+                GlobalTransform::default(),
+            ))
+            .id();
+        let emitter = app.world_mut().spawn_empty().id();
+        let barrier = app
+            .world_mut()
+            .spawn((
+                Barrier {
+                    emitter,
+                    shape: ShieldShape::Circle { radius: 100.0 },
+                },
+                Health {
+                    health: 100.0,
+                    max_health: 100.0,
+                },
+            ))
+            .id();
+
+        app.world_mut().write_message(CollisionEvent::Started(
+            hitbox,
+            barrier,
+            CollisionEventFlags::empty(),
+        ));
+
+        app.update();
+
+        assert!(app.world().get_entity(missile).is_err());
+        let mut blasts = app.world_mut().query::<&Damage>();
+        assert_eq!(blasts.iter(app.world()).count(), 0);
     }
 }

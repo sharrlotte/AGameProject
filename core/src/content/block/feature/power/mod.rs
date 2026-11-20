@@ -1,5 +1,6 @@
 pub mod booster;
 pub mod component;
+pub mod field;
 pub mod grid;
 
 pub use component::*;
@@ -22,7 +23,8 @@ pub struct PowerPlugin;
 
 impl Plugin for PowerPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Supply>()
+        app.add_plugins(field::FieldPlugin)
+            .register_type::<Supply>()
             .register_type::<Boost>()
             .register_type::<Demand>()
             .register_type::<Generator>()

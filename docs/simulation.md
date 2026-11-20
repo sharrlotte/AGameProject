@@ -71,7 +71,9 @@ via chained `PowerSet::{Generate, Boost, Demand, Solve}`:
    `Battery { capacity }` pools stored energy (`Charge`, spawns full, lost on block destruction).
 2. **Boost**: `Booster { radius, boost, rate }` takes priority power before consumers,
    ordered by ascending distance to the ship core. A booster is binary: fully powered or off.
-   Powered boosters apply `Boost` (max stacking, own team within physics radius on any ship).
+   Powered boosters apply `Boost` (max stacking, own team within physics radius on any ship)
+   and render an active visual overdrive field (`z = 50.0`, orange fill and perimeter ring)
+   centered at the booster block; unpowered or disabled boosters hide the field.
 3. **Demand**: Active consumers report `Demand`:
    - Thrusters with `Consumer { rate }`: `rate × max(throttle.linear, throttle.angular) × Boost`.
    - Charge turrets (`Single`/`Burst`): `charge_rate × Boost` while `TurretCharge < capacity`, else `0`.
@@ -136,7 +138,7 @@ renderer so steering and diagnostics cannot diverge. Damping is configured in `g
 
 ## Starter designs
 
-Four starter `ShipDesign` documents are embedded via `include_str!` in
+Six starter `ShipDesign` documents are embedded via `include_str!` in
 `save/design/lib.rs` and written to the user data designs directory on every run
 before the directory is loaded into `ShipCatalog`. `quick-battle.ron` selects them
 by name: `Interceptor` for the player, `B2` and `Blackbird` for enemies.
@@ -148,8 +150,10 @@ non-overlapping, and satisfy `validate_ship`. Composition:
 |---|---|---|---|---|
 | `Interceptor` | 39 | 15 `hull`, 10 `wedge_1x1`, 1 `spike_1x3` | 3 `laser_turret` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
 | `Raider` | 49 | 23 `hull`, 12 `wedge_1x1`, 1 `spike_1x3` | 3 `swarmer` | 4 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
-| `B2` | 56 | 32 `hull`, 12 `wedge_1x1`, 2 `plate_2x2` | 2 `colaris`, 1 `foreshadow` | 2 `thruster_small`, 2 `reactor`, 2 `battery` |
+| `B2` | 56 | 31 `hull`, 12 `wedge_1x1`, 2 `plate_2x2` | 2 `colaris`, 1 `foreshadow` | 1 `shield_circle`, 2 `thruster_small`, 2 `reactor`, 2 `battery` |
 | `Blackbird` | 16 | 3 `hull`, 1 `wedge_1x1`, 2 `fin_1x2`, 1 `spike_1x3` | 1 `laser_turret` | 4 `thruster_small`, 1 `booster`, 1 `reactor`, 1 `battery` |
+| `Aegis` | 21 | 2 `hull`, 4 `wedge_1x1` | 1 `colaris`, 2 `laser_turret` | 1 `shield_circle`, 3 `thruster_small`, 2 `reactor`, 2 `battery`, 1 `booster` |
+| `Vanguard` | 19 | 4 `wedge_1x1`, 1 `spike_1x3` | 2 `laser_turret`, 2 `swarmer` | 1 `shield_plane`, 4 `thruster_small`, 2 `reactor`, 2 `battery` |
 
 The interceptor is a narrow arrow with an isosceles nose spike and wedge leading
 edges; the raider is a broad swept wedge with turrets at the wingtips and nose.

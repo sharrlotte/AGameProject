@@ -720,6 +720,11 @@ impl BlockRegistry {
                         stats.thrust_power += thruster.force();
                         stats.rotate_speed += thruster.torque();
                     }
+                    Feature::Shield(shield) => {
+                        if let Some(demand) = shield.demand {
+                            stats.power_demand += demand;
+                        }
+                    }
                     _ => {}
                 }
             }

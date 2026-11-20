@@ -15,6 +15,7 @@ pub fn load_initial_ship(
     catalog: Res<ShipCatalog>,
     placed_blocks: Query<Entity, With<BlockRef>>,
     ship_base: Single<Entity, With<ShipBase>>,
+    field_assets: Option<Res<FieldAssets>>,
 ) {
     let Some(design) = catalog.designs().first() else {
         return;
@@ -31,6 +32,7 @@ pub fn load_initial_ship(
         &catalog,
         &filename,
         ship_base.entity(),
+        field_assets.as_deref(),
     );
 }
 
@@ -110,6 +112,7 @@ pub fn handle_ship_loading(
     placed_blocks: Query<Entity, With<BlockRef>>,
     mut selections: MessageReader<LoadShipSelected>,
     ship_base: Single<Entity, With<ShipBase>>,
+    field_assets: Option<Res<FieldAssets>>,
 ) {
     for selection in selections.read() {
         despawn_ship(&mut commands, &placed_blocks);
@@ -120,6 +123,7 @@ pub fn handle_ship_loading(
             &catalog,
             &selection.filename,
             ship_base.entity(),
+            field_assets.as_deref(),
         );
     }
 }
@@ -130,6 +134,7 @@ pub fn spawn_placed_block(
     base: Entity,
     def: &BlockDef,
     placement: &BlockPlacement,
+    field_assets: Option<&FieldAssets>,
 ) -> Entity {
     let transform = def.to_transform(placement.position, placement.rotation);
 
@@ -185,6 +190,20 @@ pub fn spawn_placed_block(
                 ))
                 .id();
             commands.entity(visual).add_child(barrel);
+        } else if let Feature::Booster(booster) = feature {
+            if let Some(assets) = field_assets {
+                let field = spawn_field_visual(
+                    commands,
+                    visual,
+                    assets.mesh.clone(),
+                    assets.material.clone(),
+                    true,
+                );
+                commands.entity(field).insert(
+                    Transform::from_translation(Vec2::ZERO.extend(LAYER_OVERDRIVE_FIELD))
+                        .with_scale(Vec3::new(booster.radius, booster.radius, 1.0)),
+                );
+            }
         }
     }
 
@@ -230,6 +249,7 @@ pub fn spawn_ship(
     catalog: &ShipCatalog,
     filename: &str,
     ship_base: Entity,
+    field_assets: Option<&FieldAssets>,
 ) {
     editor.grid = BlockGrid::new();
     editor.filename = filename.to_string();
@@ -251,7 +271,7 @@ pub fn spawn_ship(
         for saved_block in ship_to_load.blocks {
             if let Some(def) = registry.get(&saved_block.block_type) {
                 let placement = saved_block;
-                let base = spawn_placed_block(commands, ship_base, def, &placement);
+                let base = spawn_placed_block(commands, ship_base, def, &placement, field_assets);
                 editor.grid.insert_block(placement, base, def);
             }
         }

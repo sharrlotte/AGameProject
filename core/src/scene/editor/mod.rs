@@ -19,12 +19,12 @@ use uuid::Uuid;
 
 use crate::{
     config::GameSetting,
-    constant::GRID_SIZE,
+    constant::{GRID_SIZE, LAYER_OVERDRIVE_FIELD},
     content::{
         block::{
             BlockPlacement, BlockRef, Rot90,
             component::{BlockDef, BlockRegistry, Visual, visual_transform},
-            feature::{Feature, turret::TurretSprite},
+            feature::{Feature, power::field::{spawn_field_visual, Field, FieldAssets}, turret::TurretSprite},
         },
         body::BlockGrid,
         ship::ai::Doctrine,

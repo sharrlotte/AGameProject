@@ -12,8 +12,9 @@ assets/
   audio/bullet/      shoot-spectre.ogg
   config/base/       game.ron, block.ron
   config/mission/    quick-battle.ron
-  config/starter/    interceptor.ron, raider.ron, b2.ron, blackbird.ron
+  config/starter/    interceptor.ron, raider.ron, b2.ron, blackbird.ron, aegis.ron, vanguard.ron
   config/            setting.ron
+  shader/            shield.wgsl
   texture/block/     block + turret + core + wall sprites (PNG)
 ```
 

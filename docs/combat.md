@@ -82,6 +82,31 @@ Bullets/missiles are **sensors** — no physics response, only events. Blocks ar
 composition prevents friendly fire (`enemy_block_hitbox_filter` = all block-hitbox bits
 except own team).
 
+## Shield model
+
+`Feature::Shield` inserts `Shield` on the emitter block and spawns a child `Barrier` sensor entity:
+
+- **Geometries**:
+  - `Circle`: `Collider::ball(radius)` omnidirectional field.
+  - `Plane`: `Collider::cuboid(width/2, thickness/2)` oriented barrier offset in front of the emitter.
+- **Collisions & Permeability**:
+  - `Barrier` colliders are tagged with the owning team's block hitbox group (`1 << (16 + team.id)`).
+  - Ships carry `GROUP_SHIP` only and pass through shields freely without physics collision.
+  - Friendly projectiles pass through allied shields without triggering collision.
+  - Hostile `Bullet`, `Laser`, continuous `LaserBeam`, and `Missile` collide with the barrier.
+- **Damage & Absorption**:
+  - `Barrier` entity carries `Health { health: max_hp, max_health: max_hp }`, allowing standard `handle_damage_collisions` and `handle_damage_events` to apply damage uniformly without special-casing.
+  - Breaking hits absorb all excess damage (0 bleed-through).
+  - `LaserBeam` clips at the barrier impact distance via `cast_ray` and damages the barrier.
+  - `Missile` impacts on a barrier deal direct damage to the shield without spawning an unshielded spherical blast sensor.
+- **Lifecycle & Power State Machine**:
+  - `Active`: Collider active and visual rendered. Transitions to `Depleted` on barrier `health <= 0.0`.
+  - `Depleted { cooldown_remaining }`: Collider disabled and visual hidden for `cooldown` seconds.
+  - `Regenerating`: Recharges barrier `health` at `regen_rate * supply` HP/s. Reactivates to `Active` only when `health >= max_health`.
+  - If power `Supply <= STARVATION_THRESHOLD` or block is `Disabled`, collider and visual are disabled.
+- **Visuals**:
+  - Procedural mesh (`Circle` / `Rectangle`) rendered with custom 2D WGSL shader (`shader/shield.wgsl`) tinted with team color, with opacity/glow driven by `hp / max_hp`.
+
 ## Permanent cleanup
 
 - Everything combat-spawned carries `DespawnOnExit(SceneState::Game)`; Bevy despawns
