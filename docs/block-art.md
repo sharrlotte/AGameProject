@@ -87,11 +87,11 @@ Continuity is the highest priority. Sprites SHALL tile into continuous armor:
 
 ## Category language
 
-- **Structure** — clean gunmetal plate, subtle seams, restrained edges, gold or bronze chamfer accents on triangle pieces.
-- **Armor** — heavier plating, X-braces or panel splits, reinforced corners, bronze fasteners.
-- **Power** — cyan or blue emissive core, subtle glow ring, mechanical frame.
-- **Weapons** — defined barrels or housings, consistent gunmetal material, cyan for energy weapons, amber or red for thermal and missile systems.
-- **Utility** — compact industrial housings, vents and functional indicators, less visual emphasis.
+- **Structure** — clean gunmetal plate, subtle seams, restrained edges, corner-prioritized perimeter bolts on triangle pieces, seamless outer rim matching `hull.png`.
+- **Armor** — heavy multi-layered ballistic steel plating, sloped deflector facets, reinforced corner lifting lugs, recessed hex socket bolts; no simplistic geometric X-marks.
+- **Power** — industrial reactor and power banks; heavy magnetic containment collars, coolant circulation manifolds, radiator fin banks, and recessed terminal busbars.
+- **Weapons** — realistic military hardware; stepped barrels with 3D cylindrical lighting, recoil buffer sleeves, slotted muzzle compensators, faceted armor mantles, optical periscopes with 1px glints, and ribbed ammo feed drums on transparent backgrounds.
+- **Utility** — functional industrial mechanisms; motorized geared traverse rings, gimballed nozzle assemblies with hydraulic actuators, induction coils and thermal dissipation cowlings.
 
 ## Palette
 

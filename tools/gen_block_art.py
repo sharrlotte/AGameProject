@@ -1,7 +1,7 @@
 """Generate every block sprite at final native resolution (1px minimum detail).
 
 All sprites share a dark gunmetal palette, seamless edge-to-edge hull fill,
-corner-prioritized perimeter bolts, clean matte paneling without interior stripes,
+corner-prioritized perimeter bolts on structural pieces, clean matte paneling,
 and crisp 1px dark gunmetal framing on transparent-background turrets.
 Triangle masks use the same half-plane inequalities as the engine's triangle rasterizer.
 
@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw
 
 OUT = Path(__file__).resolve().parents[1] / "core" / "assets" / "texture" / "block"
 
-# Palette: Grounded military/industrial sci-fi hardware
+# Grounded military/industrial sci-fi hardware palette
 OUTLINE = (14, 16, 20, 255)
 SHADOW = (14, 16, 20, 255)
 BASE_DARK = (18, 21, 26, 255)
@@ -171,102 +171,278 @@ def draw_hull() -> Image.Image:
 
 
 def draw_steel() -> Image.Image:
-    """Generate bolted heavy steel armor plating with seamless edges."""
-    image, d = opaque(64, 64)
-    bevel_rect(d, (5, 5, 58, 58), BASE_MID, BASE_LIGHT, SEAM)
-    bevel_rect(d, (16, 16, 47, 47), BASE, BASE_LIGHT, SHADOW)
-    edge_bolts(d, (7, 7, 54, 54), step=15, color=SHADOW, sheen=EDGE_LIGHT)
+    """Generate heavy composite ballistic steel armor plating with seamless edges."""
+    image, d = opaque(64, 64, fill=BASE)
+    rect(d, (4, 4, 59, 59), BASE_MID)
+    hline(d, 4, 58, 4, EDGE_LIGHT)
+    vline(d, 4, 4, 58, EDGE_LIGHT)
+    hline(d, 5, 59, 59, SHADOW)
+    vline(d, 59, 5, 59, SHADOW)
+
+    for cx, cy in ((4, 4), (55, 4), (4, 55), (55, 55)):
+        rect(d, (cx, cy, cx + 4, cy + 4), BASE_DARK)
+
+    chamfer_box(d, (12, 12, 51, 51), 6, BASE_LIGHT)
+    hline(d, 18, 45, 12, STEEL)
+    vline(d, 12, 18, 45, STEEL)
+    hline(d, 18, 45, 51, SHADOW)
+    vline(d, 51, 18, 45, SHADOW)
+
+    rect(d, (18, 18, 45, 45), BASE)
+    hline(d, 18, 44, 18, SHADOW)
+    vline(d, 18, 18, 44, SHADOW)
+    hline(d, 19, 45, 45, BASE_MID)
+    vline(d, 45, 19, 45, BASE_MID)
+
+    bevel_rect(d, (27, 27, 36, 36), BASE_MID, EDGE_LIGHT, SHADOW)
+    rect(d, (29, 29, 34, 34), BASE_DARK)
+    px(d, 31, 31, BASE_LIGHT)
+    px(d, 32, 31, BASE_LIGHT)
+    px(d, 31, 32, BASE_MID)
+    px(d, 32, 32, SHADOW)
+
+    for bx, by in ((7, 7), (54, 7), (7, 54), (54, 54)):
+        bolt(d, bx, by, SHADOW, STEEL)
+    for bx, by in ((30, 7), (7, 30), (54, 30), (30, 54)):
+        bolt(d, bx, by, SHADOW, EDGE_LIGHT)
     return image
 
 
 def draw_scrap() -> Image.Image:
-    """Generate X-braced industrial scrap armor with perimeter bolts."""
-    image, d = opaque(64, 64)
-    rect(d, (5, 5, 58, 58), BASE_DARK)
-    d.line([(8, 8), (55, 55)], fill=BASE_MID, width=5)
-    d.line([(8, 55), (55, 8)], fill=BASE_MID, width=5)
-    d.line([(8, 8), (55, 55)], fill=BASE_LIGHT, width=1)
-    d.line([(8, 55), (55, 8)], fill=BASE_LIGHT, width=1)
-    bevel_rect(d, (23, 23, 40, 40), BASE_MID, BASE_LIGHT, SHADOW)
-    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_MID)
+    """Generate salvaged multi-plate armor with reinforced weld seams and heavy bolts."""
+    image, d = opaque(64, 64, fill=BASE)
+    rect(d, (4, 4, 59, 59), BASE_DARK)
+
+    # Upper-left salvaged plate
+    bevel_rect(d, (4, 4, 39, 31), BASE_MID, EDGE_LIGHT, SHADOW)
+    rect(d, (6, 6, 37, 29), BASE)
+
+    # Lower-right heavy patch plate
+    bevel_rect(d, (25, 27, 59, 59), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (27, 29, 57, 57), BASE_MID)
+
+    # Industrial weld bead across overlapping plates
+    for i in range(16):
+        wx = 20 + i * 2
+        wy = 36 - i
+        d.point((wx, wy), fill=STEEL)
+        d.point((wx + 1, wy), fill=BASE_DARK)
+        d.point((wx, wy + 1), fill=BRONZE)
+
+    # Lower-left reinforcement strap
+    bevel_rect(d, (4, 32, 24, 59), BASE_MID, EDGE_LIGHT, SHADOW)
+
+    # Heavy improvised hex bolts
+    for bx, by in ((7, 7), (34, 7), (7, 54), (54, 54), (54, 30), (28, 54)):
+        bolt(d, bx, by, SHADOW, STEEL)
+    bolt(d, 22, 24, SHADOW, BRONZE)
+    bolt(d, 40, 42, SHADOW, BRONZE)
     return image
 
 
 def draw_turret_base() -> Image.Image:
-    """Generate a seamless bolted hull socket for mounting rotating turrets."""
-    image, d = opaque(64, 64)
-    chamfer_box(d, (10, 10, 53, 53), 12, BASE_DARK)
-    chamfer_box(d, (16, 16, 47, 47), 9, BASE_MID)
-    # Upper-left highlight on bearing collar
-    hline(d, 22, 41, 16, BASE_LIGHT)
-    vline(d, 16, 22, 41, BASE_LIGHT)
+    """Generate a motorized traverse turret ring socket with azimuth gear teeth."""
+    image, d = opaque(64, 64, fill=BASE)
+    chamfer_box(d, (5, 5, 58, 58), 10, BASE_MID)
+    hline(d, 15, 48, 5, EDGE_LIGHT)
+    vline(d, 5, 15, 48, EDGE_LIGHT)
+    hline(d, 15, 48, 58, SHADOW)
+    vline(d, 58, 15, 48, SHADOW)
+
+    chamfer_box(d, (11, 11, 52, 52), 12, BASE_DARK)
+
+    d.ellipse((14, 14, 49, 49), fill=BASE_LIGHT)
+    d.ellipse((15, 15, 48, 48), fill=BASE)
+
+    # Geared azimuth ring teeth
+    for angle_deg in range(0, 360, 24):
+        rad = math.radians(angle_deg)
+        tx1 = int(round(31.5 + 15.0 * math.cos(rad)))
+        ty1 = int(round(31.5 + 15.0 * math.sin(rad)))
+        tx2 = int(round(31.5 + 17.0 * math.cos(rad)))
+        ty2 = int(round(31.5 + 17.0 * math.sin(rad)))
+        d.line([(tx1, ty1), (tx2, ty2)], fill=STEEL, width=1)
+
+    d.ellipse((20, 20, 43, 43), fill=BASE_DARK)
     d.ellipse((22, 22, 41, 41), fill=SHADOW)
-    d.ellipse((26, 26, 37, 37), fill=BASE_DARK)
-    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_LIGHT)
+
+    d.ellipse((27, 27, 36, 36), fill=BASE_MID)
+    d.ellipse((29, 29, 34, 34), fill=BASE_DARK)
+    px(d, 31, 31, STEEL)
+
+    rect(d, (20, 30, 23, 33), BRONZE)
+    rect(d, (40, 30, 43, 33), BRONZE)
+
+    edge_bolts(d, (7, 7, 54, 54), step=23, color=SHADOW, sheen=BASE_LIGHT)
     return image
 
 
 def draw_nucleus() -> Image.Image:
-    """Generate the central power core with seamless outer hull skirt and bolts."""
-    image, d = opaque(160, 160)
-    chamfer_box(d, (12, 12, 147, 147), 20, SEAM)
-    chamfer_box(d, (14, 14, 145, 145), 19, BASE_MID)
-    chamfer_box(d, (26, 26, 133, 133), 15, BASE_DARK)
+    """Generate a heavy 160x160 nuclear/fusion containment reactor."""
+    image, d = opaque(160, 160, fill=BASE)
 
-    rect(d, (77, 26, 82, 133), BRONZE)
-    rect(d, (78, 26, 81, 133), GOLD)
-    rect(d, (26, 77, 133, 82), BRONZE)
-    rect(d, (26, 78, 133, 81), GOLD)
+    chamfer_box(d, (4, 4, 155, 155), 24, BASE_MID)
+    hline(d, 28, 131, 4, STEEL)
+    vline(d, 4, 28, 131, STEEL)
+    hline(d, 28, 131, 155, SHADOW)
+    vline(d, 155, 28, 131, SHADOW)
 
-    d.ellipse((48, 48, 111, 111), fill=CYAN_DIM)
-    d.ellipse((56, 56, 103, 103), fill=CYAN)
-    d.ellipse((67, 67, 92, 92), fill=CYAN_GLOW)
+    # 4 Corner Heat Radiator Fin Banks
+    for rx, ry in ((12, 12), (116, 12), (12, 116), (116, 116)):
+        rect(d, (rx, ry, rx + 31, ry + 31), BASE_DARK)
+        for i in range(2, 30, 4):
+            hline(d, rx + 2, rx + 29, ry + i, BASE_LIGHT)
+            hline(d, rx + 2, rx + 29, ry + i + 1, SHADOW)
 
-    edge_bolts(d, (10, 10, 147, 147), step=34, color=SEAM, sheen=BASE_LIGHT)
-    for x, y in ((22, 22), (136, 22), (22, 136), (136, 136)):
-        bolt(d, x, y, SHADOW, GOLD)
+    # Primary Coolant Circulation Manifolds
+    bevel_rect(d, (12, 72, 147, 87), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (14, 75, 145, 84), BASE_DARK)
+    hline(d, 14, 145, 78, BRONZE)
+    hline(d, 14, 145, 81, GOLD)
+
+    bevel_rect(d, (72, 12, 87, 147), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (75, 14, 84, 145), BASE_DARK)
+    vline(d, 78, 14, 145, BRONZE)
+    vline(d, 81, 14, 145, GOLD)
+
+    # Magnetic Containment Torus
+    d.ellipse((34, 34, 125, 125), fill=BASE_LIGHT)
+    d.ellipse((36, 36, 123, 123), fill=BASE_MID)
+    d.ellipse((42, 42, 117, 117), fill=BASE_DARK)
+
+    for a in range(0, 360, 22):
+        rad = math.radians(a)
+        cx1 = int(round(79.5 + 38.0 * math.cos(rad)))
+        cy1 = int(round(79.5 + 38.0 * math.sin(rad)))
+        cx2 = int(round(79.5 + 46.0 * math.cos(rad)))
+        cy2 = int(round(79.5 + 46.0 * math.sin(rad)))
+        d.line([(cx1, cy1), (cx2, cy2)], fill=GOLD, width=2)
+
+    d.ellipse((50, 50, 109, 109), fill=BASE_DARK)
+    d.ellipse((54, 54, 105, 105), fill=SHADOW)
+
+    # Deep Plasma Core Glow
+    d.ellipse((58, 58, 101, 101), fill=CYAN_DIM)
+    d.ellipse((66, 66, 93, 93), fill=CYAN)
+    d.ellipse((73, 73, 86, 86), fill=CYAN_GLOW)
+
+    for px_coord, py_coord in ((79, 52), (79, 107), (52, 79), (107, 79)):
+        rect(d, (px_coord - 2, py_coord - 2, px_coord + 2, py_coord + 2), STEEL)
+
+    edge_bolts(d, (8, 8, 151, 151), step=35, color=SHADOW, sheen=STEEL)
+    for bx, by in ((22, 22), (135, 22), (22, 135), (135, 135)):
+        bolt(d, bx, by, SHADOW, GOLD)
     return image
 
 
 def draw_battery() -> Image.Image:
-    """Generate a blue-framed energy storage block with cyan charge cells and edge bolts."""
-    image, d = opaque(64, 64)
-    bevel_rect(d, (5, 5, 58, 58), BLUE, BLUE_LIGHT, SHADOW)
-    rect(d, (14, 14, 49, 49), BASE_DARK)
-    for y in (18, 28, 38):
-        rect(d, (18, y, 45, y + 6), CYAN_DIM)
-        rect(d, (20, y + 1, 43, y + 5), CYAN)
-        hline(d, 20, 32, y + 1, CYAN_GLOW)
-    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_LIGHT)
+    """Generate a titanium-framed industrial capacitor storage bank."""
+    image, d = opaque(64, 64, fill=BASE)
+    bevel_rect(d, (4, 4, 59, 59), BLUE, BLUE_LIGHT, SHADOW)
+    rect(d, (9, 9, 54, 54), BASE_DARK)
+
+    for cy in (12, 26, 40):
+        bevel_rect(d, (12, cy, 51, cy + 10), BASE_MID, EDGE_LIGHT, SHADOW)
+        rect(d, (15, cy + 2, 48, cy + 8), BASE_DARK)
+
+        rect(d, (15, cy + 3, 17, cy + 7), GOLD)
+        rect(d, (46, cy + 3, 48, cy + 7), GOLD)
+
+        rect(d, (19, cy + 3, 44, cy + 7), BLUE)
+        hline(d, 20, 43, cy + 3, BLUE_LIGHT)
+        hline(d, 20, 43, cy + 5, CYAN_DIM)
+        hline(d, 22, 36, cy + 5, CYAN)
+        px(d, 23, cy + 5, CYAN_GLOW)
+
+        for vx in (26, 31, 36, 41):
+            vline(d, vx, cy + 2, cy + 8, BASE_DARK)
+
+    vline(d, 10, 10, 53, BRONZE)
+    vline(d, 53, 10, 53, BRONZE)
+
+    edge_bolts(d, (7, 7, 54, 54), step=23, color=SHADOW, sheen=BASE_LIGHT)
     return image
 
 
 def draw_booster() -> Image.Image:
-    """Generate an overdrive emitter block with upward cyan arcs and edge bolts."""
-    image, d = opaque(64, 64)
-    chamfer_box(d, (8, 8, 55, 55), 8, BASE_DARK)
-    d.arc((14, 14, 49, 49), 210, 330, fill=CYAN_DIM, width=3)
-    d.arc((21, 21, 42, 42), 210, 330, fill=CYAN, width=2)
-    chamfer_box(d, (27, 33, 36, 44), 2, BASE_MID)
-    rect(d, (30, 36, 33, 39), CYAN_GLOW)
-    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_LIGHT)
+    """Generate an industrial overdrive impulse module with induction stator coils."""
+    image, d = opaque(64, 64, fill=BASE)
+    chamfer_box(d, (5, 5, 58, 58), 8, BASE_MID)
+    hline(d, 13, 50, 5, EDGE_LIGHT)
+    vline(d, 5, 13, 50, EDGE_LIGHT)
+    hline(d, 13, 50, 58, SHADOW)
+    vline(d, 58, 13, 50, SHADOW)
+
+    chamfer_box(d, (10, 10, 53, 53), 10, BASE_DARK)
+
+    d.ellipse((14, 14, 49, 49), fill=BASE_LIGHT)
+    d.ellipse((16, 16, 47, 47), fill=BASE)
+
+    for r in (22, 20, 18):
+        d.ellipse((31 - r, 31 - r, 32 + r, 32 + r), outline=BRONZE, width=1)
+    d.ellipse((20, 20, 43, 43), fill=BASE_DARK)
+
+    rect(d, (29, 13, 34, 21), BASE_LIGHT)
+    rect(d, (29, 42, 34, 50), BASE_LIGHT)
+    rect(d, (13, 29, 21, 34), BASE_LIGHT)
+    rect(d, (42, 29, 50, 34), BASE_LIGHT)
+
+    d.ellipse((25, 25, 38, 38), fill=SHADOW)
+    d.ellipse((27, 27, 36, 36), fill=CYAN_DIM)
+    d.ellipse((29, 29, 34, 34), fill=CYAN)
+    px(d, 31, 31, CYAN_GLOW)
+
+    edge_bolts(d, (7, 7, 54, 54), step=23, color=SHADOW, sheen=BASE_LIGHT)
     return image
 
 
 def draw_thruster() -> Image.Image:
-    """Generate an ion thruster with seamless upper/side hull, edge bolts, and nozzle."""
-    image, d = opaque(64, 64)
-    d.polygon([(16, 10), (47, 10), (55, 52), (8, 52)], fill=BASE_DARK)
-    d.polygon([(22, 18), (41, 18), (47, 46), (16, 46)], fill=CYAN_DIM)
-    d.polygon([(26, 24), (37, 24), (41, 42), (22, 42)], fill=CYAN)
-    rect(d, (30, 32, 33, 36), CYAN_GLOW)
-    bevel_rect(d, (7, 50, 56, 56), BASE_LIGHT, EDGE_LIGHT, SHADOW)
-    rect(d, (9, 57, 54, 63), BASE_DARK)
-    for x in (7, 30, 54):
-        bolt(d, x, 6, SEAM, BASE_LIGHT)
-    for y in (22, 40):
-        bolt(d, 5, y, SEAM, BASE_LIGHT)
-        bolt(d, 56, y, SEAM, BASE_LIGHT)
+    """Generate an ion propulsion thruster with gimbal actuators and cooling strakes."""
+    image, d = opaque(64, 64, fill=BASE)
+    rect(d, (4, 4, 59, 24), BASE_MID)
+    hline(d, 4, 59, 4, EDGE_LIGHT)
+    vline(d, 4, 4, 24, EDGE_LIGHT)
+    vline(d, 59, 4, 24, SHADOW)
+
+    bevel_rect(d, (16, 8, 47, 20), BASE_LIGHT, STEEL, SHADOW)
+    for fx in (20, 28, 36, 44):
+        rect(d, (fx - 1, 6, fx + 1, 9), BRONZE)
+        rect(d, (fx, 7, fx, 8), GOLD)
+
+    bevel_rect(d, (8, 16, 13, 34), BASE_LIGHT, STEEL, SHADOW)
+    bevel_rect(d, (50, 16, 55, 34), BASE_LIGHT, STEEL, SHADOW)
+    vline(d, 10, 20, 30, BASE_DARK)
+    vline(d, 52, 20, 30, BASE_DARK)
+
+    nozzle_pts = [(20, 22), (43, 22), (54, 56), (9, 56)]
+    d.polygon(nozzle_pts, fill=BASE_DARK)
+
+    inner_nozzle = [(22, 24), (41, 24), (51, 54), (12, 54)]
+    d.polygon(inner_nozzle, fill=BASE_MID)
+
+    d.line([(22, 24), (13, 54)], fill=STEEL, width=2)
+    d.line([(24, 24), (17, 54)], fill=BASE_LIGHT, width=2)
+    d.line([(39, 24), (48, 54)], fill=SEAM, width=2)
+    d.line([(41, 24), (51, 54)], fill=SHADOW, width=2)
+
+    for tx in (22, 27, 32, 37, 42):
+        bx_bot = int(round(31.5 + (tx - 31.5) * 2.2))
+        d.line([(tx, 26), (bx_bot, 52)], fill=BASE_DARK, width=1)
+        d.line([(tx - 1, 26), (bx_bot - 1, 52)], fill=EDGE_LIGHT, width=1)
+
+    d.polygon([(26, 24), (37, 24), (39, 30), (24, 30)], fill=BASE_DARK)
+    d.polygon([(28, 25), (35, 25), (36, 29), (27, 29)], fill=CYAN_DIM)
+    rect(d, (30, 26, 33, 28), CYAN)
+    px(d, 31, 27, CYAN_GLOW)
+
+    bevel_rect(d, (8, 55, 55, 58), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (10, 59, 53, 63), BASE_DARK)
+
+    for bx in (7, 30, 54):
+        bolt(d, bx, 6, SHADOW, BASE_LIGHT)
+    for by in (16, 26):
+        bolt(d, 5, by, SHADOW, BASE_LIGHT)
+        bolt(d, 56, by, SHADOW, BASE_LIGHT)
     return image
 
 
@@ -335,7 +511,6 @@ def draw_isosceles_triangle(width: int, height: int) -> Image.Image:
     dx = bl_x - apex_x
     denom = math.hypot(dy, dx)
 
-    # Inset plate calculation
     for y in range(4, height - 4):
         for x in range(width):
             d_left = (dy * (x - apex_x) - dx * (y - apex_y)) / denom
@@ -377,122 +552,317 @@ def draw_isosceles_triangle(width: int, height: int) -> Image.Image:
     return image
 
 
-def draw_lancer() -> Image.Image:
-    """Generate the twin-rail laser turret with 1px dark gunmetal outline."""
-    image, d = clear(64, 64)
-    for bx in (17, 38):
-        bevel_rect(d, (bx, 4, bx + 8, 42), BASE_LIGHT, STEEL, BASE)
-        rect(d, (bx + 2, 8, bx + 6, 38), BASE_DARK)
-        rect(d, (bx + 3, 10, bx + 5, 36), CYAN_DIM)
-        rect(d, (bx + 3, 12, bx + 5, 34), CYAN)
-        vline(d, bx + 4, 12, 20, CYAN_GLOW)
-    chamfer_box(d, (12, 40, 51, 58), 5, BASE_LIGHT)
-    hline(d, 17, 46, 40, EDGE_LIGHT)
-    rect(d, (18, 44, 45, 54), BASE_MID)
-    rect(d, (26, 46, 37, 52), BASE_DARK)
-    rect(d, (28, 47, 35, 51), GOLD)
-    edge_bolts(d, (17, 44, 45, 53), step=28, color=SHADOW, sheen=STEEL)
-    return outline(image)
-
-
 def draw_colaris() -> Image.Image:
-    """Generate the compact twin-cannon turret with 1px dark gunmetal outline."""
+    """Generate the realistic twin autocannon turret with 1px dark gunmetal outline."""
     image, d = clear(64, 64)
-    for bx in (17, 38):
-        bevel_rect(d, (bx, 6, bx + 8, 24), BASE_LIGHT, STEEL, BASE)
-        rect(d, (bx + 2, 10, bx + 6, 20), BASE_DARK)
-    chamfer_box(d, (12, 20, 51, 54), 6, BASE_LIGHT)
-    hline(d, 18, 45, 20, EDGE_LIGHT)
-    rect(d, (16, 26, 22, 48), BASE_MID)
-    rect(d, (41, 26, 47, 48), BASE_MID)
-    rect(d, (24, 28, 39, 46), BASE_DARK)
-    rect(d, (26, 30, 37, 42), CYAN_DIM)
-    rect(d, (28, 32, 35, 40), CYAN)
-    px(d, 29, 33, CYAN_GLOW)
-    edge_bolts(d, (16, 25, 46, 48), step=30, color=SHADOW, sheen=STEEL)
-    return outline(image)
+
+    # Traverse ring / turntable
+    d.ellipse((19, 43, 44, 57), fill=BASE_DARK)
+    d.ellipse((20, 44, 43, 56), fill=BASE_MID)
+    d.ellipse((22, 45, 41, 54), fill=SHADOW)
+    d.ellipse((23, 46, 40, 53), fill=BASE)
+
+    # Side ammo drums
+    chamfer_box(d, (11, 33, 21, 49), 3, BASE_MID)
+    hline(d, 13, 20, 33, EDGE_LIGHT)
+    vline(d, 11, 35, 47, EDGE_LIGHT)
+    hline(d, 13, 20, 49, SHADOW)
+    vline(d, 21, 35, 47, SHADOW)
+    for ry in (37, 41, 45):
+        hline(d, 13, 19, ry, SEAM)
+        hline(d, 13, 19, ry - 1, BASE_LIGHT)
+
+    chamfer_box(d, (42, 33, 52, 49), 3, BASE_MID)
+    hline(d, 44, 51, 33, EDGE_LIGHT)
+    vline(d, 42, 35, 47, BASE_LIGHT)
+    hline(d, 44, 51, 49, SHADOW)
+    vline(d, 52, 35, 47, SHADOW)
+    for ry in (37, 41, 45):
+        hline(d, 44, 50, ry, SEAM)
+        hline(d, 44, 50, ry - 1, BASE_LIGHT)
+
+    # Main armored turret body
+    chamfer_box(d, (19, 26, 44, 51), 4, BASE_LIGHT)
+    hline(d, 22, 41, 26, STEEL)
+    vline(d, 19, 29, 48, EDGE_LIGHT)
+    hline(d, 22, 41, 51, SHADOW)
+    vline(d, 44, 29, 48, SHADOW)
+
+    rect(d, (23, 29, 40, 46), BASE)
+    hline(d, 23, 40, 29, BASE_LIGHT)
+    vline(d, 23, 30, 45, BASE_LIGHT)
+    hline(d, 24, 40, 46, SHADOW)
+    vline(d, 40, 30, 45, SHADOW)
+
+    rect(d, (29, 34, 34, 41), BASE_DARK)
+    rect(d, (30, 35, 33, 39), CYAN_DIM)
+    px(d, 31, 36, CYAN_GLOW)
+    px(d, 32, 36, CYAN)
+
+    bolt(d, 21, 47, SHADOW, BASE_LIGHT)
+    bolt(d, 40, 47, SHADOW, BASE_LIGHT)
+
+    # Twin autocannon barrels
+    for bx in (21, 35):
+        bevel_rect(d, (bx, 23, bx + 7, 30), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 1, 25, bx + 6, 29), BASE_MID)
+        hline(d, bx + 1, bx + 6, 25, EDGE_LIGHT)
+
+        rect(d, (bx + 1, 11, bx + 6, 23), BASE_MID)
+        vline(d, bx + 1, 11, 23, STEEL)
+        vline(d, bx + 2, 11, 23, BASE_LIGHT)
+        vline(d, bx + 3, 11, 23, BASE_MID)
+        vline(d, bx + 4, 11, 23, BASE)
+        vline(d, bx + 5, 11, 23, SEAM)
+        vline(d, bx + 6, 11, 23, SHADOW)
+
+        for fy in (15, 19):
+            hline(d, bx + 1, bx + 6, fy, SHADOW)
+            hline(d, bx + 1, bx + 6, fy - 1, EDGE_LIGHT)
+
+        bevel_rect(d, (bx, 5, bx + 7, 10), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 2, 5, bx + 5, 6), BASE_DARK)
+        px(d, bx + 3, 5, SHADOW)
+        px(d, bx + 4, 5, SHADOW)
+        hline(d, bx + 1, bx + 6, 8, BASE_DARK)
+        hline(d, bx + 2, bx + 5, 8, SHADOW)
+
+    rect(d, (28, 17, 34, 19), BASE_DARK)
+    hline(d, 28, 34, 17, BASE_LIGHT)
+    hline(d, 28, 34, 19, SHADOW)
+    return outline(image, SHADOW)
 
 
 def draw_swarmer() -> Image.Image:
-    """Generate the 4-cell missile pod turret with 1px dark gunmetal outline."""
+    """Generate the realistic quad missile launcher pod with 1px dark gunmetal outline."""
     image, d = clear(64, 64)
-    chamfer_box(d, (8, 8, 55, 55), 5, BASE_LIGHT)
+    chamfer_box(d, (8, 8, 55, 55), 5, BASE_MID)
     hline(d, 13, 50, 8, STEEL)
+    vline(d, 8, 13, 50, STEEL)
     hline(d, 13, 50, 55, SHADOW)
-    for cx, cy in ((16, 16), (38, 16), (16, 38), (38, 38)):
-        bevel_rect(d, (cx - 1, cy - 1, cx + 10, cy + 10), BASE_MID, STEEL, SHADOW)
-        rect(d, (cx, cy, cx + 9, cy + 9), BASE_DARK)
-        d.ellipse((cx + 2, cy + 2, cx + 7, cy + 7), fill=HOT_DARK)
-        d.ellipse((cx + 3, cy + 3, cx + 6, cy + 6), fill=HOT)
-        px(d, cx + 4, cy + 3, AMBER)
-    edge_bolts(d, (12, 12, 50, 50), step=19, color=SHADOW, sheen=STEEL)
-    return outline(image)
+    vline(d, 55, 13, 50, SHADOW)
+
+    chamfer_box(d, (11, 11, 52, 52), 4, BASE)
+    hline(d, 15, 48, 11, BASE_LIGHT)
+    vline(d, 11, 15, 48, BASE_LIGHT)
+    hline(d, 15, 48, 52, SHADOW)
+    vline(d, 52, 15, 48, SHADOW)
+
+    rect(d, (30, 12, 33, 51), BASE_DARK)
+    rect(d, (12, 30, 51, 33), BASE_DARK)
+    vline(d, 31, 12, 51, BASE_LIGHT)
+    hline(d, 12, 51, 31, BASE_LIGHT)
+    vline(d, 32, 12, 51, SHADOW)
+    hline(d, 12, 51, 32, SHADOW)
+
+    for cx, cy in ((13, 13), (35, 13), (13, 35), (35, 35)):
+        chamfer_box(d, (cx, cy, cx + 15, cy + 15), 3, BASE_LIGHT)
+        hline(d, cx + 3, cx + 12, cy, STEEL)
+        vline(d, cx, cy + 3, cy + 12, STEEL)
+        hline(d, cx + 3, cx + 12, cy + 15, SHADOW)
+        vline(d, cx + 15, cy + 3, cy + 12, SHADOW)
+
+        rect(d, (cx + 2, cy + 2, cx + 13, cy + 13), BASE_DARK)
+        hline(d, cx + 2, cx + 13, cy + 2, SHADOW)
+        vline(d, cx + 2, cy + 2, cy + 13, SHADOW)
+
+        chamfer_box(d, (cx + 5, cy + 5, cx + 10, cy + 10), 2, BASE_MID)
+        hline(d, cx + 6, cx + 9, cy + 5, EDGE_LIGHT)
+        vline(d, cx + 5, cy + 6, cy + 9, EDGE_LIGHT)
+        hline(d, cx + 6, cx + 9, cy + 10, SHADOW)
+        vline(d, cx + 10, cy + 6, cy + 9, SHADOW)
+
+        rect(d, (cx + 7, cy + 7, cx + 8, cy + 8), HOT_DARK)
+        px(d, cx + 7, cy + 7, AMBER)
+
+        px(d, cx + 2, cy + 7, SEAM)
+        px(d, cx + 2, cy + 8, SEAM)
+        px(d, cx + 13, cy + 7, SEAM)
+        px(d, cx + 13, cy + 8, SEAM)
+
+    for bx, by in ((9, 9), (52, 9), (9, 52), (52, 52)):
+        bolt(d, bx, by, SHADOW, STEEL)
+    bolt(d, 30, 30, SHADOW, STEEL)
+    return outline(image, SHADOW)
+
+
+def draw_lancer() -> Image.Image:
+    """Generate the realistic twin-rail laser/beam turret with 1px dark gunmetal outline."""
+    image, d = clear(64, 64)
+    for bx in (16, 39):
+        for fy in range(12, 36, 4):
+            hline(d, bx - 2, bx + 10, fy, BASE_DARK)
+            hline(d, bx - 2, bx + 10, fy - 1, EDGE_LIGHT)
+
+        bevel_rect(d, (bx, 6, bx + 8, 38), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 2, 8, bx + 6, 36), BASE_DARK)
+        vline(d, bx + 2, 9, 35, GOLD)
+        vline(d, bx + 6, 9, 35, BRONZE)
+        vline(d, bx + 3, 10, 34, CYAN_DIM)
+        vline(d, bx + 4, 10, 34, CYAN)
+        vline(d, bx + 5, 10, 34, CYAN_DIM)
+        vline(d, bx + 4, 10, 16, CYAN_GLOW)
+        bevel_rect(d, (bx, 5, bx + 8, 8), BASE_LIGHT, STEEL, SHADOW)
+        px(d, bx + 4, 5, CYAN_GLOW)
+
+    chamfer_box(d, (12, 36, 51, 57), 6, BASE_LIGHT)
+    hline(d, 18, 45, 36, STEEL)
+    vline(d, 12, 42, 51, EDGE_LIGHT)
+    hline(d, 18, 45, 57, SHADOW)
+    vline(d, 51, 42, 51, SHADOW)
+
+    rect(d, (18, 40, 45, 52), BASE_MID)
+    rect(d, (24, 43, 39, 49), BASE_DARK)
+
+    rect(d, (28, 44, 35, 48), CYAN_DIM)
+    px(d, 31, 45, CYAN_GLOW)
+    px(d, 32, 45, CYAN)
+
+    rect(d, (13, 44, 16, 49), BRONZE)
+    rect(d, (47, 44, 50, 49), BRONZE)
+
+    edge_bolts(d, (16, 39, 47, 54), step=28, color=SHADOW, sheen=STEEL)
+    return outline(image, SHADOW)
 
 
 def draw_spectre() -> Image.Image:
-    """Generate the heavy twin autocannon turret with 1px dark gunmetal outline."""
+    """Generate the realistic heavy twin autocannon turret with 1px dark gunmetal outline."""
     image, d = clear(128, 128)
-    for bx in (28, 79):
-        bevel_rect(d, (bx, 8, bx + 20, 84), BASE_LIGHT, STEEL, BASE)
-        rect(d, (bx, 8, bx + 20, 14), STEEL)
-        rect(d, (bx + 4, 18, bx + 16, 78), BASE_DARK)
-        rect(d, (bx + 8, 20, bx + 12, 76), BRONZE)
-        rect(d, (bx + 9, 20, bx + 11, 76), GOLD)
-    chamfer_box(d, (16, 80, 111, 118), 8, BASE_LIGHT)
-    hline(d, 24, 103, 80, EDGE_LIGHT)
-    hline(d, 24, 103, 118, SHADOW)
-    bevel_rect(d, (22, 86, 38, 110), BASE_MID, BASE_LIGHT, SHADOW)
-    bevel_rect(d, (89, 86, 105, 110), BASE_MID, BASE_LIGHT, SHADOW)
-    rect(d, (50, 88, 77, 110), BASE_DARK)
-    d.ellipse((58, 93, 69, 104), fill=CYAN_DIM)
-    d.ellipse((60, 95, 67, 102), fill=CYAN)
-    px(d, 62, 97, CYAN_GLOW)
-    edge_bolts(d, (24, 86, 102, 111), step=26, color=SHADOW, sheen=STEEL)
-    return outline(image)
+    for bx in (27, 81):
+        bevel_rect(d, (bx - 1, 66, bx + 20, 82), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 1, 68, bx + 18, 80), BASE_MID)
+
+        bevel_rect(d, (bx, 22, bx + 19, 66), BASE_MID, EDGE_LIGHT, SHADOW)
+        vline(d, bx + 1, 22, 66, STEEL)
+        vline(d, bx + 2, 22, 66, BASE_LIGHT)
+        vline(d, bx + 17, 22, 66, SEAM)
+        vline(d, bx + 18, 22, 66, SHADOW)
+        for vy in (28, 38, 48, 58):
+            for vx in (bx + 4, bx + 9, bx + 14):
+                rect(d, (vx, vy, vx + 2, vy + 4), BASE_DARK)
+                px(d, vx + 1, vy + 1, SHADOW)
+
+        bevel_rect(d, (bx - 1, 8, bx + 20, 21), BASE_LIGHT, STEEL, SHADOW)
+        for py in (11, 16):
+            hline(d, bx + 1, bx + 18, py, BASE_DARK)
+            hline(d, bx + 3, bx + 16, py, SHADOW)
+        rect(d, (bx + 6, 8, bx + 13, 10), BASE_DARK)
+        rect(d, (bx + 7, 8, bx + 12, 9), SHADOW)
+
+    bevel_rect(d, (47, 46, 80, 50), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (49, 48, 78, 49), BASE_DARK)
+
+    chamfer_box(d, (16, 74, 111, 122), 10, BASE_LIGHT)
+    hline(d, 26, 101, 74, STEEL)
+    vline(d, 16, 84, 112, EDGE_LIGHT)
+    hline(d, 26, 101, 122, SHADOW)
+    vline(d, 111, 84, 112, SHADOW)
+
+    bevel_rect(d, (22, 80, 48, 116), BASE_MID, EDGE_LIGHT, SHADOW)
+    bevel_rect(d, (79, 80, 105, 116), BASE_MID, EDGE_LIGHT, SHADOW)
+
+    for cy in (86, 94, 102):
+        hline(d, 18, 25, cy, BRONZE)
+        hline(d, 102, 109, cy, BRONZE)
+
+    bevel_rect(d, (50, 82, 77, 112), BASE_DARK, EDGE_LIGHT, SHADOW)
+    d.ellipse((56, 88, 71, 103), fill=BASE_MID)
+    d.ellipse((58, 90, 69, 101), fill=CYAN_DIM)
+    d.ellipse((61, 93, 66, 98), fill=CYAN)
+    px(d, 63, 95, CYAN_GLOW)
+
+    edge_bolts(d, (20, 78, 107, 118), step=28, color=SHADOW, sheen=STEEL)
+    return outline(image, SHADOW)
 
 
 def draw_meltdown() -> Image.Image:
-    """Generate the heavy thermal beam turret with 1px dark gunmetal outline."""
+    """Generate the realistic heavy thermal beam emitter turret with 1px dark gunmetal outline."""
     image, d = clear(128, 128)
     for bx in (24, 79):
-        bevel_rect(d, (bx, 8, bx + 24, 80), BASE_LIGHT, STEEL, BASE)
-        hline(d, bx, bx + 24, 8, STEEL)
-        rect(d, (bx + 6, 14, bx + 18, 74), HOT_DARK)
-        rect(d, (bx + 10, 16, bx + 14, 72), HOT)
-        rect(d, (bx + 11, 16, bx + 13, 30), AMBER)
-    chamfer_box(d, (16, 76, 111, 118), 8, BASE_LIGHT)
-    hline(d, 24, 103, 76, EDGE_LIGHT)
-    hline(d, 24, 103, 118, SHADOW)
-    bevel_rect(d, (22, 82, 38, 110), BASE_MID, BASE_LIGHT, SHADOW)
-    bevel_rect(d, (89, 82, 105, 110), BASE_MID, BASE_LIGHT, SHADOW)
-    rect(d, (48, 84, 79, 110), BASE_DARK)
-    rect(d, (52, 88, 75, 106), HOT_DARK)
-    rect(d, (56, 92, 71, 102), HOT)
-    rect(d, (60, 94, 67, 98), AMBER)
-    edge_bolts(d, (24, 83, 102, 111), step=26, color=SHADOW, sheen=STEEL)
-    return outline(image)
+        for fy in range(16, 76, 5):
+            hline(d, bx - 3, bx + 27, fy, BASE_DARK)
+            hline(d, bx - 3, bx + 27, fy - 1, EDGE_LIGHT)
+
+        bevel_rect(d, (bx, 10, bx + 24, 78), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 5, 14, bx + 19, 74), BASE_DARK)
+        rect(d, (bx + 7, 16, bx + 17, 72), HOT_DARK)
+        rect(d, (bx + 9, 18, bx + 15, 70), HOT)
+        vline(d, bx + 12, 18, 40, AMBER)
+
+        bevel_rect(d, (bx - 1, 8, bx + 25, 14), BASE_LIGHT, STEEL, SHADOW)
+        rect(d, (bx + 7, 8, bx + 17, 10), BASE_DARK)
+        px(d, bx + 12, 8, AMBER)
+
+    bevel_rect(d, (49, 48, 78, 54), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (51, 50, 76, 52), HOT_DARK)
+
+    chamfer_box(d, (16, 74, 111, 122), 10, BASE_LIGHT)
+    hline(d, 26, 101, 74, STEEL)
+    vline(d, 16, 84, 112, EDGE_LIGHT)
+    hline(d, 26, 101, 122, SHADOW)
+    vline(d, 111, 84, 112, SHADOW)
+
+    for ly in range(82, 114, 5):
+        hline(d, 22, 44, ly, BASE_DARK)
+        hline(d, 22, 44, ly - 1, BASE_LIGHT)
+        hline(d, 83, 105, ly, BASE_DARK)
+        hline(d, 83, 105, ly - 1, BASE_LIGHT)
+
+    bevel_rect(d, (48, 80, 79, 112), BASE_DARK, EDGE_LIGHT, SHADOW)
+    rect(d, (52, 84, 75, 108), HOT_DARK)
+    rect(d, (56, 88, 71, 104), HOT)
+    rect(d, (60, 92, 67, 100), AMBER)
+
+    edge_bolts(d, (20, 78, 107, 118), step=28, color=SHADOW, sheen=STEEL)
+    return outline(image, SHADOW)
 
 
 def draw_foreshadow() -> Image.Image:
-    """Generate the 1x4 railgun turret (64x256) with 1px dark gunmetal outline."""
+    """Generate the realistic 1x4 spinal railgun turret (64x256) with 1px dark gunmetal outline."""
     image, d = clear(64, 256)
-    for bx, inner in ((13, 21), (42, 42)):
-        bevel_rect(d, (bx, 4, bx + 8, 140), BASE_LIGHT, STEEL, BASE)
-        vline(d, inner, 6, 136, STEEL)
-    for y in range(14, 132, 14):
-        rect(d, (22, y, 41, y + 6), CYAN_DIM)
-        rect(d, (24, y + 1, 39, y + 4), CYAN)
-        hline(d, 26, 37, y + 1, CYAN_GLOW)
-    chamfer_box(d, (8, 136, 55, 250), 8, BASE_LIGHT)
-    hline(d, 16, 47, 136, EDGE_LIGHT)
+    for bx, inner in ((14, 22), (41, 41)):
+        bevel_rect(d, (bx, 8, bx + 8, 148), BASE_LIGHT, STEEL, SHADOW)
+        vline(d, inner, 10, 146, BRONZE)
+        vline(d, inner + (1 if bx == 14 else -1), 10, 146, GOLD)
+
+    for y in range(14, 142, 12):
+        bevel_rect(d, (23, y, 40, y + 6), BASE_DARK, EDGE_LIGHT, SHADOW)
+        rect(d, (25, y + 1, 38, y + 5), CYAN_DIM)
+        rect(d, (27, y + 2, 36, y + 4), CYAN)
+        px(d, 31, y + 3, CYAN_GLOW)
+        px(d, 32, y + 3, CYAN_GLOW)
+
+    bevel_rect(d, (12, 6, 51, 10), BASE_LIGHT, STEEL, SHADOW)
+    rect(d, (26, 6, 37, 7), BASE_DARK)
+
+    for ry in (48, 88, 128):
+        bevel_rect(d, (12, ry, 51, ry + 4), BASE_LIGHT, STEEL, SHADOW)
+        bolt(d, 13, ry + 1, SHADOW, STEEL)
+        bolt(d, 48, ry + 1, SHADOW, STEEL)
+
+    chamfer_box(d, (8, 144, 55, 250), 8, BASE_LIGHT)
+    hline(d, 16, 47, 144, STEEL)
+    vline(d, 8, 152, 242, EDGE_LIGHT)
     hline(d, 16, 47, 250, SHADOW)
-    rect(d, (12, 148, 51, 242), BASE_MID)
-    rect(d, (18, 168, 45, 224), BASE_DARK)
-    rect(d, (22, 172, 41, 220), BRONZE)
-    rect(d, (24, 174, 39, 218), GOLD)
-    rect(d, (28, 180, 35, 208), AMBER)
-    edge_bolts(d, (14, 150, 48, 240), step=17, color=SHADOW, sheen=STEEL)
-    return outline(image)
+    vline(d, 55, 152, 242, SHADOW)
+
+    bevel_rect(d, (12, 150, 51, 244), BASE_MID, EDGE_LIGHT, SHADOW)
+
+    for fy in range(156, 188, 4):
+        hline(d, 15, 48, fy, BASE_DARK)
+        hline(d, 15, 48, fy - 1, BASE_LIGHT)
+
+    bevel_rect(d, (16, 192, 47, 232), BASE_DARK, EDGE_LIGHT, SHADOW)
+    rect(d, (20, 196, 43, 228), BRONZE)
+    rect(d, (22, 198, 41, 226), GOLD)
+    rect(d, (26, 202, 37, 222), AMBER)
+    vline(d, 31, 202, 222, EDGE_LIGHT)
+
+    bevel_rect(d, (14, 236, 49, 248), BASE_LIGHT, STEEL, SHADOW)
+    d.ellipse((22, 238, 41, 246), fill=BASE_DARK)
+
+    edge_bolts(d, (14, 148, 48, 246), step=22, color=SHADOW, sheen=STEEL)
+    return outline(image, SHADOW)
 
 
 def main() -> None:
