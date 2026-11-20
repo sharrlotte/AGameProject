@@ -24,7 +24,7 @@ AGameProject/                Cargo workspace (resolver = "3")
       mission/               battle-core scaffolding (quick-battle.ron, overlay)
       config/                ron config boot gate
       save/                  persistence (`design/`, `world/`, `document.rs`)
-        world/               SQLite save slots: component/store/sqlite/snapshot/system
+        world/               SQLite save slots: component/store/sqlite/system, snapshot/ (component/capture/apply)
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.

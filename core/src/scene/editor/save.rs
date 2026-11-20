@@ -3,7 +3,6 @@ use super::*;
 use crate::save::design::DesignSaveRequested;
 
 pub fn handle_ship_saving(
-    mut ship_saved_event: MessageWriter<ShipSavesChanged>,
     mut design_saves: MessageWriter<DesignSaveRequested>,
     state: Res<EditorState>,
     registry: Res<BlockRegistry>,
@@ -32,7 +31,6 @@ pub fn handle_ship_saving(
         &state.grid,
         state.doctrine,
         &mut design_saves,
-        &mut ship_saved_event,
     );
 }
 
@@ -42,7 +40,6 @@ pub fn perform_save_schematic(
     grid: &BlockGrid,
     doctrine: Doctrine,
     design_saves: &mut MessageWriter<DesignSaveRequested>,
-    ship_saved_event: &mut MessageWriter<ShipSavesChanged>,
 ) {
     let design = ShipDesign {
         version: DESIGN_SCHEMA_VERSION,
@@ -53,5 +50,4 @@ pub fn perform_save_schematic(
     };
 
     design_saves.write(DesignSaveRequested { design });
-    ship_saved_event.write(ShipSavesChanged);
 }

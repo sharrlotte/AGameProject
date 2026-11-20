@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::save::design::component::{DesignCatalogSource, DesignSaveRequested, ShipCatalog};
+use crate::save::design::component::{
+    DesignCatalogSource, DesignSaveRequested, ShipCatalog, ShipSavesChanged,
+};
 use crate::save::design::lib::load_or_seed_designs;
 use crate::save::world::ActiveWorldStore;
 
@@ -14,6 +16,7 @@ pub fn persist_design_request(
     source: Res<DesignCatalogSource>,
     mut store: ResMut<ActiveWorldStore>,
     mut catalog: ResMut<ShipCatalog>,
+    mut ship_saved: MessageWriter<ShipSavesChanged>,
 ) {
     for event in events.read() {
         let result: Result<(), String> = match *source {
@@ -32,7 +35,10 @@ pub fn persist_design_request(
         };
 
         match result {
-            Ok(()) => catalog.upsert(event.design.clone()),
+            Ok(()) => {
+                catalog.upsert(event.design.clone());
+                ship_saved.write(ShipSavesChanged);
+            }
             Err(e) => error!("Failed to save ship design: {e}"),
         }
     }

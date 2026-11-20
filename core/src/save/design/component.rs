@@ -19,6 +19,9 @@ pub struct DesignSaveRequested {
     pub design: ShipDesign,
 }
 
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ShipSavesChanged;
+
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ShipCatalog {
     pub designs: Vec<ShipDesign>,

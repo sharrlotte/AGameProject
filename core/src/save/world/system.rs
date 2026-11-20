@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use bevy::prelude::*;
 use uuid::Uuid;
 
@@ -19,12 +17,13 @@ use crate::save::world::component::{
 };
 
 use crate::save::world::snapshot::{
-    CameraSave, ControlSave, RngSave, apply_bodies, apply_camera, apply_control, apply_drops,
-    apply_intel, capture_bodies, capture_camera, capture_control, capture_drops, capture_intel,
+    BodySnapshot, CameraSave, ControlSave, DropSave, RngSave, TeamIntelSave, apply_bodies,
+    apply_camera, apply_control, apply_drops, apply_intel, capture_bodies, capture_camera,
+    capture_control, capture_drops, capture_intel,
 };
 
 use crate::save::world::sqlite::{slot_path, SqliteWorldStore};
-use crate::save::world::store::{InMemoryWorldStore, WorldStore, decode, encode};
+use crate::save::world::store::{InMemoryWorldStore, WorldStore, decode, encode, now_unix_ms};
 
 pub fn init_world_session(
     mut session: ResMut<WorldSession>,
@@ -234,6 +233,53 @@ pub fn begin_loaded_game(pending: Res<PendingLoad>, mut next_scene: ResMut<NextS
     }
 }
 
+struct WorldLoadData {
+    seed: u64,
+    play_time_secs: f32,
+    camera_save: CameraSave,
+    control_save: ControlSave,
+    bodies: Vec<BodySnapshot>,
+    drops: Vec<DropSave>,
+    intel: Vec<TeamIntelSave>,
+}
+
+fn load_world_data(active: &dyn WorldStore) -> Result<WorldLoadData, WorldStoreError> {
+    let meta = active.load_meta()?;
+    let state = active.load_active_state()?;
+    let seed = decode::<RngSave>(&meta.rng_blob)?.seed;
+    let camera_save = decode::<CameraSave>(&meta.camera_blob)?;
+    let control_save = decode::<ControlSave>(&meta.control_blob)?;
+    let bodies = decode(&state.bodies_blob)?;
+    let drops = decode(&state.drops_blob)?;
+    let intel = decode(&state.intel_blob)?;
+
+    Ok(WorldLoadData {
+        seed,
+        play_time_secs: meta.play_time_secs,
+        camera_save,
+        control_save,
+        bodies,
+        drops,
+        intel,
+    })
+}
+
+fn apply_world_data(
+    commands: &mut Commands,
+    data: WorldLoadData,
+    registry: &BlockRegistry,
+    config: &GameConfigValue,
+    camera: &mut Query<(&mut Transform, &mut Projection), With<Camera2d>>,
+    items: Option<&ItemRegistry>,
+) -> Result<(), WorldStoreError> {
+    let ship_map = apply_bodies(commands, data.bodies, registry, config)?;
+    apply_intel(commands, data.intel, &ship_map);
+    apply_control(commands, &data.control_save, &ship_map);
+    apply_camera(camera, &data.camera_save, config, &ship_map, commands);
+    apply_drops(commands, data.drops, config, items);
+    Ok(())
+}
+
 pub fn spawn_loaded_world(
     mut commands: Commands,
     pending: Res<PendingLoad>,
@@ -263,23 +309,10 @@ pub fn spawn_loaded_world(
         return;
     };
 
-    let (meta, state) = match active
-        .load_meta()
-        .and_then(|meta| active.load_active_state().map(|state| (meta, state)))
-    {
-        Ok(loaded) => loaded,
+    let data = match load_world_data(active.as_ref()) {
+        Ok(data) => data,
         Err(e) => {
             warn!("Failed to read save slot: {e}");
-            notice.show(format!("Load failed: {e}"));
-            scene.set(SceneState::Home);
-            return;
-        }
-    };
-
-    let seed = match decode::<RngSave>(&meta.rng_blob) {
-        Ok(saved) => saved.seed,
-        Err(e) => {
-            warn!("Failed to decode save slot RNG: {e}");
             notice.show(format!("Load failed: {e}"));
             scene.set(SceneState::Home);
             return;
@@ -290,22 +323,17 @@ pub fn spawn_loaded_world(
         commands.entity(entity).despawn();
     }
 
-    let applied = (|| -> Result<(), WorldStoreError> {
-        let camera_save = decode::<CameraSave>(&meta.camera_blob)?;
-        let control_save = decode::<ControlSave>(&meta.control_blob)?;
-        let bodies = decode(&state.bodies_blob)?;
-        let drops = decode(&state.drops_blob)?;
-        let intel = decode(&state.intel_blob)?;
+    let seed = data.seed;
+    let play_time_secs = data.play_time_secs;
 
-        let ship_map = apply_bodies(&mut commands, bodies, &registry, &config)?;
-        apply_intel(&mut commands, intel, &ship_map);
-        apply_control(&mut commands, &control_save, &ship_map);
-        apply_camera(&mut camera, &camera_save, &config, &ship_map, &mut commands);
-        apply_drops(&mut commands, drops, &config, items.as_deref());
-        Ok(())
-    })();
-
-    if let Err(e) = applied {
+    if let Err(e) = apply_world_data(
+        &mut commands,
+        data,
+        &registry,
+        &config,
+        &mut camera,
+        items.as_deref(),
+    ) {
         warn!("Failed to restore save slot: {e}");
         notice.show(format!("Load failed: {e}"));
         scene.set(SceneState::Home);
@@ -314,11 +342,11 @@ pub fn spawn_loaded_world(
 
     *rng = GameRng::new(seed);
     let mission_name = battle.mission_name.clone();
-    
+
     *battle = BattleResult {
-        started_at: Some((time.elapsed_secs() - meta.play_time_secs).max(0.0)),
+        started_at: Some((time.elapsed_secs() - play_time_secs).max(0.0)),
         outcome: None,
-        duration_secs: meta.play_time_secs,
+        duration_secs: play_time_secs,
         mission_name,
     };
     phase.set(BattlePhase::Active);
@@ -377,11 +405,4 @@ fn battle_duration(time: &Time, battle: &BattleResult) -> f32 {
         .started_at
         .map(|start| (time.elapsed_secs() - start).max(0.0))
         .unwrap_or(battle.duration_secs)
-}
-
-fn now_unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
 }

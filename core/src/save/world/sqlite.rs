@@ -11,7 +11,7 @@ use crate::save::document::data_dir;
 use crate::save::world::component::{
     ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError, WORLD_DB_SCHEMA_VERSION,
 };
-use crate::save::world::store::{WorldStore, decode, encode};
+use crate::save::world::store::{WorldStore, decode, encode, now_unix_ms};
 
 pub struct SqliteWorldStore {
     conn: Mutex<Connection>,
@@ -41,7 +41,7 @@ impl SqliteWorldStore {
         };
 
         store.configure()?;
-        store.init_schema()?;
+        store.migrate()?;
         store.insert_initial(meta, designs)?;
         Ok(store)
     }
@@ -57,7 +57,8 @@ impl SqliteWorldStore {
                     .map_err(sql_err)?,
             ),
         };
-        store.check_version()?;
+        store.configure()?;
+        store.migrate()?;
         Ok(store)
     }
 
@@ -73,67 +74,33 @@ impl SqliteWorldStore {
             .map_err(sql_err)
     }
 
-    fn init_schema(&self) -> Result<(), WorldStoreError> {
-        self.lock()?
-            .execute_batch(
-                "
-                CREATE TABLE IF NOT EXISTS world_meta (
-                    id             INTEGER PRIMARY KEY CHECK (id = 1),
-                    name           TEXT NOT NULL,
-                    seed           INTEGER NOT NULL,
-                    play_time_secs REAL NOT NULL,
-                    created_at_ms  INTEGER NOT NULL,
-                    updated_at_ms  INTEGER NOT NULL,
-                    camera_blob    BLOB NOT NULL,
-                    control_blob   BLOB NOT NULL,
-                    rng_blob       BLOB NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS active_state (
-                    id            INTEGER PRIMARY KEY CHECK (id = 1),
-                    bodies_blob   BLOB NOT NULL,
-                    drops_blob    BLOB NOT NULL,
-                    intel_blob    BLOB NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS designs (
-                    id            TEXT PRIMARY KEY,
-                    name          TEXT NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    data_blob     BLOB NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS quests (
-                    quest_id      TEXT PRIMARY KEY,
-                    status        TEXT NOT NULL,
-                    progress_blob BLOB NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS chunks (
-                    x             INTEGER NOT NULL,
-                    y             INTEGER NOT NULL,
-                    visited       INTEGER NOT NULL,
-                    enemy_count   INTEGER NOT NULL,
-                    data          BLOB NOT NULL,
-                    PRIMARY KEY (x, y)
-                );
-                ",
-            )
-            .map_err(sql_err)?;
-
-        self.lock()?
-            .pragma_update(None, "user_version", WORLD_DB_SCHEMA_VERSION)
-            .map_err(sql_err)
-    }
-
-    fn check_version(&self) -> Result<(), WorldStoreError> {
-        let found: u32 = self
-            .lock()?
+    fn migrate(&self) -> Result<(), WorldStoreError> {
+        let conn = self.lock()?;
+        let found: u32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(sql_err)?;
 
-        if found != WORLD_DB_SCHEMA_VERSION {
+        if found > WORLD_DB_SCHEMA_VERSION {
             return Err(WorldStoreError::VersionMismatch {
                 expected: WORLD_DB_SCHEMA_VERSION,
                 found,
             });
         }
+
+        for version in found..WORLD_DB_SCHEMA_VERSION {
+            match version {
+                0 => run_v0_to_v1(&conn)?,
+                _ => {
+                    return Err(WorldStoreError::VersionMismatch {
+                        expected: WORLD_DB_SCHEMA_VERSION,
+                        found: version,
+                    });
+                }
+            }
+            conn.pragma_update(None, "user_version", version + 1)
+                .map_err(sql_err)?;
+        }
+
         Ok(())
     }
 
@@ -281,41 +248,19 @@ impl WorldStore for SqliteWorldStore {
     }
 
     fn save_design(&self, design: &ShipDesign) -> Result<(), WorldStoreError> {
-        let stale: Vec<Uuid> = {
-            let conn = self.lock()?;
-            let mut stmt = conn
-                .prepare("SELECT id FROM designs WHERE name = ?1 AND id <> ?2")
-                .map_err(sql_err)?;
-
-            let rows = stmt
-                .query_map(params![design.name, design.id.to_string()], |row| {
-                    row.get::<_, String>(0)
-                })
-                .map_err(sql_err)?;
-
-            let mut ids = Vec::new();
-
-            for row in rows {
-                let text = row.map_err(sql_err)?;
-                match Uuid::parse_str(&text) {
-                    Ok(id) => ids.push(id),
-                    Err(_) => warn!("Ignoring design row with invalid id: {text}"),
-                }
-            }
-            ids
-        };
-
-        for id in stale {
-            self.delete_design(id)?;
-        }
-
         let mut conn = self.lock()?;
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_err)?;
-   
+
+        tx.execute(
+            "DELETE FROM designs WHERE name = ?1 AND id <> ?2",
+            params![design.name, design.id.to_string()],
+        )
+        .map_err(sql_err)?;
+
         insert_design(&tx, design)?;
-   
+
         tx.commit().map_err(sql_err)
     }
 
@@ -397,7 +342,7 @@ fn read_slot_summary(path: &Path, slot_id: Uuid) -> Result<SlotSummary, WorldSto
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(sql_err)?;
 
-    if found != WORLD_DB_SCHEMA_VERSION {
+    if found > WORLD_DB_SCHEMA_VERSION || found == 0 {
         return Err(WorldStoreError::VersionMismatch {
             expected: WORLD_DB_SCHEMA_VERSION,
             found,
@@ -441,11 +386,48 @@ fn shm_path(path: &Path) -> PathBuf {
     path.with_extension("db-shm")
 }
 
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
+fn run_v0_to_v1(conn: &Connection) -> Result<(), WorldStoreError> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS world_meta (
+            id             INTEGER PRIMARY KEY CHECK (id = 1),
+            name           TEXT NOT NULL,
+            seed           INTEGER NOT NULL,
+            play_time_secs REAL NOT NULL,
+            created_at_ms  INTEGER NOT NULL,
+            updated_at_ms  INTEGER NOT NULL,
+            camera_blob    BLOB NOT NULL,
+            control_blob   BLOB NOT NULL,
+            rng_blob       BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS active_state (
+            id            INTEGER PRIMARY KEY CHECK (id = 1),
+            bodies_blob   BLOB NOT NULL,
+            drops_blob    BLOB NOT NULL,
+            intel_blob    BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS designs (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            updated_at_ms INTEGER NOT NULL,
+            data_blob     BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS quests (
+            quest_id      TEXT PRIMARY KEY,
+            status        TEXT NOT NULL,
+            progress_blob BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS chunks (
+            x             INTEGER NOT NULL,
+            y             INTEGER NOT NULL,
+            visited       INTEGER NOT NULL,
+            enemy_count   INTEGER NOT NULL,
+            data          BLOB NOT NULL,
+            PRIMARY KEY (x, y)
+        );
+        ",
+    )
+    .map_err(sql_err)
 }
 
 fn sql_err(error: rusqlite::Error) -> WorldStoreError {
@@ -602,6 +584,62 @@ mod tests {
             "{error}"
         );
         assert!(list_slots(&dir).is_empty(), "incompatible slots are skipped");
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sequential_migration_ladder_upgrades_schema() {
+        let dir = temp_dir("migration");
+        let path = dir.join(format!("{}.db", Uuid::now_v7()));
+
+        {
+            let conn = Connection::open(&path).expect("create empty raw db");
+            let v: u32 = conn
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .expect("query version");
+            assert_eq!(v, 0, "new raw db starts at user_version 0");
+        }
+
+        let store = SqliteWorldStore::open(&path).expect("open runs migration ladder");
+        let conn = store.lock().expect("lock connection");
+        let v: u32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .expect("query migrated version");
+        assert_eq!(v, WORLD_DB_SCHEMA_VERSION);
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('world_meta', 'active_state', 'designs', 'quests', 'chunks')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count migrated tables");
+        assert_eq!(count, 5, "all 5 schema tables exist after migration");
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn atomic_design_save_replaces_same_name_different_id() {
+        let dir = temp_dir("atomic_design");
+        let path = dir.join(format!("{}.db", Uuid::now_v7()));
+        let store = SqliteWorldStore::create(&path, &meta(), &[]).expect("create slot");
+
+        let mut design_a = starter_designs().into_iter().next().expect("starter");
+        design_a.name = "Custom Cruiser".to_string();
+        design_a.id = Uuid::now_v7();
+        store.save_design(&design_a).expect("save design A");
+
+        let mut design_b = design_a.clone();
+        design_b.id = Uuid::now_v7();
+        design_b.doctrine = Doctrine::Sniper;
+        store.save_design(&design_b).expect("save design B with same name");
+
+        let designs = store.list_designs().expect("list designs");
+        assert_eq!(designs.len(), 1, "only 1 design remains with this name");
+        assert_eq!(designs[0].id, design_b.id, "id updated to design B");
+        assert_eq!(designs[0].doctrine, Doctrine::Sniper);
 
         let _ = fs::remove_dir_all(dir);
     }

@@ -12,10 +12,14 @@ core/src/save/
 └── world/          WorldSavePlugin: single-file SQLite save slots
     ├── mod.rs      plugin wiring, re-exports
     ├── component.rs  WorldSession, SlotSummary, WorldMeta, ActiveStateSnapshot, WorldStoreError, events
-    ├── store.rs    WorldStore trait, postcard + lz4 codec, InMemoryWorldStore
-    ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files
-    ├── snapshot.rs capture/apply helpers for bodies, drops, camera, control, RNG, intel
-    └── system.rs   save/load/create lifecycle, auto-save, catalog switching
+    ├── store.rs    WorldStore trait, postcard + lz4 codec, InMemoryWorldStore, now_unix_ms
+    ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files, sequential migration ladder
+    ├── snapshot/   modular capture and apply subfolder (<300 lines/file)
+    │   ├── mod.rs        BodySnapshot enum, module re-exports
+    │   ├── component.rs  serde structs (TurretSaveState, BlockSnapshot, TransformSave, etc.)
+    │   ├── capture.rs    world entity extraction (bodies, ships, debris, camera, control, drops, intel)
+    │   └── apply.rs      ECS restoration and spawning (bodies, ships, debris, camera, control, drops, intel)
+    └── system.rs   save/load/create lifecycle, auto-save, catalog switching, load_world_data / apply_world_data
 ```
 
 ## Locations
@@ -33,8 +37,9 @@ core/src/save/
 Legacy `saves/battle.ron`, `saves/campaign.ron`, `fleet.ron`, `saves/slot_*.ron`, `designs/*.ron`,
 `schematics/*.json` and `world/` are never read, written, migrated, or deleted by the save system.
 
-`WORLD_DB_SCHEMA_VERSION = 1` is stored in `PRAGMA user_version` and checked on every open.
-A mismatch returns `WorldStoreError::VersionMismatch { expected, found }` without modifying the file.
+`WORLD_DB_SCHEMA_VERSION = 1` is stored in `PRAGMA user_version`. On open, a sequential migration
+ladder runs from `found` up to `WORLD_DB_SCHEMA_VERSION`. Downgrade attempts (`found > WORLD_DB_SCHEMA_VERSION`)
+fail loudly with `WorldStoreError::VersionMismatch { expected, found }` without modifying the file.
 `list_slots` skips incompatible or corrupt files with a warning.
 
 ## SQLite Schema
@@ -146,7 +151,7 @@ Saving a design with an existing name replaces the stale row instead of duplicat
 
 ## Snapshot Capture / Apply
 
-`save/world/snapshot.rs` ports the single-ship, single-debris, drop, camera, control, RNG, and
+`save/world/snapshot/` (`capture.rs` and `apply.rs`) ports the single-ship, single-debris, drop, camera, control, RNG, and
 `TeamIntel` helpers from the former battle save:
 
 - **Capture** reads directly from `&World` (`BodySnapshot::capture`, `capture_drops`, `capture_camera`,

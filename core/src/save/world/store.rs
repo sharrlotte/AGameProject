@@ -78,6 +78,13 @@ pub fn decode<T: DeserializeOwned>(blob: &[u8]) -> Result<T, WorldStoreError> {
     postcard::from_bytes(&bytes).map_err(|e| WorldStoreError::Decode(e.to_string()))
 }
 
+pub fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 fn lock_err<T>(error: std::sync::PoisonError<T>) -> WorldStoreError {
     WorldStoreError::Sql(format!("mutex poisoned: {error}"))
 }

@@ -13,6 +13,7 @@ pub struct DesignSavePlugin;
 impl Plugin for DesignSavePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<DesignSaveRequested>()
+            .add_message::<ShipSavesChanged>()
             .init_resource::<ShipCatalog>()
             .init_resource::<DesignCatalogSource>()
             .add_systems(PreStartup, init_ship_catalog)

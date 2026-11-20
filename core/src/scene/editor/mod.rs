@@ -31,7 +31,7 @@ use crate::{
         ship::ShipDesign,
     },
     resource::{DeployPayload, SceneState},
-    save::design::{DESIGN_SCHEMA_VERSION, ShipCatalog},
+    save::design::{DESIGN_SCHEMA_VERSION, ShipCatalog, ShipSavesChanged},
     scene::layout::{
         BUTTON_WIDTH, CORNER_RADIUS, FONT_SMALL, FONT_TITLE, ICON_SIZE, PANEL_WIDTH, ROW_HEIGHT,
     },
@@ -86,9 +86,6 @@ pub struct AiPanel;
 
 #[derive(Component)]
 pub struct BlockPropertiesText;
-
-#[derive(Message)]
-pub struct ShipSavesChanged;
 
 #[derive(Message)]
 pub struct ShipSaveChanged;

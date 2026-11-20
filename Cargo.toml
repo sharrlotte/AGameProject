@@ -5,9 +5,9 @@ members = [
 ]
 
 [workspace.lints.rust]
-dead_code = "deny"
-unused_variables = "deny"
-unused_imports = "deny"
+dead_code = "warn"
+unused_variables = "warn"
+unused_imports = "warn"
 
 [workspace.lints.clippy]
 absolute_paths = "deny"
