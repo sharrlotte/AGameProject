@@ -118,7 +118,7 @@ Continuity is the highest priority. Sprites SHALL tile into continuous armor:
 
 ## Generation
 
-`python tools/gen_block_art.py` regenerates every sprite in `core/assets/texture/block/`. The generator SHALL remain the single source of truth: no asset SHALL be hand-edited in a way that the generator cannot reproduce. Triangle alpha masks SHALL use the same half-plane inequalities as `triangle_cells` in `content/block/component.rs`.
+`python tools/gen_block_art.py` regenerates block sprites in `core/assets/texture/block/`. `hull.png` is preserved untouched as the approved baseline standard. Structural triangle sprites feature corner-prioritized bolts along all edges, with a uniform 4px perimeter rim and at least 8px margin from sprite edges. Triangle alpha masks SHALL use the same half-plane inequalities as `triangle_cells` in `content/block/component.rs`.
 
 ## Validation
 

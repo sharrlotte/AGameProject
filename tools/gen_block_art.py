@@ -1,18 +1,23 @@
 """Generate every block sprite at final native resolution (1px minimum detail).
 
 All sprites share a dark gunmetal palette, seamless edge-to-edge hull fill,
-subtle perimeter bolts, clean matte paneling without interior stripes, and
-crisp 1px dark outlines on transparent-background turrets. Triangle masks use
-the same half-plane inequalities as the engine's triangle rasterizer.
+corner-prioritized perimeter bolts, clean matte paneling without interior stripes,
+and crisp 1px dark gunmetal framing on transparent-background turrets.
+Triangle masks use the same half-plane inequalities as the engine's triangle rasterizer.
+
+Note: hull.png is intentionally preserved and ignored during batch regeneration
+as the approved baseline reference standard.
 """
 
+import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 OUT = Path(__file__).resolve().parents[1] / "core" / "assets" / "texture" / "block"
 
-OUTLINE = (8, 10, 14, 255)
+# Palette: Grounded military/industrial sci-fi hardware
+OUTLINE = (14, 16, 20, 255)
 SHADOW = (14, 16, 20, 255)
 BASE_DARK = (18, 21, 26, 255)
 SEAM = (24, 27, 34, 255)
@@ -82,7 +87,7 @@ def px(draw: ImageDraw.ImageDraw, x: int, y: int, color: Color) -> None:
     draw.point((x, y), fill=color)
 
 
-def bolt(draw: ImageDraw.ImageDraw, x: int, y: int, color: Color = SHADOW, sheen: Color = EDGE_LIGHT) -> None:
+def bolt(draw: ImageDraw.ImageDraw, x: int, y: int, color: Color = SHADOW, sheen: Color = BASE_LIGHT) -> None:
     """Draw a visible 3x3 machined bolt head with dark recess and upper-left sheen."""
     rect(draw, (x, y, x + 2, y + 2), color)
     rect(draw, (x, y, x + 1, y + 1), sheen)
@@ -145,7 +150,7 @@ def edge_bolts(
     color: Color = SEAM,
     sheen: Color = BASE_LIGHT,
 ) -> None:
-    """Place subtle 1px bolts evenly around the perimeter of box."""
+    """Place subtle 1px bolts evenly around the perimeter of box, prioritizing corners."""
     x0, y0, x1, y1 = box
     for x in range(x0, x1 + 1, step):
         bolt(draw, x, y0, color, sheen)
@@ -170,21 +175,20 @@ def draw_steel() -> Image.Image:
     image, d = opaque(64, 64)
     bevel_rect(d, (5, 5, 58, 58), BASE_MID, BASE_LIGHT, SEAM)
     bevel_rect(d, (16, 16, 47, 47), BASE, BASE_LIGHT, SHADOW)
-    edge_bolts(d, (8, 8, 54, 54), step=15, color=SHADOW, sheen=EDGE_LIGHT)
+    edge_bolts(d, (7, 7, 54, 54), step=15, color=SHADOW, sheen=EDGE_LIGHT)
     return image
 
 
 def draw_scrap() -> Image.Image:
     """Generate X-braced industrial scrap armor with perimeter bolts."""
     image, d = opaque(64, 64)
-    rect(d, (6, 6, 57, 57), BASE_DARK)
+    rect(d, (5, 5, 58, 58), BASE_DARK)
     d.line([(8, 8), (55, 55)], fill=BASE_MID, width=5)
     d.line([(8, 55), (55, 8)], fill=BASE_MID, width=5)
     d.line([(8, 8), (55, 55)], fill=BASE_LIGHT, width=1)
     d.line([(8, 55), (55, 8)], fill=BASE_LIGHT, width=1)
     bevel_rect(d, (23, 23, 40, 40), BASE_MID, BASE_LIGHT, SHADOW)
-    edge_bolts(d, (8, 8, 53, 53), step=22, color=SEAM, sheen=BASE_MID)
-    edge_bolts(d, (25, 25, 37, 37), step=12, color=SHADOW, sheen=EDGE_LIGHT)
+    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_MID)
     return image
 
 
@@ -193,6 +197,9 @@ def draw_turret_base() -> Image.Image:
     image, d = opaque(64, 64)
     chamfer_box(d, (10, 10, 53, 53), 12, BASE_DARK)
     chamfer_box(d, (16, 16, 47, 47), 9, BASE_MID)
+    # Upper-left highlight on bearing collar
+    hline(d, 22, 41, 16, BASE_LIGHT)
+    vline(d, 16, 22, 41, BASE_LIGHT)
     d.ellipse((22, 22, 41, 41), fill=SHADOW)
     d.ellipse((26, 26, 37, 37), fill=BASE_DARK)
     edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_LIGHT)
@@ -224,13 +231,13 @@ def draw_nucleus() -> Image.Image:
 def draw_battery() -> Image.Image:
     """Generate a blue-framed energy storage block with cyan charge cells and edge bolts."""
     image, d = opaque(64, 64)
-    bevel_rect(d, (6, 6, 57, 57), BLUE, BLUE_LIGHT, SHADOW)
+    bevel_rect(d, (5, 5, 58, 58), BLUE, BLUE_LIGHT, SHADOW)
     rect(d, (14, 14, 49, 49), BASE_DARK)
     for y in (18, 28, 38):
         rect(d, (18, y, 45, y + 6), CYAN_DIM)
         rect(d, (20, y + 1, 43, y + 5), CYAN)
         hline(d, 20, 32, y + 1, CYAN_GLOW)
-    edge_bolts(d, (8, 8, 53, 53), step=22, color=SEAM, sheen=BASE_LIGHT)
+    edge_bolts(d, (7, 7, 54, 54), step=23, color=SEAM, sheen=BASE_LIGHT)
     return image
 
 
@@ -283,30 +290,102 @@ def triangle_mask(width: int, height: int, base: str) -> Image.Image:
     return mask
 
 
-def draw_triangle(width: int, height: int, base: str) -> Image.Image:
-    """Generate a clean bolted hull triangle without interior stripes."""
-    image, d = opaque(width, height)
-    rect(d, (4, 4, width - 5, height - 5), HULL_MID)
-    if base == "right":
-        for x in range(8, width - 12, 22):
-            bolt(d, x, height - 10, SHADOW, BASE_LIGHT)
-        for y in range(12, height - 12, 22):
-            bolt(d, 7, y, SHADOW, BASE_LIGHT)
+def draw_right_triangle(width: int, height: int) -> Image.Image:
+    """Generate a clean bolted right triangle hull with corner-prioritized perimeter bolts."""
+    image = Image.new("RGBA", (width, height), BASE)
+    d = ImageDraw.Draw(image)
+    scale = width // 64
+    diag_offset = 7 if scale == 1 else 9
+    rim = 4
+    for y in range(rim, height - rim):
+        for x in range(rim, width - rim):
+            if y - x >= diag_offset:
+                d.point((x, y), fill=HULL_MID)
+
+    if scale == 1:
+        bolts = [
+            (7, 54),   # Bottom-left 90-degree corner
+            (7, 18),   # Top 45-degree corner
+            (43, 54),  # Bottom-right 45-degree corner
+            (25, 36),  # Hypotenuse midpoint
+        ]
     else:
-        for x in range(10, width - 10, 22):
-            bolt(d, x, height - 10, SHADOW, BASE_LIGHT)
-    image.putalpha(triangle_mask(width, height, base))
+        bolts = [
+            (7, 118), (7, 26), (99, 118),
+            (7, 49), (7, 72), (7, 95),
+            (30, 118), (53, 118), (76, 118),
+            (25, 44), (43, 62), (61, 80), (80, 99),
+        ]
+    for bx, by in bolts:
+        bolt(d, bx, by, SHADOW, BASE_LIGHT)
+    image.putalpha(triangle_mask(width, height, "right"))
+    return image
+
+
+def draw_isosceles_triangle(width: int, height: int) -> Image.Image:
+    """Generate a clean bolted isosceles triangle with corner-prioritized perimeter bolts."""
+    image = Image.new("RGBA", (width, height), BASE)
+    d = ImageDraw.Draw(image)
+
+    apex_x = (width - 1) / 2.0
+    apex_y = 0.5
+    bl_x = -0.5
+    bl_y = height - 0.5
+    dy = bl_y - apex_y
+    dx = bl_x - apex_x
+    denom = math.hypot(dy, dx)
+
+    # Inset plate calculation
+    for y in range(4, height - 4):
+        for x in range(width):
+            d_left = (dy * (x - apex_x) - dx * (y - apex_y)) / denom
+            d_right = (dy * ((width - 1 - x) - apex_x) - dx * (y - apex_y)) / denom
+            d_bot = (height - 0.5) - y
+            if d_left >= 4.0 and d_right >= 4.0 and d_bot >= 4.0:
+                d.point((x, y), fill=HULL_MID)
+
+    # 1. Apex corner bolt
+    apex_bolt_y = int(round(8.0 * denom / (width / 2.0) + 0.5))
+    apex_bolt_x = int(round(apex_x - 1))
+
+    # 2. Bottom-left & bottom-right corner bolts
+    bl_by = height - 10
+    bl_bx = int(round((8.0 * denom + dx * (bl_by + 1 - apex_y)) / dy + apex_x - 1))
+    br_bx = width - 3 - bl_bx
+
+    bolts = [(bl_bx, bl_by), (br_bx, bl_by), (apex_bolt_x, apex_bolt_y)]
+
+    # 3. Bottom edge midpoint
+    if (br_bx - bl_bx) >= 28:
+        mid_bx = int(round(apex_x - 1))
+        bolts.append((mid_bx, bl_by))
+
+    # 4. Diagonal edge bolts between bottom corners and apex
+    diag_steps = max(1, int(round(math.hypot(apex_bolt_x - bl_bx, bl_by - apex_bolt_y) / 24.0)))
+    for s in range(1, diag_steps):
+        t = s / diag_steps
+        left_x = int(round(bl_bx * (1 - t) + apex_bolt_x * t))
+        left_y = int(round(bl_by * (1 - t) + apex_bolt_y * t))
+        right_x = width - 3 - left_x
+        bolts.append((left_x, left_y))
+        bolts.append((right_x, left_y))
+
+    for bx, by in bolts:
+        bolt(d, bx, by, SHADOW, BASE_LIGHT)
+
+    image.putalpha(triangle_mask(width, height, "isosceles"))
     return image
 
 
 def draw_lancer() -> Image.Image:
-    """Generate the twin-rail laser turret with 1px dark outline."""
+    """Generate the twin-rail laser turret with 1px dark gunmetal outline."""
     image, d = clear(64, 64)
     for bx in (17, 38):
         bevel_rect(d, (bx, 4, bx + 8, 42), BASE_LIGHT, STEEL, BASE)
         rect(d, (bx + 2, 8, bx + 6, 38), BASE_DARK)
-        rect(d, (bx + 3, 10, bx + 5, 36), CYAN)
-        vline(d, bx + 4, 10, 18, CYAN_GLOW)
+        rect(d, (bx + 3, 10, bx + 5, 36), CYAN_DIM)
+        rect(d, (bx + 3, 12, bx + 5, 34), CYAN)
+        vline(d, bx + 4, 12, 20, CYAN_GLOW)
     chamfer_box(d, (12, 40, 51, 58), 5, BASE_LIGHT)
     hline(d, 17, 46, 40, EDGE_LIGHT)
     rect(d, (18, 44, 45, 54), BASE_MID)
@@ -317,7 +396,7 @@ def draw_lancer() -> Image.Image:
 
 
 def draw_colaris() -> Image.Image:
-    """Generate the compact twin-cannon turret with 1px dark outline."""
+    """Generate the compact twin-cannon turret with 1px dark gunmetal outline."""
     image, d = clear(64, 64)
     for bx in (17, 38):
         bevel_rect(d, (bx, 6, bx + 8, 24), BASE_LIGHT, STEEL, BASE)
@@ -335,12 +414,13 @@ def draw_colaris() -> Image.Image:
 
 
 def draw_swarmer() -> Image.Image:
-    """Generate the 4-cell missile pod turret with 1px dark outline."""
+    """Generate the 4-cell missile pod turret with 1px dark gunmetal outline."""
     image, d = clear(64, 64)
     chamfer_box(d, (8, 8, 55, 55), 5, BASE_LIGHT)
     hline(d, 13, 50, 8, STEEL)
     hline(d, 13, 50, 55, SHADOW)
     for cx, cy in ((16, 16), (38, 16), (16, 38), (38, 38)):
+        bevel_rect(d, (cx - 1, cy - 1, cx + 10, cy + 10), BASE_MID, STEEL, SHADOW)
         rect(d, (cx, cy, cx + 9, cy + 9), BASE_DARK)
         d.ellipse((cx + 2, cy + 2, cx + 7, cy + 7), fill=HOT_DARK)
         d.ellipse((cx + 3, cy + 3, cx + 6, cy + 6), fill=HOT)
@@ -350,7 +430,7 @@ def draw_swarmer() -> Image.Image:
 
 
 def draw_spectre() -> Image.Image:
-    """Generate the heavy twin autocannon turret with 1px dark outline."""
+    """Generate the heavy twin autocannon turret with 1px dark gunmetal outline."""
     image, d = clear(128, 128)
     for bx in (28, 79):
         bevel_rect(d, (bx, 8, bx + 20, 84), BASE_LIGHT, STEEL, BASE)
@@ -372,7 +452,7 @@ def draw_spectre() -> Image.Image:
 
 
 def draw_meltdown() -> Image.Image:
-    """Generate the heavy thermal beam turret with 1px dark outline."""
+    """Generate the heavy thermal beam turret with 1px dark gunmetal outline."""
     image, d = clear(128, 128)
     for bx in (24, 79):
         bevel_rect(d, (bx, 8, bx + 24, 80), BASE_LIGHT, STEEL, BASE)
@@ -394,7 +474,7 @@ def draw_meltdown() -> Image.Image:
 
 
 def draw_foreshadow() -> Image.Image:
-    """Generate the 1x4 railgun turret (64x256) with 1px dark outline."""
+    """Generate the 1x4 railgun turret (64x256) with 1px dark gunmetal outline."""
     image, d = clear(64, 256)
     for bx, inner in ((13, 21), (42, 42)):
         bevel_rect(d, (bx, 4, bx + 8, 140), BASE_LIGHT, STEEL, BASE)
@@ -416,21 +496,21 @@ def draw_foreshadow() -> Image.Image:
 
 
 def main() -> None:
-    """Regenerate every block sprite PNG and print output dimensions."""
+    """Regenerate all block sprite PNGs (except hull.png) and verify output dimensions."""
     save("turret-base", draw_turret_base())
     save("scrap", draw_scrap())
     save("steel", draw_steel())
     save("nucleus", draw_nucleus())
     save("booster", draw_booster())
-    save("hull", draw_hull())
+    # Note: hull.png is intentionally omitted to preserve the approved baseline reference.
     save("thruster", draw_thruster())
     save("battery", draw_battery())
 
-    save("wedge-1x1", draw_triangle(64, 64, "right"))
-    save("cap-1x1", draw_triangle(64, 64, "isosceles"))
-    save("plate-2x2", draw_triangle(128, 128, "right"))
-    save("fin-1x2", draw_triangle(64, 128, "isosceles"))
-    save("spike-1x3", draw_triangle(64, 192, "isosceles"))
+    save("wedge-1x1", draw_right_triangle(64, 64))
+    save("cap-1x1", draw_isosceles_triangle(64, 64))
+    save("plate-2x2", draw_right_triangle(128, 128))
+    save("fin-1x2", draw_isosceles_triangle(64, 128))
+    save("spike-1x3", draw_isosceles_triangle(64, 192))
 
     save("lancer", draw_lancer())
     save("colaris", draw_colaris())

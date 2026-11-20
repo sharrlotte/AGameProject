@@ -9,6 +9,15 @@ struct ShieldMaterial {
 @group(2) @binding(0)
 var<uniform> material: ShieldMaterial;
 
+const HEX_DENSITY: f32 = 14.0;
+const RIM_NZ: f32 = 0.173;
+const RIM_WIDTH: f32 = 0.012;
+const KEY_LIGHT: vec3<f32> = vec3<f32>(-0.477, 0.667, 0.572);
+const KEY_FLOOR: f32 = 0.65;
+const KEY_RANGE: f32 = 0.35;
+const BODY_STRENGTH: f32 = 0.05;
+const RIPPLE_FREQUENCY: f32 = 11.5;
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
@@ -42,27 +51,30 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
     if material.shape_type < 0.5 {
         // --- CIRCLE SHIELD ---
-        let dist = length(p);
-        if dist > 1.0 {
+        let r = length(p);
+        let edge_aa = fwidth(r);
+        let silhouette = 1.0 - smoothstep(1.0 - edge_aa, 1.0 + edge_aa, r);
+        if silhouette <= 0.0 {
             discard;
         }
 
-        // 1. Boundary rim aligned exactly at collision radius 1.0
-        let rim_target = 0.985;
-        let rim = smoothstep(0.035, 0.0, abs(dist - rim_target));
+        let nz = sqrt(max(0.0, 1.0 - r * r));
+        let n = vec3<f32>(p, nz);
 
-        // 2. Full Field Hex Grid wireframe (zero fill inside cells)
-        let hex = hex_coords(p * 14.0);
+        let key = KEY_FLOOR + KEY_RANGE * max(dot(n.xy, KEY_LIGHT.xy), 0.0);
+        let rim = smoothstep(RIM_WIDTH, 0.0, abs(nz - RIM_NZ)) * key;
+
+        let arc_ratio = select(1.0, asin(clamp(r, 0.0, 1.0)) / max(r, 1e-4), r > 1e-4);
+        let arc = r * arc_ratio;
+        let hex = hex_coords(p * arc_ratio * HEX_DENSITY);
         let hex_wire = smoothstep(0.06, 0.015, hex.z);
-
-        // 3. Traveling radial energy ripple across the honeycomb
-        let ripple = 0.5 + 0.5 * sin(dist * 18.0 - material.time * 3.5);
+        let ripple = 0.5 + 0.5 * sin(arc * RIPPLE_FREQUENCY - material.time * 3.5);
         let hex_intensity = hex_wire * (0.35 + 0.45 * ripple);
 
-        // Combine rim + hex wireframe (no interior fog; background stays clear)
-        let combined = max(rim * 0.95, hex_intensity);
+        let body = pow(max(n.z, 0.0), 3.0) * BODY_STRENGTH;
+        let combined = max(rim * 0.95, hex_intensity) + body;
         let alpha = clamp(
-            combined * material.color.a * material.hp_ratio * flicker,
+            combined * silhouette * material.color.a * material.hp_ratio * flicker,
             0.0,
             1.0
         );
