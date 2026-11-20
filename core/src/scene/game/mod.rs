@@ -1,4 +1,4 @@
-mod inspector;
+﻿mod inspector;
 
 pub mod minimap;
 
@@ -228,7 +228,7 @@ fn update_cargo_hud(
         if !team.is_player() {
             continue;
         }
-        used += stats.cargo_used;
+        used += stats.cargo_used();
         capacity += stats.cargo_capacity;
         for (item, count) in &stats.cargo_items {
             *items.entry(item.clone()).or_default() += *count;
@@ -317,8 +317,8 @@ fn update_ship_list(
                 .spawn((
                     Node {
                         position_type: PositionType::Relative,
-                        min_width: Val::Px((bbox.size.x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
-                        height: Val::Px((bbox.size.y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        min_width: Val::Px((bbox.size().x / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
+                        height: Val::Px((bbox.size().y / GRID_SIZE + 2.0) * SMALL_GRID_SIZE),
                         ..default()
                     },
                     Pickable::IGNORE,

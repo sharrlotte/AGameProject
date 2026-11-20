@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use uuid::Uuid;
 
@@ -75,7 +75,7 @@ pub fn component_centroid(source: &BlockGrid, ids: &[Uuid]) -> Vec2 {
     let mut sum = Vec2::ZERO;
     let mut count = 0usize;
 
-    for (cell, id) in &source.cells {
+    for (cell, id) in source.cells() {
         if wanted.contains(id) {
             sum += cell.as_vec2() * GRID_SIZE + Vec2::splat(GRID_SIZE * 0.5);
             count += 1;

@@ -104,3 +104,7 @@ panel (opacity 0.8). Controls:
 `volume` and `bloom` are written to `config/setting.ron` and hot-reloaded on edit (dev
 builds with the `file_watcher` feature; production applies settings via the UI or on
 restart). All other state is in-memory only.
+
+## Modal Ownership
+
+Pause, Settings, and the Save Slot Picker SHALL be owned by a single `ModalStack` resource with variants `Modal::{Pause, Settings, SlotPicker}`. `PauseState`, `SettingState`, and `SlotPickerState` SHALL NOT exist. Escape SHALL pop the top modal, or push Pause when the stack is empty in `Game`/`ShipEditor`. Leaving `SceneState::Game` SHALL clear the stack and unpause `Time<Virtual>`. Virtual time SHALL be paused only while Pause is the top modal during gameplay. Modal UI roots SHALL use `ModalRoot(Modal)` and despawn when their modal closes.

@@ -1,18 +1,26 @@
-use bevy::input::ButtonState;
+﻿use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use uuid::Uuid;
 
-use crate::resource::{AppNotice, SlotPickerState};
+use crate::resource::AppNotice;
 use crate::save::world::sqlite::{delete_slot_files, list_slots, saves_dir, slot_path};
 use crate::save::world::{CreateSlotEvent, LoadSlotEvent, SlotSummary};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
+use crate::ui::{Modal, ModalRoot, ModalStack};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DeletePrompt {
+    #[default]
+    None,
+    Confirming(Uuid),
+}
 
 #[derive(Resource, Default, Debug)]
 pub struct SlotPickerUi {
     pub slots: Vec<SlotSummary>,
     pub selected: Option<Uuid>,
-    pub confirm_delete: bool,
+    pub delete_prompt: DeletePrompt,
     pub name_buffer: String,
 }
 
@@ -46,15 +54,33 @@ struct SlotNewButton;
 #[derive(Component)]
 struct SlotCloseButton;
 
-pub fn refresh_slot_list(mut ui: ResMut<SlotPickerUi>) {
+pub fn refresh_slot_list(ui: &mut SlotPickerUi) {
     ui.slots = list_slots(&saves_dir());
     if ui.selected.is_none_or(|id| !ui.slots.iter().any(|slot| slot.slot_id == id)) {
         ui.selected = ui.slots.first().map(|slot| slot.slot_id);
     }
-    ui.confirm_delete = false;
+    ui.delete_prompt = DeletePrompt::None;
 }
 
-pub fn setup_picker(mut commands: Commands, ui: Res<SlotPickerUi>) {
+pub fn sync_picker_ui(
+    mut commands: Commands,
+    stack: Res<ModalStack>,
+    roots: Query<(Entity, &ModalRoot)>,
+    mut ui: ResMut<SlotPickerUi>,
+) {
+    let open = stack.contains(Modal::SlotPicker);
+    let existing = roots.iter().find(|(_, root)| root.0 == Modal::SlotPicker).map(|(e, _)| e);
+    match (open, existing) {
+        (true, None) => {
+            refresh_slot_list(&mut ui);
+            setup_picker(&mut commands, &ui);
+        }
+        (false, Some(entity)) => commands.entity(entity).despawn(),
+        _ => {}
+    }
+}
+
+pub fn setup_picker(commands: &mut Commands, ui: &SlotPickerUi) {
     commands
         .spawn((
             Node {
@@ -71,9 +97,9 @@ pub fn setup_picker(mut commands: Commands, ui: Res<SlotPickerUi>) {
             BackgroundColor(Color::srgba(0.02, 0.03, 0.05, 0.97)),
             GlobalZIndex(100),
             SlotPickerRoot,
-            DespawnOnExit(SlotPickerState::Open),
+            ModalRoot(Modal::SlotPicker),
         ))
-        .with_children(|parent| spawn_picker_content(parent, &ui));
+        .with_children(|parent| spawn_picker_content(parent, ui));
 }
 
 pub fn rebuild_picker(
@@ -247,7 +273,7 @@ fn spawn_slot_row(parent: &mut ChildSpawnerCommands, slot: &SlotSummary, ui: &Sl
                 ButtonVisuals::green(),
             );
 
-            if ui.confirm_delete && selected {
+            if matches!(ui.delete_prompt, DeletePrompt::Confirming(id) if Some(id) == ui.selected) {
                 spawn_button(
                     row,
                     small_node(90.0, 40.0),
@@ -330,7 +356,7 @@ fn on_select_slot(
         return;
     };
     ui.selected = Some(button.0);
-    ui.confirm_delete = false;
+    ui.delete_prompt = DeletePrompt::None;
     rebuild_picker(commands, roots, &ui);
 }
 
@@ -339,7 +365,7 @@ fn on_load_slot(
     buttons: Query<&SlotLoadButton>,
     ui: Res<SlotPickerUi>,
     mut loads: MessageWriter<LoadSlotEvent>,
-    mut picker: ResMut<NextState<SlotPickerState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if !buttons.contains(click.event().entity) {
         return;
@@ -354,7 +380,7 @@ fn on_load_slot(
         return;
     };
     loads.write(LoadSlotEvent { slot });
-    picker.set(SlotPickerState::Closed);
+    stack.remove(Modal::SlotPicker);
 }
 
 fn on_new_world(
@@ -362,7 +388,7 @@ fn on_new_world(
     buttons: Query<&SlotNewButton>,
     ui: Res<SlotPickerUi>,
     mut creates: MessageWriter<CreateSlotEvent>,
-    mut picker: ResMut<NextState<SlotPickerState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if !buttons.contains(click.event().entity) {
         return;
@@ -373,7 +399,7 @@ fn on_new_world(
         ui.name_buffer.trim().to_string()
     };
     creates.write(CreateSlotEvent { name });
-    picker.set(SlotPickerState::Closed);
+    stack.remove(Modal::SlotPicker);
 }
 
 fn on_delete_prompt(
@@ -386,7 +412,7 @@ fn on_delete_prompt(
     if !buttons.contains(click.event().entity) {
         return;
     }
-    ui.confirm_delete = true;
+    ui.delete_prompt = DeletePrompt::Confirming(ui.selected.unwrap_or_default());
     rebuild_picker(commands, roots, &ui);
 }
 
@@ -400,7 +426,7 @@ fn on_cancel_delete(
     if !buttons.contains(click.event().entity) {
         return;
     }
-    ui.confirm_delete = false;
+    ui.delete_prompt = DeletePrompt::None;
     rebuild_picker(commands, roots, &ui);
 }
 
@@ -426,27 +452,17 @@ fn on_confirm_delete(
         ui.selected = ui.slots.first().map(|slot| slot.slot_id);
         notice.show("Save slot deleted");
     }
-    ui.confirm_delete = false;
+    ui.delete_prompt = DeletePrompt::None;
     rebuild_picker(commands, roots, &ui);
 }
 
 fn on_close_picker(
     click: On<PointerClick>,
     buttons: Query<&SlotCloseButton>,
-    mut picker: ResMut<NextState<SlotPickerState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if buttons.contains(click.event().entity) {
-        picker.set(SlotPickerState::Closed);
-    }
-}
-
-pub fn slot_picker_input(
-    keys: Res<ButtonInput<KeyCode>>,
-    picker: Res<State<SlotPickerState>>,
-    mut next: ResMut<NextState<SlotPickerState>>,
-) {
-    if *picker.get() == SlotPickerState::Open && keys.just_pressed(KeyCode::Escape) {
-        next.set(SlotPickerState::Closed);
+        stack.remove(Modal::SlotPicker);
     }
 }
 

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
 
@@ -77,13 +77,14 @@ fn spawn_ship_entity(
     skill: Skill,
     ai_cfg: &AiConfig,
 ) {
-    let Some((ship_entity, _)) = design.spawn(
+    let Ok((ship_entity, _)) = design.spawn(
         commands,
         registry,
         team,
         Transform::from_translation(position.extend(0.0)),
         config,
     ) else {
+        warn!("Mission references invalid design {:?}; skipping", design.name);
         return;
     };
 
@@ -130,10 +131,10 @@ pub fn hull_extent_y(design: &ShipDesign, registry: &BlockRegistry) -> Vec2 {
     let mut grid = BlockGrid::new();
     grid.rebuild_from_layout(&design.blocks, registry);
 
-    let Some(min) = grid.cells.keys().map(|cell| cell.y).min() else {
+    let Some(min) = grid.cells().keys().map(|cell| cell.y).min() else {
         return Vec2::ZERO;
     };
-    let Some(max) = grid.cells.keys().map(|cell| cell.y).max() else {
+    let Some(max) = grid.cells().keys().map(|cell| cell.y).max() else {
         return Vec2::ZERO;
     };
 

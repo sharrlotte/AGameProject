@@ -9,7 +9,7 @@ pub use system::*;
 use bevy::prelude::*;
 
 use crate::resource::SceneState;
-use crate::scene::pause::handle_pause_input;
+use crate::scene::pause::handle_modal_input;
 use crate::simulation::SimulationSet;
 
 pub struct ShipInspectPlugin;
@@ -23,7 +23,7 @@ impl Plugin for ShipInspectPlugin {
                 Update,
                 (
                     ignore_hud_picking,
-                    clear_selection_on_escape.before(handle_pause_input),
+                    clear_selection_on_escape.before(handle_modal_input),
                     apply_selection,
                     remove_despawned_ships,
                 )

@@ -6,8 +6,7 @@ use bevy::{
 use super::*;
 
 use crate::save::design::{design_matches, upsert};
-use crate::resource::PendingLoad;
-use crate::save::world::EditorReturnTarget;
+use crate::save::world::{ContinueWorldEvent, EditorReturnTarget, WorldContext};
 use crate::scene::widget::ButtonVisualState;
 
 
@@ -126,13 +125,13 @@ pub fn on_nav_back(
     click: On<PointerClick>,
     buttons: Query<&NavBackButton>,
     target: Res<EditorReturnTarget>,
-    mut pending: ResMut<PendingLoad>,
+    mut context: ResMut<WorldContext>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
     if buttons.contains(click.event().entity) {
         match *target {
             EditorReturnTarget::Game => {
-                pending.active = true;
+                context.begin_restore();
                 scene.set(SceneState::Game);
             }
             EditorReturnTarget::Home => scene.set(SceneState::Home),
@@ -144,10 +143,10 @@ pub fn on_nav_back(
 pub fn on_nav_play(
     click: On<PointerClick>,
     buttons: Query<&NavPlayButton>,
-    mut scene: ResMut<NextState<SceneState>>,
+    mut continues: MessageWriter<ContinueWorldEvent>,
 ) {
     if buttons.contains(click.event().entity) {
-        scene.set(SceneState::Game);
+        continues.write(ContinueWorldEvent);
     }
 }
 

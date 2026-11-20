@@ -9,6 +9,8 @@ pub use component::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::content::body::Debris;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BodySnapshot {
     Ship(ShipSnapshot),
@@ -17,7 +19,7 @@ pub enum BodySnapshot {
 
 impl BodySnapshot {
     pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
-        if entity.get::<crate::content::body::Debris>().is_some() {
+        if entity.get::<Debris>().is_some() {
             return DebrisSnapshot::capture(world, entity).map(Self::Debris);
         }
 

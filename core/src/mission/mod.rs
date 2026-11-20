@@ -33,7 +33,8 @@ use crate::content::ship::ai::AiConfigValue;
 
 use crate::content::team::Team;
 
-use crate::resource::{AppNotice, DeployPayload, PendingLoad, SceneState};
+use crate::resource::{AppNotice, DeployPayload, SceneState};
+use crate::save::world::WorldContext;
 
 use crate::save::design::ShipCatalog;
 
@@ -100,12 +101,12 @@ struct EndHomeButton;
 fn setup_battle(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    pending: Res<PendingLoad>,
+    context: Res<WorldContext>,
     mut phase: ResMut<NextState<BattlePhase>>,
 ) {
     // A snapshot load takes over this Game entry; mission setup must not
     // overwrite it with a fresh battle.
-    if pending.is_pending() {
+    if context.is_restoring() {
         return;
     }
     commands.insert_resource(MissionAsset(assets.load("config/mission/quick-battle.ron")));

@@ -124,23 +124,45 @@ pub enum TurretTarget {
 
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize, Default)]
 #[reflect(Component)]
-pub struct TurretState {
-    pub active: bool,
-    #[serde(skip)]
-    pub target: Option<TurretTarget>,
-    pub aim_point: Vec2,
-    pub can_fire: bool,
-    pub shoot_at: Option<Vec2>,
+pub enum TurretState {
+    #[default]
+    Idle,
+    Tracking { aim_point: Vec2, target: Option<TurretTarget> },
+    Ready { aim_point: Vec2, target: Option<TurretTarget> },
 }
 
 impl TurretState {
-    pub fn default() -> Self {
-        Self {
-            active: false,
-            target: None,
-            aim_point: Vec2::ZERO,
-            can_fire: false,
-            shoot_at: None,
+    pub fn active(&self) -> bool {
+        matches!(self, Self::Ready { .. })
+    }
+
+    pub fn can_fire(&self) -> bool {
+        self.active()
+    }
+
+    pub fn aim_point(&self) -> Vec2 {
+        match self {
+            Self::Idle => Vec2::ZERO,
+            Self::Tracking { aim_point, .. } | Self::Ready { aim_point, .. } => *aim_point,
         }
+    }
+
+    pub fn target(&self) -> Option<TurretTarget> {
+        match self {
+            Self::Idle => None,
+            Self::Tracking { target, .. } | Self::Ready { target, .. } => *target,
+        }
+    }
+
+    pub fn track(&mut self, aim_point: Vec2, target: Option<TurretTarget>) {
+        *self = Self::Tracking { aim_point, target };
+    }
+
+    pub fn ready(&mut self, aim_point: Vec2, target: Option<TurretTarget>) {
+        *self = Self::Ready { aim_point, target };
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::Idle;
     }
 }

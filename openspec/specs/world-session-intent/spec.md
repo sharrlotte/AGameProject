@@ -1,18 +1,21 @@
-## ADDED Requirements
+# world-session-intent Specification
 
-### Requirement: Entering Game carries explicit world intent
-The system SHALL represent pending world entry as a `PendingWorld` resource with at most one active intent: `None` for a fresh skirmish, or `Restore { slot_id }` for a saved world. `PendingLoad` SHALL NOT exist. The intent SHALL be set only after the target slot has been resolved and validated, and SHALL be cleared once the world has spawned.
+## Purpose
+TBD - created by archiving change state-consistency-hardening. Update Purpose after archive.
+## Requirements
+### Requirement: One world context owns identity, store, and intent
+The system SHALL represent the active world as one `WorldContext` resource with variants `QuickBattle { store }`, `SaveSlot { slot_id, path, store }`, and `Restoring { slot_id, path, store }`. `PendingLoad`, `PendingWorld`, `WorldSession`, and `ActiveWorldStore` SHALL NOT exist. The store variant SHALL always match the session variant, and `Restoring` SHALL be converted to `SaveSlot` after a successful restore.
 
-#### Scenario: Fresh skirmish carries no restore intent
+#### Scenario: Fresh skirmish uses the in-memory store
 - **WHEN** QuickBattle starts
-- **THEN** `PendingWorld` is `None`, no slot database is opened, and the sandbox stays in memory
+- **THEN** `WorldContext::QuickBattle` holds the in-memory store, no slot database is opened, and the sandbox stays in memory
 
-#### Scenario: Restore intent names exactly one slot
+#### Scenario: Restore names exactly one slot and its store
 - **WHEN** the player continues a save
-- **THEN** `PendingWorld::Restore` holds that slot's id and no other slot is opened or written
+- **THEN** `WorldContext::Restoring` holds that slot's id, path, and store, and no other slot is opened or written
 
 ### Requirement: Play continues the last save
-The Play action on both Home and the Ship Editor SHALL resolve a target slot in this order: the active `WorldSession::SaveSlot` id; otherwise the slot with the greatest `updated_at_ms` returned by `WorldStore::list_slots()`. The resolved world SHALL be restored into `SceneState::Game`.
+The Play action on both Home and the Ship Editor SHALL resolve a target slot in this order: the active `WorldContext::SaveSlot` or `Restoring` id; otherwise the slot with the greatest `updated_at_ms` returned by `WorldStore::list_slots()`. The resolved world SHALL be restored into `SceneState::Game`.
 
 #### Scenario: Play inside an active slot resumes that slot
 - **WHEN** the player opens the editor from Pause in Slot A and clicks Play
@@ -44,8 +47,9 @@ Home SHALL provide a Worlds button that opens the slot picker for creating named
 - **THEN** Worlds opens the picker and the selected slot is loaded from there
 
 ### Requirement: Sandbox sessions are never persisted
-`WorldSession::QuickBattle` SHALL always use `InMemoryWorldStore`. No autosave, world save, or design save from a sandbox session SHALL write to `<data_dir>/saves/*.db`.
+`WorldContext::QuickBattle` SHALL always hold `InMemoryWorldStore`. No autosave, world save, or design save from a sandbox session SHALL write to `<data_dir>/saves/*.db`.
 
 #### Scenario: QuickBattle autosave tick
 - **WHEN** the autosave timer fires during QuickBattle
 - **THEN** no file is created or modified on disk
+

@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+﻿use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::Velocity;
@@ -94,7 +94,7 @@ pub fn steer_ships(
         let pos = transform
             .transform_point(ship.core_position.extend(0.0))
             .truncate();
-        let plan = board.teams.get(&team.id).unwrap_or(&empty_plan);
+        let plan = board.teams.get(&team.id()).unwrap_or(&empty_plan);
         let target_entity = brain.current.target_entity();
         let contact = target_entity.and_then(|e| plan.intel.contacts.get(&e).copied());
 

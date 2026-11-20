@@ -17,6 +17,7 @@ mod indicator;
 use bevy::prelude::*;
 
 use crate::content::block::stat::StatsUpdateSet;
+use crate::content::ship::stat::sync_ship_health;
 use crate::content::ship::ai::AiPlugin;
 use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
@@ -55,7 +56,10 @@ impl Plugin for ShipPlugin {
         )
         .add_systems(
             FixedPreUpdate,
-            update_stats
+            (
+                sync_ship_health,
+                update_stats,
+            )
                 .after(StatsUpdateSet)
                 .run_if(in_state(SceneState::Game))
                 .in_set(SimulationSet::Stats),

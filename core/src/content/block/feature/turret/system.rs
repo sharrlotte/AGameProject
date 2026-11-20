@@ -1,4 +1,4 @@
-use bevy::{math::FloatPow, prelude::*};
+﻿use bevy::{math::FloatPow, prelude::*};
 
 use super::{Candidate, Turret, TurretBarrel, TurretCharge, TurretPower, TurretSprite, TurretState, TurretTarget};
 use crate::content::block::{BlockOwner, Disabled, TurretMirror};
@@ -51,7 +51,7 @@ pub fn update_turret_demand(
             TurretPower::Drain { rate } => {
                 let beam_active = laser_state.is_some_and(|s| {
                     matches!(s.shooting, LaserBeamPatternShootingState::Shooting { .. })
-                }) || (pulling.is_some() && state.active);
+                }) || (pulling.is_some() && state.active());
                 if beam_active { *rate } else { 0.0 }
             }
         };
@@ -278,7 +278,7 @@ pub fn update_turret_target(
 
         if matches!(turret.strategy, TargetingStrategy::EnemyBullet) {
             for (entity, projectile_transform, velocity, owner, missile) in &projectiles {
-                if owner.team == team.id {
+                if owner.team == team.id() {
                     continue;
                 }
                 let position = projectile_transform.translation().truncate();
@@ -316,15 +316,13 @@ pub fn update_turret_target(
             let forward: Vec2 = transform.up().truncate();
             let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
-            state.target = Some(candidate.target);
-            state.aim_point = candidate.aim;
-            state.can_fire = angle_error.abs() < turret.aim_tolerance;
-            state.active = state.can_fire;
+            if angle_error.abs() < turret.aim_tolerance {
+                state.ready(candidate.aim, Some(candidate.target));
+            } else {
+                state.track(candidate.aim, Some(candidate.target));
+            }
         } else {
-            state.target = None;
-            state.aim_point = turret_position;
-            state.can_fire = false;
-            state.active = false;
+            state.clear();
         }
     }
 }
@@ -349,8 +347,8 @@ pub fn turret_tracking(
             continue;
         };
 
-        if state.target.is_some() {
-            let shoot_at_position = state.aim_point;
+        if state.target().is_some() {
+            let shoot_at_position = state.aim_point();
             let current_position = global_transform.translation().truncate();
             let diff = shoot_at_position - current_position;
             let dist_sq = diff.length_squared();
@@ -384,9 +382,7 @@ pub fn reset_disabled_turret(
     mut turrets: Query<&mut TurretState>,
 ) {
     if let Ok(mut state) = turrets.get_mut(trigger.event().entity) {
-        state.active = false;
-        state.can_fire = false;
-        state.target = None;
+        state.clear();
     }
 }
 
@@ -484,7 +480,6 @@ mod tests {
                 TurretState::default(),
                 Demand::default(),
                 LaserBeamPatternState {
-                    targets: Vec::new(),
                     beam: None,
                     shooting: LaserBeamPatternShootingState::Cooldown {
                         cooldown_remaining: 0.0,
@@ -681,11 +676,11 @@ mod tests {
         app.update();
 
         let state = app.world().get::<TurretState>(turret).unwrap();
-        assert_eq!(state.target, Some(TurretTarget::Ship(enemy_a)));
+        assert_eq!(state.target(), Some(TurretTarget::Ship(enemy_a)));
         assert!(
-            state.aim_point.x > 10.0,
+            state.aim_point().x > 10.0,
             "expected lead aim_point, got {:?}",
-            state.aim_point
+            state.aim_point()
         );
         let barrel_rot = app
             .world()

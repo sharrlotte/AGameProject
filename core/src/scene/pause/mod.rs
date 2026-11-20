@@ -1,7 +1,8 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 
-use crate::resource::{PauseState, SceneState, SettingState};
-use crate::save::world::{EditorReturnTarget, PendingExitAction, SaveWorldEvent, WorldSession};
+use crate::resource::SceneState;
+use crate::save::world::{EditorReturnTarget, PendingExitAction, SaveWorldEvent, WorldContext};
+use crate::ui::{Modal, ModalRoot, ModalStack};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
@@ -10,14 +11,13 @@ pub struct PauseScenePlugin;
 
 impl Plugin for PauseScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(PauseState::Paused), setup_pause)
-            .add_systems(
+        app.add_systems(
                 Update,
-                handle_pause_input
-                    .run_if(in_state(SceneState::Game).or_else(in_state(SceneState::ShipEditor)))
-                    .in_set(SimulationSet::Input),
-            )
-            .add_systems(OnExit(PauseState::Paused), cleanup_pause);
+                (
+                    handle_modal_input.in_set(SimulationSet::Input),
+                    sync_pause_ui.in_set(SimulationSet::Present),
+                ),
+            );
     }
 }
 
@@ -33,55 +33,72 @@ struct PauseShipEditorButton;
 #[derive(Component)]
 struct HomeButton;
 
-pub fn handle_pause_input(
+pub fn handle_modal_input(
     keys: Res<ButtonInput<KeyCode>>,
-    mut game_state: ResMut<NextState<PauseState>>,
-    state: Res<State<PauseState>>,
+    mut stack: ResMut<ModalStack>,
+    scene: Res<State<SceneState>>,
 ) {
-    if keys.just_pressed(KeyCode::Escape) {
-        let next_state: PauseState = match state.get() {
-            PauseState::Paused => PauseState::Playing,
-            PauseState::Playing => PauseState::Paused,
-        };
-        game_state.set(next_state);
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    if stack.top().is_some() {
+        stack.pop();
+    } else if matches!(scene.get(), SceneState::Game | SceneState::ShipEditor) {
+        stack.push(Modal::Pause);
+    }
+}
+
+fn sync_pause_ui(
+    mut commands: Commands,
+    stack: Res<ModalStack>,
+    roots: Query<(Entity, &ModalRoot)>,
+    session: Res<WorldContext>,
+) {
+    let open = stack.contains(Modal::Pause);
+    let existing = roots.iter().find(|(_, root)| root.0 == Modal::Pause).map(|(e, _)| e);
+
+    match (open, existing) {
+        (true, None) => setup_pause(&mut commands, &session),
+        (false, Some(entity)) => commands.entity(entity).despawn(),
+        _ => {}
     }
 }
 
 fn on_resume(
     click: On<PointerClick>,
     buttons: Query<&ResumeButton>,
-    mut pause: ResMut<NextState<PauseState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if buttons.contains(click.event().entity) {
-        pause.set(PauseState::Playing);
+        stack.remove(Modal::Pause);
     }
 }
 
 fn on_settings(
     click: On<PointerClick>,
     buttons: Query<&PauseSettingsButton>,
-    mut setting: ResMut<NextState<SettingState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if buttons.contains(click.event().entity) {
-        setting.set(SettingState::Open);
+        stack.push(Modal::Settings);
     }
 }
 
 fn on_ship_editor(
     click: On<PointerClick>,
     buttons: Query<&PauseShipEditorButton>,
-    session: Res<WorldSession>,
+    session: Res<WorldContext>,
     mut target: ResMut<EditorReturnTarget>,
-    mut pause: ResMut<NextState<PauseState>>,
+    mut stack: ResMut<ModalStack>,
     mut scene: ResMut<NextState<SceneState>>,
     mut saves: MessageWriter<SaveWorldEvent>,
 ) {
     if buttons.contains(click.event().entity) {
-        if matches!(*session, WorldSession::SaveSlot { .. }) {
+        if session.is_save_slot() {
             saves.write(SaveWorldEvent);
         }
         *target = EditorReturnTarget::Game;
-        pause.set(PauseState::Playing);
+        stack.clear();
         scene.set(SceneState::ShipEditor);
     }
 }
@@ -90,8 +107,8 @@ fn on_home(
     click: On<PointerClick>,
     buttons: Query<&HomeButton>,
     scene_state: Res<State<SceneState>>,
-    session: Res<WorldSession>,
-    mut pause: ResMut<NextState<PauseState>>,
+    session: Res<WorldContext>,
+    mut stack: ResMut<ModalStack>,
     mut scene: ResMut<NextState<SceneState>>,
     mut saves: MessageWriter<SaveWorldEvent>,
     mut pending_exit: ResMut<PendingExitAction>,
@@ -99,9 +116,9 @@ fn on_home(
     if !buttons.contains(click.event().entity) {
         return;
     }
-    pause.set(PauseState::Playing);
+    stack.clear();
     if *scene_state.get() == SceneState::Game
-        && matches!(*session, WorldSession::SaveSlot { .. })
+        && session.is_save_slot()
     {
         saves.write(SaveWorldEvent);
         *pending_exit = PendingExitAction::Home;
@@ -110,9 +127,7 @@ fn on_home(
     }
 }
 
-fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>, session: Res<WorldSession>) {
-    time.pause();
-
+fn setup_pause(commands: &mut Commands, session: &WorldContext) {
     commands
         .spawn((
             Transform::from_xyz(0.0, 0.0, 100.0),
@@ -125,7 +140,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>, session:
                 row_gap: Val::Px(FONT_TITLE),
                 ..default()
             },
-            DespawnOnExit(PauseState::Paused),
+            ModalRoot(Modal::Pause),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -161,7 +176,7 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>, session:
                 on_settings,
                 ButtonVisuals::dark(),
             );
-            if matches!(*session, WorldSession::SaveSlot { .. }) {
+            if session.is_save_slot() {
                 spawn_button(
                     parent,
                     button_node(),
@@ -197,8 +212,4 @@ fn button_node() -> Node {
         border_radius: BorderRadius::all(Val::Px(CORNER_RADIUS)),
         ..default()
     }
-}
-
-fn cleanup_pause(mut time: ResMut<Time<Virtual>>) {
-    time.unpause();
 }

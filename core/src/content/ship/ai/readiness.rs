@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use super::component::{Brain, Capability, Readiness};
+use super::component::{Capability, Readiness};
 use super::config::AiConfig;
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::turret::{TurretCharge, TurretPower, TurretState};
@@ -43,7 +43,7 @@ pub fn update_readiness(
         }
         let beam_on = laser.is_some_and(|l| {
             matches!(l.shooting, LaserBeamPatternShootingState::Shooting { .. })
-        }) || (pulling.is_some() && state.is_some_and(|s| s.active));
+        }) || (pulling.is_some() && state.is_some_and(|s| s.active()));
         if beam_on {
             draining.insert(owner.body);
         }
@@ -108,43 +108,40 @@ pub fn update_readiness(
 pub fn update_booster_shedding(
     commands: &mut Commands,
     ship_entity: Entity,
-    brain: &mut Brain,
     skill: u8,
     cap: &Capability,
     readiness: &Readiness,
     cfg: &AiConfig,
     boosters_by_ship: &HashMap<Entity, Vec<Entity>>,
+    shedding_ships: &HashSet<Entity>,
 ) {
     let Some(list) = boosters_by_ship.get(&ship_entity) else {
-        brain.shed_boosters = false;
         return;
     };
-    
+    let shedding = shedding_ships.contains(&ship_entity);
+
     if skill < cfg.unlocks.power_management_level || cap.booster_count == 0 {
-        if brain.shed_boosters {
-            brain.shed_boosters = false;
-            for &b in list {
-                commands.entity(b).remove::<Disabled>();
+        if shedding {
+            for &booster in list {
+                commands.entity(booster).remove::<Disabled>();
             }
         }
         return;
     }
 
-    if !brain.shed_boosters
+    if !shedding
         && readiness.power_supply < cfg.booster_shed_supply_threshold
         && readiness.battery_ratio < cfg.booster_shed_battery_threshold
     {
-        brain.shed_boosters = true;
-        for &b in list {
-            commands.entity(b).insert(Disabled);
+        for &booster in list {
+            commands.entity(booster).insert(Disabled);
         }
-    } else if brain.shed_boosters
+    } else if shedding
         && (readiness.battery_ratio >= cfg.booster_restore_battery_threshold
             || readiness.power_supply >= 0.99)
     {
-        brain.shed_boosters = false;
-        for &b in list {
-            commands.entity(b).remove::<Disabled>();
+        for &booster in list {
+            commands.entity(booster).remove::<Disabled>();
         }
     }
 }

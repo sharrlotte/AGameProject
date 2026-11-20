@@ -29,20 +29,26 @@ The pipeline SHALL order collision and damage events, health and death handling,
 - **THEN** its block entity is removed and the body mutation removes its cells before the next frame
 
 ### Requirement: Load is a state transition
-
-Loading the saved battle SHALL set `PendingLoad`, enter `Loading`, let exiting `Game` despawn old entities, enter `Game` and spawn from `battle.ron` instead of the mission spawn path, restore battle state (including `BattlePhase::Ended` when an outcome is saved), camera, `ControlledShip`, `CameraTarget`, `ControlMode`, AI runtime and targets, ship cargo, power/weapon charges, and item drops with sprites, and clear `PendingLoad`.
+Loading a saved world SHALL set `WorldContext::Restoring { slot_id, path, store }`, enter `SceneState::Loading`, let exiting `Game` despawn old entities, then enter `Game`, spawn from the validated world snapshot, restore camera, `ControlledShip`, `CameraTarget`, `ControlMode`, AI runtime and targets, ship cargo, power and weapon charges, and item drops with sprites, and convert the context to `SaveSlot`. No fresh skirmish SHALL spawn while `Restoring` is active.
 
 #### Scenario: Continue from Home
-- **WHEN** the player clicks `Continue` on `Home`
-- **THEN** `PendingLoad` is set and `SceneState::Game` spawns from `battle.ron` instead of a fresh mission, restoring pilot/camera control targets and battle phase
+- **WHEN** the player clicks Play on Home and a valid last save resolves
+- **THEN** `WorldContext::Restoring` is set and `SceneState::Game` restores the saved world instead of spawning a fresh skirmish, restoring pilot/camera control targets and AI runtime
+
+#### Scenario: Failed validation does not transition
+- **WHEN** the resolved slot fails validation before scene change
+- **THEN** `WorldContext` remains unchanged and `SceneState` does not change
 
 ### Requirement: No manual save/load slot UI in Home or Pause
-
-`Home` and `Pause` SHALL NOT render `SlotPanel` or manual `Save`/`Load` slot buttons. `Pause` SHALL expose only `Resume`, `Settings`, and `Back to Home`.
+`Pause` SHALL NOT render `SlotPanel` or manual `Save`/`Load` slot buttons and SHALL expose only `Resume`, `Settings`, and `Ship Editor` / `Back to Home` actions. Home MAY expose a `Worlds` button that opens the slot picker; this button SHALL NOT exist in Pause.
 
 #### Scenario: Pause menu has no Save, Load, or Exit buttons
 - **WHEN** the player pauses the game
-- **THEN** only `Resume`, `Settings`, and `Back to Home` buttons are shown
+- **THEN** only `Resume`, `Settings`, and `Ship Editor` / `Back to Home` buttons are shown
+
+#### Scenario: Worlds is available only on Home
+- **WHEN** the player is in Pause during gameplay
+- **THEN** no Worlds or slot-picker entry is rendered
 
 ### Requirement: Application exit is available only from Home
 Application exit SHALL be exposed only through `Home`'s `Exit` button. `Pause` SHALL NOT offer an application-exit action, and `PendingExitAction` SHALL NOT contain an exit variant.

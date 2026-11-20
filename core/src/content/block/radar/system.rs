@@ -1,4 +1,4 @@
-use super::Radar;
+﻿use super::Radar;
 use crate::content::{block::Disabled, ship::Ship, team::Team};
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, prelude::*};
@@ -39,7 +39,7 @@ pub fn radar_scan(
             filter,
             |entity, _collider| {
                 if let Ok(ship_team) = ships.get(entity) {
-                    if ship_team.id != team.id {
+                    if ship_team.id() != team.id() {
                         radar.targets.push(entity);
                     }
                 }

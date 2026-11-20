@@ -6,9 +6,9 @@ use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::constant::LAYER_DROP;
-use crate::content::block::feature::power::Booster;
+
 use crate::content::block::{
-    BlockPlacement, BlockRegistry, Disabled, ItemDrop, Loot, spawn_block_entity,
+    BlockPlacement, BlockRegistry, ItemDrop, Loot, spawn_block_entity,
 };
 use crate::content::body::debris::{component_mass, spawn_debris_body};
 use crate::content::body::BlockGrid;
@@ -75,11 +75,11 @@ impl ShipSnapshot {
         let transform = Transform::from_xyz(self.transform.x, self.transform.y, 0.0)
             .with_rotation(Quat::from_rotation_z(self.transform.rotation));
 
-        let Some((ship, block_entities)) =
+        let Ok((ship, block_entities)) =
             design.spawn_with_id(commands, registry, team, transform, config, self.id)
         else {
             return Err(WorldStoreError::InvalidData(format!(
-                "saved ship {} has no core",
+                "saved ship {} has an invalid layout",
                 self.id
             )));
         };
@@ -92,20 +92,16 @@ impl ShipSnapshot {
         let cargo = self.cargo;
         commands.entity(ship).queue(move |mut entity: EntityWorldMut| {
             if let Some(mut stats) = entity.get_mut::<ShipStats>() {
-                stats.cargo_used = cargo.used.min(stats.cargo_capacity);
-                stats.cargo_items = cargo.items.into_iter().collect();
+                let derived: u32 = cargo.items.values().sum();
+                if derived != cargo.used {
+                    warn!("cargo used {} disagrees with manifest total {}; deriving from manifest", cargo.used, derived);
+                }
+                stats.set_cargo_items(cargo.items.into_iter().collect());
             }
         });
 
         for (entity, snapshot) in block_entities.iter().zip(self.blocks) {
             snapshot.apply(commands, *entity);
-            if self.brain.shed_boosters {
-                commands.entity(*entity).queue(|mut block: EntityWorldMut| {
-                    if block.get::<Booster>().is_some() {
-                        block.insert(Disabled);
-                    }
-                });
-            }
         }
 
         Ok((self.id, ship, self.skill, self.brain))
@@ -206,7 +202,6 @@ pub fn apply_bodies(
                 think_timer: timer,
                 strafe_sign: if brain.strafe_sign == 0.0 { 1.0 } else { brain.strafe_sign },
                 strafe_timer: brain.strafe_timer.max(0.1),
-                shed_boosters: brain.shed_boosters,
             },
         ));
     }

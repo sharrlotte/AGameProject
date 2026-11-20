@@ -1,35 +1,41 @@
 ## Why
 
-The game is transitioning from isolated arena missions (`core/src/mission/`, `MissionDef`, `BattleOutcome::Victory`) to an open-world experience. In an open world, destroying the last nearby enemy should not end the game, dying should not wipe world progress, and player progression should be driven by open-world quests persisted inside the active save slot.
+The game is moving from isolated arena missions to a persistent open world. The current arena loop ends when the last enemy dies, wipes the session on player death, and offers no persistent player-facing goals. With `world-save-slots` providing per-slot SQLite saves, quests, progression, and respawn can live inside the active save slot instead of a mission state machine.
 
 ## What Changes
 
-- **BREAKING**: Remove `core/src/mission/` (`MissionDef`, `BattlePhase`, `BattleOutcome::Victory`, `BattleResult`, `BattleRestart`, victory/defeat end overlay, and `quick-battle.ron` mission flow for open-world saves).
-- Replace player defeat game-over with **open-world respawn**: when the last player-team ship is destroyed, respawn the player at origin `(0, 0)` with a starter ship while preserving the world, explored state, and quest progress.
-- Introduce a data-driven `core/src/quest/` feature plugin:
-  - Hot-reloadable quest definitions loaded from `core/assets/config/quest/*.ron` (`QuestDef { id, title, description, requires, objectives }`).
-  - v1 objective types: `DestroyEnemies { count }`, `ReachPosition { position, radius }`, `CollectItem { item, count }`.
-  - Automatic prerequisite-based quest activation (`requires` all completed) and event-driven objective progression (`ShipDestroyed`, player position, cargo changes).
-  - Persistence in the active save slot's SQLite `quests` table via `WorldStore`.
-  - Compact HUD Quest Tracker displaying active quest title and live objective progress.
-- Keep `QuickBattle` functioning as a lightweight unsaved skirmish arena (spawning player + test enemies in-memory without mission/campaign persistence).
-- Update `/docs/mission.md` (replace with `/docs/quests.md`), `/docs/scenes.md`, `/docs/ui.md`, and `/docs/save.md`.
+- **BREAKING**: Remove `core/src/mission/` (`MissionPlugin`, `MissionDef`, `BattlePhase`, `BattleOutcome`, `BattleResult`, `BattleRestart`, `quick-battle.ron` mission flow, and the Victory/Defeat end overlay). Migrate the initial fleet/enemy spawn helper into `core/src/scene/game/skirmish.rs`.
+- **BREAKING**: Replace arena outcome handling with open-world respawn. When the last player-team ship is destroyed, spawn a fresh starter player ship at the configured respawn point (default `(0, 0)`), re-attach `ControlledShip` and `CameraTarget`, and preserve all world entities, chunks, and quest progress. This applies in both save slots and `QuickBattle`. Enemy destruction never ends the game.
+- **BREAKING**: Replace mission-derived session state in the save system with a dedicated `SessionClock` resource; gate auto-save on `SceneState::Game` + `PauseState::Playing`. Remove `BattleMode` and `BattleResult.mission_name`.
+- Introduce a data-driven `core/src/quest/` plugin supporting **two quest kinds**:
+  - **Authored tutorial quests** from a hot-reloadable `core/assets/config/quest/quests.ron` catalog. They are auto-accepted and chain by `requires_mode: Started`, so a successor activates as soon as its predecessor starts and multiple tutorial quests can be active at once without blocking anything.
+  - **Procedurally generated quests** whose IDs derive deterministically from discovered chunk coordinates (`QuestId::Chunk(IVec2)`), with tuning loaded from `core/assets/config/quest/generation.ron`.
+- Quest model: `QuestId::{Authored(String), Chunk(IVec2)}`, `QuestAcceptance::{Auto, Manual}`, `QuestPrereqMode::{Completed, Started}`, `QuestOffer { position, radius }`, `QuestStatus::{Offered, Active, Completed}`, and objective progress keyed by stable objective IDs (safe under hot reload).
+- Event-driven objective progression: `DestroyEnemies` from `ShipDestroyed`, `ReachPosition` from live player-ship positions, `CollectItem` from a new cumulative `ItemCollected` message.
+- Procedural generation is **schema-complete but dormant in v1**: it runs only when a shared `SectorDiscovered` message is emitted. `core/src/world/event.rs` defines that message so `world-chunk-streaming` can emit it later without a circular change dependency. No initial generated batch.
+- Manual quests use a right-center notification queue: a small card appears while the player is within `QuestOffer.radius`, hides when out of range (the offer itself is kept), and clicking reveals a non-blocking dialog with Accept + Close. Close leaves the quest `Offered`; revisiting re-offers it. Authored quests cannot be `Manual`.
+- Persist active/completed quests and their full definitions in the active save slot's existing SQLite `quests` table, atomically with world state. `Offered` quests are never saved. On load, RON definitions win for authored IDs and saved definitions win for generated IDs.
+- Compact HUD quest tracker for active quests, plus the separate right-center manual-offer notification queue.
+- Keep `QuickBattle` as a functional unsaved skirmish. Quest activation and progression are gated on `WorldSession::SaveSlot`, so skirmish kills cannot alter saved quest progress.
+- Update `/docs/quests.md` (new), `/docs/mission.md` (removed), `/docs/scenes.md`, `/docs/ui.md`, `/docs/save.md`, and `/docs/config.md`.
 
 ## Capabilities
 
 ### New Capabilities
-- `open-world-quests`: Data-driven `.ron` quest definitions, prerequisite auto-activation, event-driven objective tracking (`DestroyEnemies`, `ReachPosition`, `CollectItem`), SQLite `quests` persistence, compact HUD tracker, and open-world player respawn at `(0, 0)`.
+- `open-world-quests`: Authored and chunk-generated quest definitions, typed quest IDs, prerequisite modes, acceptance modes, stable-ID objective tracking, event-driven progression, chunk-scoped generation, range-gated offer notifications, SQLite `quests` persistence, compact HUD tracker, and session lifecycle replacement.
 
 ### Modified Capabilities
-- `battle-outcome`: Remove arena `Victory` / `Defeat` end-screen transitions for open-world play; retain `ShipDestroyed` core-destruction events and replace last-player-ship destruction with origin respawn.
+- `battle-outcome`: Replace arena Victory/Defeat transitions with continuous play and origin respawn on last-player-ship destruction in both save slots and `QuickBattle`; remove mission-scoped scene logic and the end overlay.
 
 ## Impact
 
 - **Systems & Modules**:
-  - Remove `core/src/mission/` (migrate `QuickBattle` arena spawn helper into a lightweight skirmish spawner).
-  - New `core/src/quest/` plugin (`mod.rs`, `component.rs`, `def.rs`, `system.rs`, `hud.rs`).
-  - `core/src/save/world/`: persist and restore `quests` table rows inside the active `WorldStore` transaction.
-  - `core/src/scene/game/`: mount compact HUD Quest Tracker (`DespawnOnExit(SceneState::Game)`).
-  - `core/assets/config/quest/`: starter open-world `.ron` quest definitions.
-- **Dependencies**: Depends on `world-save-slots` (`WorldStore` SQLite `quests` table).
-- **Documentation**: Replaces `docs/mission.md` with `docs/quests.md`; updates `docs/scenes.md`, `docs/ui.md`, `docs/save.md`.
+  - Delete `core/src/mission/`; move the skirmish spawn helper to `core/src/scene/game/skirmish.rs`.
+  - New `core/src/quest/` plugin: `mod.rs`, `component.rs`, `def.rs`, `generator.rs`, `system.rs`, `hud.rs`.
+  - New shared event module `core/src/world/event.rs` (`SectorDiscovered`).
+  - `core/src/save/world/`: extend `WorldStore` and both implementations with `quests` CRUD; add `SessionClock`-based play-time and quest capture/restore to `handle_save_world_event` / `load_world_data` / `apply_world_data` / `spawn_loaded_world`; update the auto-save run condition.
+  - `core/src/content/item/`: new `ItemCollected` message emitted by `collect_drop`.
+  - `core/src/scene/game/`: mount the quest HUD and notification queue with `DespawnOnExit(SceneState::Game)`.
+- **Assets**: `core/assets/config/quest/quests.ron`, `core/assets/config/quest/generation.ron`; remove `core/assets/config/mission/quick-battle.ron`.
+- **Dependencies**: Uses the existing `quests` table from `world-save-slots` (no schema migration). `world-chunk-streaming` must emit `SectorDiscovered` when implemented.
+- **Documentation**: New `docs/quests.md`; update `docs/scenes.md`, `docs/ui.md`, `docs/save.md`, `docs/config.md`; remove `docs/mission.md`.

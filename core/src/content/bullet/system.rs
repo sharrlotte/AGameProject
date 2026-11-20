@@ -1,4 +1,4 @@
-use bevy::math::FloatPow;
+﻿use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
@@ -134,7 +134,7 @@ pub fn handle_single_shot(
         shoot_pattern_state.cooldown_remaining =
             (shoot_pattern_state.cooldown_remaining - dt).max(0.0);
 
-        if !turret_state.active || shoot_pattern_state.cooldown_remaining > 0.0 {
+        if !turret_state.active() || shoot_pattern_state.cooldown_remaining > 0.0 {
             continue;
         }
 
@@ -166,7 +166,7 @@ pub fn handle_single_shot(
                 *barrel_position,
                 *range,
                 &shoot_pattern.projectile,
-                match turret_state.target {
+                match turret_state.target() {
                     Some(TurretTarget::Ship(entity)) => Some(entity),
                     _ => None,
                 },
@@ -224,7 +224,7 @@ pub fn handle_burst_shot(
             } => {
                 *barrel_delay_remaining = (*barrel_delay_remaining - dt).max(0.0);
 
-                if !turret_state.active {
+                if !turret_state.active() {
                     continue;
                 }
 
@@ -269,7 +269,7 @@ pub fn handle_burst_shot(
                     barrel_position,
                     *range,
                     &shoot_pattern.projectile,
-                    match turret_state.target {
+                    match turret_state.target() {
                         Some(TurretTarget::Ship(entity)) => Some(entity),
                         _ => None,
                     },
@@ -289,7 +289,7 @@ pub fn handle_burst_shot(
             }
             BurstShootPatternShootingState::Cooldown { cooldown_remaining } => {
                 *cooldown_remaining = (*cooldown_remaining - dt).max(0.0);
-                if !turret_state.active {
+                if !turret_state.active() {
                     continue;
                 }
                 if *cooldown_remaining <= 0.0 {
@@ -312,7 +312,12 @@ pub fn handle_burst_shot(
     }
 }
 
+fn live_beam(beams: &Query<Entity>, beam: Option<Entity>) -> Option<Entity> {
+    beam.filter(|entity| beams.contains(*entity))
+}
+
 pub fn handle_laser_beam(
+    beams: Query<Entity>,
     time: Res<Time>,
     rapier: ReadRapierContext,
     healths: Query<(Entity, &Health)>,
@@ -367,7 +372,7 @@ pub fn handle_laser_beam(
                         cooldown_remaining: shoot_pattern.cooldown / boost_val,
                     };
 
-                    if let Some(beam) = shoot_pattern_state.beam {
+                    if let Some(beam) = live_beam(&beams, shoot_pattern_state.beam) {
                         commands.entity(beam).insert(Visibility::Hidden);
                     }
 
@@ -380,7 +385,7 @@ pub fn handle_laser_beam(
                     * 10.0)
                     .max(0.5);
 
-                if !turret_state.active {
+                if !turret_state.active() {
                     continue;
                 }
 
@@ -415,7 +420,7 @@ pub fn handle_laser_beam(
                     }
                 }
 
-                if let Some(beam) = shoot_pattern_state.beam {
+                if let Some(beam) = live_beam(&beams, shoot_pattern_state.beam) {
                     commands.entity(beam).insert((
                         Visibility::Visible,
                         Sprite {
@@ -450,7 +455,7 @@ pub fn handle_laser_beam(
             }
             LaserBeamPatternShootingState::Cooldown { cooldown_remaining } => {
                 *cooldown_remaining = (*cooldown_remaining - dt).max(0.0);
-                if !turret_state.active || supply_val <= STARVATION_THRESHOLD {
+                if !turret_state.active() || supply_val <= STARVATION_THRESHOLD {
                     continue;
                 }
 
@@ -464,6 +469,7 @@ pub fn handle_laser_beam(
 }
 
 pub fn handle_pulling_beam(
+    beams: Query<Entity>,
     rapier: ReadRapierContext,
     mut commands: Commands,
     time: Res<Time>,
@@ -511,8 +517,8 @@ pub fn handle_pulling_beam(
         // barrel boxes overlap the same block.
         let mut pulled = HashSet::new();
 
-        if !turret_state.active || supply_val <= STARVATION_THRESHOLD {
-            if let Some(beam) = state.beam {
+        if !turret_state.active() || supply_val <= STARVATION_THRESHOLD {
+            if let Some(beam) = live_beam(&beams, state.beam) {
                 commands.entity(beam).insert(Visibility::Hidden);
             }
             continue;
@@ -563,7 +569,7 @@ pub fn handle_pulling_beam(
             ..default()
         };
 
-        if let Some(beam) = state.beam {
+        if let Some(beam) = live_beam(&beams, state.beam) {
             commands
                 .entity(beam)
                 .insert((Visibility::Visible, beam_sprite));
@@ -654,7 +660,7 @@ pub fn spawn_bullet(
                         piercing: *piercing,
                     },
                     Damage { damage: *damage },
-                    ProjectileOwner { team: team.id },
+                    ProjectileOwner { team: team.id() },
                     Interceptable,
                     Sprite {
                         color: team.color(5.0),
@@ -709,7 +715,7 @@ pub fn spawn_bullet(
                 .spawn((
                     DespawnOnExit(SceneState::Game),
                     Lifetime::seconds(*lifetime),
-                    ProjectileOwner { team: team.id },
+                    ProjectileOwner { team: team.id() },
                     Interceptable,
                     Missile {
                         shooted_at: spawn_position.truncate(),

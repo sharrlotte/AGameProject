@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_rapier2d::{parry::shape::Ball, plugin::ReadRapierContext, prelude::QueryFilter};
@@ -98,7 +98,7 @@ pub fn apply_boosts(
 
         rapier.intersect_shape(origin, 0.0, &shape, filter, |entity, _collider| {
             if let Ok((mut boost, team)) = blocks.get_mut(entity)
-                && team.id == booster_team.id
+                && team.id() == booster_team.id()
             {
                 boost.value = boost.value.max(booster.boost);
             }

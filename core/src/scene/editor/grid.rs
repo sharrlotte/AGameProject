@@ -1,4 +1,4 @@
-use super::*;
+﻿use super::*;
 
 pub fn draw_grid(mut gizmos: Gizmos) {
     let grid_lines = 50;
@@ -38,12 +38,12 @@ pub fn check_placement_validity(
     let footprint = def.shape.get(rotation).0;
 
     for offset in footprint.cells() {
-        if grid.cells.contains_key(&(grid_position + *offset)) {
+        if grid.cells().contains_key(&(grid_position + *offset)) {
             return false;
         }
     }
 
-    if grid.blocks.is_empty() {
+    if grid.is_empty() {
         return true;
     }
 
@@ -81,7 +81,7 @@ pub fn update_placement_preview(
         block: editor.selected_block.clone(),
         hovered: editor.hovered_grid_position,
         rotation: editor.rotation,
-        grid_len: editor.grid.blocks.len(),
+        grid_len: editor.grid.block_count(),
     };
     
     if key == state.key {

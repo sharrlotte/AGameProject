@@ -162,4 +162,17 @@ Saving a design with an existing name replaces the stale row instead of duplicat
   through `ship_map` for `Brain`, `TeamIntel`, camera follow and controlled ship; drops are spawned
   with visible sprites and `DespawnOnExit(SceneState::Game)`.
 - Health, battery `Charge`, `TurretState`/`TurretCharge`/barrel rotation, `AmmoState`, weapon pattern
-  timers, cargo, skill, doctrine, and `shed_boosters` are preserved.
+  timers, cargo, skill, and doctrine are preserved. Booster shedding is encoded by `Disabled` markers
+  on booster blocks; there is no separate `shed_boosters` bool.
+
+## State Consistency (schema v2)
+
+`WORLD_DB_SCHEMA_VERSION` SHALL be 2. `world_meta.seed` SHALL be the only persisted seed; `rng_blob` SHALL NOT exist. Opening a slot whose `PRAGMA user_version` differs from 2 in either direction SHALL return `WorldStoreError::VersionMismatch` without modifying the file or creating a fork. `WorldStore::list_slots()` SHALL be available for both SQLite and in-memory stores.
+
+Persisted `ShipDesign`, `ShipSnapshot`, `DebrisSnapshot`, and `BlockSnapshot` SHALL be validated immediately after decode. Structural violations (overlapping cells, duplicate ids, invalid team ids, multiple shoot patterns, zero/multiple cores) SHALL reject the entire load with a typed error and a player-facing notice; clampable values (charge, cooldown, cargo totals, remaining lifetime) SHALL be normalized with a warning. Dangling ship UUID references in camera, control, intel, or AI targets SHALL reject the load. Duplicate ship ids SHALL be rejected.
+
+`PendingWorld::{None, Restore { slot_id }}` SHALL be the sole representation of pending world entry. `PendingLoad` SHALL NOT exist. Play SHALL resolve the active slot first, then the most recently updated slot, then create a generated-name slot with starter designs. If validation fails, the game SHALL show a notice, remain in the current scene, and leave the slot untouched. Sandbox/QuickBattle SHALL use `InMemoryWorldStore` and SHALL NOT write to disk.
+
+## Single World Context
+
+`WorldContext` SHALL be the only resource representing the active world. Its variants `QuickBattle { store }`, `SaveSlot { slot_id, path, store }`, and `Restoring { slot_id, path, store }` SHALL own the backing `WorldStore` together with world identity, so a session and a store can never disagree. `WorldSession`, `ActiveWorldStore`, and `PendingWorld` SHALL NOT exist. `Restoring` SHALL be converted to `SaveSlot` after a successful snapshot restore, or restored to `SaveSlot` on failure.

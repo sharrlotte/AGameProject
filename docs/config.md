@@ -233,3 +233,7 @@ The minimap asset lives with its owning feature: `scene/game/minimap/config.rs`
 - `items.ron`, `ships.ron`
 - Live re-application to existing entities
 - Non-dev hot reload
+
+## Numeric Validation
+
+Block config validation SHALL cover projectile, laser, and thruster numeric fields in addition to existing rules: projectile `speed >= 0`, `damage >= 0`, `lifetime >= 0`, `width > 0`, `length > 0`, `piercing >= 0` (bullet); laser `damage >= 0`, `width > 0`, `cooldown >= 0`, `duration > 0`; burst `amount >= 1`, `fire_rate > 0`; thruster `force >= 0`, `torque >= 0`. Invalid values SHALL be clamped with a warning naming the block, and the config error screen SHALL report structural validation failures.

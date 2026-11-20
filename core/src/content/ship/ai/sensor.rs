@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::Velocity;
@@ -65,17 +65,17 @@ pub fn update_sensors_and_intel(
         let threat = cap.offensive_dps.max(stats.max_health * 0.02);
         snapshots.push(ShipSnap {
             entity,
-            team: team.id,
+            team: team.id(),
             position: pos,
             velocity,
             heading,
             threat,
             has_fixed_gun: cap.fixed_mount.is_some(),
         });
-        ship_map.insert(entity, (team.id, pos));
+        ship_map.insert(entity, (team.id(), pos));
         let s = skill.map_or(ai_cfg.0.default_enemy_level, |s| s.level());
         team_max_skill
-            .entry(team.id)
+            .entry(team.id())
             .and_modify(|cur| *cur = (*cur).max(s))
             .or_insert(s);
     }
@@ -95,11 +95,11 @@ pub fn update_sensors_and_intel(
     for (_entity, gt, team, ship, _, cap, _, _, sensor_opt) in &mut ships {
         let origin = gt.transform_point(ship.core_position.extend(0.0)).truncate();
         let range_sq = cap.max_radar_range * cap.max_radar_range;
-        let plan = board.teams.entry(team.id).or_default();
+        let plan = board.teams.entry(team.id()).or_default();
 
         local_contacts.clear();
         for enemy in snapshots.iter() {
-            if enemy.team == team.id {
+            if enemy.team == team.id() {
                 continue;
             }
             let dist_sq = origin.distance_squared(enemy.position);

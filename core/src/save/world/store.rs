@@ -5,11 +5,12 @@ use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use crate::content::ship::ShipDesign;
-use crate::save::world::component::{ActiveStateSnapshot, WorldMeta, WorldStoreError};
+use crate::save::world::component::{ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError};
 
 pub trait WorldStore: Send + Sync {
     fn load_meta(&self) -> Result<WorldMeta, WorldStoreError>;
     fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError>;
+    fn list_slots(&self) -> Result<Vec<SlotSummary>, WorldStoreError>;
     fn save_world(&self, meta: &WorldMeta, active: &ActiveStateSnapshot) -> Result<(), WorldStoreError>;
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
     fn save_design(&self, design: &ShipDesign) -> Result<(), WorldStoreError>;
@@ -17,11 +18,22 @@ pub trait WorldStore: Send + Sync {
     fn flush(&self) -> Result<(), WorldStoreError>;
 }
 
-#[derive(Default)]
 pub struct InMemoryWorldStore {
+    slot_id: Uuid,
     meta: Mutex<Option<WorldMeta>>,
     active: Mutex<ActiveStateSnapshot>,
     designs: Mutex<Vec<ShipDesign>>,
+}
+
+impl Default for InMemoryWorldStore {
+    fn default() -> Self {
+        Self {
+            slot_id: Uuid::now_v7(),
+            meta: Mutex::new(None),
+            active: Mutex::new(ActiveStateSnapshot::default()),
+            designs: Mutex::new(Vec::new()),
+        }
+    }
 }
 
 impl WorldStore for InMemoryWorldStore {
@@ -31,6 +43,20 @@ impl WorldStore for InMemoryWorldStore {
             .map_err(lock_err)?
             .clone()
             .ok_or_else(|| WorldStoreError::NotFound("in-memory world meta".to_string()))
+    }
+
+    fn list_slots(&self) -> Result<Vec<SlotSummary>, WorldStoreError> {
+        let Ok(meta) = self.load_meta() else {
+            return Ok(Vec::new());
+        };
+        Ok(vec![SlotSummary {
+            slot_id: self.slot_id,
+            name: meta.name,
+            seed: meta.seed,
+            play_time_secs: meta.play_time_secs,
+            created_at_ms: meta.created_at_ms,
+            updated_at_ms: meta.updated_at_ms,
+        }])
     }
 
     fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError> {
@@ -94,7 +120,7 @@ mod tests {
     use super::*;
     use crate::content::ship::ai::Doctrine;
     use crate::save::design::starter_designs;
-    use crate::save::world::component::WorldSession;
+    use crate::save::world::component::WorldContext;
 
     fn sample_meta() -> WorldMeta {
         WorldMeta {
@@ -105,7 +131,6 @@ mod tests {
             updated_at_ms: 1_700_000_060_000,
             camera_blob: vec![1, 2, 3],
             control_blob: vec![4, 5],
-            rng_blob: vec![6],
         }
     }
 
@@ -142,6 +167,17 @@ mod tests {
     }
 
     #[test]
+    fn listed_seed_is_the_meta_seed_for_both_stores() {
+        let meta = sample_meta();
+        let memory = InMemoryWorldStore::default();
+        memory.save_world(&meta, &sample_state()).expect("save world");
+        let slots = memory.list_slots().expect("list slots");
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].seed, meta.seed);
+        assert_eq!(memory.load_meta().expect("load meta").seed, slots[0].seed);
+    }
+
+    #[test]
     fn codec_round_trips_arbitrary_bytes() {
         let value = vec![7u8; 1024];
         let blob = encode(&value).expect("encode");
@@ -154,8 +190,8 @@ mod tests {
     fn quick_battle_defaults_to_in_memory_session() {
         use std::fs;
 
-        let session = WorldSession::default();
-        assert_eq!(session, WorldSession::QuickBattle);
+        let context = WorldContext::default();
+        assert!(matches!(context, WorldContext::QuickBattle { .. }));
 
         let dir = std::env::temp_dir().join(format!("agame-quick-{}", uuid::Uuid::now_v7()));
         fs::create_dir_all(&dir).expect("create temp saves dir");

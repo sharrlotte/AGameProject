@@ -149,3 +149,9 @@ See scenes.md (Volume / Bloom / Close).
 Debug builds additionally register `WorldInspectorPlugin` (F12). With feature `dev`,
 `RemotePlugin`/`BrpExtrasPlugin` and `ShipDebugPlugin` are registered; the latter owns
 ship click selection, the scoped debug label, and the ship debug gizmos.
+
+## Play, Worlds, and Editor Return
+
+Home SHALL expose a `Worlds` button that opens the Save Slot Picker. `Play` SHALL continue the last save (active slot first, else most recently updated) and SHALL create a new slot only when none exists; it SHALL NOT open the picker. A failed continue SHALL show a notice and leave the current scene unchanged.
+
+The editor nav button labeled `Resume Game` (when `EditorReturnTarget::Game`) SHALL restore the active slot by setting `PendingWorld::Restore`; `Back to Home` SHALL return Home. Editor state SHALL be fully reset on `OnEnter(SceneState::ShipEditor)`. Slot deletion confirmation SHALL be represented as `DeletePrompt::{None, Confirming(Uuid)}` rather than an independent boolean.

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
@@ -6,13 +6,25 @@ use crate::content::block::{BlockDef, BlockPlacement, BlockRegistry, GridBlock};
 
 #[derive(Component, Debug, Default)]
 pub struct BlockGrid {
-    pub blocks: HashMap<Uuid, GridBlock>,
-    pub cells: HashMap<IVec2, Uuid>,
+    blocks: HashMap<Uuid, GridBlock>,
+    cells: HashMap<IVec2, Uuid>,
 }
 
 impl BlockGrid {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn cells(&self) -> &HashMap<IVec2, Uuid> {
+        &self.cells
+    }
+
+    pub fn block_count(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.blocks.is_empty()
     }
 
     pub fn insert_block(&mut self, placement: BlockPlacement, entity: Entity, def: &BlockDef) {
@@ -216,7 +228,7 @@ mod tests {
         assert_eq!(stats.health, 150.0);
 
         let bounds = registry.bounds_from_grid(&grid).unwrap();
-        assert_eq!(bounds.size, Vec2::new(GRID_SIZE * 2.0, GRID_SIZE));
+        assert_eq!(bounds.size(), Vec2::new(GRID_SIZE * 2.0, GRID_SIZE));
 
         let (core_id, _) = registry.core_of(&grid).unwrap();
         assert_eq!(core_id, grid.block_at(IVec2::ZERO).unwrap().placement.id);

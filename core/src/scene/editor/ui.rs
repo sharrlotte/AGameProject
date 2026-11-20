@@ -1,13 +1,20 @@
 use super::*;
 
+use crate::save::world::EditorReturnTarget;
 use crate::scene::widget::scroll::spawn_scroll_area;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 
 pub fn setup_editor_ui(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
+    target: Res<EditorReturnTarget>,
     mut camera: Query<&mut Transform, With<Camera2d>>,
 ) {
+    let back_label = if *target == EditorReturnTarget::Game {
+        "Resume Game"
+    } else {
+        "Back to Home"
+    };
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation = Vec3::new(0.0, 0.0, 0.0);
     }
@@ -57,7 +64,7 @@ pub fn setup_editor_ui(
                             border_radius: BorderRadius::all(Val::Px(6.0)),
                             ..default()
                         },
-                        "Back to Home",
+                        back_label,
                         14.0,
                         Color::WHITE,
                         NavBackButton,

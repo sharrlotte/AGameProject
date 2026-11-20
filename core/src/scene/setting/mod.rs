@@ -1,9 +1,9 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use bevy::{audio::Volume, post_process::bloom::Bloom};
 
 use crate::config::GameSetting;
-use crate::resource::SettingState;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
+use crate::ui::{Modal, ModalRoot, ModalStack, modal_is};
 use crate::simulation::SimulationSet;
 
 #[derive(Component)]
@@ -34,14 +34,15 @@ pub struct SettingScenePlugin;
 
 impl Plugin for SettingScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<SettingState>()
-            .init_resource::<GameSetting>()
-            .add_systems(OnEnter(SettingState::Open), setup_setting_ui)
+        app.init_resource::<GameSetting>()
             .add_systems(
                 Update,
-                sync_settings_to_ui
-                    .run_if(in_state(SettingState::Open))
-                    .in_set(SimulationSet::Input),
+                (
+                    sync_settings_to_ui
+                        .run_if(modal_is(Modal::Settings))
+                        .in_set(SimulationSet::Input),
+                    sync_setting_ui.in_set(SimulationSet::Present),
+                ),
             )
             .add_systems(Update, apply_settings.in_set(SimulationSet::Input));
     }
@@ -80,14 +81,29 @@ fn on_ai_skill(
 fn on_close(
     click: On<PointerClick>,
     buttons: Query<&CloseSettingsButton>,
-    mut next: ResMut<NextState<SettingState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if buttons.contains(click.event().entity) {
-        next.set(SettingState::Closed);
+        stack.remove(Modal::Settings);
     }
 }
 
-pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
+fn sync_setting_ui(
+    mut commands: Commands,
+    stack: Res<ModalStack>,
+    roots: Query<(Entity, &ModalRoot)>,
+    setting: Res<GameSetting>,
+) {
+    let open = stack.contains(Modal::Settings);
+    let existing = roots.iter().find(|(_, root)| root.0 == Modal::Settings).map(|(e, _)| e);
+    match (open, existing) {
+        (true, None) => setup_setting_ui(&mut commands, &setting),
+        (false, Some(entity)) => commands.entity(entity).despawn(),
+        _ => {}
+    }
+}
+
+pub fn setup_setting_ui(commands: &mut Commands, setting: &GameSetting) {
     let mut bloom_button = None;
 
     commands
@@ -104,7 +120,7 @@ pub fn setup_setting_ui(mut commands: Commands, setting: Res<GameSetting>) {
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.99)),
             SettingRoot,
-            DespawnOnExit(SettingState::Open),
+            ModalRoot(Modal::Settings),
             GlobalZIndex(100),
         ))
         .with_children(|parent| {

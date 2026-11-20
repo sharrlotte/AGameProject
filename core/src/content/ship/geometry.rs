@@ -1,11 +1,11 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 
 use super::BoundingBox;
 
 #[cfg(any(feature = "dev", test))]
 pub fn ship_center(transform: &Transform, bounds: &BoundingBox) -> Vec2 {
     transform
-        .transform_point(bounds.center.extend(0.0))
+        .transform_point(bounds.center().extend(0.0))
         .truncate()
 }
 

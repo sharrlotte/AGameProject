@@ -39,7 +39,7 @@ impl Doctrine {
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
-pub struct Skill(pub u8);
+pub struct Skill(u8);
 
 impl Default for Skill {
     fn default() -> Self {
@@ -277,7 +277,6 @@ pub struct Brain {
     pub think_timer: Timer,
     pub strafe_sign: f32,
     pub strafe_timer: f32,
-    pub shed_boosters: bool,
 }
 
 impl Brain {
@@ -293,7 +292,6 @@ impl Brain {
             ),
             strafe_sign: 1.0,
             strafe_timer: 2.0,
-            shed_boosters: false,
         }
     }
 }

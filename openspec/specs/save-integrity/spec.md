@@ -1,5 +1,8 @@
-## ADDED Requirements
+# save-integrity Specification
 
+## Purpose
+TBD - created by archiving change state-consistency-hardening. Update Purpose after archive.
+## Requirements
 ### Requirement: Persisted data is validated at the load boundary
 Every deserialization path for `ShipDesign`, `ShipSnapshot`, `DebrisSnapshot`, and `BlockSnapshot` SHALL call a typed `validate()` immediately after decode and before any entity is spawned. Validation SHALL reject unknown block types, duplicate block ids, overlapping occupied cells, zero or multiple cores, invalid team ids, multiple shoot patterns on one block, and references that cannot resolve to a spawned ship.
 
@@ -35,3 +38,4 @@ Fields whose valid range is bounded but whose corruption is non-structural (weap
 #### Scenario: Slot picker seed matches the running RNG
 - **WHEN** a slot is listed and then loaded
 - **THEN** the seed shown in the picker equals the seed used to initialize `GameRng`
+

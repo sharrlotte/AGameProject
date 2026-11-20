@@ -1,5 +1,8 @@
-## ADDED Requirements
+# ui-modal-stack Specification
 
+## Purpose
+TBD - created by archiving change state-consistency-hardening. Update Purpose after archive.
+## Requirements
 ### Requirement: Modal UI has a single owner
 The system SHALL represent Pause, Settings, and SlotPicker overlays as variants of one `ModalStack` resource. `PauseState`, `SettingState`, and `SlotPickerState` SHALL NOT exist, and no Bevy `State` SHALL independently control a modal overlay.
 
@@ -39,3 +42,4 @@ On exiting `SceneState::Game` the system SHALL clear `ModalStack`, unpause `Time
 #### Scenario: Slot picker on Home does not freeze time
 - **WHEN** the player opens Worlds on Home
 - **THEN** no virtual-time pause is applied and closing the picker requires no unpause step
+

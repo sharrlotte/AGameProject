@@ -105,7 +105,7 @@ impl Plugin for ShipEditorPlugin {
             .init_resource::<EditorState>()
             .add_systems(
                 OnEnter(SceneState::ShipEditor),
-                (setup_editor_ui, load_initial_ship, refresh_ship_list, refresh_fleet_list)
+                (reset_editor_state, setup_editor_ui, load_initial_ship, refresh_ship_list, refresh_fleet_list)
                     .chain(),
             )
             .add_systems(
@@ -148,4 +148,8 @@ pub struct EditorState {
     pub grid: BlockGrid,
     pub ships: Vec<ShipDesign>,
     pub doctrine: Doctrine,
+}
+
+fn reset_editor_state(mut state: ResMut<EditorState>) {
+    *state = EditorState::default();
 }

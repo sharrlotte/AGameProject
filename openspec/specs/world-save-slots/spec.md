@@ -3,11 +3,9 @@
 ## Purpose
 
 Single-file SQLite save slots with a backend-agnostic persistence trait, per-slot ship designs, and a Home Save Slot Picker for creating, loading, and deleting worlds.
-
 ## Requirements
-
 ### Requirement: Each save slot is a single self-contained SQLite file
-The game SHALL store each save slot as a single SQLite database file at `<data_dir>/saves/<slot_id>.db` using WAL journal mode and `PRAGMA user_version = WORLD_DB_SCHEMA_VERSION`. Each database SHALL contain `world_meta`, `active_state`, `designs`, `quests`, and `chunks` tables, encoding binary payloads with `postcard` and `lz4_flex`.
+The game SHALL store each save slot as a single SQLite database file at `<data_dir>/saves/<slot_id>.db` using WAL journal mode and `PRAGMA user_version = WORLD_DB_SCHEMA_VERSION` (2). Each database SHALL contain `world_meta`, `active_state`, `designs`, `quests`, and `chunks` tables, encoding binary payloads with `postcard` and `lz4_flex`. `world_meta` SHALL store the authoritative seed in a `seed` column and SHALL NOT store a separate `rng_blob`.
 
 #### Scenario: Creating a new save slot produces one database file seeded with starter designs
 - **WHEN** the player creates a new save slot named "Frontier"
@@ -18,7 +16,7 @@ The game SHALL store each save slot as a single SQLite database file at `<data_d
 - **THEN** `world_meta` and `active_state` commit together in one SQLite transaction so a crash cannot leave partial or mismatched save files
 
 #### Scenario: Schema version mismatch fails loudly
-- **WHEN** opening a `.db` file whose `PRAGMA user_version` is greater than `WORLD_DB_SCHEMA_VERSION`
+- **WHEN** opening a `.db` file whose `PRAGMA user_version` differs from `WORLD_DB_SCHEMA_VERSION` in either direction
 - **THEN** loading returns an explicit `WorldStoreError::VersionMismatch` error without modifying the file
 
 ### Requirement: WorldStore trait abstracts SQLite and in-memory persistence
@@ -29,7 +27,7 @@ All world persistence SHALL go through a `WorldStore` trait implemented by `Sqli
 - **THEN** all data round-trips accurately without creating or modifying any files on disk
 
 ### Requirement: Save Slot Picker on Home screen
-Clicking `Play` on the `Home` screen SHALL open a Save Slot Picker listing all valid slots under `<data_dir>/saves/*.db` sorted by most recently updated, reading only `world_meta` for each slot. The picker SHALL support `New World`, `Load` (continue selected slot), and `Delete` (with 2-step confirmation removing `.db`, `.db-wal`, and `.db-shm`).
+Clicking `Worlds` on the Home screen SHALL open the Save Slot Picker listing all valid slots under `<data_dir>/saves/*.db` sorted by most recently updated, reading only `world_meta` for each slot. Play SHALL continue the last save instead of opening the picker. The picker SHALL support `New World`, `Load` (continue selected slot), and `Delete` (with 2-step confirmation removing `.db`, `.db-wal`, and `.db-shm`).
 
 #### Scenario: Slot listing reads metadata only
 - **WHEN** the Save Slot Picker opens with multiple `.db` files on disk
@@ -38,6 +36,10 @@ Clicking `Play` on the `Home` screen SHALL open a Save Slot Picker listing all v
 #### Scenario: Deleting a save slot removes database and sidecar files
 - **WHEN** the player confirms deleting a save slot in the Save Slot Picker
 - **THEN** its `.db`, `.db-wal`, and `.db-shm` files are removed and the slot disappears from the list
+
+#### Scenario: Play bypasses the picker
+- **WHEN** the player clicks Play on Home with a valid last save
+- **THEN** that save is restored directly and no picker is shown
 
 ### Requirement: Per-slot ship designs with Home sandbox isolation
 When inside an active save slot, `ShipCatalog` and the Ship Editor SHALL read and write that save slot's `designs` table (`DesignCatalogSource::ActiveWorldDb`). When launched from `Home`, the Ship Editor and `QuickBattle` SHALL use `DesignCatalogSource::HomeSandbox` without touching any save slot `.db`. All design writes to a save slot SHALL commit atomically in a single SQLite transaction, and `ShipSavesChanged` SHALL only be emitted after persistence succeeds.
@@ -53,3 +55,4 @@ When inside an active save slot, `ShipCatalog` and the Ship Editor SHALL read an
 #### Scenario: ShipSavesChanged is only emitted after persistence completes
 - **WHEN** a design save is requested
 - **THEN** `ShipSavesChanged` is emitted only after the write successfully commits to the underlying store or sandbox directory
+

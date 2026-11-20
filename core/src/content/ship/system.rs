@@ -1,4 +1,4 @@
-use bevy::math::FloatPow;
+﻿use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
@@ -152,15 +152,10 @@ pub fn collect_drop(
             continue;
         }
 
-        if stats.cargo_used.saturating_add(item.amount) > stats.cargo_capacity {
+        if stats.cargo_used().saturating_add(item.amount) > stats.cargo_capacity {
             continue;
         }
-        stats.cargo_used += item.amount;
-        stats
-            .cargo_items
-            .entry(item.item_type.clone())
-            .and_modify(|count| *count += item.amount)
-            .or_insert(item.amount);
+        stats.add_cargo(&item.item_type, item.amount);
         commands.entity(drop_entity).despawn();
     }
 }
@@ -220,7 +215,7 @@ mod tests {
         app.update();
 
         let stats = app.world().get::<ShipStats>(ship).unwrap();
-        assert_eq!(stats.cargo_used, 0);
+        assert_eq!(stats.cargo_used(), 0);
         assert!(stats.cargo_items.is_empty());
     }
 
@@ -237,7 +232,7 @@ mod tests {
         app.update();
 
         let stats = app.world().get::<ShipStats>(ship).unwrap();
-        assert_eq!(stats.cargo_used, 4);
+        assert_eq!(stats.cargo_used(), 4);
         assert_eq!(stats.cargo_items.get("steel"), Some(&4));
     }
 
@@ -269,7 +264,7 @@ mod tests {
         app.update();
 
         let stats = app.world().get::<ShipStats>(ship).unwrap();
-        assert_eq!(stats.cargo_used, 0);
+        assert_eq!(stats.cargo_used(), 0);
     }
 
     #[test]

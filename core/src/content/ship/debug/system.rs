@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::content::block::feature::turret::{TurretBarrel, TurretState};
@@ -85,7 +85,7 @@ pub fn draw_ship_debug_gizmos(
         };
 
         let origin = barrel_transform.translation().truncate();
-        gizmos.line_2d(origin, state.aim_point, Color::srgba(1.0, 0.8, 0.0, 0.8));
-        gizmos.circle_2d(state.aim_point, 12.0, Color::srgb(1.0, 0.8, 0.0));
+        gizmos.line_2d(origin, state.aim_point(), Color::srgba(1.0, 0.8, 0.0, 0.8));
+        gizmos.circle_2d(state.aim_point(), 12.0, Color::srgb(1.0, 0.8, 0.0));
     }
 }

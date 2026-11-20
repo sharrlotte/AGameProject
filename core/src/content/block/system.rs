@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 
 use super::*;
 use crate::config::GameConfigValue;
@@ -163,18 +163,11 @@ mod tests {
             .world_mut()
             .spawn((
                 BlockOwner { body: ship },
-                TurretState {
-                    active: true,
-                    target: Some(TurretTarget::Ship(ship)),
-                    aim_point: Vec2::new(10.0, 20.0),
-                    can_fire: true,
-                    shoot_at: None,
-                },
+                TurretState::Ready { aim_point: Vec2::new(10.0, 20.0), target: None },
                 radar,
                 BoosterState { powered: true },
                 Demand { value: 5.0 },
                 LaserBeamPatternState {
-                    targets: Vec::new(),
                     beam: Some(laser_beam),
                     shooting: LaserBeamPatternShootingState::Shooting { elapsed: 0.5 },
                 },
@@ -194,9 +187,9 @@ mod tests {
 
         assert!(app.world().get::<Disabled>(block).is_some());
         let turret_state = app.world().get::<TurretState>(block).unwrap();
-        assert!(!turret_state.active);
-        assert!(!turret_state.can_fire);
-        assert!(turret_state.target.is_none());
+        assert!(!turret_state.active());
+        assert!(!turret_state.can_fire());
+        assert!(turret_state.target().is_none());
         assert!(app.world().get::<Radar>(block).unwrap().targets.is_empty());
         assert!(!app.world().get::<BoosterState>(block).unwrap().powered);
         assert_eq!(app.world().get::<Demand>(block).unwrap().value, 0.0);
@@ -280,12 +273,9 @@ mod tests {
                         },
                     }),
                 },
-                TurretState {
-                    active: true,
-                    target: Some(TurretTarget::Ship(enemy_ship)),
+                TurretState::Ready {
                     aim_point: Vec2::new(50.0, 0.0),
-                    can_fire: true,
-                    shoot_at: None,
+                    target: Some(TurretTarget::Ship(enemy_ship)),
                 },
                 SingleShootPattern {
                     fire_rate: 0.5,

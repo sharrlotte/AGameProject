@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
@@ -8,7 +8,7 @@ use super::component::{
 };
 use super::config::{AiConfig, AiConfigValue};
 use super::readiness::update_booster_shedding;
-use crate::content::block::BlockOwner;
+use crate::content::block::{BlockOwner, Disabled};
 use crate::content::block::feature::power::Booster;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
@@ -331,6 +331,7 @@ pub fn evaluate_utility_and_power(
     board: Res<TacticalBoard>,
     controlled: Res<ControlledShip>,
     boosters: Query<(Entity, &BlockOwner), With<Booster>>,
+    disabled: Query<&Disabled>,
     transforms: Query<&GlobalTransform>,
     ship_cores: Query<&Ship>,
     mut ships: Query<(
@@ -344,15 +345,20 @@ pub fn evaluate_utility_and_power(
         &Ship,
     )>,
     mut boosters_by_ship: Local<HashMap<Entity, Vec<Entity>>>,
+    mut shedding_ships: Local<HashSet<Entity>>,
 ) {
     for list in boosters_by_ship.values_mut() {
         list.clear();
     }
+    shedding_ships.clear();
     for (booster_entity, owner) in &boosters {
         boosters_by_ship
             .entry(owner.body)
             .or_default()
             .push(booster_entity);
+        if disabled.contains(booster_entity) {
+            shedding_ships.insert(owner.body);
+        }
     }
 
     let dt = time.delta();
@@ -387,16 +393,16 @@ pub fn evaluate_utility_and_power(
         update_booster_shedding(
             &mut commands,
             entity,
-            &mut brain,
             level,
             cap,
             readiness,
             &ai_cfg.0,
             &boosters_by_ship,
+            &shedding_ships,
         );
 
         let position = gt.transform_point(ship.core_position.extend(0.0)).truncate();
-        let plan = board.teams.get(&team.id).unwrap_or(&empty_plan);
+        let plan = board.teams.get(&team.id()).unwrap_or(&empty_plan);
         let nearest_contact = plan
             .intel
             .contacts

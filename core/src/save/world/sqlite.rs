@@ -1,4 +1,4 @@
-use std::fs;
+﻿use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
@@ -56,7 +56,7 @@ impl SqliteWorldStore {
         };
 
         store.configure()?;
-        store.migrate()?;
+        store.create_schema()?;
         store.insert_initial(meta, designs)?;
         Ok(store)
     }
@@ -66,52 +66,18 @@ impl SqliteWorldStore {
             return Err(WorldStoreError::NotFound(path.display().to_string()));
         }
 
-        let (version, has_meta): (u32, bool) = {
+        let version: u32 = {
             let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(sql_err)?;
-
-            let v: u32 = conn
-                .pragma_query_value(None, "user_version", |row| row.get(0))
-                .map_err(sql_err)?;
-                
-            let has: bool = conn
-                .query_row(
-                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='world_meta'",
-                    [],
-                    |_| Ok(true),
-                )
-                .unwrap_or(false);
-            (v, has)
+            conn.pragma_query_value(None, "user_version", |row| row.get(0))
+                .map_err(sql_err)?
         };
 
-        if version > WORLD_DB_SCHEMA_VERSION {
+        if version != WORLD_DB_SCHEMA_VERSION {
             return Err(WorldStoreError::VersionMismatch {
                 expected: WORLD_DB_SCHEMA_VERSION,
                 found: version,
             });
-        }
-
-        if version < WORLD_DB_SCHEMA_VERSION {
-            let new_id = Uuid::now_v7();
-            let parent = path.parent().unwrap_or(Path::new(""));
-            let new_path = parent.join(format!("{new_id}.db"));
-
-            fs::copy(path, &new_path)?;
-
-            let conn = Connection::open_with_flags(&new_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
-                .map_err(sql_err)?;
-            let store = Self {
-                path: new_path,
-                conn: Mutex::new(conn),
-            };
-            store.configure()?;
-            store.migrate()?;
-
-            if has_meta {
-                store.append_migrated_name()?;
-            }
-
-            return Ok(store);
         }
 
         let store = Self {
@@ -122,7 +88,6 @@ impl SqliteWorldStore {
             ),
         };
         store.configure()?;
-        store.migrate()?;
         Ok(store)
     }
 
@@ -138,56 +103,11 @@ impl SqliteWorldStore {
             .map_err(sql_err)
     }
 
-    fn migrate(&self) -> Result<(), WorldStoreError> {
+    fn create_schema(&self) -> Result<(), WorldStoreError> {
         let conn = self.lock()?;
-        let found: u32 = conn
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(sql_err)?;
-
-        if found > WORLD_DB_SCHEMA_VERSION {
-            return Err(WorldStoreError::VersionMismatch {
-                expected: WORLD_DB_SCHEMA_VERSION,
-                found,
-            });
-        }
-
-        for version in found..WORLD_DB_SCHEMA_VERSION {
-            match version {
-                0 => run_v0_to_v1(&conn)?,
-                _ => {
-                    return Err(WorldStoreError::VersionMismatch {
-                        expected: WORLD_DB_SCHEMA_VERSION,
-                        found: version,
-                    });
-                }
-            }
-            conn.pragma_update(None, "user_version", version + 1)
-                .map_err(sql_err)?;
-        }
-
-        Ok(())
-    }
-
-    fn append_migrated_name(&self) -> Result<(), WorldStoreError> {
-        let conn = self.lock()?;
-        let current_name: Option<String> = conn
-            .query_row("SELECT name FROM world_meta WHERE id = 1", [], |row| {
-                row.get(0)
-            })
-            .optional()
-            .map_err(sql_err)?;
-
-        if let Some(name) = current_name {
-            if !name.ends_with("(Migrated)") {
-                let new_name = format!("{name} (Migrated)");
-                conn.execute(
-                    "UPDATE world_meta SET name = ?1 WHERE id = 1",
-                    params![new_name],
-                )
-                .map_err(sql_err)?;
-            }
-        }
-        Ok(())
+        conn.execute_batch(CREATE_SCHEMA_SQL).map_err(sql_err)?;
+        conn.pragma_update(None, "user_version", WORLD_DB_SCHEMA_VERSION)
+            .map_err(sql_err)
     }
 
     fn insert_initial(&self, meta: &WorldMeta, designs: &[ShipDesign]) -> Result<(), WorldStoreError> {
@@ -197,8 +117,8 @@ impl SqliteWorldStore {
             .map_err(sql_err)?;
         {
             tx.execute(
-                "INSERT INTO world_meta (id, name, seed, play_time_secs, created_at_ms, updated_at_ms, camera_blob, control_blob, rng_blob)
-                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                "INSERT INTO world_meta (id, name, seed, play_time_secs, created_at_ms, updated_at_ms, camera_blob, control_blob)
+                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     meta.name,
                     meta.seed as i64,
@@ -207,7 +127,6 @@ impl SqliteWorldStore {
                     meta.updated_at_ms as i64,
                     meta.camera_blob,
                     meta.control_blob,
-                    meta.rng_blob,
                 ],
             )
             .map_err(sql_err)?;
@@ -231,7 +150,7 @@ impl WorldStore for SqliteWorldStore {
     fn load_meta(&self) -> Result<WorldMeta, WorldStoreError> {
         self.lock()?
             .query_row(
-                "SELECT name, seed, play_time_secs, created_at_ms, updated_at_ms, camera_blob, control_blob, rng_blob FROM world_meta WHERE id = 1",
+                "SELECT name, seed, play_time_secs, created_at_ms, updated_at_ms, camera_blob, control_blob FROM world_meta WHERE id = 1",
                 [],
                 |row| {
                     Ok(WorldMeta {
@@ -242,13 +161,16 @@ impl WorldStore for SqliteWorldStore {
                         updated_at_ms: row.get::<_, i64>(4)? as u64,
                         camera_blob: row.get(5)?,
                         control_blob: row.get(6)?,
-                        rng_blob: row.get(7)?,
                     })
                 },
             )
             .optional()
             .map_err(sql_err)?
             .ok_or_else(|| WorldStoreError::InvalidData("world_meta row missing".to_string()))
+    }
+
+    fn list_slots(&self) -> Result<Vec<SlotSummary>, WorldStoreError> {
+        Ok(list_slots(&saves_dir()))
     }
 
     fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError> {
@@ -281,7 +203,7 @@ impl WorldStore for SqliteWorldStore {
         {
             let updated = tx
                 .execute(
-                    "UPDATE world_meta SET name = ?1, seed = ?2, play_time_secs = ?3, updated_at_ms = ?4, camera_blob = ?5, control_blob = ?6, rng_blob = ?7 WHERE id = 1",
+                    "UPDATE world_meta SET name = ?1, seed = ?2, play_time_secs = ?3, updated_at_ms = ?4, camera_blob = ?5, control_blob = ?6 WHERE id = 1",
                     params![
                         meta.name,
                         meta.seed as i64,
@@ -289,7 +211,6 @@ impl WorldStore for SqliteWorldStore {
                         meta.updated_at_ms as i64,
                         meta.camera_blob,
                         meta.control_blob,
-                        meta.rng_blob,
                     ],
                 )
                 .map_err(sql_err)?;
@@ -428,7 +349,7 @@ fn read_slot_summary(path: &Path, slot_id: Uuid) -> Result<SlotSummary, WorldSto
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(sql_err)?;
 
-    if found > WORLD_DB_SCHEMA_VERSION || found == 0 {
+    if found != WORLD_DB_SCHEMA_VERSION {
         return Err(WorldStoreError::VersionMismatch {
             expected: WORLD_DB_SCHEMA_VERSION,
             found,
@@ -472,49 +393,43 @@ fn shm_path(path: &Path) -> PathBuf {
     path.with_extension("db-shm")
 }
 
-fn run_v0_to_v1(conn: &Connection) -> Result<(), WorldStoreError> {
-    conn.execute_batch(
-        "
-        CREATE TABLE IF NOT EXISTS world_meta (
-            id             INTEGER PRIMARY KEY CHECK (id = 1),
-            name           TEXT NOT NULL,
-            seed           INTEGER NOT NULL,
-            play_time_secs REAL NOT NULL,
-            created_at_ms  INTEGER NOT NULL,
-            updated_at_ms  INTEGER NOT NULL,
-            camera_blob    BLOB NOT NULL,
-            control_blob   BLOB NOT NULL,
-            rng_blob       BLOB NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS active_state (
-            id            INTEGER PRIMARY KEY CHECK (id = 1),
-            bodies_blob   BLOB NOT NULL,
-            drops_blob    BLOB NOT NULL,
-            intel_blob    BLOB NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS designs (
-            id            TEXT PRIMARY KEY,
-            name          TEXT NOT NULL,
-            updated_at_ms INTEGER NOT NULL,
-            data_blob     BLOB NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS quests (
-            quest_id      TEXT PRIMARY KEY,
-            status        TEXT NOT NULL,
-            progress_blob BLOB NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS chunks (
-            x             INTEGER NOT NULL,
-            y             INTEGER NOT NULL,
-            visited       INTEGER NOT NULL,
-            enemy_count   INTEGER NOT NULL,
-            data          BLOB NOT NULL,
-            PRIMARY KEY (x, y)
-        );
-        ",
-    )
-    .map_err(sql_err)
-}
+const CREATE_SCHEMA_SQL: &str = "
+    CREATE TABLE IF NOT EXISTS world_meta (
+        id             INTEGER PRIMARY KEY CHECK (id = 1),
+        name           TEXT NOT NULL,
+        seed           INTEGER NOT NULL,
+        play_time_secs REAL NOT NULL,
+        created_at_ms  INTEGER NOT NULL,
+        updated_at_ms  INTEGER NOT NULL,
+        camera_blob    BLOB NOT NULL,
+        control_blob   BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS active_state (
+        id            INTEGER PRIMARY KEY CHECK (id = 1),
+        bodies_blob   BLOB NOT NULL,
+        drops_blob    BLOB NOT NULL,
+        intel_blob    BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS designs (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        updated_at_ms INTEGER NOT NULL,
+        data_blob     BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS quests (
+        quest_id      TEXT PRIMARY KEY,
+        status        TEXT NOT NULL,
+        progress_blob BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chunks (
+        x             INTEGER NOT NULL,
+        y             INTEGER NOT NULL,
+        visited       INTEGER NOT NULL,
+        enemy_count   INTEGER NOT NULL,
+        data          BLOB NOT NULL,
+        PRIMARY KEY (x, y)
+    );
+";
 
 fn sql_err(error: rusqlite::Error) -> WorldStoreError {
     WorldStoreError::Sql(error.to_string())
@@ -542,7 +457,6 @@ mod tests {
             updated_at_ms: 1_700_000_010_000,
             camera_blob: encode(&"camera").expect("encode camera"),
             control_blob: encode(&"control").expect("encode control"),
-            rng_blob: encode(&"rng").expect("encode rng"),
         }
     }
 
@@ -675,46 +589,44 @@ mod tests {
     }
 
     #[test]
-    fn sequential_migration_ladder_upgrades_schema() {
-        let dir = temp_dir("migration");
+    fn lower_schema_version_is_rejected_without_forking() {
+        let dir = temp_dir("old-schema");
         let path = dir.join(format!("{}.db", Uuid::now_v7()));
+        let store = SqliteWorldStore::create(&path, &meta(), &[]).expect("create slot");
+        drop(store);
 
         {
-            let conn = Connection::open(&path).expect("create empty raw db");
-            let v: u32 = conn
-                .pragma_query_value(None, "user_version", |row| row.get(0))
-                .expect("query version");
-            assert_eq!(v, 0, "new raw db starts at user_version 0");
+            let conn = Connection::open(&path).expect("open raw db");
+            conn.pragma_update(None, "user_version", 1u32).expect("downgrade version");
         }
 
-        let store = SqliteWorldStore::open(&path).expect("open forks and runs migration ladder");
-        assert_ne!(store.path(), path, "store operates on a new forked file");
-        assert!(store.slot_id().is_some(), "new file has a valid slot uuid");
+        let error = SqliteWorldStore::open(&path).expect_err("older schema is rejected");
+        assert!(matches!(
+            error,
+            WorldStoreError::VersionMismatch { expected: 2, found: 1 }
+        ));
 
-        {
-            let orig = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-                .expect("open original db");
-            let v: u32 = orig
-                .pragma_query_value(None, "user_version", |row| row.get(0))
-                .expect("query original version");
-            assert_eq!(v, 0, "original database file was left completely unmodified");
-        }
+        let db_files = fs::read_dir(&dir)
+            .expect("read saves dir")
+            .flatten()
+            .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("db"))
+            .count();
+        assert_eq!(db_files, 1, "no forked copy is created");
+        assert!(list_slots(&dir).is_empty(), "incompatible slot is skipped");
 
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn fresh_slot_uses_current_schema_version() {
+        let dir = temp_dir("schema");
+        let path = dir.join(format!("{}.db", Uuid::now_v7()));
+        let store = SqliteWorldStore::create(&path, &meta(), &[]).expect("create slot");
         let conn = store.lock().expect("lock connection");
         let v: u32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .expect("query migrated version");
-        assert_eq!(v, WORLD_DB_SCHEMA_VERSION, "forked database migrated to schema version");
-
-        let count: i64 = conn
-            .query_row(
-                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('world_meta', 'active_state', 'designs', 'quests', 'chunks')",
-                [],
-                |row| row.get(0),
-            )
-            .expect("count migrated tables");
-        assert_eq!(count, 5, "all 5 schema tables exist on the forked database");
-
+            .expect("query version");
+        assert_eq!(v, WORLD_DB_SCHEMA_VERSION);
         let _ = fs::remove_dir_all(dir);
     }
 

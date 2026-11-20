@@ -74,6 +74,18 @@ pub struct Thruster {
 }
 
 impl Thruster {
+    pub fn validated(mut self) -> Self {
+        if !self.force.is_finite() || self.force < 0.0 {
+            warn!("Thruster force {} is invalid; clamping to 0", self.force);
+            self.force = 0.0;
+        }
+        if !self.torque.is_finite() || self.torque < 0.0 {
+            warn!("Thruster torque {} is invalid; clamping to 0", self.torque);
+            self.torque = 0.0;
+        }
+        self
+    }
+
     pub fn force(&self) -> f32 {
         self.force
     }

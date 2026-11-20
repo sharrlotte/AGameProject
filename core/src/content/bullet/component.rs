@@ -39,7 +39,7 @@ pub struct Missile {
     pub accel_time: f32,
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone)]
 pub struct MissileHitbox {
     pub missile: Entity,
     pub blast_damage: f32,

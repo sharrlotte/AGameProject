@@ -50,8 +50,9 @@ pub fn load_default_fleet(
 #[cfg(debug_assertions)]
 pub mod debug_audit {
     use super::*;
-    use crate::resource::{PauseState, SceneState, SettingState};
+    use crate::resource::SceneState;
     use crate::simulation::SimulationSet;
+    use crate::ui::ModalRoot;
     use bevy::time::TimerMode;
 
     pub struct DebugAuditPlugin;
@@ -77,8 +78,7 @@ pub mod debug_audit {
         mut timer: ResMut<SceneAuditTimer>,
         roots: Query<(Entity, &GlobalTransform), (Without<ChildOf>, Without<Camera2d>)>,
         scene_tagged: Query<&DespawnOnExit<SceneState>>,
-        pause_tagged: Query<&DespawnOnExit<PauseState>>,
-        setting_tagged: Query<&DespawnOnExit<SettingState>>,
+        modal_tagged: Query<&ModalRoot>,
     ) {
         if !timer.0.tick(time.delta()).just_finished() {
             return;
@@ -88,10 +88,7 @@ pub mod debug_audit {
         let mut untagged = Vec::new();
 
         for (entity, _) in &roots {
-            if scene_tagged.contains(entity)
-                || pause_tagged.contains(entity)
-                || setting_tagged.contains(entity)
-            {
+            if scene_tagged.contains(entity) || modal_tagged.contains(entity) {
                 tagged += 1;
             } else {
                 untagged.push(entity);

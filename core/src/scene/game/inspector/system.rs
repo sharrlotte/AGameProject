@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+﻿use std::collections::BTreeMap;
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::prelude::*;
@@ -482,7 +482,7 @@ pub fn refresh_inspector_ui(
             InspectorText::Ammo => format!("{:.0}%", ammo_ratio * 100.0),
             InspectorText::Stats => format!(
                 "CARGO {}/{}{}\nMASS {:.0}  THRUST {:.0}  TURN {:.1}\nRANGE {:.0}-{:.0}  RADAR {:.0}",
-                stats.cargo_used,
+                stats.cargo_used(),
                 stats.cargo_capacity,
                 cargo_breakdown,
                 stats.mass,

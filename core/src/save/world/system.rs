@@ -1,23 +1,23 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use uuid::Uuid;
 
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::mission::{BattlePhase, BattleResult};
-use crate::resource::{AppNotice, BattleMode, DeployPayload, GameRng, PendingLoad, SceneState};
+use crate::resource::{AppNotice, BattleMode, DeployPayload, GameRng, SceneState};
 use crate::save::design::{
     DesignCatalogSource, ShipCatalog, load_or_seed_designs, starter_designs, starter_fleet,
 };
 
 use crate::save::world::component::{
-    ActiveStateSnapshot, ActiveWorldStore, AutoSaveTimer, CreateSlotEvent, EditorReturnTarget,
-    LoadSlotEvent, PendingExitAction, SaveWorldEvent, StartQuickBattleEvent, WorldMeta,
-    WorldSession, WorldStoreError,
+    ActiveStateSnapshot, AutoSaveTimer, ContinueWorldEvent, CreateSlotEvent,
+    EditorReturnTarget, LoadSlotEvent, PendingExitAction, SaveWorldEvent, SlotSummary,
+    StartQuickBattleEvent, WorldContext, WorldLoadData, WorldMeta, WorldStoreError,
 };
 
 use crate::save::world::snapshot::{
-    BodySnapshot, CameraSave, ControlSave, DropSave, RngSave, TeamIntelSave, apply_bodies,
+    BodySnapshot, CameraSave, ControlSave, apply_bodies,
     apply_camera, apply_control, apply_drops, apply_intel, capture_bodies, capture_camera,
     capture_control, capture_drops, capture_intel,
 };
@@ -26,12 +26,10 @@ use crate::save::world::sqlite::{slot_path, SqliteWorldStore};
 use crate::save::world::store::{InMemoryWorldStore, WorldStore, decode, encode, now_unix_ms};
 
 pub fn init_world_session(
-    mut session: ResMut<WorldSession>,
-    mut store: ResMut<ActiveWorldStore>,
+    mut context: ResMut<WorldContext>,
     mut source: ResMut<DesignCatalogSource>,
 ) {
-    *session = WorldSession::QuickBattle;
-    store.0 = Some(Box::new(InMemoryWorldStore::default()));
+    *context = WorldContext::default();
     *source = DesignCatalogSource::HomeSandbox;
 }
 
@@ -41,21 +39,17 @@ pub fn handle_save_world_event(
     time: Res<Time>,
     battle: Res<BattleResult>,
     rng: Res<GameRng>,
-    session: Res<WorldSession>,
-    store: Res<ActiveWorldStore>,
+    context: Res<WorldContext>,
 ) {
     if events.read().next().is_none() {
         return;
     }
 
-    if !matches!(*session, WorldSession::SaveSlot { .. }) {
+    if !context.is_save_slot() {
         return;
     }
 
-    let Some(active) = store.0.as_ref() else {
-        error!("Save failed: no active world store");
-        return;
-    };
+    let active = context.store();
 
     let built = (|| -> Result<(WorldMeta, ActiveStateSnapshot), WorldStoreError> {
         let previous = active.load_meta().ok();
@@ -70,7 +64,6 @@ pub fn handle_save_world_event(
             updated_at_ms: now,
             camera_blob: encode(&capture_camera(world))?,
             control_blob: encode(&capture_control(world))?,
-            rng_blob: encode(&RngSave { seed: rng.seed() })?,
         };
         let snapshot = ActiveStateSnapshot {
             bodies_blob: encode(&capture_bodies(world))?,
@@ -95,14 +88,13 @@ pub fn handle_save_world_event(
 
 pub fn handle_load_slot(
     mut events: MessageReader<LoadSlotEvent>,
-    mut store: ResMut<ActiveWorldStore>,
-    mut session: ResMut<WorldSession>,
+    registry: Res<BlockRegistry>,
+    mut context: ResMut<WorldContext>,
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
     mut mode: ResMut<BattleMode>,
-    mut pending: ResMut<PendingLoad>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
 ) {
@@ -126,6 +118,16 @@ pub fn handle_load_slot(
                 continue;
             }
         };
+        let invalid = designs.iter().find_map(|design| {
+            design.validate(&registry).err().map(|errors| (design.name.clone(), errors))
+        });
+
+        if let Some((name, errors)) = invalid {
+            let reason = format!("invalid design {name}: {}", errors.join("; "));
+            warn!("Load failed: {reason}");
+            notice.show(format!("Load failed: {reason}"));
+            continue;
+        }
 
         let active_slot_id = opened.slot_id().unwrap_or(slot_id);
         let active_path = opened.path().to_path_buf();
@@ -136,27 +138,25 @@ pub fn handle_load_slot(
         deploy.fleet = starter_fleet(&config.0, &designs);
         catalog.replace_all(designs);
         *source = DesignCatalogSource::ActiveWorldDb;
-        store.0 = Some(Box::new(opened));
-        *session = WorldSession::SaveSlot {
+        *context = WorldContext::Restoring {
             slot_id: active_slot_id,
             path: active_path,
+            store: Box::new(opened),
         };
         *mode = BattleMode::Campaign;
-        pending.active = true;
         scene.set(SceneState::Loading);
     }
 }
 
 pub fn handle_create_slot(
     mut events: MessageReader<CreateSlotEvent>,
-    mut store: ResMut<ActiveWorldStore>,
-    mut session: ResMut<WorldSession>,
+    mut rng: ResMut<GameRng>,
+    mut context: ResMut<WorldContext>,
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
     mut mode: ResMut<BattleMode>,
-    mut pending: ResMut<PendingLoad>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
 ) {
@@ -176,7 +176,6 @@ pub fn handle_create_slot(
                 updated_at_ms: now,
                 camera_blob: encode(&CameraSave::default())?,
                 control_blob: encode(&ControlSave::default())?,
-                rng_blob: encode(&RngSave { seed })?,
             })
         })();
 
@@ -198,67 +197,156 @@ pub fn handle_create_slot(
             }
         };
 
+        *rng = GameRng::new(seed);
         deploy.fleet = starter_fleet(&config.0, &designs);
         catalog.replace_all(designs);
         *source = DesignCatalogSource::ActiveWorldDb;
-        store.0 = Some(Box::new(created));
-        *session = WorldSession::SaveSlot { slot_id, path };
+        *context = WorldContext::SaveSlot { slot_id, path, store: Box::new(created) };
         *mode = BattleMode::Campaign;
-        pending.active = false;
         scene.set(SceneState::Game);
     }
 }
 
+fn resolve_slot_id(context: &WorldContext, slots: &[SlotSummary]) -> Option<Uuid> {
+    match context {
+        WorldContext::SaveSlot { slot_id, .. } | WorldContext::Restoring { slot_id, .. } => Some(*slot_id),
+        WorldContext::QuickBattle { .. } => slots
+            .iter()
+            .max_by_key(|slot| slot.updated_at_ms)
+            .map(|slot| slot.slot_id),
+    }
+}
+
+pub fn handle_continue_world(
+    mut events: MessageReader<ContinueWorldEvent>,
+    registry: Res<BlockRegistry>,
+    config: Res<GameConfigValue>,
+    mut context: ResMut<WorldContext>,
+    mut source: ResMut<DesignCatalogSource>,
+    mut catalog: ResMut<ShipCatalog>,
+    mut deploy: ResMut<DeployPayload>,
+    mut mode: ResMut<BattleMode>,
+    mut notice: ResMut<AppNotice>,
+    mut scene: ResMut<NextState<SceneState>>,
+    mut creates: MessageWriter<CreateSlotEvent>,
+) {
+    if events.read().next().is_none() {
+        return;
+    }
+
+    let slots = context.store().list_slots().unwrap_or_default();
+    let slot_id = resolve_slot_id(&context, &slots);
+
+    let Some(slot_id) = slot_id else {
+        creates.write(CreateSlotEvent { name: format!("World {}", now_unix_ms()) });
+        return;
+    };
+
+    let path = slot_path(slot_id);
+    let opened = match SqliteWorldStore::open(&path) {
+        Ok(opened) => opened,
+        Err(e) => {
+            warn!("Continue failed: {e}");
+            notice.show(format!("Continue failed: {e}"));
+            return;
+        }
+    };
+
+    let designs = match opened.list_designs() {
+        Ok(designs) => designs,
+        Err(e) => {
+            warn!("Continue failed: {e}");
+            notice.show(format!("Continue failed: {e}"));
+            return;
+        }
+    };
+    if let Some((name, errors)) = designs.iter().find_map(|design| {
+        design.validate(&registry).err().map(|errors| (design.name.clone(), errors))
+    }) {
+        let reason = format!("invalid design {name}: {}", errors.join("; "));
+        warn!("Continue failed: {reason}");
+        notice.show(format!("Continue failed: {reason}"));
+        return;
+    }
+    if let Err(e) = load_world_data(&opened, &registry).and_then(|data| {
+        validate_references(&data)?;
+        Ok(())
+    }) {
+        warn!("Continue failed: {e}");
+        notice.show(format!("Continue failed: {e}"));
+        return;
+    }
+
+    deploy.fleet = starter_fleet(&config.0, &designs);
+    catalog.replace_all(designs);
+    *source = DesignCatalogSource::ActiveWorldDb;
+    *context = WorldContext::Restoring { slot_id, path, store: Box::new(opened) };
+    *mode = BattleMode::Campaign;
+    scene.set(SceneState::Game);
+}
+
 pub fn handle_quick_battle(
     mut events: MessageReader<StartQuickBattleEvent>,
-    mut store: ResMut<ActiveWorldStore>,
-    mut session: ResMut<WorldSession>,
+    registry: Res<BlockRegistry>,
+    mut rng: ResMut<GameRng>,
+    mut context: ResMut<WorldContext>,
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
     mut mode: ResMut<BattleMode>,
-    mut pending: ResMut<PendingLoad>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
     if events.read().next().is_none() {
         return;
     }
 
-    let designs = load_or_seed_designs();
+    let designs = load_or_seed_designs(&registry);
+    *rng = GameRng::new(rand::random::<u64>());
     deploy.fleet = starter_fleet(&config.0, &designs);
     catalog.replace_all(designs);
     *source = DesignCatalogSource::HomeSandbox;
-    store.0 = Some(Box::new(InMemoryWorldStore::default()));
-    *session = WorldSession::QuickBattle;
+    *context = WorldContext::QuickBattle { store: Box::new(InMemoryWorldStore::default()) };
     *mode = BattleMode::QuickBattle;
-    pending.active = false;
     scene.set(SceneState::Game);
 }
 
-pub fn begin_loaded_game(pending: Res<PendingLoad>, mut next_scene: ResMut<NextState<SceneState>>) {
-    if pending.is_pending() {
+pub fn begin_loaded_game(context: Res<WorldContext>, mut next_scene: ResMut<NextState<SceneState>>) {
+    if context.is_restoring() {
         next_scene.set(SceneState::Game);
     }
 }
 
-struct WorldLoadData {
-    seed: u64,
-    play_time_secs: f32,
-    camera_save: CameraSave,
-    control_save: ControlSave,
-    bodies: Vec<BodySnapshot>,
-    drops: Vec<DropSave>,
-    intel: Vec<TeamIntelSave>,
-}
-
-fn load_world_data(active: &dyn WorldStore) -> Result<WorldLoadData, WorldStoreError> {
+fn load_world_data(active: &dyn WorldStore, registry: &BlockRegistry) -> Result<WorldLoadData, WorldStoreError> {
     let meta = active.load_meta()?;
     let state = active.load_active_state()?;
-    let seed = decode::<RngSave>(&meta.rng_blob)?.seed;
+    let seed = meta.seed;
     let camera_save = decode::<CameraSave>(&meta.camera_blob)?;
     let control_save = decode::<ControlSave>(&meta.control_blob)?;
-    let bodies = decode(&state.bodies_blob)?;
+    let bodies: Vec<BodySnapshot> = decode(&state.bodies_blob)?;
+
+    for body in &bodies {
+        let result = match body {
+            BodySnapshot::Ship(ship) => ship.validate(registry),
+            BodySnapshot::Debris(debris) => debris.validate(registry),
+        };
+        if let Err(errors) = result {
+            return Err(WorldStoreError::InvalidData(errors.join("; ")));
+        }
+    }
+
+    let ship_ids = bodies
+        .iter()
+        .filter_map(|body| match body {
+            BodySnapshot::Ship(ship) => Some(ship.id),
+            BodySnapshot::Debris(_) => None,
+        })
+        .collect::<std::collections::HashSet<_>>();
+
+    if ship_ids.len() != bodies.iter().filter(|b| matches!(b, BodySnapshot::Ship(_))).count() {
+        return Err(WorldStoreError::InvalidData("duplicate ship id in save".to_string()));
+    }
+
     let drops = decode(&state.drops_blob)?;
     let intel = decode(&state.intel_blob)?;
 
@@ -268,9 +356,43 @@ fn load_world_data(active: &dyn WorldStore) -> Result<WorldLoadData, WorldStoreE
         camera_save,
         control_save,
         bodies,
+        ship_ids,
         drops,
         intel,
     })
+}
+
+fn validate_references(data: &WorldLoadData) -> Result<(), WorldStoreError> {
+    let missing = |id: Uuid| WorldStoreError::InvalidData(format!("dangling ship reference {id}"));
+    if let Some(id) = data.camera_save.following
+        && !data.ship_ids.contains(&id)
+    {
+        return Err(missing(id));
+    }
+
+    if let Some(id) = data.control_save.controlling
+        && !data.ship_ids.contains(&id)
+    {
+        return Err(missing(id));
+    }
+
+    for plan in &data.intel {
+        for seen in &plan.last_known {
+            if !data.ship_ids.contains(&seen.target_id) {
+                return Err(missing(seen.target_id));
+            }
+        }
+    }
+    
+    for body in &data.bodies {
+        if let BodySnapshot::Ship(ship) = body
+            && let Some(id) = ship.brain.current.target_uuid()
+            && !data.ship_ids.contains(&id)
+        {
+            return Err(missing(id));
+        }
+    }
+    Ok(())
 }
 
 fn apply_world_data(
@@ -291,7 +413,7 @@ fn apply_world_data(
 
 pub fn spawn_loaded_world(
     mut commands: Commands,
-    pending: Res<PendingLoad>,
+    mut context: ResMut<WorldContext>,
     registry: Res<BlockRegistry>,
     items: Option<Res<ItemRegistry>>,
     config: Res<GameConfigValue>,
@@ -302,31 +424,30 @@ pub fn spawn_loaded_world(
     mut scene: ResMut<NextState<SceneState>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     transients: Query<Entity, With<DespawnOnExit<SceneState>>>,
-    store: Res<ActiveWorldStore>,
     mut rng: ResMut<GameRng>,
 ) {
-    if !pending.is_pending() {
-        return;
-    }
-
-    commands.insert_resource(PendingLoad::default());
-
-    let Some(active) = store.0.as_ref() else {
-        warn!("Load failed: no active world store");
-        notice.show("Load failed: no active world store");
-        scene.set(SceneState::Home);
+    let Some((slot_id, path, store)) = context.take_restoring() else {
         return;
     };
 
-    let data = match load_world_data(active.as_ref()) {
+    let data = match load_world_data(store.as_ref(), &registry) {
         Ok(data) => data,
         Err(e) => {
+            *context = WorldContext::SaveSlot { slot_id, path, store };
             warn!("Failed to read save slot: {e}");
             notice.show(format!("Load failed: {e}"));
             scene.set(SceneState::Home);
             return;
         }
     };
+
+    if let Err(e) = validate_references(&data) {
+        *context = WorldContext::SaveSlot { slot_id, path, store };
+        warn!("Failed to restore save slot: {e}");
+        notice.show(format!("Load failed: {e}"));
+        scene.set(SceneState::Home);
+        return;
+    }
 
     for entity in &transients {
         commands.entity(entity).despawn();
@@ -343,12 +464,14 @@ pub fn spawn_loaded_world(
         &mut camera,
         items.as_deref(),
     ) {
+        *context = WorldContext::SaveSlot { slot_id, path, store };
         warn!("Failed to restore save slot: {e}");
         notice.show(format!("Load failed: {e}"));
         scene.set(SceneState::Home);
         return;
     }
 
+    *context = WorldContext::SaveSlot { slot_id, path, store };
     *rng = GameRng::new(seed);
     let mission_name = battle.mission_name.clone();
 
@@ -371,11 +494,11 @@ pub fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue
 
 pub fn tick_auto_save(
     time: Res<Time>,
-    session: Res<WorldSession>,
+    context: Res<WorldContext>,
     mut timer: Option<ResMut<AutoSaveTimer>>,
     mut events: MessageWriter<SaveWorldEvent>,
 ) {
-    if !matches!(*session, WorldSession::SaveSlot { .. }) {
+    if !context.is_save_slot() {
         return;
     }
     let Some(ref mut timer) = timer else {
@@ -404,9 +527,10 @@ pub fn flush_pending_exit_action(
 pub fn reset_catalog_on_home(
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
+    registry: Res<BlockRegistry>,
 ) {
     *source = DesignCatalogSource::HomeSandbox;
-    catalog.designs = load_or_seed_designs();
+    catalog.designs = load_or_seed_designs(&registry);
 }
 
 fn battle_duration(time: &Time, battle: &BattleResult) -> f32 {
@@ -414,4 +538,60 @@ fn battle_duration(time: &Time, battle: &BattleResult) -> f32 {
         .started_at
         .map(|start| (time.elapsed_secs() - start).max(0.0))
         .unwrap_or(battle.duration_secs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use SlotSummary;
+    use std::path::PathBuf;
+
+    fn slot(id: Uuid, updated: u64) -> SlotSummary {
+        SlotSummary {
+            slot_id: id,
+            name: "World".to_string(),
+            seed: 1,
+            play_time_secs: 0.0,
+            created_at_ms: 0,
+            updated_at_ms: updated,
+        }
+    }
+
+    #[test]
+    fn active_slot_wins_over_newer_slot() {
+        let active = Uuid::now_v7();
+        let other = Uuid::now_v7();
+        let context = WorldContext::SaveSlot {
+            slot_id: active,
+            path: PathBuf::new(),
+            store: Box::new(InMemoryWorldStore::default()),
+        };
+        let slots = [slot(active, 10), slot(other, 999)];
+        assert_eq!(resolve_slot_id(&context, &slots), Some(active));
+    }
+
+    #[test]
+    fn quick_battle_uses_most_recent_slot() {
+        let older = Uuid::now_v7();
+        let newer = Uuid::now_v7();
+        let context = WorldContext::default();
+        let slots = [slot(older, 10), slot(newer, 20)];
+        assert_eq!(resolve_slot_id(&context, &slots), Some(newer));
+        assert_eq!(resolve_slot_id(&context, &[]), None);
+    }
+
+    #[test]
+    fn world_context_transitions_restore_to_save_slot() {
+        let id = Uuid::now_v7();
+        let mut context = WorldContext::Restoring {
+            slot_id: id,
+            path: PathBuf::new(),
+            store: Box::new(InMemoryWorldStore::default()),
+        };
+        assert!(context.is_restoring());
+        let (slot_id, _, store) = context.take_restoring().expect("restoring");
+        context = WorldContext::SaveSlot { slot_id, path: PathBuf::new(), store };
+        assert!(!context.is_restoring());
+        assert_eq!(context.slot_id(), Some(id));
+    }
 }

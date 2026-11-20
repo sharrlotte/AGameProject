@@ -9,13 +9,14 @@ pub use component::*;
 use bevy::prelude::*;
 
 use crate::mission::BattlePhase;
-use crate::resource::{BattleMode, PauseState, PendingLoad, SceneState};
+use crate::resource::{BattleMode, SceneState};
 use crate::save::world::system::{
-    begin_loaded_game, flush_pending_exit_action, handle_create_slot, handle_load_slot,
-    handle_quick_battle, handle_save_world_event, init_world_session, reset_auto_save_timer,
-    reset_catalog_on_home, spawn_loaded_world, tick_auto_save,
+    begin_loaded_game, flush_pending_exit_action, handle_continue_world, handle_create_slot,
+    handle_load_slot, handle_quick_battle, handle_save_world_event, init_world_session,
+    reset_auto_save_timer, reset_catalog_on_home, spawn_loaded_world, tick_auto_save,
 };
 use crate::simulation::SimulationSet;
+use crate::ui::{Modal, ModalStack};
 
 pub struct WorldSavePlugin;
 
@@ -25,11 +26,10 @@ impl Plugin for WorldSavePlugin {
             .add_message::<LoadSlotEvent>()
             .add_message::<CreateSlotEvent>()
             .add_message::<StartQuickBattleEvent>()
-            .init_resource::<WorldSession>()
-            .init_resource::<ActiveWorldStore>()
+            .add_message::<ContinueWorldEvent>()
+            .init_resource::<WorldContext>()
             .init_resource::<EditorReturnTarget>()
             .init_resource::<PendingExitAction>()
-            .init_resource::<PendingLoad>()
             .init_resource::<BattleMode>()
             .add_systems(PreStartup, init_world_session)
             .add_systems(
@@ -52,11 +52,12 @@ impl Plugin for WorldSavePlugin {
                     flush_pending_exit_action,
                     handle_load_slot.run_if(on_message::<LoadSlotEvent>),
                     handle_create_slot.run_if(on_message::<CreateSlotEvent>),
+                    handle_continue_world.run_if(on_message::<ContinueWorldEvent>),
                     handle_quick_battle.run_if(on_message::<StartQuickBattleEvent>),
                     tick_auto_save
                         .run_if(in_state(SceneState::Game))
                         .run_if(in_state(BattlePhase::Active))
-                        .run_if(in_state(PauseState::Playing)),
+                        .run_if(|stack: Res<ModalStack>| stack.top() != Some(Modal::Pause)),
                 )
                     .in_set(SimulationSet::Present),
             );

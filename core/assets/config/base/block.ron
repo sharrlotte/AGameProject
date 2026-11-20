@@ -4,7 +4,7 @@
             name: "Standard Hull",
             block_group: "base",
             mass: 10.0,
-            health: 1000.0,
+            health: 2200.0,
             cost: 5,
             shape: Square(1),
             features: [
@@ -16,7 +16,7 @@
             name: "Wedge Hull",
             block_group: "base",
             mass: 6.0,
-            health: 600.0,
+            health: 1300.0,
             cost: 3,
             shape: Triangle(base: Right, size: (1, 1)),
             features: [
@@ -28,7 +28,7 @@
             name: "Nose Cap",
             block_group: "base",
             mass: 6.0,
-            health: 600.0,
+            health: 1300.0,
             cost: 3,
             shape: Triangle(base: Isosceles, size: (1, 1)),
             features: [
@@ -39,8 +39,8 @@
         "plate_2x2": (
             name: "Wedge Plate",
             block_group: "base",
-            mass: 18.0,
-            health: 1800.0,
+            mass: 40.0,
+            health: 6000.0,
             cost: 9,
             shape: Triangle(base: Right, size: (2, 2)),
             features: [
@@ -52,7 +52,7 @@
             name: "Wedge Fin",
             block_group: "base",
             mass: 12.0,
-            health: 1200.0,
+            health: 2600.0,
             cost: 6,
             shape: Triangle(base: Isosceles, size: (1, 2)),
             features: [
@@ -64,7 +64,7 @@
             name: "Nose Spike",
             block_group: "base",
             mass: 18.0,
-            health: 1800.0,
+            health: 4000.0,
             cost: 9,
             shape: Triangle(base: Isosceles, size: (1, 3)),
             features: [
@@ -75,8 +75,8 @@
         "thruster_small": (
             name: "Small Ion Thruster",
             block_group: "base",
-            mass: 10.0,
-            health: 5000.0,
+            mass: 6.0,
+            health: 6000.0,
             cost: 50,
             shape: Square(1),
             features: [
@@ -89,8 +89,8 @@
         "core": (
             name: "Core",
             block_group: "core",
-            mass: 50.0,
-            health: 5000.0,
+            mass: 40.0,
+            health: 15000.0,
             cost: 150,
             shape: Rect((3, 3)),
             features: [
@@ -104,8 +104,8 @@
         "reactor": (
             name: "Reactor",
             block_group: "base",
-            mass: 30.0,
-            health: 2500.0,
+            mass: 22.0,
+            health: 5000.0,
             cost: 300,
             shape: Square(1),
             features: [
@@ -117,8 +117,8 @@
         "laser_turret": (
             name: "Laser Turret",
             block_group: "turret",
-            mass: 7.0,
-            health: 1600.0,
+            mass: 6.0,
+            health: 3500.0,
             cost: 150,
             shape: Square(1),
             features: [
@@ -129,7 +129,7 @@
                         fire_rate: 3.0,
                         delay: 0.25,
                         amount: 6,
-                        projectile: Laser(damage: 40.0, width: 3.0),
+                        projectile: Laser(damage: 60.0, width: 3.0),
                         shoot_sound: None,
                     )),
                     turn_speed: 4.0,
@@ -148,8 +148,8 @@
         "block_scrap": (
             name: "Scrap Block",
             block_group: "base",
-            mass: 10.0,
-            health: 1800.0,
+            mass: 14.0,
+            health: 4000.0,
             cost: 200,
             shape: Square(1),
             features: [
@@ -160,8 +160,8 @@
         "block_steel": (
             name: "Steel Block",
             block_group: "base",
-            mass: 8.0,
-            health: 1600.0,
+            mass: 16.0,
+            health: 5000.0,
             cost: 200,
             shape: Square(1),
             features: [
@@ -172,8 +172,8 @@
         "swarmer": (
             name: "Swarmer Turret",
             block_group: "turret",
-            mass: 8.0,
-            health: 1800.0,
+            mass: 12.0,
+            health: 3500.0,
             cost: 150,
             shape: Square(1),
             features: [
@@ -184,10 +184,10 @@
                         fire_rate: 2.0,
                         projectile: Missile(
                             speed: 3000.0,
-                            damage: 10.0,
+                            damage: 16.0,
                             lifetime: 10.0,
                             lock_range: 3000.0,
-                            blast_damage: 30.0,
+                            blast_damage: 40.0,
                             blast_radius: 32.0,
                             width: 5.0,
                             length: 60.0,
@@ -204,7 +204,7 @@
                         capacity: 1000,
                         crafting: {"steel": 3},
                         icon: None,
-                )),
+                    )),
                     power: None,
                 )),
             ],
@@ -213,8 +213,8 @@
         "spectre": (
             name: "Spectre Turret",
             block_group: "turret",
-            mass: 16.0,
-            health: 3600.0,
+            mass: 70.0,
+            health: 7000.0,
             cost: 150,
             shape: Rect((3, 3)),
             features: [
@@ -227,7 +227,7 @@
                         amount: 12,
                         projectile: Bullet(
                             speed: 4000.0,
-                            damage: 20.0,
+                            damage: 28.0,
                             lifetime: 10.0,
                             piercing: 2,
                             width: 3.0,
@@ -246,7 +246,7 @@
                         capacity: 5000,
                         crafting: {"steel": 1},
                         icon: None,
-                )),
+                    )),
                     power: None,
                 )),
             ],
@@ -255,8 +255,8 @@
         "meltdown": (
             name: "Meltdown Turret",
             block_group: "turret",
-            mass: 20.0,
-            health: 3600.0,
+            mass: 80.0,
+            health: 7000.0,
             cost: 150,
             shape: Rect((3, 3)),
             features: [
@@ -266,7 +266,7 @@
                     shooting_pattern: LaserBeam((
                         cooldown: 10.0,
                         duration: 5.0,
-                        damage: 1.0,
+                        damage: 2.0,
                         width: 9.0,
                     )),
                     turn_speed: 2.0,
@@ -285,8 +285,8 @@
         "foreshadow": (
             name: "Foreshadow Turret",
             block_group: "turret",
-            mass: 50.0,
-            health: 13600.0,
+            mass: 200.0,
+            health: 16000.0,
             cost: 150,
             shape: Rect((1, 4)),
             features: [
@@ -294,10 +294,10 @@
                 Turret((
                     strategy: Closest,
                     shooting_pattern: Single((
-                        fire_rate: 10.0,
+                        fire_rate: 12.0,
                         projectile: Bullet(
                             speed: 20000.0,
-                            damage: 5000.0,
+                            damage: 4000.0,
                             lifetime: 30.0,
                             piercing: 10,
                             width: 12.0,
@@ -321,8 +321,8 @@
         "colaris": (
             name: "Colaris Turret",
             block_group: "turret",
-            mass: 50.0,
-            health: 13600.0,
+            mass: 130.0,
+            health: 14000.0,
             cost: 150,
             shape: Square(1),
             features: [
@@ -335,7 +335,7 @@
                         amount: 12,
                         projectile: Bullet(
                             speed: 4000.0,
-                            damage: 30.0,
+                            damage: 40.0,
                             lifetime: 10.0,
                             piercing: 0,
                             width: 3.0,
@@ -354,7 +354,7 @@
                         capacity: 5000,
                         crafting: {"steel": 1},
                         icon: None,
-                )),
+                    )),
                     power: None,
                 )),
             ],
@@ -363,8 +363,8 @@
         "parallax": (
             name: "Parallax Turret",
             block_group: "turret",
-            mass: 50.0,
-            health: 13600.0,
+            mass: 110.0,
+            health: 14000.0,
             cost: 150,
             shape: Square(1),
             features: [
@@ -388,8 +388,8 @@
         "battery": (
             name: "Battery",
             block_group: "base",
-            mass: 15.0,
-            health: 1500.0,
+            mass: 10.0,
+            health: 3000.0,
             cost: 100,
             shape: Square(1),
             features: [
@@ -401,28 +401,28 @@
         "booster": (
             name: "Overdrive Booster",
             block_group: "base",
-            mass: 20.0,
-            health: 2000.0,
+            mass: 12.0,
+            health: 4000.0,
             cost: 250,
             shape: Square(1),
             features: [
                 Texture((image: "block/booster.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
-                Booster((radius: 256.0, boost: 1.5, rate: 8.0)),
+                Booster((radius: 1028.0, boost: 1.5, rate: 8.0)),
             ],
             drops: [Item((item_type: "steel", amount: 15))],
         ),
         "shield_circle": (
             name: "Shield Generator",
             block_group: "defense",
-            mass: 25.0,
-            health: 2500.0,
+            mass: 80.0,
+            health: 5000.0,
             cost: 300,
             shape: Square(1),
             features: [
                 Texture((image: "block/battery.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Shield((
-                    shape: Circle(radius: 200.0),
-                    max_hp: 1500.0,
+                    shape: Circle(radius: 1028.0),
+                    max_hp: 3500.0,
                     cooldown: 8.0,
                     regen_rate: 150.0,
                     demand: Some(10.0),
@@ -433,15 +433,15 @@
         "shield_plane": (
             name: "Directional Barrier",
             block_group: "defense",
-            mass: 20.0,
-            health: 2000.0,
+            mass: 65.0,
+            health: 4000.0,
             cost: 200,
             shape: Square(1),
             features: [
                 Texture((image: "block/battery.png", offset: (0.0, 0.0), z: 10.0, animated: false)),
                 Shield((
-                    shape: Plane(width: 256.0, thickness: 16.0, offset: (0.0, 64.0)),
-                    max_hp: 1200.0,
+                    shape: Plane(width: 1028.0, thickness: 32.0, offset: (0.0, 128.0)),
+                    max_hp: 2800.0,
                     cooldown: 5.0,
                     regen_rate: 200.0,
                     demand: Some(6.0),

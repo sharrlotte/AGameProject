@@ -3,7 +3,6 @@
 ## Purpose
 
 The modular ship editor tracks designs by id, debounces RON saves, authors AI profiles, and exposes save slots and gameplay HUDs.
-
 ## Requirements
 ### Requirement: The editor is split into feature modules
 
@@ -54,8 +53,7 @@ The game SHALL show power (production, demand, efficiency) and cargo (used, capa
 - **THEN** power and cargo HUD values update from the change event
 
 ### Requirement: Deploy uses the current grid
-
-Play and Deploy SHALL build a fresh validated payload from the current editor grid; a stale `DeployPayload` SHALL NOT be used. Deploy SHALL upsert the resulting `ShipDesign` into `DeployPayload.fleet` by name: an entry with the same name SHALL be replaced, otherwise the design SHALL be appended. The Deploy button SHALL be disabled only while the current grid matches the fleet entry of that name, comparing `name`, `doctrine`, and each block's position, type, and rotation while ignoring `BlockPlacement.id`.
+Deploy SHALL build a fresh validated payload from the current editor grid; a stale `DeployPayload` SHALL NOT be used. Play SHALL continue the last save or create a new save and SHALL NOT deploy the current grid or overwrite a save with a fresh skirmish. Deploy SHALL upsert the resulting `ShipDesign` into `DeployPayload.fleet` by name: an entry with the same name SHALL be replaced, otherwise the design SHALL be appended. The Deploy button SHALL be disabled only while the current grid matches the fleet entry of that name, comparing `name`, `doctrine`, and each block's position, type, and rotation while ignoring `BlockPlacement.id`.
 
 #### Scenario: Move then deploy
 - **WHEN** a block is moved and Deploy is pressed
@@ -68,6 +66,10 @@ Play and Deploy SHALL build a fresh validated payload from the current editor gr
 #### Scenario: Edited design re-enables Deploy
 - **WHEN** a fleet entry exists but the current grid differs in doctrine or block layout
 - **THEN** the Deploy button is enabled and deploying replaces that entry
+
+#### Scenario: Play from editor continues the save
+- **WHEN** the editor was opened from Pause inside Slot A and the player clicks Play
+- **THEN** Slot A is restored and no fresh battle from the current editor grid is spawned
 
 ### Requirement: The editor exposes the deployed fleet
 
@@ -140,3 +142,4 @@ All three left-panel tabs (`BlockListPanel`, `ShipListPanel`, `AiPanel`) SHALL u
 #### Scenario: Long AI preview scrolls
 - **WHEN** the `AI` tab's preset buttons and RON preview exceed the left panel height
 - **THEN** the `AI` tab scrolls vertically and displays its scrollbar
+

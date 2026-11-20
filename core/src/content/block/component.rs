@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+﻿use std::collections::{HashMap, HashSet};
 
 
 use bevy::prelude::*;
@@ -413,7 +413,6 @@ pub struct PullingBeamPatternState {
 
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct LaserBeamPatternState {
-    pub targets: Vec<Entity>,
     pub beam: Option<Entity>,
     pub shooting: LaserBeamPatternShootingState,
 }
@@ -471,7 +470,6 @@ impl ShootPattern {
                 commands.entity(base).insert((
                     s.clone(),
                     LaserBeamPatternState {
-                        targets: Vec::new(),
                         beam: None,
                         shooting: LaserBeamPatternShootingState::Cooldown {
                             cooldown_remaining: 0.0,
@@ -641,14 +639,14 @@ impl BlockRegistry {
     }
 
     pub fn bounds_from_grid(&self, grid: &BlockGrid) -> Option<BoundingBox> {
-        if grid.cells.is_empty() {
+        if grid.cells().is_empty() {
             return None;
         }
 
         let mut min = IVec2::splat(i32::MAX);
         let mut max = IVec2::splat(i32::MIN);
 
-        for cell in grid.cells.keys() {
+        for cell in grid.cells().keys() {
             min = min.min(*cell);
             max = max.max(*cell + IVec2::ONE);
         }
@@ -804,9 +802,9 @@ impl BlockRegistry {
             }
         }
 
-        for (cell, source_id) in &grid.cells {
+        for (cell, source_id) in grid.cells() {
             for dir in [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y] {
-                let Some(neighbor_id) = grid.cells.get(&(*cell + dir)) else {
+                let Some(neighbor_id) = grid.cells().get(&(*cell + dir)) else {
                     continue;
                 };
                 if source_id == neighbor_id {
@@ -857,10 +855,10 @@ impl BlockRegistry {
                     }
                 }
 
-                if visited.len() != grid.blocks.len() {
+                if visited.len() != grid.block_count() {
                     errors.push(format!(
                         "layout has {} disconnected block(s)",
-                        grid.blocks.len() - visited.len()
+                        grid.block_count() - visited.len()
                     ));
                 }
             }

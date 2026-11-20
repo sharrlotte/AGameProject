@@ -8,6 +8,9 @@ pub use system::*;
 
 use bevy::prelude::*;
 
+use crate::config::ConfigState;
+use crate::system::load_default_fleet;
+
 pub struct DesignSavePlugin;
 
 impl Plugin for DesignSavePlugin {
@@ -16,7 +19,10 @@ impl Plugin for DesignSavePlugin {
             .add_message::<ShipSavesChanged>()
             .init_resource::<ShipCatalog>()
             .init_resource::<DesignCatalogSource>()
-            .add_systems(PreStartup, init_ship_catalog)
+            .add_systems(
+                OnEnter(ConfigState::Ready),
+                init_ship_catalog.before(load_default_fleet),
+            )
             .add_systems(
                 Update,
                 persist_design_request.run_if(on_message::<DesignSaveRequested>),

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
@@ -444,7 +444,7 @@ mod tests {
         let mut query = world.query::<(Entity, &Debris, &BlockGrid)>();
         query
             .iter(world)
-            .map(|(entity, _, grid)| (entity, grid.blocks.len()))
+            .map(|(entity, _, grid)| (entity, grid.block_count()))
             .collect()
     }
 
@@ -473,7 +473,7 @@ mod tests {
         send(&mut app, ship, bridge);
 
         let grid = app.world().get::<BlockGrid>(ship).unwrap();
-        assert_eq!(grid.blocks.len(), 1);
+        assert_eq!(grid.block_count(), 1);
         assert!(grid.block_at(IVec2::X).is_none());
 
         let stats = app.world().get::<ShipStats>(ship).unwrap();
@@ -546,7 +546,7 @@ mod tests {
 
         send(&mut app, ship, bridge);
 
-        assert_eq!(app.world().get::<BlockGrid>(ship).unwrap().blocks.len(), 1);
+        assert_eq!(app.world().get::<BlockGrid>(ship).unwrap().block_count(), 1);
         let bodies = debris_bodies(&mut app);
         assert_eq!(bodies.len(), 1);
         assert_eq!(bodies[0].1, 1);
@@ -693,10 +693,10 @@ mod tests {
         assert_eq!(stats_after.mass, stats_before.mass);
         assert_eq!(stats_after.health, stats_before.health);
         assert_eq!(stats_after.max_health, stats_before.max_health);
-        assert_eq!(stats_after.cargo_used, stats_before.cargo_used);
+        assert_eq!(stats_after.cargo_used(), stats_before.cargo_used());
         assert_eq!(
-            app.world().get::<BoundingBox>(ship).unwrap().size,
-            bounds_before.size
+            app.world().get::<BoundingBox>(ship).unwrap().size(),
+            bounds_before.size()
         );
         let changed: Vec<ShipChanged> = app
             .world_mut()

@@ -38,13 +38,4 @@ pub enum BattleMode {
     QuickBattle,
 }
 
-#[derive(Resource, Default, Debug)]
-pub struct PendingLoad {
-    pub active: bool,
-}
 
-impl PendingLoad {
-    pub fn is_pending(&self) -> bool {
-        self.active
-    }
-}

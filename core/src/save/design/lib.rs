@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::GameConfig;
+use crate::content::block::BlockRegistry;
 use crate::content::ship::ShipDesign;
 use crate::save::document::{DocumentError, data_dir, parse_document, read_document, write_document};
 
@@ -56,11 +57,11 @@ pub fn starter_fleet(config: &GameConfig, designs: &[ShipDesign]) -> Vec<ShipDes
         .collect()
 }
 
-pub fn load_or_seed_designs() -> Vec<ShipDesign> {
-    load_or_seed_designs_in(&data_dir())
+pub fn load_or_seed_designs(registry: &BlockRegistry) -> Vec<ShipDesign> {
+    load_or_seed_designs_in(&data_dir(), registry)
 }
 
-pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
+pub fn load_or_seed_designs_in(base: &Path, registry: &BlockRegistry) -> Vec<ShipDesign> {
     let dir = sandbox_designs_dir_in(base);
     if let Err(e) = fs::create_dir_all(&dir) {
         warn!("Failed to create sandbox designs directory: {e}");
@@ -74,7 +75,7 @@ pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
         }
     }
 
-    let mut designs = read_designs_dir(&dir);
+    let mut designs = read_designs_dir(&dir, registry);
     if designs.is_empty() {
         designs = starter_designs();
     }
@@ -83,7 +84,7 @@ pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
     designs
 }
 
-pub fn read_designs_dir(dir: &Path) -> Vec<ShipDesign> {
+pub fn read_designs_dir(dir: &Path, registry: &BlockRegistry) -> Vec<ShipDesign> {
     let mut designs = Vec::new();
     let Ok(entries) = fs::read_dir(dir) else {
         return designs;
@@ -95,7 +96,10 @@ pub fn read_designs_dir(dir: &Path) -> Vec<ShipDesign> {
             continue;
         }
         match read_document::<ShipDesign>(&path) {
-            Ok(design) => designs.push(design),
+            Ok(design) => match design.validate(registry) {
+                Ok(()) => designs.push(design),
+                Err(errors) => warn!("Skipping design {:?}: {}", path.file_name(), errors.join("; ")),
+            },
             Err(e) => warn!("Skipping design {:?}: {e}", path.file_name()),
         }
     }

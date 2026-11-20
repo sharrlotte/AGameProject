@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 use bevy::prelude::*;
 
@@ -33,7 +33,7 @@ pub fn update_tactical_board(
             1.0
         };
         hp_by_entity.insert(entity, hp_ratio);
-        allies_by_team.entry(team.id).or_default().push(AllyCandidate {
+        allies_by_team.entry(team.id()).or_default().push(AllyCandidate {
             entity,
             position: pos,
             offensive_dps: cap.offensive_dps,

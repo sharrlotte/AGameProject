@@ -15,9 +15,8 @@ use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
 use crate::content::ContentPlugin;
 use crate::mission::MissionPlugin;
-use crate::resource::{
-    DeployPayload, GameRng, PauseState, SceneState,
-};
+use crate::resource::{DeployPayload, GameRng, SceneState};
+use crate::ui::UiPlugin;
 use crate::save::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
 use crate::scene::game::GameScenePlugin;
@@ -123,7 +122,6 @@ fn register_resources_and_states(app: &mut App) {
         // error screen instead of panicking on a missing resource.
         .init_resource::<GameConfigValue>()
         .init_state::<SceneState>()
-        .init_state::<PauseState>()
         .insert_resource(Time::<Fixed>::from_hz(60.0));
 }
 
@@ -170,6 +168,7 @@ fn register_game_plugins(app: &mut App) {
             ContentPlugin,
             SettingScenePlugin,
             NoticePlugin,
+            UiPlugin,
             scene::widget::WidgetPlugin,
         ));
 }

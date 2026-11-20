@@ -2,33 +2,27 @@ mod slots;
 
 use bevy::prelude::*;
 
-use crate::resource::{SceneState, SettingState, SlotPickerState};
-use crate::save::world::{EditorReturnTarget, StartQuickBattleEvent};
-use crate::scene::home::slots::{
-    SlotPickerUi, handle_name_input, refresh_slot_list, setup_picker, slot_picker_input,
-};
+use crate::resource::SceneState;
+use crate::save::world::{ContinueWorldEvent, EditorReturnTarget, StartQuickBattleEvent};
+use crate::scene::home::slots::{SlotPickerUi, handle_name_input, sync_picker_ui};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
+use crate::ui::{Modal, ModalStack, modal_is};
 
 pub struct HomeScenePlugin;
 
 impl Plugin for HomeScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<SlotPickerState>()
-            .init_resource::<SlotPickerUi>()
+        app.init_resource::<SlotPickerUi>()
             .add_systems(OnEnter(SceneState::Home), setup_home)
-            .add_systems(
-                OnEnter(SlotPickerState::Open),
-                (refresh_slot_list, setup_picker).chain(),
-            )
             .add_systems(
                 Update,
                 (
-                    slot_picker_input.in_set(SimulationSet::Input),
                     handle_name_input
-                        .run_if(in_state(SlotPickerState::Open))
+                        .run_if(modal_is(Modal::SlotPicker))
                         .in_set(SimulationSet::Input),
+                    sync_picker_ui.in_set(SimulationSet::Present),
                 ),
             );
     }
@@ -36,6 +30,9 @@ impl Plugin for HomeScenePlugin {
 
 #[derive(Component)]
 struct PlayButton;
+
+#[derive(Component)]
+struct WorldsButton;
 
 #[derive(Component)]
 struct QuickBattleButton;
@@ -52,10 +49,20 @@ struct ExitButton;
 fn on_play(
     click: On<PointerClick>,
     buttons: Query<&PlayButton>,
-    mut picker: ResMut<NextState<SlotPickerState>>,
+    mut continues: MessageWriter<ContinueWorldEvent>,
 ) {
     if buttons.contains(click.event().entity) {
-        picker.set(SlotPickerState::Open);
+        continues.write(ContinueWorldEvent);
+    }
+}
+
+fn on_worlds(
+    click: On<PointerClick>,
+    buttons: Query<&WorldsButton>,
+    mut stack: ResMut<ModalStack>,
+) {
+    if buttons.contains(click.event().entity) {
+        stack.push(Modal::SlotPicker);
     }
 }
 
@@ -84,10 +91,10 @@ fn on_ship_editor(
 fn on_settings(
     click: On<PointerClick>,
     buttons: Query<&HomeSettingsButton>,
-    mut setting: ResMut<NextState<SettingState>>,
+    mut stack: ResMut<ModalStack>,
 ) {
     if buttons.contains(click.event().entity) {
-        setting.set(SettingState::Open);
+        stack.push(Modal::Settings);
     }
 }
 
@@ -124,6 +131,16 @@ fn setup_home(mut commands: Commands) {
                 Color::WHITE,
                 PlayButton,
                 on_play,
+                ButtonVisuals::dark(),
+            );
+            spawn_button(
+                parent,
+                button_node(),
+                "Worlds",
+                20.0,
+                Color::WHITE,
+                WorldsButton,
+                on_worlds,
                 ButtonVisuals::dark(),
             );
             spawn_button(

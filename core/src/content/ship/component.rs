@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
 
@@ -40,10 +40,10 @@ pub struct Ship {
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct BoundingBox {
-    pub min: Vec2,
-    pub max: Vec2,
-    pub center: Vec2,
-    pub size: Vec2,
+    min: Vec2,
+    max: Vec2,
+    center: Vec2,
+    size: Vec2,
 }
 
 impl BoundingBox {
@@ -55,6 +55,11 @@ impl BoundingBox {
             size: max - min,
         }
     }
+
+    pub fn min(&self) -> Vec2 { self.min }
+    pub fn max(&self) -> Vec2 { self.max }
+    pub fn center(&self) -> Vec2 { self.center }
+    pub fn size(&self) -> Vec2 { self.size }
 
     pub fn corners(&self) -> [Vec2; 4] {
         [
@@ -89,6 +94,10 @@ pub struct ShipDesign {
 
 
 impl ShipDesign {
+    pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
+        registry.validate_ship(&self.blocks)
+    }
+
     #[cfg(test)]
     pub fn new(blocks: Vec<BlockPlacement>) -> Self {
         Self {
@@ -107,7 +116,7 @@ impl ShipDesign {
         team: Team,
         transform: Transform,
         config: &GameConfigValue,
-    ) -> Option<(Entity, Vec<Entity>)> {
+    ) -> Result<(Entity, Vec<Entity>), Vec<String>> {
         self.spawn_with_id(
             commands,
             registry,
@@ -126,12 +135,16 @@ impl ShipDesign {
         transform: Transform,
         config: &GameConfigValue,
         ship_id: Uuid,
-    ) -> Option<(Entity, Vec<Entity>)> {
+    ) -> Result<(Entity, Vec<Entity>), Vec<String>> {
+        registry.validate_ship(&self.blocks)?;
+
         let mut grid = BlockGrid::new();
-        
         grid.rebuild_from_layout(&self.blocks, registry);
 
-        let build = registry.build_grid_result(&grid)?;
+        let build = registry
+            .build_grid_result(&grid)
+            .ok_or_else(|| vec!["ship layout has no core".to_string()])?;
+            
         let mut ship = build.ship;
         ship.id = ship_id;
         let stats = build.stats;
@@ -195,7 +208,7 @@ impl ShipDesign {
         commands.entity(ship_entity).insert(grid);
         commands.entity(ship_entity).observe(on_ship_click);
 
-        Some((ship_entity, block_entities))
+        Ok((ship_entity, block_entities))
     }
 }
 
@@ -260,7 +273,7 @@ mod tests {
         let world = app.world_mut();
         let mut grids = world.query::<&BlockGrid>();
         let grid = grids.single(world).expect("spawned ship has a grid");
-        assert_eq!(grid.blocks.len(), 2);
+        assert_eq!(grid.block_count(), 2);
         assert!(
             grid.blocks()
                 .all(|block| block.entity != Entity::PLACEHOLDER)
@@ -280,8 +293,8 @@ mod tests {
         let bounds = BoundingBox::from_min_max(Vec2::new(-16.0, 32.0), Vec2::new(48.0, 96.0));
         assert_eq!(bounds.min, Vec2::new(-16.0, 32.0));
         assert_eq!(bounds.max, Vec2::new(48.0, 96.0));
-        assert_eq!(bounds.center, Vec2::new(16.0, 64.0));
-        assert_eq!(bounds.size, Vec2::new(64.0, 64.0));
+        assert_eq!(bounds.center(), Vec2::new(16.0, 64.0));
+        assert_eq!(bounds.size(), Vec2::new(64.0, 64.0));
         assert_eq!(
             bounds.corners(),
             [

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+﻿use bevy::prelude::*;
 use uuid::Uuid;
 
 use crate::content::block::Loot;
@@ -55,7 +55,7 @@ impl ShipSnapshot {
     pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
         let ship = entity.get::<Ship>()?;
         let grid = entity.get::<BlockGrid>()?;
-        let team = entity.get::<Team>().map(|t| t.id).unwrap_or(0);
+        let team = entity.get::<Team>().map(|t| t.id()).unwrap_or(0);
         let transform = entity.get::<Transform>().cloned().unwrap_or_default();
         let velocity = entity
             .get::<bevy_rapier2d::prelude::Velocity>()
@@ -66,7 +66,7 @@ impl ShipSnapshot {
         let cargo = entity
             .get::<ShipStats>()
             .map(|stats| CargoSave {
-                used: stats.cargo_used,
+                used: stats.cargo_used(),
                 items: stats
                     .cargo_items
                     .iter()
@@ -89,7 +89,6 @@ impl ShipSnapshot {
                 timer_secs: b.think_timer.duration().as_secs_f32(),
                 strafe_sign: b.strafe_sign,
                 strafe_timer: b.strafe_timer,
-                shed_boosters: b.shed_boosters,
             })
             .unwrap_or_default();
 
@@ -118,7 +117,7 @@ impl ShipSnapshot {
 impl DebrisSnapshot {
     pub fn capture(world: &World, entity: EntityRef) -> Option<Self> {
         let grid = entity.get::<BlockGrid>()?;
-        let team = entity.get::<Team>().map(|t| t.id).unwrap_or(0);
+        let team = entity.get::<Team>().map(|t| t.id()).unwrap_or(0);
         let transform = entity.get::<Transform>().cloned().unwrap_or_default();
         let velocity = entity
             .get::<bevy_rapier2d::prelude::Velocity>()

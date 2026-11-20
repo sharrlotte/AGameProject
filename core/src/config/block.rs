@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 
 use bevy::asset::{AssetEvent, AssetServer};
@@ -179,9 +179,7 @@ pub enum ShieldShapeConfig {
 }
 
 
-fn default_plane_thickness() -> f32 {
-    8.0
-}
+
 
 
 impl FeatureConfig {
@@ -194,10 +192,12 @@ impl FeatureConfig {
                 animated: config.animated,
             }),
             FeatureConfig::Turret(config) => {
-                let shooting_pattern = config.shooting_pattern.into_pattern(assets);
+                let shooting_pattern = config.shooting_pattern.into_pattern(assets, block_type);
+
                 let power = config
                     .power
                     .and_then(|p| validate_turret_power(p, &shooting_pattern, block_type));
+                    
                 Feature::Turret(TurretComponent {
                     strategy: config.strategy,
                     shooting_pattern,
@@ -222,7 +222,7 @@ impl FeatureConfig {
             FeatureConfig::Battery(battery) => Feature::Battery(battery.validated(block_type)),
             FeatureConfig::Consumer(consumer) => Feature::Consumer(consumer.validated(block_type)),
             FeatureConfig::Booster(booster) => Feature::Booster(booster.validated(block_type)),
-            FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster),
+            FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster.validated()),
             FeatureConfig::Storage(config) => Feature::Storage(config.capacity),
             FeatureConfig::Shield(config) => {
                 let shape = match config.shape {
@@ -251,19 +251,56 @@ impl FeatureConfig {
 
 
 impl ShootPatternConfig {
-    fn into_pattern(self, assets: &AssetServer) -> ShootPattern {
+    fn validate_projectile(mut projectile: ShootingProjectile, block_type: &str) -> ShootingProjectile {
+        match &mut projectile {
+            ShootingProjectile::Bullet { speed, damage, lifetime, piercing, width, length } => {
+                if !speed.is_finite() || *speed < 0.0 { warn!("Turret {block_type} projectile speed is invalid; clamping to 0"); *speed = 0.0; }
+                if !damage.is_finite() || *damage < 0.0 { warn!("Turret {block_type} projectile damage is invalid; clamping to 0"); *damage = 0.0; }
+                if !lifetime.is_finite() || *lifetime < 0.0 { warn!("Turret {block_type} projectile lifetime is invalid; clamping to 0"); *lifetime = 0.0; }
+                if *piercing < 0 { warn!("Turret {block_type} piercing is negative; clamping to 0"); *piercing = 0; }
+                if !width.is_finite() || *width <= 0.0 { warn!("Turret {block_type} projectile width is invalid; clamping to 1"); *width = 1.0; }
+                if !length.is_finite() || *length <= 0.0 { warn!("Turret {block_type} projectile length is invalid; clamping to 1"); *length = 1.0; }
+            }
+            ShootingProjectile::Missile { speed, damage, lifetime, width, length, .. } => {
+                if !speed.is_finite() || *speed < 0.0 { warn!("Turret {block_type} projectile speed is invalid; clamping to 0"); *speed = 0.0; }
+                if !damage.is_finite() || *damage < 0.0 { warn!("Turret {block_type} projectile damage is invalid; clamping to 0"); *damage = 0.0; }
+                if !lifetime.is_finite() || *lifetime < 0.0 { warn!("Turret {block_type} projectile lifetime is invalid; clamping to 0"); *lifetime = 0.0; }
+                if !width.is_finite() || *width <= 0.0 { warn!("Turret {block_type} projectile width is invalid; clamping to 1"); *width = 1.0; }
+                if !length.is_finite() || *length <= 0.0 { warn!("Turret {block_type} projectile length is invalid; clamping to 1"); *length = 1.0; }
+            }
+            ShootingProjectile::Laser { damage, width } => {
+                if !damage.is_finite() || *damage < 0.0 { warn!("Turret {block_type} laser damage is invalid; clamping to 0"); *damage = 0.0; }
+                if !width.is_finite() || *width <= 0.0 { warn!("Turret {block_type} laser width is invalid; clamping to 1"); *width = 1.0; }
+            }
+        }
+        projectile
+    }
+    fn into_pattern(self, assets: &AssetServer, block_type: &str) -> ShootPattern {
         match self {
-            ShootPatternConfig::Single(pattern) => ShootPattern::Single(pattern),
+            ShootPatternConfig::Single(mut pattern) => {
+                pattern.projectile = Self::validate_projectile(pattern.projectile, block_type);
+                if !pattern.fire_rate.is_finite() || pattern.fire_rate <= 0.0 {
+                    warn!("Turret {block_type} fire_rate is invalid; clamping to 1");
+                    pattern.fire_rate = 1.0;
+                }
+                ShootPattern::Single(pattern)
+            }
             ShootPatternConfig::Burst(config) => ShootPattern::Burst(BurstShootPattern {
-                fire_rate: config.fire_rate,
-                delay: config.delay,
-                amount: config.amount,
-                projectile: config.projectile,
+                fire_rate: if config.fire_rate.is_finite() && config.fire_rate > 0.0 { config.fire_rate } else { 1.0 },
+                delay: config.delay.max(0.0),
+                amount: config.amount.max(1),
+                projectile: Self::validate_projectile(config.projectile, block_type),
                 shoot_sound: config
                     .shoot_sound
                     .map(|sound| assets.load(format!("audio/{sound}"))),
             }),
-            ShootPatternConfig::LaserBeam(pattern) => ShootPattern::LaserBeam(pattern),
+            ShootPatternConfig::LaserBeam(mut pattern) => {
+                if !pattern.damage.is_finite() || pattern.damage < 0.0 { pattern.damage = 0.0; }
+                if !pattern.width.is_finite() || pattern.width <= 0.0 { pattern.width = 1.0; }
+                if !pattern.cooldown.is_finite() || pattern.cooldown < 0.0 { pattern.cooldown = 0.0; }
+                if !pattern.duration.is_finite() || pattern.duration <= 0.0 { pattern.duration = 1.0; }
+                ShootPattern::LaserBeam(pattern)
+            }
             ShootPatternConfig::PullingBeam(pattern) => ShootPattern::PullingBeam(pattern),
         }
     }
@@ -389,6 +426,11 @@ pub fn blocks_bridge(
         }
     }
 }
+
+fn default_plane_thickness() -> f32 {
+    8.0
+}
+
 
 #[cfg(test)]
 mod tests {
