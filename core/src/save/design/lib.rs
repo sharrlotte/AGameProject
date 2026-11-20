@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::config::GameConfig;
 use crate::content::ship::ShipDesign;
 use crate::save::document::{DocumentError, data_dir, parse_document, read_document, write_document};
 
@@ -10,8 +11,8 @@ pub const RAIDER: &str = include_str!("../../../assets/config/starter/raider.ron
 pub const B2: &str = include_str!("../../../assets/config/starter/b2.ron");
 pub const BLACKBIRD: &str = include_str!("../../../assets/config/starter/blackbird.ron");
 
-pub fn designs_dir_in(base: &Path) -> PathBuf {
-    base.join("designs")
+pub fn sandbox_designs_dir_in(base: &Path) -> PathBuf {
+    base.join("sandbox_designs")
 }
 
 pub fn design_file_name(design: &ShipDesign) -> String {
@@ -26,23 +27,45 @@ pub fn design_file_name(design: &ShipDesign) -> String {
         .to_string()
 }
 
+pub fn starter_designs() -> Vec<ShipDesign> {
+    [INTERCEPTOR, RAIDER, B2, BLACKBIRD]
+        .iter()
+        .filter_map(|text| match parse_document::<ShipDesign>(text) {
+            Ok(design) => Some(design),
+            Err(e) => {
+                warn!("Starter design failed to parse: {e}");
+                None
+            }
+        })
+        .collect()
+}
+
+pub fn starter_fleet(config: &GameConfig, designs: &[ShipDesign]) -> Vec<ShipDesign> {
+    config
+        .default_fleet
+        .iter()
+        .filter_map(|name| match designs.iter().find(|design| &design.name == name) {
+            Some(design) => Some(design.clone()),
+            None => {
+                warn!("Default fleet design {name:?} not found; skipping");
+                None
+            }
+        })
+        .collect()
+}
+
 pub fn load_or_seed_designs() -> Vec<ShipDesign> {
     load_or_seed_designs_in(&data_dir())
 }
 
 pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
-    let dir = designs_dir_in(base);
+    let dir = sandbox_designs_dir_in(base);
     if let Err(e) = fs::create_dir_all(&dir) {
-        warn!("Failed to create designs directory: {e}");
+        warn!("Failed to create sandbox designs directory: {e}");
         return Vec::new();
     }
 
-    for (name, text) in [
-        ("interceptor.ron", INTERCEPTOR),
-        ("raider.ron", RAIDER),
-        ("b2.ron", B2),
-        ("blackbird.ron", BLACKBIRD),
-    ] {
+    for (name, text) in starters() {
         let path = dir.join(name);
         if let Err(e) = fs::write(&path, text) {
             warn!("Failed to refresh starter design {name}: {e}");
@@ -51,17 +74,7 @@ pub fn load_or_seed_designs_in(base: &Path) -> Vec<ShipDesign> {
 
     let mut designs = read_designs_dir(&dir);
     if designs.is_empty() {
-        for (name, text) in [
-            ("interceptor.ron", INTERCEPTOR),
-            ("raider.ron", RAIDER),
-            ("b2.ron", B2),
-            ("blackbird.ron", BLACKBIRD),
-        ] {
-            match parse_document::<ShipDesign>(text) {
-                Ok(design) => designs.push(design),
-                Err(e) => warn!("Starter design {name} failed to parse: {e}"),
-            }
-        }
+        designs = starter_designs();
     }
 
     designs.sort_by(|a, b| a.name.cmp(&b.name));
@@ -95,7 +108,39 @@ pub fn save_design_file(design: &ShipDesign) -> Result<(), DocumentError> {
 
 pub fn save_design_file_in(base: &Path, design: &ShipDesign) -> Result<(), DocumentError> {
     let file = format!("{}.ron", design_file_name(design));
-    write_document(&designs_dir_in(base).join(file), design)
+    write_document(&sandbox_designs_dir_in(base).join(file), design)
+}
+
+pub fn upsert(ships: &mut Vec<ShipDesign>, design: ShipDesign) {
+    if let Some(existing) = ships.iter_mut().find(|entry| entry.name == design.name) {
+        *existing = design;
+    } else {
+        ships.push(design);
+    }
+}
+
+pub fn remove(ships: &mut Vec<ShipDesign>, name: &str) {
+    ships.retain(|design| design.name != name);
+}
+
+pub fn design_matches(design: &ShipDesign, other: &ShipDesign) -> bool {
+    design.name == other.name
+        && design.doctrine == other.doctrine
+        && design.blocks.len() == other.blocks.len()
+        && design
+            .blocks
+            .iter()
+            .zip(&other.blocks)
+            .all(|(a, b)| a.position == b.position && a.block_type == b.block_type && a.rotation == b.rotation)
+}
+
+fn starters() -> [(&'static str, &'static str); 4] {
+    [
+        ("interceptor.ron", INTERCEPTOR),
+        ("raider.ron", RAIDER),
+        ("b2.ron", B2),
+        ("blackbird.ron", BLACKBIRD),
+    ]
 }
 
 #[cfg(test)]

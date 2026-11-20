@@ -9,8 +9,7 @@ use bevy::{
 use crate::config::GameConfigValue;
 use crate::constant::VIEW_HEIGHT;
 use crate::resource::DeployPayload;
-use crate::save::design::ShipCatalog;
-use crate::save::fleet::load_or_seed_fleet;
+use crate::save::design::{ShipCatalog, starter_fleet};
 
 
 pub fn setup_camera(mut commands: Commands) {
@@ -45,7 +44,7 @@ pub fn load_default_fleet(
     catalog: Res<ShipCatalog>,
     config: Res<GameConfigValue>,
 ) {
-    deploy.fleet = load_or_seed_fleet(&config.0, &catalog);
+    deploy.fleet = starter_fleet(&config.0, catalog.designs());
 }
 
 #[cfg(debug_assertions)]

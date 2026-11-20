@@ -1,150 +1,158 @@
-# Persistence Spec — Designs, Campaign, and World Save (v7 / design v3)
+# Persistence Spec — SQLite Save Slots
 
 ## Module Layout
 
-`core/src/save/` is organized by domain following the `mod.rs`, `component.rs`, `system.rs`, `lib.rs` structure:
+`core/src/save/` is organized by domain following the `mod.rs`, `component.rs`, `lib.rs`, `system.rs` structure:
 
 ```
 core/src/save/
-├── mod.rs          SavePlugin (registers DesignSavePlugin, CampaignSavePlugin, BattleSavePlugin)
+├── mod.rs          SavePlugin (registers DesignSavePlugin, WorldSavePlugin)
 ├── document.rs     RonDocument trait, DocumentError, parse/read/write_document, atomic_write, data_dir
-├── design/         DesignSavePlugin, ShipCatalog (Resource), starter seeding, design file I/O
-├── campaign/       CampaignSavePlugin, CampaignSave (Resource), campaign progression & reset
-└── battle/         BattleSavePlugin, BattleSaveState (Resource), WorldSave (v5), capture & restore
+├── design/         DesignSavePlugin, ShipCatalog, DesignCatalogSource, sandbox designs, fleet helpers
+└── world/          WorldSavePlugin: single-file SQLite save slots
+    ├── mod.rs      plugin wiring, re-exports
+    ├── component.rs  WorldSession, SlotSummary, WorldMeta, ActiveStateSnapshot, WorldStoreError, events
+    ├── store.rs    WorldStore trait, postcard + lz4 codec, InMemoryWorldStore
+    ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files
+    ├── snapshot.rs capture/apply helpers for bodies, drops, camera, control, RNG, intel
+    └── system.rs   save/load/create lifecycle, auto-save, catalog switching
 ```
 
 ## Locations
 
-`data_dir()` = `directories::ProjectDirs::from("com", "somerandomdev", "agameproject").data_dir()`
-(e.g. on Windows: `%APPDATA%\somerandomdev\agameproject\data`). Sub-directories:
+`data_dir()` = `directories::ProjectDirs::from("com", "somerandomdev", "agameproject").data_dir()`.
 
 ```
-<data_dir>/designs/*.ron        one self-contained ship design per file
-<data_dir>/saves/battle.ron     single active campaign battle snapshot
-<data_dir>/saves/campaign.ron   campaign/mission progression document
+<data_dir>/saves/<slot_id>.db          one self-contained SQLite save slot (uuid-v7 file name)
+<data_dir>/saves/<slot_id>.db-wal      SQLite WAL sidecar (checkpointed on flush / drop / delete)
+<data_dir>/saves/<slot_id>.db-shm      SQLite shared-memory sidecar
+<data_dir>/sandbox_designs/*.ron       Home sandbox catalog (Ship Editor + QuickBattle)
+<data_dir>/settings.ron / assets/config/setting.ron  global user preferences (still RON)
 ```
 
-User settings (`config/setting.ron`) remain in `assets/config/setting.ron` for Bevy `AssetServer` hot-reloading.
-Old `schematics/*.json`, `schematics/*.ron`, `saves/slot_*.ron`, and `world/` are ignored and untouched.
+Legacy `saves/battle.ron`, `saves/campaign.ron`, `fleet.ron`, `saves/slot_*.ron`, `designs/*.ron`,
+`schematics/*.json` and `world/` are never read, written, migrated, or deleted by the save system.
 
-## Resource-Backed Caching
+`WORLD_DB_SCHEMA_VERSION = 1` is stored in `PRAGMA user_version` and checked on every open.
+A mismatch returns `WorldStoreError::VersionMismatch { expected, found }` without modifying the file.
+`list_slots` skips incompatible or corrupt files with a warning.
 
-All persistent save domains are cached in ECS memory as Bevy `Resource`s initialized in `PreStartup`:
-- `ShipCatalog` (`save::design::ShipCatalog`): seeded and loaded once at startup; updated in memory and on disk via `ShipCatalog::save_design`. Consumed by `load_current_ship`, `MissionPlugin`, and `ShipEditorPlugin` without repeated disk reads.
-- `CampaignSave` (`save::campaign::CampaignSave`): loaded once at startup; updated via `CampaignSave::record_victory` and `CampaignSave::reset`.
-- `BattleSaveState` (`save::battle::BattleSaveState`): tracks `has_save: bool` in memory so `Home` and `Settings` never poll the filesystem on UI updates.
+## SQLite Schema
 
-## Design Format (`DESIGN_SCHEMA_VERSION = 3`)
+Each slot is opened with `PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;`.
 
-`designs/<name>.ron`, written by `ShipCatalog::save_design`. `BlockPlacement.rotation` is
-a `Rot90` (`R0`, `R90`, `R180`, `R270`) serialized by variant name. v2 designs are rejected
-by the version check and left untouched on disk.
-
-```ron
-(
-  version: 3,
-  id: "<uuid-v7>",
-  name: "My Ship",
-  blocks: [
-    (id: "<uuid>", position: (0, 0), block_type: "core", rotation: R0),
-  ],
-  doctrine: Auto,
-)
+```sql
+CREATE TABLE world_meta (
+    id             INTEGER PRIMARY KEY CHECK (id = 1),
+    name           TEXT NOT NULL,
+    seed           INTEGER NOT NULL,
+    play_time_secs REAL NOT NULL,
+    created_at_ms  INTEGER NOT NULL,
+    updated_at_ms  INTEGER NOT NULL,
+    camera_blob    BLOB NOT NULL,
+    control_blob   BLOB NOT NULL,
+    rng_blob       BLOB NOT NULL
+);
+CREATE TABLE active_state (
+    id            INTEGER PRIMARY KEY CHECK (id = 1),
+    bodies_blob   BLOB NOT NULL,
+    drops_blob    BLOB NOT NULL,
+    intel_blob    BLOB NOT NULL
+);
+CREATE TABLE designs (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    data_blob     BLOB NOT NULL
+);
+CREATE TABLE quests (
+    quest_id      TEXT PRIMARY KEY,
+    status        TEXT NOT NULL,
+    progress_blob BLOB NOT NULL
+);
+CREATE TABLE chunks (
+    x             INTEGER NOT NULL,
+    y             INTEGER NOT NULL,
+    visited       INTEGER NOT NULL,
+    enemy_count   INTEGER NOT NULL,
+    data          BLOB NOT NULL,
+    PRIMARY KEY (x, y)
+);
 ```
 
-When a `ShipDesign` is spawned into the world (`ShipDesign::spawn` or `ShipDesign::spawn_with_id`), `Ship.id` holds a unique ship instance `Uuid` (preserved across block mutations and save/load), while `Ship.core_id` holds the core block's `BlockPlacement.id` in `BlockGrid`.
+`quests` and `chunks` are reserved empty tables for `open-world-quests` and `world-chunk-streaming`.
 
-## Document API
+## Encoding and Atomicity
 
-`save/document.rs` owns every versioned RON read/write path: `RonDocument` (`VERSION`, `KIND`), `parse_document`, `read_document`, `write_document`, and `atomic_write`. Writes go to `.tmp`; the previous file is copied to `.bak`, then the temporary file is renamed over the target. Unknown versions are rejected before gameplay data is trusted. `ron_document!` implements the trait for `WorldSave` (version 7), `CampaignSave` (version 1), and `ShipDesign` (version 3).
+Binary payloads use `postcard` followed by `lz4_flex::block::compress_prepend_size`; decoding uses
+`decompress_size_prepended` then `postcard::from_bytes`. Corrupt blobs return
+`WorldStoreError::Decode` (fail loud, never fabricate state).
 
-## World Battle Format (`SAVE_SCHEMA_VERSION = 7`)
+`save_world` writes `world_meta`, `active_state`, and any dirty designs inside a single
+`BEGIN IMMEDIATE … COMMIT` transaction. A rollback leaves the previously committed state intact.
+`flush()` runs `PRAGMA wal_checkpoint(TRUNCATE)`; `Drop` also checkpoints with a warning on failure.
+`delete_slot_files` removes `.db`, `.db-wal`, and `.db-shm`.
 
-`SaveWorldEvent` writes `saves/battle.ron` when `BattleMode::Campaign` is active. `BattleMode::QuickBattle` never reads, writes, or clears `battle.ron` or `campaign.ron`.
+`list_slots` opens each `*.db` read-only, validates `user_version`, and selects only the one
+`world_meta` row — never `active_state`, `designs`, `quests`, or `chunks`. Results are sorted by
+`updated_at_ms` descending and feed the Home Save Slot Picker (name, play time, last-saved time).
 
-```ron
-(
-  version: 7,
-  saved_at_unix_ms: 1700000000000,
-  battle: (mission: "quick-battle", elapsed_secs: 42.5, outcome: None),
-  camera: (x: 12.0, y: -4.0, zoom: 3.0, following: Some("<ship-uuid>")),
-  control: (controlling: Some("<ship-uuid>"), pilot_mode: true),
-  bodies: [
-    Ship((
-      id: "<ship-instance-uuid>",
-      team: 0,
-      transform: (x: 0.0, y: 0.0, rotation: 0.0),
-      velocity: (x: 0.0, y: 0.0, angvel: 0.0),
-      cargo: (used: 10, items: {"steel": 10}),
-      doctrine: Auto,
-      skill: 5,
-      brain: (
-        current: Engage(target: Some("<target-ship-uuid>"), range: 1200.0, posture: Orbit),
-        spawn_position: (0.0, 0.0),
-        timer_secs: 0.2,
-        strafe_sign: 1.0,
-        strafe_timer: 2.0,
-        shed_boosters: false,
-      ),
-      blocks: [
-        (
-          placement: (id: "<block-uuid>", position: (0, 0), block_type: "core", rotation: R0),
-          health: 5000.0,
-          max_health: 5000.0,
-          battery_charge: Some(100.0),
-          turret: Some((
-            active: true,
-            shoot_at: Some((100.0, 50.0)),
-            barrel_rotation: 0.5,
-            charge: Some(20.0),
-          )),
-          ammo: None,
-          single_pattern: Some((cooldown_remaining: 0.25)),
-          burst_pattern: None,
-          laser_pattern: None,
-          pulling_pattern: false,
-        ),
-      ],
-    )),
-    Debris((
-      team: 1,
-      transform: (x: 240.0, y: -64.0, rotation: 0.25),
-      velocity: (x: 3.0, y: 0.0, angvel: 0.5),
-      remaining_secs: 42.0,
-      blocks: [
-        (
-          placement: (id: "<block-uuid>", position: (0, 0), block_type: "plate", rotation: R0),
-          health: 40.0,
-          max_health: 50.0,
-          battery_charge: None,
-          turret: None,
-          ammo: None,
-          single_pattern: None,
-          burst_pattern: None,
-          laser_pattern: None,
-          pulling_pattern: false,
-        ),
-      ],
-    )),
-  ],
-  team_intel: [
-    (
-      team: 1,
-      last_known: [(target_id: "<ship-uuid>", position: (100.0, 0.0), velocity: (0.0, 0.0), ttl: 8.0)],
-      alerts: [(position: (500.0, 0.0), ttl: 6.0)],
-    ),
-  ],
-  drops: [
-    (position: (10.0, 2.0), item_type: "steel", amount: 10, remaining_secs: 30.0),
-  ],
-  rng: (seed: 1234),
-)
+## WorldStore Abstraction
+
+```rust
+pub trait WorldStore: Send + Sync {
+    fn load_meta(&self) -> Result<WorldMeta, WorldStoreError>;
+    fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError>;
+    fn save_world(&mut self, meta: &WorldMeta, active: &ActiveStateSnapshot) -> Result<(), WorldStoreError>;
+    fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
+    fn save_design(&mut self, design: &ShipDesign) -> Result<(), WorldStoreError>;
+    fn delete_design(&mut self, id: Uuid) -> Result<(), WorldStoreError>;
+    fn flush(&mut self) -> Result<(), WorldStoreError>;
+}
 ```
 
-### Capture & Restore Architecture
+- `SqliteWorldStore` — production single-file save slot. `Connection` is wrapped in `Mutex` so the
+  store is `Send + Sync` and can live in the `ActiveWorldStore` ECS resource.
+- `InMemoryWorldStore` — `QuickBattle` and unit tests. Zero disk I/O; `WorldSession::QuickBattle`
+  never creates, reads, overwrites, or deletes any `<data_dir>/saves/*.db` file.
 
-- **Direct Hierarchical Capture ($O(1)$ Block Lookup)**: `WorldSave::capture` → `BodySnapshot::capture` → `ShipSnapshot`/`DebrisSnapshot` → `BlockSnapshot::capture(world, grid_block)` reads directly from `&GridBlock` without scanning `world.iter_entities()`.
-- **Two-Pass Restore**:
-  1. **Pass 1**: Spawns all ships with their saved instance `Ship.id`, restores velocity, `ShipStats` cargo (`cargo_used`, `cargo_items`), and block state (`Health`, battery `Charge`, `TurretState`, `TurretCharge`, barrel rotation on `TurretBarrel`, `AmmoState`, `Booster` `Disabled` shed state, and session-independent relative weapon pattern timers), and builds `ship_map: HashMap<Uuid, Entity>`. Debris bodies are then spawned outside that map, with their saved transform, velocity, blocks, team, and remaining lifetime.
-  2. **Pass 2**: Resolves `Option<Uuid>` references through `ship_map` to restore `Skill`, `Brain` (`Tactic` target `Entity`, `spawn_position`, `think_timer`, `strafe_sign`, `strafe_timer`, `shed_boosters`), `TacticalBoard` (`TeamIntel` `last_known` and `alerts`), `CameraTarget`, `ControlledShip`, and `ControlMode`. Debris is never resolved as a camera, control, or AI target.
-- **Drops & Battle Outcome**: Restored item drops include a visible `Sprite` (colored by `ItemRegistry` rarity and sized by `config.0.drop_size`). When `save.battle.outcome` is `Some(...)`, `spawn_loaded_world` restores `BattlePhase::Ended` so the outcome overlay is displayed.
+## Session Lifecycle
+
+`WorldSession` is `SaveSlot { slot_id, path }` or `QuickBattle`. `ActiveWorldStore` holds the live
+store as `Option<Box<dyn WorldStore>>`.
+
+- **New World**: creates `<slot_id>.db`, seeds starter designs into its `designs` table, sets
+  `DesignCatalogSource::ActiveWorldDb`, hydrates `ShipCatalog` and `DeployPayload` from the slot,
+  enters `SceneState::Game` with a fresh mission.
+- **Load**: opens the selected `.db`, hydrates catalog/fleet from the slot, sets `PendingLoad`,
+  transitions `Loading → Game`, and `spawn_loaded_world` applies the snapshot.
+- **Auto-save**: `SaveWorldEvent` on `auto_save_interval_secs` while `BattlePhase::Active` and
+  `PauseState::Playing`; also on Pause `Back to Home` before the scene transition. Save is followed
+  by `flush()` so WAL sidecars are checkpointed.
+- **QuickBattle**: `StartQuickBattleEvent` installs `InMemoryWorldStore` and `HomeSandbox` catalog;
+  no save-slot disk access.
+- **Ship Editor return**: `EditorReturnTarget::{Home, Game}`; Pause → Ship Editor sets `Game` so the
+  active slot resumes instead of returning Home.
+
+## Design Catalog Isolation
+
+`DesignCatalogSource::{ActiveWorldDb, HomeSandbox}` selects where Ship Editor writes go:
+
+- Inside a save slot, `DesignSaveRequested` is persisted into that slot's `designs` table.
+- From Home / QuickBattle, it is persisted to `<data_dir>/sandbox_designs/*.ron`.
+
+`ShipCatalog` is the in-memory cache; `persist_design_request` owns the write and upserts the cache.
+Saving a design with an existing name replaces the stale row instead of duplicating it.
+
+## Snapshot Capture / Apply
+
+`save/world/snapshot.rs` ports the single-ship, single-debris, drop, camera, control, RNG, and
+`TeamIntel` helpers from the former battle save:
+
+- **Capture** reads directly from `&World` (`BodySnapshot::capture`, `capture_drops`, `capture_camera`,
+  `capture_control`, `capture_intel`).
+- **Apply** is two-pass: spawn ships/debris and restore block state, then resolve `Uuid` references
+  through `ship_map` for `Brain`, `TeamIntel`, camera follow and controlled ship; drops are spawned
+  with visible sprites and `DespawnOnExit(SceneState::Game)`.
+- Health, battery `Charge`, `TurretState`/`TurretCharge`/barrel rotation, `AmmoState`, weapon pattern
+  timers, cargo, skill, doctrine, and `shed_boosters` are preserved.

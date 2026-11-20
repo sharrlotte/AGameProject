@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::save::fleet::remove;
+use crate::save::design::remove;
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 
 

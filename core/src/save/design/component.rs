@@ -3,15 +3,26 @@ use bevy::prelude::*;
 use crate::content::ship::ShipDesign;
 use crate::save::document::DocumentError;
 
-use super::lib::save_design_file;
-
 pub const DESIGN_SCHEMA_VERSION: u32 = 3;
 
 crate::ron_document!(ShipDesign, DESIGN_SCHEMA_VERSION, "ship design");
 
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DesignCatalogSource {
+    #[default]
+    HomeSandbox,
+    ActiveWorldDb,
+}
+
+#[derive(Message)]
+pub struct DesignSaveRequested {
+    pub design: ShipDesign,
+}
+
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ShipCatalog {
     pub designs: Vec<ShipDesign>,
+    pub source: DesignCatalogSource,
 }
 
 impl ShipCatalog {
@@ -33,10 +44,13 @@ impl ShipCatalog {
         }
     }
 
-    pub fn save_design(&mut self, design: &ShipDesign) -> Result<(), DocumentError> {
-        save_design_file(design)?;
-        self.upsert(design.clone());
-        Ok(())
+    pub fn replace_all(&mut self, designs: Vec<ShipDesign>) {
+        self.designs = designs;
+        self.designs.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+
+    pub fn save_sandbox(&self, design: &ShipDesign) -> Result<(), DocumentError> {
+        super::lib::save_design_file(design)
     }
 
     pub fn file_name(design: &ShipDesign) -> String {

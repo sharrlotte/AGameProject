@@ -23,17 +23,15 @@ ship is spawned from `DeployPayload.fleet: Vec<ShipDesign>`, forced to
 `Team::new(DEFAULT_TEAM_ID)`. `ShipSpawn.team` therefore applies to enemies only.
 
 A fresh install seeds the fleet by resolving `default_fleet` names from
-`config/base/game.ron` against `ShipCatalog`. The configured defaults on a fresh install
-are `["Interceptor", "B2"]`. Unresolved names are warned and skipped. A persisted fleet
-replaces the config defaults; config entries are never merged into it. If the persisted
-fleet is empty, defaults are restored with a warning so a battle can never start with
-zero player ships.
+`config/base/game.ron` against the active catalog. The configured defaults on a fresh
+install are `["Interceptor", "B2"]`. Unresolved names are warned and skipped.
 
-The fleet is persisted as a versioned RON document at `<data_dir>/fleet.ron` using the
-shared atomic document writer. Deploy and remove actions rewrite it; a failed write warns
-and keeps the in-memory fleet. Removing a ship changes fleet membership only and never
-deletes its design from `ShipCatalog`. Because the fleet stores full design snapshots, an
-edit to a catalog design is reflected only after redeploying that design.
+Entering a save slot hydrates `ShipCatalog` from that slot's `designs` table and seeds
+`DeployPayload.fleet` from it; Home and `QuickBattle` use the `<data_dir>/sandbox_designs/`
+catalog. Fleet membership is therefore per-slot and in memory — there is no global
+`fleet.ron`. Removing a ship changes fleet membership only and never deletes its design.
+Because the fleet stores full design snapshots, an edit to a catalog design is reflected
+only after redeploying that design.
 
 Fleet ships spawn on a line centered on `MissionDef.spawn`. Each design's hull extent is
 measured from its block layout via `BlockRegistry` and `BlockGrid`, and ships are placed
@@ -45,8 +43,8 @@ anchor, hull extents, and gap; only the extent lookup needs the registry.
 
 ## Quick Battle flow
 
-Home → **Play** / **Continue** (`BattleMode::Campaign`) or **Quick Battle**
-(`BattleMode::QuickBattle`) → `SceneState::Game`:
+Home → **Play** → Save Slot Picker → `New World` / `Load` (`BattleMode::Campaign`), or
+Home → **Quick Battle** (`StartQuickBattleEvent`, `BattleMode::QuickBattle`) → `SceneState::Game`:
 
 1. `setup` spawns the HUD; `MissionPlugin::setup_battle` inserts `MissionAsset` (loads
    `assets/config/mission/quick-battle.ron`) and resets `BattlePhase` to `Loading`.
@@ -104,8 +102,8 @@ schematic_name: String, ai_level: Option<u8> }` for enemies only and `MissionObj
   `mark_schematics_dirty` deleted; `utils::random_vec2_step` deleted.
 - `DeployPayload.fleet` is the only source of player ships; every fleet ship is team 0.
 - Mission configs never carry a player slot or player team.
-- Fleet ownership survives restarts via `fleet.ron`; config defaults apply only when no
-  fleet is persisted, and an empty persisted fleet is never accepted.
+- Fleet ownership is scoped to the active save slot (or Home sandbox) and seeded from the
+  catalog on session entry; config defaults apply only when a name cannot be resolved.
 - Outcome detection is event-driven: `ShipDestroyed` is emitted only when a ship's core
   is lost; scene teardown does not emit it. Counting uses only `Ship` entities —
   blocks/bullets/lasers/missiles don't count toward attrition.
@@ -121,5 +119,5 @@ schematic_name: String, ai_level: Option<u8> }` for enemies only and `MissionObj
 - Other objectives (survive/collect/escort/waves), mission select screen, campaign map.
 - Difficulty scaling and mission-specific AI profiles beyond the starter designs.
 - Grid/circular fleet formations or per-design spawn positions.
-- A fleet size cap via `max_ships`, or fleet persistence inside the campaign/world save.
+- A fleet size cap via `max_ships`.
 - Victory rewards/meta progression of any kind.

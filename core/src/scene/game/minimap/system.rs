@@ -13,7 +13,7 @@ use super::component::{
 use super::config::{MinimapConfig, MinimapConfigValue};
 
 const MINIMAP_BACKGROUND: Color = Color::srgba(0.02, 0.03, 0.05, 0.65);
-const MINIMAP_BORDER: Color = Color::srgba(0.15, 0.85, 0.35, 0.8);
+const MINIMAP_BORDER: Color = Color::srgba(0.85, 0.85, 0.85, 1.0);
 const GLOW_ALPHA: f32 = 0.65;
 
 pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {

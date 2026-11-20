@@ -1,4 +1,4 @@
-use bevy::prelude::{error, warn};
+use bevy::prelude::error;
 
 use directories::ProjectDirs;
 
@@ -80,21 +80,6 @@ pub fn data_dir() -> PathBuf {
             error!("Failed to resolve project directory, falling back to local ./agameproject");
             PathBuf::from("./agameproject")
         })
-}
-
-
-pub fn remove_with_backup(path: &Path) {
-    if let Err(err) = fs::remove_file(path)
-        && err.kind() != io::ErrorKind::NotFound
-    {
-        warn!("Failed to remove {}: {err}", path.display());
-    }
-    let bak = path.with_extension("ron.bak");
-    if let Err(err) = fs::remove_file(&bak)
-        && err.kind() != io::ErrorKind::NotFound
-    {
-        warn!("Failed to remove {}: {err}", bak.display());
-    }
 }
 
 

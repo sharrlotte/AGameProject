@@ -1,25 +1,16 @@
-pub mod battle;
-pub mod campaign;
 pub mod design;
 pub mod document;
-pub mod fleet;
+pub mod world;
 
 use bevy::prelude::*;
 
-use battle::BattleSavePlugin;
-use campaign::CampaignSavePlugin;
 use design::DesignSavePlugin;
-use fleet::FleetSavePlugin;
+use world::WorldSavePlugin;
 
 pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            DesignSavePlugin,
-            CampaignSavePlugin,
-            BattleSavePlugin,
-            FleetSavePlugin,
-        ));
+        app.add_plugins((DesignSavePlugin, WorldSavePlugin));
     }
 }

@@ -1,4 +1,10 @@
-## ADDED Requirements
+# World Save Slots
+
+## Purpose
+
+Single-file SQLite save slots with a backend-agnostic persistence trait, per-slot ship designs, and a Home Save Slot Picker for creating, loading, and deleting worlds.
+
+## Requirements
 
 ### Requirement: Each save slot is a single self-contained SQLite file
 The game SHALL store each save slot as a single SQLite database file at `<data_dir>/saves/<slot_id>.db` using WAL journal mode and `PRAGMA user_version = WORLD_DB_SCHEMA_VERSION`. Each database SHALL contain `world_meta`, `active_state`, `designs`, `quests`, and `chunks` tables, encoding binary payloads with `postcard` and `lz4_flex`.

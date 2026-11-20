@@ -2,6 +2,28 @@
 
 All HUD elements are UI nodes (not world-space canvases).
 
+## Home screen and Save Slot Picker
+
+`HomeScenePlugin` (`scene/home/`) keeps `Play`, `Quick Battle`, `Ship Editor`, `Settings`, and `Exit`.
+`Play` opens the Save Slot Picker (`SlotPickerState::{Closed, Open}` overlay, `DespawnOnExit` tagged).
+
+- **Slot list** — `list_slots` reads only `world_meta` for each `<data_dir>/saves/*.db`, sorted by most
+  recently updated. Each row shows name, play time (`HH:MM:SS`), and a relative last-saved time
+  (`just now` / `N min ago` / `N h ago` / `N d ago`). Rows are `Select`ed (cyan border) before acting.
+- **New World** — type a name (keyboard input, 32 char cap; `Frontier` placeholder) then `New World`
+  creates a seeded SQLite slot and enters `Game` with a fresh mission.
+- **Load** — opens the selected slot and enters `Loading → Game` with a snapshot restore.
+- **Delete** — two-step `Delete` → `Confirm` / `Cancel`; confirmation removes `.db`, `.db-wal`, and
+  `.db-shm`, then refreshes the list. `Escape` closes the picker.
+- **Quick Battle** — emits `StartQuickBattleEvent`; uses `InMemoryWorldStore` and never touches save slots.
+
+## Pause menu
+
+`PauseScenePlugin` (`scene/pause/`) shows `Resume`, `Settings`, `Back to Home`, and — only during a
+`WorldSession::SaveSlot` session — `Ship Editor`. `Back to Home` writes `SaveWorldEvent` (save +
+WAL checkpoint) before transitioning, and resets `EditorReturnTarget` to `Home`. Pause → Ship Editor
+sets `EditorReturnTarget::Game` so the editor's back button resumes the active slot.
+
 ## Game scene HUD
 
 - **Top bar** — `FPS: <value>, Vec2(<x>, <y>)` — `FrameTimeDiagnosticsPlugin::FPS`
@@ -90,6 +112,10 @@ drag-to-scroll is not part of the widget.
 
 ## Ship editor left panel
 
+The "Back" button returns to `EditorReturnTarget` (`Game` when opened from Pause inside a save slot,
+`Home` otherwise). Saving a design emits `DesignSaveRequested`: inside a slot it writes that slot's
+`designs` table, from Home it writes the sandbox catalog.
+
 The left panel has a fixed "Back to Home" button, a tab bar, and three mutually exclusive tabs
 (`Blocks`, `Ships`, `AI`) built with `spawn_scroll_area`. The tab marker and `Display` live on
 the wrapper, so switching tabs hides/shows the list and its scrollbar together: `sync_tabs`
@@ -104,8 +130,9 @@ scrollbar intact across refreshes.
 
 The editor's right panel lists the deployed fleet in a scroll area (`FleetListPanel` with
 an inner `FleetListContent` viewport). Each row is a `RemoveFleetButton` labelled with the
-design name; removing it changes `DeployPayload.fleet` only and rewrites `<data_dir>/fleet.ron`.
-The list is rebuilt when the deploy payload changes and on editor entry.
+design name; removing it changes `DeployPayload.fleet` only. The list is rebuilt when the
+deploy payload changes and on editor entry. `DeployPayload` is seeded from the active slot's
+`designs` table when playing a save slot, and from `<data_dir>/sandbox_designs/` on Home.
 
 The Deploy button upserts the current grid design into the fleet by name. It is disabled
 only while the current grid matches the fleet entry of that name — comparing name,

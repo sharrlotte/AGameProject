@@ -1,18 +1,35 @@
+mod slots;
+
 use bevy::prelude::*;
 
-use crate::resource::{BattleMode, SceneState, SettingState};
-use crate::save::battle::{BattleSaveState, LoadWorldEvent};
+use crate::resource::{SceneState, SettingState, SlotPickerState};
+use crate::save::world::{EditorReturnTarget, StartQuickBattleEvent};
+use crate::scene::home::slots::{
+    SlotPickerUi, handle_name_input, refresh_slot_list, setup_picker, slot_picker_input,
+};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
+use crate::simulation::SimulationSet;
 
 pub struct HomeScenePlugin;
 
 impl Plugin for HomeScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(SceneState::Home), setup_home)
+        app.init_state::<SlotPickerState>()
+            .init_resource::<SlotPickerUi>()
+            .add_systems(OnEnter(SceneState::Home), setup_home)
             .add_systems(
-                OnExit(SettingState::Open),
-                refresh_play_label.run_if(in_state(SceneState::Home)),
+                OnEnter(SlotPickerState::Open),
+                (refresh_slot_list, setup_picker).chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    slot_picker_input.in_set(SimulationSet::Input),
+                    handle_name_input
+                        .run_if(in_state(SlotPickerState::Open))
+                        .in_set(SimulationSet::Input),
+                ),
             );
     }
 }
@@ -35,40 +52,31 @@ struct ExitButton;
 fn on_play(
     click: On<PointerClick>,
     buttons: Query<&PlayButton>,
-    battle_save: Res<BattleSaveState>,
-    mut mode: ResMut<BattleMode>,
-    mut loads: MessageWriter<LoadWorldEvent>,
-    mut scene: ResMut<NextState<SceneState>>,
+    mut picker: ResMut<NextState<SlotPickerState>>,
 ) {
-    if !buttons.contains(click.event().entity) {
-        return;
-    }
-    *mode = BattleMode::Campaign;
-    if battle_save.has_save {
-        loads.write(LoadWorldEvent);
-    } else {
-        scene.set(SceneState::Game);
+    if buttons.contains(click.event().entity) {
+        picker.set(SlotPickerState::Open);
     }
 }
 
 fn on_quick_battle(
     click: On<PointerClick>,
     buttons: Query<&QuickBattleButton>,
-    mut mode: ResMut<BattleMode>,
-    mut scene: ResMut<NextState<SceneState>>,
+    mut starts: MessageWriter<StartQuickBattleEvent>,
 ) {
     if buttons.contains(click.event().entity) {
-        *mode = BattleMode::QuickBattle;
-        scene.set(SceneState::Game);
+        starts.write(StartQuickBattleEvent);
     }
 }
 
 fn on_ship_editor(
     click: On<PointerClick>,
     buttons: Query<&ShipEditorButton>,
+    mut target: ResMut<EditorReturnTarget>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
     if buttons.contains(click.event().entity) {
+        *target = EditorReturnTarget::Home;
         scene.set(SceneState::ShipEditor);
     }
 }
@@ -93,31 +101,7 @@ fn on_exit(
     }
 }
 
-fn primary_play_label(has_save: bool) -> &'static str {
-    if has_save {
-        "Continue"
-    } else {
-        "Play"
-    }
-}
-
-fn refresh_play_label(
-    battle_save: Res<BattleSaveState>,
-    buttons: Query<&Children, With<PlayButton>>,
-    mut texts: Query<&mut Text>,
-) {
-    let label = primary_play_label(battle_save.has_save);
-    for children in &buttons {
-        for child in children.iter() {
-            if let Ok(mut text) = texts.get_mut(child) {
-                text.0 = label.to_string();
-            }
-        }
-    }
-}
-
-fn setup_home(mut commands: Commands, battle_save: Res<BattleSaveState>) {
-    let play_label = primary_play_label(battle_save.has_save);
+fn setup_home(mut commands: Commands) {
     commands
         .spawn((
             Node {
@@ -135,7 +119,7 @@ fn setup_home(mut commands: Commands, battle_save: Res<BattleSaveState>) {
             spawn_button(
                 parent,
                 button_node(),
-                play_label,
+                "Play",
                 20.0,
                 Color::WHITE,
                 PlayButton,

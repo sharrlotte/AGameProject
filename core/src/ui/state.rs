@@ -23,6 +23,13 @@ pub enum SettingState {
     Open,
 }
 
+#[derive(Clone, Copy, Eq, Hash, States, PartialEq, Debug, Default)]
+pub enum SlotPickerState {
+    #[default]
+    Closed,
+    Open,
+}
+
 #[derive(Resource, Default, Debug)]
 pub struct AppNotice {
     pub message: String,

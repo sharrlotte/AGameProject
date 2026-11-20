@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::resource::{BattleMode, PauseState, SceneState, SettingState};
-use crate::save::battle::{PendingExitAction, SaveWorldEvent};
+use crate::resource::{PauseState, SceneState, SettingState};
+use crate::save::world::{EditorReturnTarget, PendingExitAction, SaveWorldEvent, WorldSession};
 use crate::scene::layout::{BORDER_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, CORNER_RADIUS, FONT_TITLE};
 use crate::scene::widget::{ButtonVisuals, spawn_button};
 use crate::simulation::SimulationSet;
@@ -26,6 +26,9 @@ struct ResumeButton;
 
 #[derive(Component)]
 struct PauseSettingsButton;
+
+#[derive(Component)]
+struct PauseShipEditorButton;
 
 #[derive(Component)]
 struct HomeButton;
@@ -64,11 +67,30 @@ fn on_settings(
     }
 }
 
+fn on_ship_editor(
+    click: On<PointerClick>,
+    buttons: Query<&PauseShipEditorButton>,
+    session: Res<WorldSession>,
+    mut target: ResMut<EditorReturnTarget>,
+    mut pause: ResMut<NextState<PauseState>>,
+    mut scene: ResMut<NextState<SceneState>>,
+    mut saves: MessageWriter<SaveWorldEvent>,
+) {
+    if buttons.contains(click.event().entity) {
+        if matches!(*session, WorldSession::SaveSlot { .. }) {
+            saves.write(SaveWorldEvent);
+        }
+        *target = EditorReturnTarget::Game;
+        pause.set(PauseState::Playing);
+        scene.set(SceneState::ShipEditor);
+    }
+}
+
 fn on_home(
     click: On<PointerClick>,
     buttons: Query<&HomeButton>,
     scene_state: Res<State<SceneState>>,
-    mode: Res<BattleMode>,
+    session: Res<WorldSession>,
     mut pause: ResMut<NextState<PauseState>>,
     mut scene: ResMut<NextState<SceneState>>,
     mut saves: MessageWriter<SaveWorldEvent>,
@@ -78,7 +100,9 @@ fn on_home(
         return;
     }
     pause.set(PauseState::Playing);
-    if *scene_state.get() == SceneState::Game && *mode == BattleMode::Campaign {
+    if *scene_state.get() == SceneState::Game
+        && matches!(*session, WorldSession::SaveSlot { .. })
+    {
         saves.write(SaveWorldEvent);
         *pending_exit = PendingExitAction::Home;
     } else {
@@ -86,7 +110,7 @@ fn on_home(
     }
 }
 
-fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
+fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>, session: Res<WorldSession>) {
     time.pause();
 
     commands
@@ -137,6 +161,18 @@ fn setup_pause(mut commands: Commands, mut time: ResMut<Time<Virtual>>) {
                 on_settings,
                 ButtonVisuals::dark(),
             );
+            if matches!(*session, WorldSession::SaveSlot { .. }) {
+                spawn_button(
+                    parent,
+                    button_node(),
+                    "Ship Editor",
+                    20.0,
+                    Color::WHITE,
+                    PauseShipEditorButton,
+                    on_ship_editor,
+                    ButtonVisuals::blue(),
+                );
+            }
             spawn_button(
                 parent,
                 button_node(),

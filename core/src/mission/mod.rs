@@ -33,11 +33,7 @@ use crate::content::ship::ai::AiConfigValue;
 
 use crate::content::team::Team;
 
-use crate::resource::{AppNotice, BattleMode, DeployPayload, PauseState, PendingLoad, SceneState};
-
-use crate::save::battle::{BattleSaveState, SaveWorldEvent, clear_battle_save};
-
-use crate::save::campaign::CampaignSave;
+use crate::resource::{AppNotice, DeployPayload, PendingLoad, SceneState};
 
 use crate::save::design::ShipCatalog;
 
@@ -53,10 +49,6 @@ use crate::simulation::SimulationSet;
 struct MissionAsset(Handle<MissionDef>);
 
 
-#[derive(Resource)]
-struct AutoSaveTimer(Timer);
-
-
 pub struct MissionPlugin;
 
 
@@ -67,28 +59,14 @@ impl Plugin for MissionPlugin {
             .init_resource::<BattleResult>()
             .init_resource::<BattleRestart>()
             .register_asset_loader(RonAssetLoader::<MissionDef>::new(&["ron"]))
-            .add_systems(
-                OnEnter(SceneState::Game),
-                (setup_battle, reset_auto_save_timer).in_set(SimulationSet::Input),
-            )
-            .add_systems(
-                OnEnter(BattlePhase::Ended),
-                (spawn_end_overlay, record_campaign_outcome).in_set(SimulationSet::Input),
-            )
+            .add_systems(OnEnter(SceneState::Game), setup_battle.in_set(SimulationSet::Input))
+            .add_systems(OnEnter(BattlePhase::Ended), spawn_end_overlay.in_set(SimulationSet::Input))
             .add_systems(
                 Update,
                 poll_mission_loaded
                     .run_if(in_state(SceneState::Game))
                     .run_if(in_state(BattlePhase::Loading))
                     .run_if(in_state(ConfigState::Ready))
-                    .in_set(SimulationSet::Present),
-            )
-            .add_systems(
-                Update,
-                tick_auto_save
-                    .run_if(in_state(SceneState::Game))
-                    .run_if(in_state(BattlePhase::Active))
-                    .run_if(in_state(PauseState::Playing))
                     .in_set(SimulationSet::Present),
             )
             .add_systems(
@@ -136,52 +114,6 @@ fn setup_battle(
         ..default()
     });
     phase.set(BattlePhase::Loading);
-}
-
-
-fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue>) {
-    let interval = config.0.auto_save_interval_secs.max(1.0);
-    commands.insert_resource(AutoSaveTimer(Timer::from_seconds(
-        interval,
-        TimerMode::Repeating,
-    )));
-}
-
-
-fn tick_auto_save(
-    time: Res<Time>,
-    mode: Res<BattleMode>,
-    mut timer: Option<ResMut<AutoSaveTimer>>,
-    mut save_events: MessageWriter<SaveWorldEvent>,
-) {
-    if *mode != BattleMode::Campaign {
-        return;
-    }
-    let Some(ref mut timer) = timer else {
-        return;
-    };
-    if timer.0.tick(time.delta()).just_finished() {
-        save_events.write(SaveWorldEvent);
-    }
-}
-
-
-fn record_campaign_outcome(
-    mode: Res<BattleMode>,
-    result: Res<BattleResult>,
-    mut campaign: ResMut<CampaignSave>,
-    mut battle_save: ResMut<BattleSaveState>,
-) {
-    if *mode != BattleMode::Campaign {
-        return;
-    }
-    clear_battle_save();
-    battle_save.has_save = false;
-    if result.outcome == Some(BattleOutcome::Victory)
-        && let Err(err) = campaign.record_victory(&result.mission_name)
-    {
-        warn!("Failed to save campaign progress: {err}");
-    }
 }
 
 

@@ -2,13 +2,15 @@
 
 ## Home
 
-Entry scene (`SceneState::Home`). UI column: **Play** (or **Continue** when `saves/battle.ron`
-exists), **Quick Battle**, **Ship Editor**, **Settings**, **Exit**.
-- **Play / Continue** sets `BattleMode::Campaign`; **Continue** emits `LoadWorldEvent`, while
-  **Play** enters `SceneState::Game` fresh.
-- **Quick Battle** sets `BattleMode::QuickBattle` and enters `SceneState::Game` without
-  reading or writing campaign saves.
-- **Settings** opens `SettingState::Open`. **Exit** writes `AppExit::Success`.
+Entry scene (`SceneState::Home`). UI column: **Play**, **Quick Battle**, **Ship Editor**,
+**Settings**, **Exit**.
+- **Play** opens the Save Slot Picker (`SlotPickerState::Open`); see ui.md. `New World` emits
+  `CreateSlotEvent`, `Load` emits `LoadSlotEvent`, and `Delete` removes the slot's `.db` files
+  after confirmation.
+- **Quick Battle** emits `StartQuickBattleEvent` and enters `SceneState::Game` on the
+  `InMemoryWorldStore` sandbox without reading or writing save slots.
+- **Ship Editor** sets `EditorReturnTarget::Home`. **Settings** opens `SettingState::Open`.
+  **Exit** writes `AppExit::Success`.
 No game entities exist here.
 
 ## Game
@@ -61,16 +63,17 @@ Mechanics:
   the selected block changes.
 - **Right-click deletes** blocks at cursor.
 - Save triggers: any block add/remove writes `ShipSaveChanged` (`handle_ship_saving`),
-  which requires ≥ 2 blocks and exactly one Core (`BlockRegistry::validate_ship`);
-  it writes `designs/<file_name>.ron` via `ShipCatalog::save` (see save.md) and emits
-  `ShipSavesChanged` to refresh the ship list UI.
+  which requires ≥ 2 blocks and exactly one Core (`BlockRegistry::validate_ship`); it emits
+  `DesignSaveRequested`, persisted to the active slot's `designs` table (`ActiveWorldDb`) or
+  to `<data_dir>/sandbox_designs/` (`HomeSandbox`), and emits `ShipSavesChanged` to refresh
+  the ship list UI.
 - Blocks listed in the editor are `Block` entities spawned without physics; they are
   tagged `DespawnOnExit(SceneState::ShipEditor)`.
 - Editor does not place `Ammo`/`Storage`/power/`Thruster` feature children — only
   `Texture` and `Turret` sprite layers are reproduced; everything else is dropped.
 
-Ship list: `refresh_ship_list` reads `designs/*.ron` via `ShipCatalog::load_or_seed` and
-rebuilds the UI on `ShipSavesChanged` (and `OnEnter(ShipEditor)`).
+Ship list: `refresh_ship_list` reads the in-memory `ShipCatalog` (hydrated from the slot or
+sandbox on session change) and rebuilds the UI on `ShipSavesChanged` (and `OnEnter(ShipEditor)`).
 
 Deletion nuance: `handle_block_deletion` deletes the block whose grid-anchor matches the
 cursor; `remove_block_at` removes all voxels of that block.
@@ -79,9 +82,10 @@ cursor; `remove_block_at` removes all voxels of that block.
 
 `SceneState::Game` or `ShipEditor`, toggled by `Escape`, mapped to
 `PauseState::{Playing, Paused}` (`OnEnter(Paused)` pauses `Time<Virtual>`, `OnExit`
-unpauses). Menu: **Resume**, **Settings**, **Back to Home**.
-In `SceneState::Game` with `BattleMode::Campaign`, **Back to Home** triggers `SaveWorldEvent`
-and defers the scene transition via `PendingExitAction::Home` until capture completes.
+unpauses). Menu: **Resume**, **Settings**, **Ship Editor** (only in a `WorldSession::SaveSlot`
+session, setting `EditorReturnTarget::Game`), **Back to Home**.
+In `SceneState::Game` with `WorldSession::SaveSlot`, **Back to Home** triggers `SaveWorldEvent`
+(save + WAL checkpoint) and defers the scene transition via `PendingExitAction::Home`.
 Application exit is available only from **Home**.
 
 ## Settings
@@ -95,9 +99,6 @@ panel (opacity 0.8). Controls:
   persisted to `config/setting.ron`.
 - AI Skill — `[-]` / `[+]` stepper clamping `GameSetting.ai_level` within `1..=10`;
   persisted to `config/setting.ron`.
-- Data (Home only) — **Reset Mission / Campaign** with 2-step confirmation (**Confirm Reset** /
-  **Cancel**); deletes `battle.ron` and `campaign.ron` while keeping `designs/*.ron` intact,
-  and refreshes Home's **Continue** label back to **Play** on close.
 - Close.
 
 `volume` and `bloom` are written to `config/setting.ron` and hot-reloaded on edit (dev

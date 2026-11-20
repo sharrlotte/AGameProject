@@ -23,7 +23,8 @@ AGameProject/                Cargo workspace (resolver = "3")
         layout.rs            shared UI layout constants
       mission/               battle-core scaffolding (quick-battle.ron, overlay)
       config/                ron config boot gate
-      save/                  serialization (`document.rs`, `io.rs`, `schema.rs`, `catalog.rs`, `snapshot.rs`)
+      save/                  persistence (`design/`, `world/`, `document.rs`)
+        world/               SQLite save slots: component/store/sqlite/snapshot/system
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.
@@ -40,8 +41,10 @@ Five state machines, all Bevy 0.20 states:
 | `SettingState` | `resource.rs` | `Closed`, `Open` | `Closed` |
 | `BattlePhase` | `mission/state.rs` | `Idle`, `Loading`, `Active`, `Ended` | `Idle` |
 | `ConfigState` | `config/mod.rs` | `Loading`, `Ready`, `Error(ConfigError)` | `Loading` |
+| `SlotPickerState` | `ui/state.rs` | `Closed`, `Open` | `Closed` |
 
-`SettingState` is registered inside `SettingScenePlugin`, the others in `main.rs`.
+`SettingState` is registered inside `SettingScenePlugin`, `SlotPickerState` inside `HomeScenePlugin`,
+the others in `main.rs`.
 Scene-scoped entities are tagged with Bevy's `DespawnOnExit(S)`, one per owning
 state: `SceneState::Game/Home/ShipEditor`, `PauseState::Paused`, and
 `SettingState::Open`. Bevy despawns the tagged root and all of its children on
@@ -51,8 +54,9 @@ lack a `DespawnOnExit` tag.
 
 Config load failures move `ConfigState` to `Error(ConfigError)` and show a
 full-screen error instead of panicking. Mission load failures post an
-`AppNotice` and return to `SceneState::Home`. All persisted data is RON;
-`save/document.rs` owns version checks and atomic `.tmp` → `.bak` writes.
+`AppNotice` and return to `SceneState::Home`. Save slots are single SQLite files
+validated by `PRAGMA user_version`; global preferences and the Home sandbox design
+catalog remain versioned RON owned by `save/document.rs`.
 
 ## Typed shared resources
 
@@ -62,8 +66,13 @@ full-screen error instead of panicking. Mission load failures post an
 | `CameraTarget` | `following: Option<Entity>` — camera-follow ship |
 | `ControlledShip` | `controlling: Option<Entity>` — ship receiving player input |
 | `ControlMode` | `Pilot` (WASD flies the controlled ship, camera follows) or `FreeLook` (WASD pans, thrust paused); `F` toggles, middle-mouse drags the camera in either mode |
-| `PendingLoad` | `active: bool` — set by `handle_load_request`, consumed on `SceneState::Game` entry |
-| `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops) |
+| `PendingLoad` | `active: bool` — set by slot load, consumed by `spawn_loaded_world` on `SceneState::Game` entry |
+| `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops, `auto_save_interval_secs`) |
+| `WorldSession` | `SaveSlot { slot_id, path }` or `QuickBattle` |
+| `ActiveWorldStore` | `Option<Box<dyn WorldStore>>` — live `SqliteWorldStore` or `InMemoryWorldStore` |
+| `DesignCatalogSource` | `ActiveWorldDb` (slot) or `HomeSandbox` (Home/QuickBattle) |
+| `SlotPickerUi` | slot list, selection, delete confirmation, new-world name buffer |
+| `EditorReturnTarget` | `Home` or `Game` for the Ship Editor's back button |
 
 ## Simulation-set contract
 
@@ -103,10 +112,12 @@ persistence across frames is never assumed.
 | `PostUpdate` (`Present`) | `update_ship_behavior`, indicators, parallax, UI presentation |
 | `Update` (`Input` → `Present`) | Editor/UI input, then config bridges, save/load requests, mission polling, notices |
 
-World loads are state transitions: `LoadWorldEvent` → `PendingLoad` →
+World loads are state transitions: `LoadSlotEvent` → `PendingLoad` →
 `SceneState::Loading` → `SceneState::Game`. On `Game` entry,
-`spawn_loaded_world` spawns the snapshot instead of `setup_battle` (which skips
-while a load is pending).
+`spawn_loaded_world` applies the snapshot instead of `setup_battle` (which skips
+while a load is pending). New worlds and `QuickBattle` skip `PendingLoad` and use a
+fresh mission spawn. `SaveWorldEvent` commits atomically on the auto-save timer and on
+Pause `Back to Home`.
 
 `Time::<Fixed>::from_hz(60.0)`; Rapier runs in the fixed schedule with 2D gravity zero,
 pixels-per-meter 1.0.
@@ -125,7 +136,8 @@ pixels-per-meter 1.0.
 `main.rs` wires: `RapierPhysicsPlugin`, `HanabiPlugin`, diagnostics
 (debug builds only), the scene plugins, plus `ConfigPlugin` (ron config boot gate),
 `ContentPlugin` (bullet, ship, block, item, lifetime, death, damage, selectable),
-`MissionPlugin` (battle-core scaffolding), `SavePlugin`, and (debug builds / feature
+`MissionPlugin` (battle-core scaffolding), `SavePlugin` (`DesignSavePlugin` +
+`WorldSavePlugin`), and (debug builds / feature
 `dev`) `WorldInspectorPlugin` / `RemotePlugin`. With feature `dev`, `ContentPlugin` also registers `ShipDebugPlugin`, which draws ship gizmos for the currently inspected ship; all of it is compiled out without the feature.
 
 State gating on systems uses `run_if(in_state(SceneState::…))`, `on_timer`,
@@ -173,6 +185,10 @@ content/
   selectable/    drag-select via Ctrl+Left drag
 mission/         MissionDef .ron, BattlePhase state, battle spawn/outcome/overlay
 config/          ConfigPlugin: ron loader, boot gate, GameConfig/BlocksConfig/GameSetting
+save/
+  design/        ShipCatalog, DesignCatalogSource, sandbox designs, fleet helpers
+  world/         WorldStore (SQLite/in-memory), snapshots, save-slot lifecycle, auto-save
+  document.rs    RON version checks and atomic writes for global preferences / sandbox
 ```
 
 ## Lints

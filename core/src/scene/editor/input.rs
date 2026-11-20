@@ -5,7 +5,9 @@ use bevy::{
 
 use super::*;
 
-use crate::save::fleet::{design_matches, upsert};
+use crate::save::design::{design_matches, upsert};
+use crate::resource::PendingLoad;
+use crate::save::world::EditorReturnTarget;
 use crate::scene::widget::ButtonVisualState;
 
 
@@ -123,10 +125,18 @@ pub fn sync_deploy_button(
 pub fn on_nav_back(
     click: On<PointerClick>,
     buttons: Query<&NavBackButton>,
+    target: Res<EditorReturnTarget>,
+    mut pending: ResMut<PendingLoad>,
     mut scene: ResMut<NextState<SceneState>>,
 ) {
     if buttons.contains(click.event().entity) {
-        scene.set(SceneState::Home);
+        match *target {
+            EditorReturnTarget::Game => {
+                pending.active = true;
+                scene.set(SceneState::Game);
+            }
+            EditorReturnTarget::Home => scene.set(SceneState::Home),
+        }
     }
 }
 
