@@ -18,7 +18,7 @@ The game SHALL store each save slot as a single SQLite database file at `<data_d
 - **THEN** `world_meta` and `active_state` commit together in one SQLite transaction so a crash cannot leave partial or mismatched save files
 
 #### Scenario: Schema version mismatch fails loudly
-- **WHEN** opening a `.db` file whose `PRAGMA user_version` does not match `WORLD_DB_SCHEMA_VERSION`
+- **WHEN** opening a `.db` file whose `PRAGMA user_version` is greater than `WORLD_DB_SCHEMA_VERSION`
 - **THEN** loading returns an explicit `WorldStoreError::VersionMismatch` error without modifying the file
 
 ### Requirement: WorldStore trait abstracts SQLite and in-memory persistence
@@ -40,7 +40,7 @@ Clicking `Play` on the `Home` screen SHALL open a Save Slot Picker listing all v
 - **THEN** its `.db`, `.db-wal`, and `.db-shm` files are removed and the slot disappears from the list
 
 ### Requirement: Per-slot ship designs with Home sandbox isolation
-When inside an active save slot, `ShipCatalog` and the Ship Editor SHALL read and write that save slot's `designs` table (`DesignCatalogSource::ActiveWorldDb`). When launched from `Home`, the Ship Editor and `QuickBattle` SHALL use `DesignCatalogSource::HomeSandbox` without touching any save slot `.db`.
+When inside an active save slot, `ShipCatalog` and the Ship Editor SHALL read and write that save slot's `designs` table (`DesignCatalogSource::ActiveWorldDb`). When launched from `Home`, the Ship Editor and `QuickBattle` SHALL use `DesignCatalogSource::HomeSandbox` without touching any save slot `.db`. All design writes to a save slot SHALL commit atomically in a single SQLite transaction, and `ShipSavesChanged` SHALL only be emitted after persistence succeeds.
 
 #### Scenario: Saving a design inside a save slot isolates it to that slot
 - **WHEN** the player opens the Ship Editor from Pause inside Slot A, saves a modified ship design, and later opens Slot B
@@ -49,3 +49,7 @@ When inside an active save slot, `ShipCatalog` and the Ship Editor SHALL read an
 #### Scenario: Home Ship Editor and QuickBattle do not touch save slots
 - **WHEN** the player edits a ship from Home or plays `QuickBattle`
 - **THEN** no file in `<data_dir>/saves/*.db` is created, modified, or deleted
+
+#### Scenario: ShipSavesChanged is only emitted after persistence completes
+- **WHEN** a design save is requested
+- **THEN** `ShipSavesChanged` is emitted only after the write successfully commits to the underlying store or sandbox directory
