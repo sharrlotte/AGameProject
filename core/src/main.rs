@@ -10,6 +10,7 @@ mod scene;
 mod simulation;
 mod system;
 mod ui;
+mod validate;
 
 use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
 use crate::constant::AUDIO_SCALE;

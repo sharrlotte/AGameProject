@@ -3,6 +3,9 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::Deserialize;
 
+use crate::validate::{Validate, check};
+use super::fleet::{default_fleet_spacing, validate_fleet_spacing};
+
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GameConfig {
@@ -65,40 +68,38 @@ impl Default for GameConfig {
     }
 }
 
+impl Validate for GameConfig {
+    type Context = ();
+    type Error = String;
+
+    fn validate(&self, _: &()) -> Result<(), String> {
+        check::positive(
+            "minimum debris lifetime",
+            self.debris_lifetime_min_seconds,
+        )?;
+        check::positive(
+            "maximum debris lifetime",
+            self.debris_lifetime_max_seconds,
+        )?;
+        check::range_ordered(
+            "minimum debris lifetime",
+            self.debris_lifetime_min_seconds,
+            "maximum debris lifetime",
+            self.debris_lifetime_max_seconds,
+        )?;
+        validate_fleet_spacing(self.fleet_spacing)?;
+        Ok(())
+    }
+}
+
 impl GameConfig {
     pub fn validate(&self) -> Result<(), String> {
-        let min = self.debris_lifetime_min_seconds;
-        let max = self.debris_lifetime_max_seconds;
-
-        if min <= 0.0 || max <= 0.0 {
-            return Err(format!(
-                "debris_lifetime_min_seconds and debris_lifetime_max_seconds must be positive (min {min}, max {max})"
-            ));
-        }
-
-        if max < min {
-            return Err(format!(
-                "debris_lifetime_max_seconds ({max}) must be at least debris_lifetime_min_seconds ({min})"
-            ));
-        }
-
-        if self.fleet_spacing < 0.0 {
-            return Err(format!(
-                "fleet_spacing ({}) must be non-negative",
-                self.fleet_spacing
-            ));
-        }
-
-        Ok(())
+        Validate::validate(self, &())
     }
 }
 
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GameConfigValue(pub GameConfig);
-
-fn default_fleet_spacing() -> f32 {
-    400.0
-}
 
 pub fn game_config_bridge(
     mut events: MessageReader<AssetEvent<GameConfig>>,
@@ -130,7 +131,7 @@ mod tests {
         };
 
         let error = config.validate().expect_err("inverted range is invalid");
-        assert!(error.contains("debris_lifetime_max_seconds"), "{error}");
+        assert!(error.contains("maximum debris lifetime"), "{error}");
     }
 
     #[test]

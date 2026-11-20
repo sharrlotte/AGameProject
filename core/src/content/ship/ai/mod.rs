@@ -1,7 +1,6 @@
 pub mod board;
 pub mod capability;
 pub mod component;
-pub mod config;
 pub mod readiness;
 pub mod scorer;
 pub mod sensor;
@@ -10,7 +9,8 @@ pub mod steer;
 pub use board::*;
 pub use capability::*;
 pub use component::*;
-pub use config::*;
+pub use crate::config::ai as config;
+pub use crate::config::ai::*;
 pub use readiness::*;
 pub use scorer::*;
 pub use sensor::*;

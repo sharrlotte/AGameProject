@@ -15,10 +15,10 @@ impl SkillCurve {
 
     pub fn validate(self, name: &str, min_bound: f32) -> Result<(), String> {
         if !self.level_1.is_finite() || !self.level_10.is_finite() {
-            return Err(format!("{name} endpoints must be finite"));
+            return Err(format!("{name} endpoints must be finite numbers"));
         }
         if self.level_1 < min_bound || self.level_10 < min_bound {
-            return Err(format!("{name} endpoints must be >= {min_bound}"));
+            return Err(format!("{name} endpoints must be at least {min_bound}"));
         }
         Ok(())
     }

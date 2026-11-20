@@ -63,7 +63,7 @@ impl Scorer for RetreatScorer {
         }
 
         let urgency = ((threshold - ctx.readiness.hp_ratio) / threshold.max(0.01)).clamp(0.0, 1.0);
-        let score = (0.72 + urgency * 0.28).min(ctx.cfg.weights.retreat_max);
+        let score = (0.72f32 + urgency * 0.28).min(ctx.cfg.weights.retreat_max);
         Some((
             Tactic::Retreat {
                 threat: threat.entity,
@@ -103,7 +103,7 @@ impl Scorer for RechargeScorer {
                 threat: threat.entity,
                 safe_range,
             },
-            (0.60 + deficit * 0.24).min(ctx.cfg.weights.recharge_max),
+            (0.60f32 + deficit * 0.24).min(ctx.cfg.weights.recharge_max),
         ))
     }
 }

@@ -8,15 +8,24 @@
 core/src/save/
 ├── mod.rs          SavePlugin (registers DesignSavePlugin, WorldSavePlugin)
 ├── document.rs     RonDocument trait, DocumentError, parse/read/write_document, atomic_write, data_dir
-├── design/         DesignSavePlugin, ShipCatalog, DesignCatalogSource, sandbox designs, fleet helpers
+├── design/         DesignSavePlugin, ShipDesign, ShipCatalog, DesignCatalogSource, sandbox designs, fleet helpers
+│   ├── mod.rs
+│   ├── component.rs
+│   ├── design.rs   ShipDesign definition, serialization, Validate, and spawn methods
+│   ├── lib.rs
+│   └── system.rs
 └── world/          WorldSavePlugin: single-file SQLite save slots
     ├── mod.rs      plugin wiring, re-exports
     ├── component.rs  WorldSession, SlotSummary, WorldMeta, ActiveStateSnapshot, WorldStoreError, events
     ├── store.rs    WorldStore trait, postcard + lz4 codec, InMemoryWorldStore, now_unix_ms
     ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files, sequential migration ladder
-    ├── snapshot/   modular capture and apply subfolder (<300 lines/file)
+    ├── snapshot/   modular capture and apply subfolder (<150 lines/file)
     │   ├── mod.rs        BodySnapshot enum, module re-exports
-    │   ├── component.rs  serde structs (TurretSaveState, BlockSnapshot, TransformSave, etc.)
+    │   ├── block.rs      BlockSnapshot, TurretSaveState, PatternSave + Validate
+    │   ├── ship.rs       ShipSnapshot, TransformSave, VelocitySave, CargoSave, TacticSave, BrainSave + Validate
+    │   ├── debris.rs     DebrisSnapshot + Validate
+    │   ├── world.rs      CameraSave, ControlSave, DropSave
+    │   ├── sanitize.rs   value clamping and normalization for transient fields
     │   ├── capture.rs    world entity extraction (bodies, ships, debris, camera, control, drops, intel)
     │   └── apply.rs      ECS restoration and spawning (bodies, ships, debris, camera, control, drops, intel)
     └── system.rs   save/load/create lifecycle, auto-save, catalog switching, load_world_data / apply_world_data

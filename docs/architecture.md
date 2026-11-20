@@ -22,9 +22,11 @@ AGameProject/                Cargo workspace (resolver = "3")
           mod.rs             module root: declarations, re-exports, plugin
         layout.rs            shared UI layout constants
       mission/               battle-core scaffolding (quick-battle.ron, overlay)
-      config/                ron config boot gate
+      validate/              shared validation trait and assertion helpers
+      config/                modular RON config definitions (block, game, ai, minimap, setting)
       save/                  persistence (`design/`, `world/`, `document.rs`)
-        world/               SQLite save slots: component/store/sqlite/system, snapshot/ (component/capture/apply)
+        design/              ShipDesign definition, ShipCatalog, sandbox designs
+        world/               SQLite save slots: component/store/sqlite/system, snapshot/ (block, ship, debris, world, sanitize, capture, apply)
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.

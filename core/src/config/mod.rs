@@ -1,32 +1,21 @@
-mod block;
-
-mod game;
-
+pub mod ai;
+pub mod block;
+pub mod game;
 pub(crate) mod loader;
+pub mod minimap;
+pub mod setting;
 
-mod setting;
-
-
+pub use ai::{AiConfig, AiConfigValue, ai_config_bridge};
 pub use block::BlocksConfig;
-
 pub use game::{GameConfig, GameConfigValue};
-
+pub use minimap::{MinimapConfig, MinimapConfigValue, minimap_config_bridge};
 pub use setting::GameSetting;
 
-
 use bevy::asset::LoadState;
-
 use bevy::prelude::*;
 
-
 use crate::content::block::BlockRegistry;
-use crate::content::ship::ai::{AiConfig, AiConfigValue, ai_config_bridge};
-use crate::scene::game::minimap::{
-    MinimapConfig, MinimapConfigValue, minimap_config_bridge,
-};
-
 use crate::resource::SceneState;
-
 use crate::simulation::SimulationSet;
 
 
@@ -182,35 +171,35 @@ fn check_config_ready(
         return;
     };
 
-    if matches!(
-        assets.get_load_state(&handles.game),
-        Some(LoadState::Failed(_))
-    ) {
-        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Game)));
+    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.game) {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Game,
+            err.to_string(),
+        )));
         return;
     }
 
-    if matches!(
-        assets.get_load_state(&handles.blocks),
-        Some(LoadState::Failed(_))
-    ) {
-        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Blocks)));
+    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.blocks) {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Blocks,
+            err.to_string(),
+        )));
         return;
     }
 
-    if matches!(
-        assets.get_load_state(&handles.ai),
-        Some(LoadState::Failed(_))
-    ) {
-        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Ai)));
+    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.ai) {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Ai,
+            err.to_string(),
+        )));
         return;
     }
 
-    if matches!(
-        assets.get_load_state(&handles.minimap),
-        Some(LoadState::Failed(_))
-    ) {
-        config_state.set(ConfigState::Error(ConfigError::new(ConfigFile::Minimap)));
+    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.minimap) {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            ConfigFile::Minimap,
+            err.to_string(),
+        )));
         return;
     }
 
@@ -218,37 +207,13 @@ fn check_config_ready(
         return;
     };
 
-    if let Err(reason) = game.validate() {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Game,
-            reason,
-        )));
-        return;
-    }
-
     let Some(ai) = ai_assets.get(&handles.ai) else {
         return;
     };
 
-    if let Err(reason) = ai.validate() {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Ai,
-            reason,
-        )));
-        return;
-    }
-
     let Some(minimap) = minimap_assets.get(&handles.minimap) else {
         return;
     };
-
-    if let Err(reason) = minimap.validate() {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Minimap,
-            reason,
-        )));
-        return;
-    }
 
     let Some(blocks) = block_assets.get(&handles.blocks) else {
         return;

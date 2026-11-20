@@ -13,6 +13,8 @@ use std::fs;
 
 use std::path::PathBuf;
 
+use crate::validate::{Validate, check};
+
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
 pub struct GameSetting {
@@ -54,6 +56,15 @@ impl Default for GameSetting {
             ai_level: default_ai_level(),
             keys: KeySettings::default(),
         }
+    }
+}
+
+impl Validate for GameSetting {
+    type Context = ();
+    type Error = String;
+
+    fn validate(&self, _: &()) -> Result<(), String> {
+        check::bounded_int("AI difficulty level", self.ai_level, 1, 10)
     }
 }
 

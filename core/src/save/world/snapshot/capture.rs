@@ -11,7 +11,7 @@ use crate::content::team::Team;
 use crate::resource::{CameraTarget, ControlMode, ControlledShip};
 
 use super::BodySnapshot;
-use super::component::{
+use super::{
     BlockSnapshot, BrainSave, CameraSave, CargoSave, ControlSave, DebrisSnapshot, DropSave,
     LastSeenSave, ShipSnapshot, TacticSave, TeamAlertSave, TeamIntelSave, TransformSave,
     VelocitySave,

@@ -1,10 +1,17 @@
 pub mod apply;
+pub mod block;
 pub mod capture;
-pub mod component;
+pub mod debris;
+pub mod sanitize;
+pub mod ship;
+pub mod world;
 
 pub use apply::*;
+pub use block::*;
 pub use capture::*;
-pub use component::*;
+pub use debris::*;
+pub use ship::*;
+pub use world::*;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
-use crate::content::ship::ShipDesign;
+use super::design::{DESIGN_SCHEMA_VERSION, ShipDesign};
 use crate::save::document::DocumentError;
-
-pub const DESIGN_SCHEMA_VERSION: u32 = 3;
 
 crate::ron_document!(ShipDesign, DESIGN_SCHEMA_VERSION, "ship design");
 

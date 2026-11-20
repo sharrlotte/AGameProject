@@ -23,7 +23,7 @@ use crate::save::design::DESIGN_SCHEMA_VERSION;
 use crate::save::world::component::WorldStoreError;
 
 use super::BodySnapshot;
-use super::component::{
+use super::{
     BrainSave, CameraSave, ControlSave, DebrisSnapshot, DropSave, ShipSnapshot, TacticSave,
     TeamIntelSave,
 };

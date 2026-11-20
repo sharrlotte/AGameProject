@@ -1,8 +1,8 @@
 pub mod component;
-pub mod config;
 pub mod system;
 
-pub use config::*;
+pub use crate::config::minimap as config;
+pub use crate::config::minimap::*;
 pub use system::*;
 
 use bevy::prelude::*;

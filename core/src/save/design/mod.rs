@@ -1,8 +1,10 @@
 pub mod component;
+pub mod design;
 pub mod lib;
 pub mod system;
 
 pub use component::*;
+pub use design::*;
 pub use lib::*;
 pub use system::*;
 

@@ -49,13 +49,46 @@
 Asset root resolution for settings write-back: `BEVY_ASSET_ROOT` env var, else `assets`
 relative to CWD (same default bevy uses).
 
+## Module Layout
+
+`core/src/config/` owns all configuration definitions, schemas, and conversions:
+
+```
+core/src/config/
+├── mod.rs               // ConfigPlugin, ConfigState, ConfigError
+├── loader.rs            // RonAssetLoader<A: Asset + DeserializeOwned + Validate<Context = ()>>
+├── setting.rs           // GameSetting, KeySettings
+├── game/
+│   ├── mod.rs
+│   ├── game.rs          // GameConfig, GameConfigValue, bridge
+│   └── fleet.rs         // DefaultFleetEntry, fleet spacing validation
+├── block/
+│   ├── mod.rs           // BlocksConfig, blocks_bridge
+│   ├── def.rs           // BlockDefConfig, into_def
+│   └── feature/         // FeatureConfig enum and feature modules
+│       ├── mod.rs
+│       ├── turret.rs    // TurretComponentConfig, ShootPatternConfig
+│       ├── shield.rs    // ShieldConfig, ShieldShapeConfig
+│       ├── thruster.rs  // ThrusterConfig
+│       ├── power.rs     // Generator, Battery, Consumer, Booster
+│       ├── ammo.rs      // AmmoConfig
+│       ├── texture.rs   // TextureConfig
+│       └── storage.rs   // StorageConfig
+├── ai/
+│   ├── mod.rs           // AiConfig, AiConfigValue, ai_config_bridge
+│   └── types.rs         // SkillCurves, SkillUnlocks, IntelBounds, tuning structs
+└── minimap/
+    └── mod.rs           // MinimapConfig, MinimapConfigValue, minimap_config_bridge
+```
+
 ## Loader design
 
 ### Custom RON asset loader (`config/loader.rs`)
 
-- `RonAssetLoader` implementing `AssetLoader` for any `A: Asset + DeserializeOwned`;
-  returns `Err` on parse failure (bevy logs it; old asset kept on reload; load marked
-  Failed at boot).
+- `RonAssetLoader` implements `AssetLoader` for any `A: Asset + DeserializeOwned + Validate<Context = ()>`.
+- Executes `asset.validate(&())` immediately after byte deserialization. Any validation error returns
+  `io::ErrorKind::InvalidData`, causing the asset load to fail with exact file and reason.
+- Parse or validation failure moves `ConfigState` to `Error` on boot and logs an error on hot reload.
 - `ron` crate added as a direct dependency (already in the lockfile via bevy).
 - `.ron` extension registered.
 
