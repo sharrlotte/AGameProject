@@ -108,10 +108,12 @@ except own team).
 - **Visuals**:
   - Procedural mesh (`Circle` / `Rectangle`) rendered with custom 2D WGSL shader (`shader/shield.wgsl`, defining local `VertexOutput` and `AlphaMode2d::Blend`) tinted with team color.
   - Positioned at `LAYER_SHIELD` ($Z = 160.0$), wrapping above hull blocks ($Z = 10.0$), mounted turret barrels ($Z = 50.0$), and projectiles ($Z = 100.0$).
-  - Circle shields render a full-field regular hexagonal/honeycomb wireframe lattice (`hex_coords`), with traveling radial energy ripples propagating across the honeycomb cells and a perimeter boundary rim locked at radius 1.0 (matching the physics barrier collider boundary).
-  - Plane shields render a regular hexagonal wireframe barrier with traveling transverse energy ripples, front deflector boundary rim, and side edge falloff.
-  - Center/interior transparency: Hex cell interiors have 0% background fill, maintaining full transparency for the interior space and ship.
-  - Dynamic instability: High-frequency instability flicker and color boost scale dynamically as barrier `hp / max_hp` drops toward zero.
+  - Circle shields reconstruct a hemisphere from the flat mesh UV (`n = (p.x, p.y, sqrt(1 - r²))`) so the presentation reads as a dome rather than a flat disc. For a pixel at normalized disc radius `r`, all curvature cues derive from the reconstructed surface depth.
+  - Circle shields render a thin perimeter rim at surface depth `nz ≈ 0.173`, geometrically equivalent to screen radius `0.985` and therefore locked to the `Collider::ball(radius)` boundary. The rim is weighted by a single upper-left key direction (`dot(n.xy, KEY_LIGHT.xy)`), brightest upper-left and dimmest lower-right; no specular highlight or broad gradient is rendered. The silhouette is antialiased with `fwidth` rather than hard-discarded.
+  - Circle shields render a full-field regular hexagonal/honeycomb wireframe lattice (`hex_coords`) sampled in surface arc length (`asin(r)/r * p`), so cells foreshorten radially toward the silhouette. The traveling radial energy ripple uses the same arc-length coordinate so it moves at constant surface speed across the cells.
+  - Plane shields render a regular hexagonal wireframe barrier with traveling transverse energy ripples, front deflector boundary rim, and side edge falloff. Plane presentation is unchanged: no hemispherical reconstruction, arc-length distortion, or interior body.
+  - Circle interior body: hex cell interiors carry a restrained tint of at most 5%, strongest at the dome center and fading to zero at the rim. Because the material uses `AlphaMode2d::Blend`, this tints the interior space and ship rather than adding light. Plane cell interiors remain at 0% fill with full transparency.
+  - Dynamic instability: High-frequency instability flicker and color boost scale dynamically as barrier `hp / max_hp` drops toward zero. Rendered visual constants reside in `shader/shield.wgsl`; no new RON keys or uniform fields are introduced by this presentation model.
 
 ## Permanent cleanup
 

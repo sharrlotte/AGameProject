@@ -137,7 +137,12 @@ Movement: player control uses `ExternalForce` (WASD/QE, Pilot mode); AI uses
 `throttle_cap`). Steering gizmo geometry comes from shared pure helpers in
 `content/ship/ai/steer.rs`, which are also used by the dev-only `ShipDebugPlugin` gizmo
 renderer so steering and diagnostics cannot diverge. Damping is configured in `game.ron`
-(`linear_damping = 0.9`, `angular_damping = 0.999`).
+(`linear_damping = 0.9`, `angular_damping = 0.999`). For `Regroup` / `Investigate` /
+`Search` / `Support`, `steer_arrive` is a stateless speed-target controller using the
+ship's live `decel = ShipStats.thrust_power / ShipStats.mass`: desired speed is the lesser
+of `sqrt(2 × decel × (dist - arrival_radius))` and `decel / linear_damping`, thrust is
+proportional to the speed error, and negative thrust brakes. Inside `arrival_radius`
+thrust is zero and `throttle_cap` is `0.0`; otherwise `throttle_cap` is `1.0`.
 
 ## Starter designs
 

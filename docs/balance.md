@@ -75,7 +75,7 @@ Resulting acceleration (`thrust / mass`, normalized units) at spawn loadout:
 | Aegis | 412 | 413 | 11141 | 6000 | 349 | 91200 |
 | B2 | 1118 | 107 | 2898 | 15000 | 318 | 187800 |
 
-The fastest scout is 10.7x more accelerative than the slowest capital ship.
+The fastest scout is 10.7x more accelerative than the slowest capital ship. The AI arrival controller uses this same `thrust / mass` value as the ship's deceleration, so the ratio is observable during `Regroup`, `Investigate`, `Search`, and `Support` as well as in `Engage`: each ship cruises at its own `decel / linear_damping` speed and brakes with reverse thrust near a waypoint, with no separate non-combat throttle cap.
 
 ## Weapons
 
@@ -119,4 +119,4 @@ the attacker. Structural HP keeps that engagement long rather than instantaneous
 - Every triangle block's mass/health must remain at 60% of its same-cell-count hull
   baseline (1 cell: 6/1300, 2 cells: 12/2600, 3 cells: 18/4000).
 - Highest single-hit damage (1200) must stay below 10% of core HP (1500).
-- Fastest-to-slowest acceleration ratio must stay above 5x for the starter fleet.
+- Fastest-to-slowest acceleration ratio must stay above 5x for the starter fleet, observable in both combat and AI arrival states.

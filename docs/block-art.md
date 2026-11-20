@@ -36,7 +36,21 @@ Base block sprites SHALL be fully opaque edge-to-edge so adjacent blocks tile wi
 
 ## Art direction
 
-The visual target is a top-down / slightly angled sci-fi industrial spacecraft: futuristic military hardware, solid metallic surfaces, clean geometric panel construction, subtle mechanical detail, restrained cyan and blue emissive elements, muted gunmetal primary material, and gold or bronze accents on selected components. Textures SHALL remain restrained: no excessive noise, cartoonish outlines, inconsistent rendering style or randomly scaled detail.
+The visual target is a top-down / slightly angled sci-fi industrial spacecraft: futuristic military hardware, solid metallic surfaces, clean geometric panel construction, subtle mechanical detail, restrained cyan and blue emissive elements, muted gunmetal primary material, and gold or bronze accents on selected components.
+
+### Asset Visual Standard
+
+All assets SHALL NOT look cartoon-like and MUST adhere to the following rules:
+
+- **Aesthetic**: Grounded sci-fi industrial hardware; never cartoon-like or stylized with comic outlines.
+- **Palette**: Limited, intentional colors drawn strictly from the defined palette.
+- **Outlines**: Consistent thickness across all assets; no heavy black borders on structural blocks so tiles connect seamlessly.
+- **Lighting**: One consistent light direction (upper-left) across every asset without exception.
+- **Gradients**: Avoid unnecessary gradients; use crisp geometric transitions, clean matte fills, and defined panel lines.
+- **Highlights**: Small and purposeful; restrained 1px-2px sheen on illuminated edges and bolt tops.
+- **Details**: Functional, not random; all rivets, bolts, vents, and seams indicate real mechanical assembly.
+- **Texture**: Consistent pixel density across the entire game; draw directly at native resolution with no mixed resolutions.
+- **Silhouette**: Distinct and readable at native resolution against both empty space and adjacent ship blocks.
 
 ## Lighting and shading
 

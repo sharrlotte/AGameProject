@@ -46,6 +46,7 @@ core/src/content/ship/ai/
 6. `steer_ships` — Translates `Brain.current` into `Steering { desired_heading, thrust_world, throttle_cap }` and `FireOrder { primary_target, lead_accuracy }`:
    - `SpinalAim` aligns fixed weapons at any `Rot90` mount to the target lead point.
    - High-skill ships unlock strafe evasion (`strafe_evade_level`), perpendicular spinal dodging (`spinal_dodge_level`), 4-quadrant armor angling (`armor_angling_level`), and drain-beam throttle budgeting (`power_management_level`).
+   - `Regroup` / `Investigate` / `Search` / `Support` use a stateless ship-aware arrival controller. With `decel = ShipStats.thrust_power / ShipStats.mass`, the desired speed is the smaller of the braking-limited `sqrt(2 × decel × (dist - arrival_radius))` and the ship's own terminal speed `decel / linear_damping`; thrust is proportional to speed error, with negative thrust braking. Inside `arrival_radius` thrust is zero and `throttle_cap` is `0.0`; otherwise `throttle_cap` is `1.0`. There is no non-combat throttle-cap configuration.
    - Combat turrets (`Closest`, `MostHP`) prefer `FireOrder.primary_target` when in range and scale target velocity by `FireOrder.lead_accuracy`; `EnemyBullet` point-defense turrets remain autonomous.
 
 Ships actively controlled by the player (`ControlledShip.controlling == Some(entity)`) are skipped by AI evaluation and steering.

@@ -41,7 +41,6 @@
         support_approach_bonus_dist: 450.0,
         support_screen_offset: 320.0,
         support_default_radius: 260.0,
-        support_throttle_cap: 0.9,
         spinal_range_factor: 0.78,
         spinal_min_range: 1200.0,
         kite_hp_threshold: 0.55,
@@ -60,7 +59,6 @@
         armor_angle_hp_ratio: 1.25,
         drain_beam_throttle_cap: 0.25,
         drain_beam_supply_threshold: 0.95,
-        arrive_throttle_cap: 0.85,
     ),
     curves: (
         think_rate_hz: (level_1: 2.0, level_10: 20.0),

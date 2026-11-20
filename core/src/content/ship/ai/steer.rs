@@ -10,7 +10,7 @@ use super::component::{
 use super::config::{AiConfig, AiConfigValue};
 use crate::config::GameConfigValue;
 use crate::content::block::feature::turret::lead_point;
-use crate::content::ship::Ship;
+use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
 
@@ -57,6 +57,7 @@ pub fn steer_ships(
         &Readiness,
         &Team,
         &Ship,
+        &ShipStats,
         &Transform,
         &Velocity,
         &mut Steering,
@@ -74,6 +75,7 @@ pub fn steer_ships(
         readiness,
         team,
         ship,
+        stats,
         transform,
         velocity,
         mut steering,
@@ -143,6 +145,7 @@ pub fn steer_ships(
                     kind,
                     cap,
                     &ai_cfg.0,
+                    stats.thrust_power / stats.mass.max(1.0),
                     game_cfg.0.linear_damping,
                     plan,
                     &ship_transforms,
@@ -157,8 +160,8 @@ pub fn steer_ships(
                     velocity.linear,
                     position,
                     ai_cfg.0.investigate_arrival_radius,
+                    stats.thrust_power / stats.mass.max(1.0),
                     game_cfg.0.linear_damping,
-                    ai_cfg.0.combat_tuning.arrive_throttle_cap,
                 ),
                 None,
             ),
@@ -319,6 +322,7 @@ fn steer_support(
     kind: SupportKind,
     cap: &Capability,
     cfg: &AiConfig,
+    decel: f32,
     damping: f32,
     plan: &TeamPlan,
     ship_transforms: &Query<(&GlobalTransform, &Ship)>,
@@ -347,14 +351,7 @@ fn steer_support(
     } else {
         cfg.combat_tuning.support_default_radius
     };
-    steer_arrive(
-        pos,
-        vel,
-        anchor,
-        hold_radius,
-        damping,
-        cfg.combat_tuning.support_throttle_cap,
-    )
+    steer_arrive(pos, vel, anchor, hold_radius, decel, damping)
 }
 
 fn steer_arrive(
@@ -362,8 +359,8 @@ fn steer_arrive(
     vel: Vec2,
     target: Vec2,
     arrival_radius: f32,
+    decel: f32,
     damping: f32,
-    throttle_cap: f32,
 ) -> Steering {
     let delta = target - pos;
     let dist = delta.length();
@@ -375,20 +372,13 @@ fn steer_arrive(
         };
     }
     let dir = delta / dist;
-    let speed = vel.dot(dir).max(0.0);
-    let stop_dist = (speed * speed) / (2.0 * damping.max(0.1));
-    if dist <= stop_dist {
-        return Steering {
-            desired_heading: None,
-            thrust_world: Vec2::ZERO,
-            throttle_cap: 0.0,
-        };
-    }
-    let mag = ((dist - arrival_radius) / arrival_radius.max(100.0)).clamp(0.25, 1.0);
+    let safe = (2.0 * decel.max(0.1) * (dist - arrival_radius)).sqrt();
+    let desired = safe.min(decel / damping.max(0.1));
+    let thrust = ((desired - vel.dot(dir)) / decel.max(0.1)).clamp(-1.0, 1.0);
     Steering {
         desired_heading: None,
-        thrust_world: dir * mag,
-        throttle_cap,
+        thrust_world: dir * thrust,
+        throttle_cap: 1.0,
     }
 }
 
@@ -433,4 +423,118 @@ fn best_armor_heading(cap: &Capability, dir_to_enemy: Vec2, hp_ratio_threshold: 
 fn clamp_unit(v: Vec2) -> Vec2 {
     let len = v.length();
     if len > 1.0 { v / len } else { v }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::GameConfig;
+
+    #[test]
+    fn arrive_inside_radius_returns_zero_thrust() {
+        let steer = steer_arrive(
+            Vec2::ZERO,
+            Vec2::X * 500.0,
+            Vec2::X * 100.0,
+            200.0,
+            100.0,
+            0.8,
+        );
+        assert_eq!(steer.thrust_world, Vec2::ZERO);
+        assert_eq!(steer.throttle_cap, 0.0);
+        assert!(steer.thrust_world.is_finite());
+    }
+
+    #[test]
+    fn arrive_scales_desired_speed_with_decel() {
+        let vel = Vec2::X * 125.0;
+        let target = Vec2::X * 10_000.0;
+        let fast = steer_arrive(Vec2::ZERO, vel, target, 100.0, 1000.0, 0.8);
+        let slow = steer_arrive(Vec2::ZERO, vel, target, 100.0, 100.0, 0.8);
+        assert!(fast.thrust_world.x > slow.thrust_world.x);
+        assert!(slow.thrust_world.x.abs() < 1e-3);
+    }
+
+    #[test]
+    fn arrive_brakes_with_reverse_thrust_when_overspeed() {
+        let steer = steer_arrive(
+            Vec2::ZERO,
+            Vec2::X * 300.0,
+            Vec2::X * 10_000.0,
+            100.0,
+            100.0,
+            0.8,
+        );
+        assert!(steer.thrust_world.x < -0.9);
+        assert_eq!(steer.throttle_cap, 1.0);
+    }
+
+    #[test]
+    fn arrive_thrust_is_continuous_across_braking_boundary() {
+        let mut previous = f32::NEG_INFINITY;
+        for step in 0..20 {
+            let dist = 160.0 + step as f32 * 2.0;
+            let steer = steer_arrive(
+                Vec2::ZERO,
+                Vec2::X * 120.0,
+                Vec2::X * dist,
+                100.0,
+                100.0,
+                0.8,
+            );
+            let thrust = steer.thrust_world.x;
+            assert!(thrust.is_finite());
+            assert!(thrust >= previous - 1e-4);
+            if previous.is_finite() {
+                assert!((thrust - previous).abs() < 0.05);
+            }
+            previous = thrust;
+        }
+    }
+
+    #[test]
+    fn search_arrival_steering_uses_ship_stats() {
+        let mut app = App::new();
+        app.init_resource::<AiConfigValue>()
+            .init_resource::<TacticalBoard>()
+            .init_resource::<ControlledShip>()
+            .insert_resource(GameConfigValue(GameConfig::default()))
+            .init_resource::<Time>()
+            .add_systems(Update, steer_ships);
+
+        let waypoint = Vec2::X * 10_000.0;
+        let velocity = Vec2::X * 125.0;
+        let spawn_ship = |world: &mut World, mass: f32, thrust: f32| {
+            world
+                .spawn((
+                    Brain::new(waypoint, 10.0),
+                    Skill::new(8),
+                    Capability::default(),
+                    Readiness::default(),
+                    Team::new(1),
+                    Ship::default(),
+                    ShipStats {
+                        mass,
+                        thrust_power: thrust,
+                        ..default()
+                    },
+                    Transform::default(),
+                    GlobalTransform::default(),
+                    Velocity::linear(velocity),
+                    Steering::default(),
+                    FireOrder::default(),
+                ))
+                .id()
+        };
+
+        let light = spawn_ship(app.world_mut(), 10.0, 10_000.0);
+        let heavy = spawn_ship(app.world_mut(), 100.0, 10_000.0);
+
+        app.update();
+
+        let light_thrust = app.world().get::<Steering>(light).unwrap().thrust_world.x;
+        let heavy_thrust = app.world().get::<Steering>(heavy).unwrap().thrust_world.x;
+        assert!(light_thrust > heavy_thrust);
+        assert_eq!(app.world().get::<Steering>(light).unwrap().throttle_cap, 1.0);
+    }
 }

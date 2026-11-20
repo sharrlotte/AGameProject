@@ -143,7 +143,6 @@ pub struct CombatTuning {
     pub support_approach_bonus_dist: f32,
     pub support_screen_offset: f32,
     pub support_default_radius: f32,
-    pub support_throttle_cap: f32,
     pub spinal_range_factor: f32,
     pub spinal_min_range: f32,
     pub kite_hp_threshold: f32,
@@ -162,7 +161,6 @@ pub struct CombatTuning {
     pub armor_angle_hp_ratio: f32,
     pub drain_beam_throttle_cap: f32,
     pub drain_beam_supply_threshold: f32,
-    pub arrive_throttle_cap: f32,
 }
 
 impl Default for CombatTuning {
@@ -175,7 +173,6 @@ impl Default for CombatTuning {
             support_approach_bonus_dist: 450.0,
             support_screen_offset: 320.0,
             support_default_radius: 260.0,
-            support_throttle_cap: 0.9,
             spinal_range_factor: 0.78,
             spinal_min_range: 1200.0,
             kite_hp_threshold: 0.55,
@@ -194,7 +191,6 @@ impl Default for CombatTuning {
             armor_angle_hp_ratio: 1.25,
             drain_beam_throttle_cap: 0.25,
             drain_beam_supply_threshold: 0.95,
-            arrive_throttle_cap: 0.85,
         }
     }
 }

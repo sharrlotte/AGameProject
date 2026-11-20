@@ -71,8 +71,13 @@
 
 # ART STYLE
 
-- Chunky pixel art: draw directly at final resolution with no upscale; every visible detail must be at least 2 pixels wide
-- No black or dark outer outlines on blocks so adjacent blocks tile seamlessly into a ship hull
-- Dark space palette: deep gunmetal / charcoal-steel base (`(38, 42, 50)` to `(86, 94, 106)`) with material/energy accents (cyan/blue for energy/titanium/shields, amber/gold for surge/core/ammo, orange/red for thermal/missiles)
-- Diagonal top-left highlight / bottom-right shadow bevels and chamfered octagonal armor plates
+- All assets must not look cartoon-like (grounded military/industrial sci-fi hardware)
+- Palette: Limited, intentional colors (deep gunmetal / charcoal-steel base `(38, 42, 50)` to `(86, 94, 106)` with restrained cyan/blue/amber/gold/thermal accents)
+- Outlines: Consistent thickness; no black or dark outer outlines on blocks so adjacent blocks tile seamlessly into a ship hull
+- Lighting: One consistent light direction (upper-left highlight / bottom-right shadow bevels)
+- Gradients: Avoid unnecessary gradients; rely on clean matte panel fills and geometric seams
+- Highlights: Small and purposeful (restrained 1-2px sheen on illuminated edges/bolts)
+- Details: Functional, not random (bolts, fasteners, chamfers indicate real mechanical joints; bolts along all edges of structural triangles)
+- Texture: Consistent pixel density; chunky pixel art drawn directly at final resolution with no upscale; every visible detail must be at least 2 pixels wide
+- Silhouette: Readable at native resolution
 - Turrets must have a transparent RGBA background with no hull base underneath
