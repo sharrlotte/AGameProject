@@ -162,7 +162,7 @@ pub fn update_placement_preview(
                                     color: tint,
                                     ..default()
                                 },
-                                Transform::from_translation(turret.offset.extend(turret.z)),
+                                Transform::from_translation(turret.offset.extend(LAYER_TURRET_BARREL)),
                                 PreviewSprite,
                             ));
                         }

@@ -180,7 +180,7 @@ pub fn spawn_placed_block(
         if let Feature::Turret(turret) = feature {
             let barrel = commands
                 .spawn((
-                    Transform::from_translation(turret.offset.extend(turret.z)),
+                    Transform::from_translation(turret.offset.extend(LAYER_TURRET_BARREL)),
                     Sprite {
                         image: turret.image.clone(),
                         custom_size: Some(def.get_base_pixel_size()),

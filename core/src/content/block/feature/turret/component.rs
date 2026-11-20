@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::constant::LAYER_TURRET_BARREL;
+
 use crate::content::block::{
     component::{ShootPattern, TargetingStrategy},
     feature::{
@@ -43,7 +45,6 @@ pub struct TurretComponent {
     pub barrels: Vec<Vec2>,
     pub image: Handle<Image>,
     pub offset: Vec2,
-    pub z: f32,
     pub animated: bool,
     pub ammo: Option<Ammo>,
     pub power: Option<TurretPower>,
@@ -84,7 +85,7 @@ impl TurretComponent {
 
         let barrel = commands
             .spawn((
-                Transform::from_translation(self.offset.extend(self.z)),
+                Transform::from_translation(self.offset.extend(LAYER_TURRET_BARREL)),
                 Sprite {
                     image: self.image.clone(),
                     custom_size: Some(pixel_size),
@@ -134,10 +135,6 @@ pub enum TurretState {
 impl TurretState {
     pub fn active(&self) -> bool {
         matches!(self, Self::Ready { .. })
-    }
-
-    pub fn can_fire(&self) -> bool {
-        self.active()
     }
 
     pub fn aim_point(&self) -> Vec2 {

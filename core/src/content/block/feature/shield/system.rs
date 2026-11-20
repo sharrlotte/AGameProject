@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::constant::LAYER_BULLET;
+use crate::constant::LAYER_SHIELD;
 use crate::content::block::Health;
 use crate::content::block::feature::power::{STARVATION_THRESHOLD, Supply};
 use crate::content::block::feature::shield::component::{
@@ -51,7 +51,7 @@ pub fn spawn_shield_barriers(
             padding: 0.0,
         });
 
-        let barrier_transform = Transform::from_translation(translation.extend(LAYER_BULLET));
+        let barrier_transform = Transform::from_translation(translation.extend(LAYER_SHIELD));
 
         let barrier = commands
             .spawn((
@@ -299,5 +299,11 @@ mod tests {
             .expect("mass props exist");
 
         assert_eq!(*mass_props, ColliderMassProperties::Mass(0.0));
+
+        let transform = app
+            .world()
+            .get::<Transform>(barrier_entity)
+            .expect("transform exists");
+        assert_eq!(transform.translation.z, LAYER_SHIELD);
     }
 }

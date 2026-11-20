@@ -16,64 +16,81 @@ struct VertexOutput {
     @location(2) uv: vec2<f32>,
 };
 
+// Computes 2D regular hexagon tiling
+// Returns vec3(offset_in_cell.x, offset_in_cell.y, edge_distance)
+fn hex_coords(uv: vec2<f32>) -> vec3<f32> {
+    let s = vec2<f32>(1.0, 1.7320508);
+    let h = s * 0.5;
+    let a = uv - s * round(uv / s);
+    let b = (uv - h) - s * round((uv - h) / s);
+
+    var g = a;
+    if dot(a, a) > dot(b, b) {
+        g = b;
+    }
+
+    let q = abs(g);
+    let edge_dist = 0.5 - max(dot(q, vec2<f32>(0.5, 0.8660254)), q.x);
+    return vec3<f32>(g.x, g.y, edge_dist);
+}
+
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let p = (mesh.uv - vec2<f32>(0.5, 0.5)) * 2.0;
     let instability = clamp(1.0 - material.hp_ratio, 0.0, 1.0);
-    let flicker = 1.0 - instability * 0.25 * abs(sin(material.time * 28.0));
+    let flicker = 1.0 - instability * 0.35 * abs(sin(material.time * 28.0));
 
     if material.shape_type < 0.5 {
-        // Circle Shield: Rotating harmonic plasma wave + electric jitter
+        // --- CIRCLE SHIELD ---
         let dist = length(p);
-        let angle = atan2(p.y, p.x);
-
-        let jitter = (0.005 + instability * 0.018) * sin(72.0 * angle + material.time * 20.0);
-        let wave = 0.035 * sin(18.0 * angle + material.time * 2.4)
-                 + 0.015 * cos(9.0 * angle - material.time * 1.6)
-                 + jitter;
-        let target_r = 0.94 + wave;
-
-        let edge_aa = fwidth(dist);
-        let outer_alpha = 1.0 - smoothstep(target_r - edge_aa, target_r + 0.04 + edge_aa, dist);
-        if outer_alpha <= 0.0 {
+        if dist > 1.0 {
             discard;
         }
 
-        // Glowing perimeter filament line
-        let filament = smoothstep(0.05, 0.0, abs(dist - target_r));
-        // Subtle tinted interior fill (~5% opacity)
-        let fill = smoothstep(target_r, 0.0, dist) * 0.05;
+        // 1. Boundary rim aligned exactly at collision radius 1.0
+        let rim_target = 0.985;
+        let rim = smoothstep(0.035, 0.0, abs(dist - rim_target));
 
+        // 2. Full Field Hex Grid wireframe (zero fill inside cells)
+        let hex = hex_coords(p * 14.0);
+        let hex_wire = smoothstep(0.06, 0.015, hex.z);
+
+        // 3. Traveling radial energy ripple across the honeycomb
+        let ripple = 0.5 + 0.5 * sin(dist * 18.0 - material.time * 3.5);
+        let hex_intensity = hex_wire * (0.35 + 0.45 * ripple);
+
+        // Combine rim + hex wireframe (no interior fog; background stays clear)
+        let combined = max(rim * 0.95, hex_intensity);
         let alpha = clamp(
-            (filament * 0.95 + fill) * outer_alpha * material.color.a * material.hp_ratio * flicker,
+            combined * material.color.a * material.hp_ratio * flicker,
             0.0,
             1.0
         );
 
-        let color_boost = 1.0 + filament * 0.75;
+        let color_boost = 1.0 + rim * 0.8;
         return vec4<f32>(material.color.rgb * color_boost, alpha);
     } else {
-        // Plane Shield: Horizontal traveling deflection wave along front edge
-        let jitter = (0.01 + instability * 0.02) * sin(p.x * 48.0 + material.time * 22.0);
-        let wave = 0.08 * sin(p.x * 12.0 + material.time * 3.5) + jitter;
-        let target_y = 0.78 + wave;
-
-        let outer_alpha = 1.0 - smoothstep(target_y - 0.02, target_y + 0.12, p.y);
-        if outer_alpha <= 0.0 || p.y < -0.95 {
+        // --- PLANE SHIELD ---
+        let target_y = 0.96;
+        if p.y > 1.0 || p.y < -0.95 || abs(p.x) > 1.0 {
             discard;
         }
 
-        let side_fade = 1.0 - smoothstep(0.85, 1.0, abs(p.x));
-        let filament = smoothstep(0.18, 0.0, abs(p.y - target_y));
-        let fill = smoothstep(target_y, -1.0, p.y) * 0.05;
+        let rim = smoothstep(0.06, 0.0, abs(p.y - target_y));
+        let hex = hex_coords(p * 12.0);
+        let hex_wire = smoothstep(0.06, 0.015, hex.z);
+        let ripple = 0.5 + 0.5 * sin(p.y * 14.0 - material.time * 4.0);
+        let hex_intensity = hex_wire * (0.3 + 0.4 * ripple);
 
+        let side_fade = 1.0 - smoothstep(0.85, 1.0, abs(p.x));
+        let combined = max(rim * 0.95, hex_intensity);
         let alpha = clamp(
-            (filament * 0.95 + fill) * outer_alpha * side_fade * material.color.a * material.hp_ratio * flicker,
+            combined * side_fade * material.color.a * material.hp_ratio * flicker,
             0.0,
             1.0
         );
 
-        let color_boost = 1.0 + filament * 0.75;
+        let color_boost = 1.0 + rim * 0.8;
         return vec4<f32>(material.color.rgb * color_boost, alpha);
     }
 }

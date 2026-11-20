@@ -107,9 +107,11 @@ except own team).
   - If power `Supply <= STARVATION_THRESHOLD` or block is `Disabled`, collider and visual are disabled.
 - **Visuals**:
   - Procedural mesh (`Circle` / `Rectangle`) rendered with custom 2D WGSL shader (`shader/shield.wgsl`, defining local `VertexOutput` and `AlphaMode2d::Blend`) tinted with team color.
-  - Circle shields render a dual-harmonic rotating plasma wave (18 lobes) with high-frequency electric edge jitter, a ~5% faint volumetric interior fill, and a brilliant glowing perimeter filament.
-  - Plane shields render a traveling deflection wave along the front barrier face with side edge falloff.
-  - Dynamic instability: electric jitter amplitude and high-frequency flicker intensify as barrier `hp / max_hp` depletes toward zero.
+  - Positioned at `LAYER_SHIELD` ($Z = 160.0$), wrapping above hull blocks ($Z = 10.0$), mounted turret barrels ($Z = 50.0$), and projectiles ($Z = 100.0$).
+  - Circle shields render a full-field regular hexagonal/honeycomb wireframe lattice (`hex_coords`), with traveling radial energy ripples propagating across the honeycomb cells and a perimeter boundary rim locked at radius 1.0 (matching the physics barrier collider boundary).
+  - Plane shields render a regular hexagonal wireframe barrier with traveling transverse energy ripples, front deflector boundary rim, and side edge falloff.
+  - Center/interior transparency: Hex cell interiors have 0% background fill, maintaining full transparency for the interior space and ship.
+  - Dynamic instability: High-frequency instability flicker and color boost scale dynamically as barrier `hp / max_hp` drops toward zero.
 
 ## Permanent cleanup
 

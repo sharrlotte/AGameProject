@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::{
     config::GameSetting,
-    constant::{GRID_SIZE, LAYER_OVERDRIVE_FIELD},
+    constant::{GRID_SIZE, LAYER_OVERDRIVE_FIELD, LAYER_TURRET_BARREL},
     content::{
         block::{
             BlockPlacement, BlockRef, Rot90,

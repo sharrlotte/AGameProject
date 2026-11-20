@@ -1,4 +1,6 @@
-## ADDED Requirements
+# render-layering Specification
+
+## Requirements
 
 ### Requirement: Standardized Visual Layer Depth Constants
 The game engine SHALL define standardized, non-overlapping float constants for visual depth in `core/src/constant.rs`. Visual entities and components SHALL be assigned depth according to this strata:

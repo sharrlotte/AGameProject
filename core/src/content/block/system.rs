@@ -188,7 +188,7 @@ mod tests {
         assert!(app.world().get::<Disabled>(block).is_some());
         let turret_state = app.world().get::<TurretState>(block).unwrap();
         assert!(!turret_state.active());
-        assert!(!turret_state.can_fire());
+        assert!(!turret_state.active());
         assert!(turret_state.target().is_none());
         assert!(app.world().get::<Radar>(block).unwrap().targets.is_empty());
         assert!(!app.world().get::<BoosterState>(block).unwrap().powered);
