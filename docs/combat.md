@@ -91,6 +91,7 @@ except own team).
   - `Plane`: `Collider::cuboid(width/2, thickness/2)` oriented barrier offset in front of the emitter.
 - **Collisions & Permeability**:
   - `Barrier` colliders are tagged with the owning team's block hitbox group (`1 << (16 + team.id)`).
+  - `Barrier` child collider carries `ColliderMassProperties::Mass(0.0)`, contributing zero mass and zero rotational inertia to the ship's compound `RigidBody::Dynamic`.
   - Ships carry `GROUP_SHIP` only and pass through shields freely without physics collision.
   - Friendly projectiles pass through allied shields without triggering collision.
   - Hostile `Bullet`, `Laser`, continuous `LaserBeam`, and `Missile` collide with the barrier.
@@ -105,7 +106,10 @@ except own team).
   - `Regenerating`: Recharges barrier `health` at `regen_rate * supply` HP/s. Reactivates to `Active` only when `health >= max_health`.
   - If power `Supply <= STARVATION_THRESHOLD` or block is `Disabled`, collider and visual are disabled.
 - **Visuals**:
-  - Procedural mesh (`Circle` / `Rectangle`) rendered with custom 2D WGSL shader (`shader/shield.wgsl`) tinted with team color, with opacity/glow driven by `hp / max_hp`.
+  - Procedural mesh (`Circle` / `Rectangle`) rendered with custom 2D WGSL shader (`shader/shield.wgsl`, defining local `VertexOutput` and `AlphaMode2d::Blend`) tinted with team color.
+  - Circle shields render a dual-harmonic rotating plasma wave (18 lobes) with high-frequency electric edge jitter, a ~5% faint volumetric interior fill, and a brilliant glowing perimeter filament.
+  - Plane shields render a traveling deflection wave along the front barrier face with side edge falloff.
+  - Dynamic instability: electric jitter amplitude and high-frequency flicker intensify as barrier `hp / max_hp` depletes toward zero.
 
 ## Permanent cleanup
 

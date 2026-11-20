@@ -32,10 +32,13 @@ use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy::window::WindowLevel::AlwaysOnBottom;
-use bevy::window::{MonitorSelection, WindowMode, WindowPlugin};
+use bevy::window::{WindowMode, WindowPlugin};
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_rapier2d::rapier::prelude::IntegrationParameters;
+
+#[cfg(not(feature = "dev"))]
+use bevy::window::MonitorSelection;
 
 #[cfg(feature = "dev")]
 use {
@@ -65,6 +68,7 @@ fn window_mode() -> WindowMode {
     {
         WindowMode::Windowed
     }
+
     #[cfg(not(feature = "dev"))]
     {
         WindowMode::BorderlessFullscreen(MonitorSelection::Primary)

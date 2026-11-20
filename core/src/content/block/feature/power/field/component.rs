@@ -1,6 +1,6 @@
 use bevy::{
     color::LinearRgba,
-    math::{Vec3, Vec4},
+    math::{Vec2, Vec4},
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
@@ -20,7 +20,8 @@ pub struct OverdriveMaterialUniform {
     pub color: Vec4,
     pub border_color: Vec4,
     pub ring_ratio: f32,
-    pub _padding: Vec3,
+    pub radius: f32,
+    pub _padding: Vec2,
 }
 
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
@@ -29,6 +30,7 @@ pub struct OverdriveMaterial {
     pub color: LinearRgba,
     pub border_color: LinearRgba,
     pub ring_ratio: f32,
+    pub radius: f32,
 }
 
 impl From<&OverdriveMaterial> for OverdriveMaterialUniform {
@@ -37,7 +39,8 @@ impl From<&OverdriveMaterial> for OverdriveMaterialUniform {
             color: material.color.to_f32_array().into(),
             border_color: material.border_color.to_f32_array().into(),
             ring_ratio: material.ring_ratio,
-            _padding: Vec3::ZERO,
+            radius: material.radius,
+            _padding: Vec2::ZERO,
         }
     }
 }

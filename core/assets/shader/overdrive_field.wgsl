@@ -2,7 +2,8 @@ struct OverdriveMaterial {
     color: vec4<f32>,
     border_color: vec4<f32>,
     ring_ratio: f32,
-    _padding: vec3<f32>,
+    radius: f32,
+    _padding: vec2<f32>,
 };
 
 @group(2) @binding(0) var<uniform> material: OverdriveMaterial;
@@ -27,12 +28,25 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    // Inner ring threshold: 1.0 - ring_ratio
+    // Inner ring threshold: 1.0 - ring_ratio. Discard inside (no fill)
     let ring_threshold = max(0.0, 1.0 - material.ring_ratio);
-    let ring_factor = smoothstep(ring_threshold - edge_aa, ring_threshold + edge_aa, dist);
+    let inner_alpha = smoothstep(ring_threshold - edge_aa, ring_threshold + edge_aa, dist);
+    if inner_alpha <= 0.0 {
+        discard;
+    }
 
-    // Blend between fill color (inside) and border color (ring)
-    let blended_color = mix(material.color, material.border_color, ring_factor);
+    // Static dashed pattern along circumference proportional to radius
+    let angle = atan2(p.y, p.x);
+    let PI = 3.14159265359;
+    let normalized_angle = (angle + PI) / (2.0 * PI);
+    // Period is ~24 pixels along circumference (12px dash, 12px gap)
+    let circumference = 2.0 * PI * max(1.0, material.radius);
+    let dash_count = max(8.0, round(circumference / 24.0));
+    let dash_pos = fract(normalized_angle * dash_count);
+    if dash_pos > 0.5 {
+        discard;
+    }
 
-    return vec4<f32>(blended_color.rgb, blended_color.a * outer_alpha);
+    let alpha = inner_alpha * outer_alpha * material.border_color.a;
+    return vec4<f32>(material.border_color.rgb, alpha);
 }

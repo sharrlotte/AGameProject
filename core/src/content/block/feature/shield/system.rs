@@ -38,11 +38,17 @@ pub fn spawn_shield_barriers(
             ),
         };
 
+        let shape_type = match shield.shape {
+            ShieldShape::Circle { .. } => 0.0,
+            ShieldShape::Plane { .. } => 1.0,
+        };
+
         let material = materials.add(ShieldMaterial {
             color: team.color(1.0).to_linear(),
             hp_ratio: 1.0,
             time: 0.0,
-            padding: Vec2::ZERO,
+            shape_type,
+            padding: 0.0,
         });
 
         let barrier_transform = Transform::from_translation(translation.extend(LAYER_BULLET));
@@ -60,6 +66,7 @@ pub fn spawn_shield_barriers(
                 *team,
                 collider,
                 Sensor,
+                ColliderMassProperties::Mass(0.0),
                 ActiveEvents::COLLISION_EVENTS,
                 CollisionGroups::new(team.block_hitbox_group(), team.block_hitbox_filter()),
                 Mesh2d(mesh),
@@ -264,5 +271,33 @@ mod tests {
             .expect("groups exist");
         assert_eq!(*vis, Visibility::Inherited);
         assert_ne!(groups.memberships, Group::NONE);
+    }
+
+    #[test]
+    fn spawn_shield_barriers_sets_zero_mass_properties() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<ShieldMaterial>>();
+        app.add_systems(Update, spawn_shield_barriers);
+
+        let shield = Shield::new(
+            ShieldShape::Circle { radius: 200.0 },
+            1000.0,
+            5.0,
+            100.0,
+            None,
+        );
+        let emitter = app.world_mut().spawn((shield, Team::new(0))).id();
+
+        app.update();
+
+        let shield = app.world().get::<Shield>(emitter).expect("shield exists");
+        let barrier_entity = shield.barrier.expect("barrier spawned");
+        let mass_props = app
+            .world()
+            .get::<ColliderMassProperties>(barrier_entity)
+            .expect("mass props exist");
+
+        assert_eq!(*mass_props, ColliderMassProperties::Mass(0.0));
     }
 }

@@ -72,8 +72,11 @@ via chained `PowerSet::{Generate, Boost, Demand, Solve}`:
 2. **Boost**: `Booster { radius, boost, rate }` takes priority power before consumers,
    ordered by ascending distance to the ship core. A booster is binary: fully powered or off.
    Powered boosters apply `Boost` (max stacking, own team within physics radius on any ship)
-   and render an active visual overdrive field (`z = 50.0`, orange fill and perimeter ring)
-   centered at the booster block; unpowered or disabled boosters hide the field.
+   and render an active visual overdrive field (`z = 50.0`, orange dashed perimeter ring with
+   circumference-proportional dash spacing, no fill) centered at the booster block; the field
+   is visible if and only if the booster is powered, not disabled, and its owning ship is
+   actively inspected (`InspectedShip`); unselected ships, unpowered boosters, or disabled boosters
+   hide the field. Previews without an owning ship render whenever powered.
 3. **Demand**: Active consumers report `Demand`:
    - Thrusters with `Consumer { rate }`: `rate × max(throttle.linear, throttle.angular) × Boost`.
    - Charge turrets (`Single`/`Burst`): `charge_rate × Boost` while `TurretCharge < capacity`, else `0`.
