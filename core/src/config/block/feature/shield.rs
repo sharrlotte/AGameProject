@@ -22,7 +22,6 @@ pub enum ShieldShapeConfig {
     },
     Plane {
         width: f32,
-        #[serde(default = "default_plane_thickness")]
         thickness: f32,
         #[serde(default)]
         offset: Vec2,
@@ -81,8 +80,4 @@ impl ShieldConfig {
             self.demand,
         )
     }
-}
-
-fn default_plane_thickness() -> f32 {
-    10.0
 }

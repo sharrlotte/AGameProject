@@ -17,7 +17,6 @@ pub const DESIGN_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ShipDesign {
-    #[serde(default = "default_version")]
     pub version: u32,
     pub id: Uuid,
     #[serde(default)]
@@ -153,10 +152,6 @@ impl ShipDesign {
 
         Ok((ship_entity, block_entities))
     }
-}
-
-fn default_version() -> u32 {
-    DESIGN_SCHEMA_VERSION
 }
 
 #[cfg(test)]

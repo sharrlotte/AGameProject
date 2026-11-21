@@ -9,26 +9,21 @@ use crate::validate::{Validate, check};
 pub const SETTINGS_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
+#[serde(default)]
 pub struct GameSettings {
-    #[serde(default = "default_version")]
     pub version: u32,
-    #[serde(default = "default_volume")]
     pub volume: f32,
-    #[serde(default = "default_bloom")]
     pub bloom: bool,
-    #[serde(default = "default_ai_level")]
     pub ai_level: u8,
-    #[serde(default)]
     pub keys: KeySettings,
 }
 
 crate::ron_document!(GameSettings, SETTINGS_SCHEMA_VERSION, "game settings");
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(default)]
 pub struct KeySettings {
-    #[serde(default = "default_rotate_ccw")]
     pub rotate_ccw: KeyCode,
-    #[serde(default = "default_rotate_cw")]
     pub rotate_cw: KeyCode,
 }
 
@@ -45,9 +40,9 @@ impl Default for GameSettings {
     fn default() -> Self {
         Self {
             version: SETTINGS_SCHEMA_VERSION,
-            volume: default_volume(),
-            bloom: default_bloom(),
-            ai_level: default_ai_level(),
+            volume: 0.5,
+            bloom: true,
+            ai_level: 10,
             keys: KeySettings::default(),
         }
     }
@@ -69,30 +64,6 @@ impl Default for SettingSaveTimer {
     fn default() -> Self {
         Self(Timer::from_seconds(0.5, TimerMode::Once))
     }
-}
-
-fn default_version() -> u32 {
-    SETTINGS_SCHEMA_VERSION
-}
-
-fn default_volume() -> f32 {
-    0.5
-}
-
-fn default_bloom() -> bool {
-    true
-}
-
-fn default_ai_level() -> u8 {
-    10
-}
-
-fn default_rotate_ccw() -> KeyCode {
-    KeyCode::KeyQ
-}
-
-fn default_rotate_cw() -> KeyCode {
-    KeyCode::KeyE
 }
 
 pub fn settings_path_in(base: &Path) -> PathBuf {

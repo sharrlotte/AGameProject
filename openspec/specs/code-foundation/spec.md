@@ -84,3 +84,10 @@ Each phase SHALL add unit or integration tests, and `cargo test` SHALL be part o
 - **WHEN** a phase is marked done
 - **THEN** its tests run green and cover the phase invariants
 
+### Requirement: Serde defaults use struct-level #[serde(default)] instead of constant-returning helper functions
+Configuration and persistence structs that provide fallback field values SHALL use struct-level `#[serde(default)]` backed by `Default` rather than per-field `#[serde(default = "default_*")]` constant-returning helper functions.
+
+#### Scenario: No constant-returning default_* serde helpers exist
+- **WHEN** `core/src/` is inspected for `#[serde(default = "` attributes
+- **THEN** zero constant-returning `default_*` helper functions exist
+

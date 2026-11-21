@@ -3,10 +3,10 @@ use bevy::reflect::TypePath;
 use serde::Deserialize;
 
 use crate::validate::{Validate, check};
-use super::fleet::{default_fleet_spacing, validate_fleet_spacing};
+use super::fleet::validate_fleet_spacing;
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct SimConfig {
     pub thrust_power_factor: f32,
     pub turn_speed_factor: f32,
@@ -30,9 +30,7 @@ pub struct SimConfig {
     pub auto_save_interval_secs: f32,
     pub debris_lifetime_min_seconds: f32,
     pub debris_lifetime_max_seconds: f32,
-    #[serde(default)]
     pub default_fleet: Vec<String>,
-    #[serde(default = "default_fleet_spacing")]
     pub fleet_spacing: f32,
 }
 
@@ -62,7 +60,7 @@ impl Default for SimConfig {
             debris_lifetime_min_seconds: 30.0,
             debris_lifetime_max_seconds: 60.0,
             default_fleet: Vec::new(),
-            fleet_spacing: default_fleet_spacing(),
+            fleet_spacing: 400.0,
         }
     }
 }

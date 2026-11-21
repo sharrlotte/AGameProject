@@ -21,10 +21,6 @@ impl Validate for DefaultFleetEntry {
     }
 }
 
-pub fn default_fleet_spacing() -> f32 {
-    400.0
-}
-
 pub fn validate_fleet_spacing(spacing: f32) -> Result<(), String> {
     check::non_negative("fleet formation spacing", spacing)
 }
