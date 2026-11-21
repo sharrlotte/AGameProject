@@ -3,15 +3,14 @@
 ## Purpose
 
 Block features live as components on the block entity, with the turret barrel as the only child-entity exception.
-
 ## Requirements
 ### Requirement: Every feature is a component on the block entity
 
-After spawning, a block entity SHALL carry all of its features as components; no system creates additional child entities on the normal spawn path.
+After spawning, gameplay logic for every block feature SHALL live on components attached to the block entity; child entities SHALL be restricted strictly to presentation and sensor overlays (`Visual`, extra `Texture` sprites, turret barrel `TurretSprite`, shield `Barrier`, overdrive `Field`, and transient hit/beam VFX).
 
-#### Scenario: Thruster block exists after spawn
+#### Scenario: Thruster block carries stat components on the block entity
 - **WHEN** a `thruster_small` block spawns from a `BlockPlacement`
-- **THEN** the entity has `BlockRef`, `BlockOwner`, `Thruster`, `Consumer`, `Demand`, `Supply`, `Boost`, and no child entities beyond the turret-barrel exception
+- **THEN** the block entity carries `BlockRef`, `BlockOwner`, `ThrustPowerBase`, `ThrustPowerComputed`, `RotateSpeedBase`, `RotateSpeedComputed`, `Consumer`, `Demand`, `Supply`, and `Boost`, with only its `Visual` child for sprite presentation
 
 ### Requirement: Turret barrel is the only child-entity exception
 
@@ -39,3 +38,4 @@ The editor SHALL spawn the same component layout (features on the block, barrel 
 #### Scenario: Editor-created block placed
 - **WHEN** a user places a block in the editor from a `BlockPlacement`
 - **THEN** the placed entity has `BlockRef` and `BlockOwner` and no child entities except a barrel for turret blocks
+

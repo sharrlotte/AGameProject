@@ -137,9 +137,6 @@ pub fn handle_load_slot(
 
         let active_slot_id = opened.slot_id().unwrap_or(slot_id);
         let active_path = opened.path().to_path_buf();
-        if active_slot_id != slot_id {
-            notice.show("World migrated to new save slot");
-        }
 
         deploy.fleet = starter_fleet(&config.0, &designs);
         catalog.replace_all(designs);

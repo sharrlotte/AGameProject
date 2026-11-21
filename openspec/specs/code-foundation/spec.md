@@ -18,11 +18,11 @@ Block, item, and type keys SHALL be `String` values; `Symbol`, `Symbols`, `src/s
 
 ### Requirement: There is one type per concept
 
-The codebase SHALL use the canonical types from the design consolidation table and SHALL NOT contain `BlockData`, `Blocks`, `Block`, `BlockState`, `ShipData`, `ShipState`, `ShipSave`, `BlockSaveData`, `TurretSaveState`, `ComputedShipStats`, `ShipCalculatedStat`, `ShipCalculatedData`, `ShipFragment`, `Storage`, `StorageBuilder`, `StorageState`, `ShipCargo`, `Ammo`, `AmmoBuilder`, `PowerConsumer`, `PowerStorage`, `SceneEntity`, `Save`, or the `BehaviorX` markers.
+The codebase SHALL use one canonical type per domain concept and SHALL NOT reintroduce removed legacy duplicate types (`BlockData`, `Blocks`, `Block`, `BlockState`, `ShipData`, `ShipState`, `ShipSave`, `BlockSaveData`, `ComputedShipStats`, `ShipCalculatedStat`, `ShipCalculatedData`, `ShipFragment`, `StorageBuilder`, `StorageState`, `ShipCargo`, `PowerConsumer`, `PowerStorage`, `SceneEntity`, `Save`, or `BehaviorX` markers).
 
 #### Scenario: Consolidation check
-- **WHEN** the type-consolidation test greps the source
-- **THEN** only canonical types remain
+- **WHEN** the codebase is inspected for legacy duplicate types
+- **THEN** none of the removed legacy duplicate type names exist
 
 ### Requirement: Config and runtime splits only exist where fields differ materially
 
@@ -42,15 +42,11 @@ The system SHALL provide `RonDocument`, `read_document`, `write_document`, and `
 
 ### Requirement: Snapshot capture and restore are trait-driven
 
-`CaptureSnapshot` and `RestoreSnapshot` SHALL be implemented for `WorldSave`, `BodySnapshot`, `ShipSnapshot`, `DebrisSnapshot`, `BlockSnapshot`, and `ItemDrop`, and `save_world` and `load_world` SHALL only orchestrate them. `BodySnapshot` SHALL cover both ships and debris without a second parallel capture loop.
-
-#### Scenario: New snapshot field
-- **WHEN** a new snapshot field is added
-- **THEN** its capture and restore live in the corresponding impl rather than a copy-pasted loop
+World persistence SHALL use direct hierarchical snapshot capture (`BodySnapshot::capture`, `ShipSnapshot::capture`, `DebrisSnapshot::capture`, `BlockSnapshot::capture`) and two-pass restoration (`apply_bodies` resolving cross-ship `Uuid` references via `ship_map`), without dummy-parameter `CaptureSnapshot` / `RestoreSnapshot` traits. `BodySnapshot` SHALL cover both ships and debris in one unified body list.
 
 #### Scenario: Body kinds share one snapshot
 - **WHEN** a ship or a debris body is captured
-- **THEN** both produce a `BodySnapshot` variant and `save_world` iterates one body list
+- **THEN** both produce a `BodySnapshot` variant in one unified `Vec<BodySnapshot>`
 
 ### Requirement: Feature mapping is macro-generated
 

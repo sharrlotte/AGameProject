@@ -61,11 +61,11 @@ The quest system SHALL represent quest identity as `QuestId::{Authored(String), 
 
 ### Requirement: Procedural generation is bounded and chunk-scoped
 
-The generation system SHALL consume `SectorDiscovered` messages defined in `core/src/world/event.rs`. For each discovery it SHALL derive a chunk-based `QuestId`, skip generation when that ID already exists in the catalog or tracker, and skip generation when the number of active generated quests has reached `max_active_generated` from `generation.ron`. `GameRng` SHALL seed objective values only. With no `SectorDiscovered` emitter present, the system SHALL generate nothing.
+The generation system SHALL consume `SectorDiscovered` messages defined in `core/src/world/event.rs`. For each discovery it SHALL derive a chunk-based `QuestId`, skip generation when that ID already exists in the catalog or tracker, and skip generation when the number of active generated quests has reached `max_active_generated` from `generation.ron`. Generated quests SHALL enter `QuestStatus::Active` when `acceptance` is `Auto` and `QuestStatus::Offered` when `acceptance` is `Manual`. With no `SectorDiscovered` emitter present, the system SHALL generate nothing.
 
-#### Scenario: Discovery creates an offered quest
+#### Scenario: Discovery creates a manual offered or auto active quest
 - **WHEN** `SectorDiscovered` is received for a chunk with no existing quest
-- **THEN** one generated quest is added to the catalog with `QuestStatus::Offered`
+- **THEN** one generated quest is created with `QuestStatus::Offered` if `Manual` or `QuestStatus::Active` if `Auto`
 
 #### Scenario: Duplicate discovery is ignored
 - **WHEN** `SectorDiscovered` is received again for a chunk that already has a generated quest
@@ -129,7 +129,7 @@ While in `SceneState::Game`, a compact HUD panel SHALL display active quests and
 
 ### Requirement: QuickBattle remains a functional unsaved skirmish
 
-`QuickBattle` SHALL spawn a player fleet and test enemies in memory without campaign persistence. Quest activation and objective progression SHALL NOT run while `WorldSession` is `QuickBattle`. Player respawn SHALL still function in `QuickBattle`.
+`QuickBattle` SHALL spawn a player fleet and test enemies in memory without campaign persistence. Quest activation and objective progression SHALL NOT run while `WorldContext` is `QuickBattle`. Player respawn SHALL still function in `QuickBattle`.
 
 #### Scenario: Skirmish kills do not alter saved quest progress
 - **WHEN** an enemy is destroyed during `QuickBattle`

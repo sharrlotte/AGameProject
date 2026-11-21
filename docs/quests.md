@@ -54,7 +54,7 @@ an `offer`.
   by `collect_drop` with the actual collected amount. Progress never regresses when cargo is spent
   or a ship is destroyed.
 
-All objectives advance only in save slots (`WorldContext::SaveSlot`). Completing every objective
+All objectives advance only when `WorldContext::is_save_slot()` is true. Completing every objective
 transitions the quest to `Completed` and emits `QuestCompleted`.
 
 ## Procedural Generation

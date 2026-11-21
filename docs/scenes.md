@@ -2,14 +2,15 @@
 
 ## Home
 
-Entry scene (`SceneState::Home`). UI column: **Play**, **Quick Battle**, **Ship Editor**,
+Entry scene (`SceneState::Home`). UI column: **Play**, **Quick Battle**, **Worlds**, **Ship Editor**,
 **Settings**, **Exit**.
-- **Play** opens the Save Slot Picker (`SlotPickerState::Open`); see ui.md. `New World` emits
+- **Play** emits `ContinueWorldEvent` to continue the active or most recent save slot (creating a new slot when none exist).
+- **Worlds** pushes `Modal::SlotPicker` (see ui.md). `New World` emits
   `CreateSlotEvent`, `Load` emits `LoadSlotEvent`, and `Delete` removes the slot's `.db` files
   after confirmation.
 - **Quick Battle** emits `StartQuickBattleEvent` and enters `SceneState::Game` on the
   `InMemoryWorldStore` sandbox without reading or writing save slots.
-- **Ship Editor** sets `EditorReturnTarget::Home`. **Settings** opens `SettingState::Open`.
+- **Ship Editor** sets `EditorReturnTarget::Home`. **Settings** pushes `Modal::Settings`.
   **Exit** writes `AppExit::Success`.
 No game entities exist here.
 
@@ -17,10 +18,10 @@ No game entities exist here.
 
 `SceneState::Game`. Content:
 
-- HUD root (`DespawnOnExit(SceneState::Game)`): top bar (debug-only FPS + camera coords), middle row
+- HUD root (`DespawnOnExit(SceneState::Game)`): top bar (debug-only FPS + camera coords and `CargoHudText`), middle row
   (ship list — left scroll panel rebuilt every 200 ms, re-showing *player* ships with
   per-block health color: green > 0.75, yellow > 0.5, red ≤ 0.5), bottom bar (selection
-  echo panel, `SelectablePanel`).
+  echo panel, `SelectablePanel`), and `MinimapPlugin` radar.
 - Background parallax starfields: far/mid/near colored sprites wrapped around the camera,
   tagged `DespawnOnExit(SceneState::Game)` (despawn on scene exit).
 - Quest system (see quests.md): authored tutorial quests auto-activate from prerequisites;
@@ -31,8 +32,8 @@ No game entities exist here.
   list for the unsaved QuickBattle sandbox (Blackbird, Raider, Interceptor, Aegis, Vanguard); a
   snapshot load takes over Game entry instead.
 - Ship mutations rebuild ship stats and bounds from `BlockGrid` and the compound collider
-  from the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
-  (`ShipChanged`, `OnMessage`) recomputes `ShipStats`. Detached components become
+  from the baked hitboxes of live blocks, then emit `ShipChanged`; `rebuild_cargo_capacity`
+  (`on_message::<ShipChanged>`) recomputes cargo capacity while `update_stats` sums thrust/rotate in `FixedPreUpdate`. Detached components become
   `Debris` bodies with their own grid, collider, lifetime, and drops.
 - Bottom-right `ShipInspectorRoot` (`scene/game/inspector/`): hidden when `InspectedShip` is `None`; displays the ship's block sprite diagram (rebuilt on `InspectedShip` change or `ShipChanged`, tinted in-place by block `Health`) and near-real-time stats (`ShipStats`, `Readiness`, `Brain`, `Doctrine`, `Capability`, plus `Skill`/`Steering`/block `Ammo` in `dev`).
 
@@ -48,8 +49,7 @@ block palette (scrollable, one button per registered block type, with block icon
 name), ship-list (saved schematics, click to load), or AI **Doctrine** selector buttons (`Auto`,
 `Brawler`, `Skirmisher`, `Sniper`, `Support`, `Escort`); center grid area; right panel
 (250 px) — selected block properties (Name/Cost/Mass/HP), instructions, **Deploy** button
-(stores the assembled ship as `DeployPayload.current_ship` — consumed by the next mission
-spawn as the player's ship), **Start Game**.
+(upserts the assembled ship into `DeployPayload.fleet` — also shown in the Deployed Fleet panel), **Start Game** (emits `ContinueWorldEvent`).
 
 Mechanics:
 
@@ -71,10 +71,10 @@ Mechanics:
   `DesignSaveRequested`, persisted to the active slot's `designs` table (`ActiveWorldDb`) or
   to `<data_dir>/sandbox_designs/` (`HomeSandbox`), and emits `ShipSavesChanged` to refresh
   the ship list UI.
-- Blocks listed in the editor are `Block` entities spawned without physics; they are
-  tagged `DespawnOnExit(SceneState::ShipEditor)`.
-- Editor does not place `Ammo`/`Storage`/power/`Thruster` feature children — only
-  `Texture` and `Turret` sprite layers are reproduced; everything else is dropped.
+- Blocks placed in the editor are `BlockRef` entities spawned without physics under `ShipBase`
+  (`DespawnOnExit(SceneState::ShipEditor)`).
+- Editor reproduces `Texture`, `Turret` sprite layers, and `Booster` overdrive fields; other
+  gameplay features are not instantiated in the editor.
 
 Ship list: `refresh_ship_list` reads the in-memory `ShipCatalog` (hydrated from the slot or
 sandbox on session change) and rebuilds the UI on `ShipSavesChanged` (and `OnEnter(ShipEditor)`).
@@ -84,18 +84,17 @@ cursor; `remove_block_at` removes all voxels of that block.
 
 ## Pause
 
-`SceneState::Game` or `ShipEditor`, toggled by `Escape`, mapped to
-`PauseState::{Playing, Paused}` (`OnEnter(Paused)` pauses `Time<Virtual>`, `OnExit`
-unpauses). Menu: **Resume**, **Settings**, **Ship Editor** (only in a `WorldSession::SaveSlot`
-session, setting `EditorReturnTarget::Game`), **Back to Home**.
-In `SceneState::Game` with `WorldSession::SaveSlot`, **Back to Home** triggers `SaveWorldEvent`
+`SceneState::Game` or `ShipEditor`, toggled by `Escape` via `ModalStack` (`Modal::Pause`, which pauses
+`Time<Virtual>` while on top). Menu: **Resume**, **Settings**, **Ship Editor** (only when `WorldContext::is_save_slot()`
+is true, emitting `SaveWorldEvent` and setting `EditorReturnTarget::Game`), **Back to Home**.
+In `SceneState::Game` with `WorldContext::is_save_slot()`, **Back to Home** triggers `SaveWorldEvent`
 (save + WAL checkpoint) and defers the scene transition via `PendingExitAction::Home`.
 Application exit is available only from **Home**.
 
 ## Settings
 
-Global settings UI (`SettingState::Open`), available from Home and Pause; modal absolute
-panel (opacity 0.8). Controls:
+Global settings UI (`Modal::Settings`), available from Home and Pause; modal absolute
+panel (opacity 0.99). Controls:
 
 - Volume — ±10 % linear (`GlobalVolume`); persisted to `config/setting.ron` by
   `save_setting_on_change` (0.5 s debounce after the change settles).

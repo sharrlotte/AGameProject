@@ -16,9 +16,9 @@ core/src/save/
 │   └── system.rs
 └── world/          WorldSavePlugin: single-file SQLite save slots
     ├── mod.rs      plugin wiring, re-exports
-    ├── component.rs  WorldSession, SlotSummary, WorldMeta, ActiveStateSnapshot, WorldStoreError, events
+    ├── component.rs  WorldContext, SlotSummary, WorldMeta, ActiveStateSnapshot, QuestStoreRow, WorldStoreError, events
     ├── store.rs    WorldStore trait, postcard + lz4 codec, InMemoryWorldStore, now_unix_ms
-    ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files, sequential migration ladder
+    ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files
     ├── snapshot/   modular capture and apply subfolder (<150 lines/file)
     │   ├── mod.rs        BodySnapshot enum, module re-exports
     │   ├── block.rs      BlockSnapshot, TurretSaveState, PatternSave + Validate
@@ -40,7 +40,7 @@ core/src/save/
 <data_dir>/saves/<slot_id>.db-wal      SQLite WAL sidecar (checkpointed on flush / drop / delete)
 <data_dir>/saves/<slot_id>.db-shm      SQLite shared-memory sidecar
 <data_dir>/sandbox_designs/*.ron       Home sandbox catalog (Ship Editor + QuickBattle)
-<data_dir>/settings.ron / assets/config/setting.ron  global user preferences (still RON)
+assets/config/setting.ron             global user preferences (RON)
 ```
 
 Legacy `saves/battle.ron`, `saves/campaign.ron`, `fleet.ron`, `saves/slot_*.ron`, `designs/*.ron`,
@@ -115,7 +115,7 @@ Binary payloads use `postcard` followed by `lz4_flex::block::compress_prepend_si
 `decompress_size_prepended` then `postcard::from_bytes`. Corrupt blobs return
 `WorldStoreError::Decode` (fail loud, never fabricate state).
 
-`save_world` writes `world_meta`, `active_state`, and any dirty designs inside a single
+`save_world` writes `world_meta`, `active_state`, and `quests` inside a single
 `BEGIN IMMEDIATE … COMMIT` transaction. A rollback leaves the previously committed state intact.
 `flush()` runs `PRAGMA wal_checkpoint(TRUNCATE)`; `Drop` also checkpoints with a warning on failure.
 `delete_slot_files` removes `.db`, `.db-wal`, and `.db-shm`.
@@ -130,37 +130,40 @@ Binary payloads use `postcard` followed by `lz4_flex::block::compress_prepend_si
 pub trait WorldStore: Send + Sync {
     fn load_meta(&self) -> Result<WorldMeta, WorldStoreError>;
     fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError>;
-    fn save_world(&mut self, meta: &WorldMeta, active: &ActiveStateSnapshot) -> Result<(), WorldStoreError>;
+    fn list_slots(&self) -> Result<Vec<SlotSummary>, WorldStoreError>;
+    fn save_world(&self, meta: &WorldMeta, active: &ActiveStateSnapshot, quests: &[QuestStoreRow]) -> Result<(), WorldStoreError>;
+    fn load_quests(&self) -> Result<Vec<QuestStoreRow>, WorldStoreError>;
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
-    fn save_design(&mut self, design: &ShipDesign) -> Result<(), WorldStoreError>;
-    fn delete_design(&mut self, id: Uuid) -> Result<(), WorldStoreError>;
+    fn save_design(&self, design: &ShipDesign) -> Result<(), WorldStoreError>;
+    fn delete_design(&self, id: Uuid) -> Result<(), WorldStoreError>;
     fn load_chunk(&self, coord: ChunkCoord) -> Result<Option<ChunkData>, WorldStoreError>;
     fn save_chunk(&self, coord: ChunkCoord, data: &ChunkData) -> Result<(), WorldStoreError>;
     fn remove_chunk(&self, coord: ChunkCoord) -> Result<(), WorldStoreError>;
-    fn flush(&mut self) -> Result<(), WorldStoreError>;
+    fn flush(&self) -> Result<(), WorldStoreError>;
 }
 ```
 
 - `SqliteWorldStore` — production single-file save slot. `Connection` is wrapped in `Mutex` so the
-  store is `Send + Sync` and can live in the `ActiveWorldStore` ECS resource.
-- `InMemoryWorldStore` — `QuickBattle` and unit tests. Zero disk I/O; `WorldSession::QuickBattle`
+  store is `Send + Sync` and can live inside `WorldContext`.
+- `InMemoryWorldStore` — `QuickBattle` and unit tests. Zero disk I/O; `WorldContext::QuickBattle`
   never creates, reads, overwrites, or deletes any `<data_dir>/saves/*.db` file.
 
 ## Session Lifecycle
 
-`WorldSession` is `SaveSlot { slot_id, path }` or `QuickBattle`. `ActiveWorldStore` holds the live
-store as `Option<Box<dyn WorldStore>>`.
+`WorldContext` is the single resource representing the active world, with variants
+`QuickBattle { store }`, `SaveSlot { slot_id, path, store }`, and `Restoring { slot_id, path, store }`.
+`Restoring` converts to `SaveSlot` after a successful snapshot restore (or back to `SaveSlot` on failure).
 
 - **New World**: creates `<slot_id>.db`, seeds starter designs into its `designs` table, sets
   `DesignCatalogSource::ActiveWorldDb`, hydrates `ShipCatalog` and `DeployPayload` from the slot,
-  enters `SceneState::Game` with a fresh mission.
-- **Load**: opens the selected `.db`, hydrates catalog/fleet from the slot, sets `PendingLoad`,
+  enters `SceneState::Game`.
+- **Load**: opens the selected `.db`, hydrates catalog/fleet from the slot, sets `WorldContext::Restoring`,
   transitions `Loading → Game`, and `spawn_loaded_world` applies the snapshot.
-- **Auto-save**: `SaveWorldEvent` on `auto_save_interval_secs` while `BattlePhase::Active` and
-  `PauseState::Playing`; also on Pause `Back to Home` before the scene transition. Save is followed
-  by `flush()` so WAL sidecars are checkpointed.
-- **QuickBattle**: `StartQuickBattleEvent` installs `InMemoryWorldStore` and `HomeSandbox` catalog;
-  no save-slot disk access.
+- **Auto-save**: `SaveWorldEvent` on `auto_save_interval_secs` while in `SceneState::Game` and
+  `ModalStack::top() != Some(Modal::Pause)`; also on Pause `Back to Home` / `Ship Editor` before leaving `Game`.
+  Save is followed by `flush()` so WAL sidecars are checkpointed.
+- **QuickBattle**: `StartQuickBattleEvent` installs `WorldContext::QuickBattle` (`InMemoryWorldStore`)
+  and `HomeSandbox` catalog; no save-slot disk access.
 - **Ship Editor return**: `EditorReturnTarget::{Home, Game}`; Pause → Ship Editor sets `Game` so the
   active slot resumes instead of returning Home.
 
