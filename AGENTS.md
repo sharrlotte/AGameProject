@@ -60,8 +60,9 @@
 
 ## Testing
 
-- Run cargo dev after every intergration to make sure no error, run it in the background while you continue to work on the next task, this
-  command will run the game fovever and will not exit so you have to terminate it yourself
+- After every integration, run `cargo dc` and `cargo dct` to type-check the crate and its tests; both skip codegen and linking.
+- Run `cargo t` for real test execution; all dev aliases share the `dev` feature so artifacts stay in one cache.
+- Run `cargo dev` only when visual or gameplay verification is required; it runs forever and must be terminated manually.
 
 # Files
 

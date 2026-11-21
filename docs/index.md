@@ -8,6 +8,7 @@ status journals do not belong here.
 ## Index
 
 - [architecture.md](architecture.md) — workspace layout, plugin graph, schedule model, state model
+- [build.md](build.md) — dev build profile, dynamic linking, check-first verification workflow
 - [mission.md](mission.md) — battle-core scaffolding: Quick Battle, mission .ron, win/lose flow
 - [simulation.md](simulation.md) — ships, blocks, grid, colliders, physics, drops
 - [combat.md](combat.md) — turrets, targeting, shooting patterns, projectiles, damage

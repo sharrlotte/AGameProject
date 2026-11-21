@@ -7,4 +7,6 @@ linker = "rust-lld.exe"
 dev = "run --features dev"
 db = "build --features dev"
 dc = "check --features dev"
+dct = "check --tests --features dev"
+t = "test --features dev"
 
