@@ -12,6 +12,7 @@ use crate::save::world::component::{
     ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError, WORLD_DB_SCHEMA_VERSION,
 };
 use crate::save::world::store::{WorldStore, decode, encode, now_unix_ms};
+use crate::world::chunk::{ChunkCoord, ChunkData};
 
 pub struct SqliteWorldStore {
     path: PathBuf,
@@ -278,6 +279,49 @@ impl WorldStore for SqliteWorldStore {
         Ok(())
     }
 
+    fn load_chunk(&self, coord: ChunkCoord) -> Result<Option<ChunkData>, WorldStoreError> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM chunks WHERE x = ?1 AND y = ?2")
+            .map_err(sql_err)?;
+        let mut rows = stmt
+            .query_map(params![coord.x(), coord.y()], |row| row.get::<_, Vec<u8>>(0))
+            .map_err(sql_err)?;
+
+        if let Some(row) = rows.next() {
+            let blob = row.map_err(sql_err)?;
+            let data: ChunkData = decode(&blob)?;
+            Ok(Some(data))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn save_chunk(&self, coord: ChunkCoord, data: &ChunkData) -> Result<(), WorldStoreError> {
+        if data.is_empty() {
+            return self.remove_chunk(coord);
+        }
+        let blob = encode(data)?;
+        let conn = self.lock()?;
+        conn.execute(
+            "INSERT INTO chunks (x, y, visited, enemy_count, data) VALUES (?1, ?2, 1, ?3, ?4)
+             ON CONFLICT(x, y) DO UPDATE SET visited = 1, enemy_count = excluded.enemy_count, data = excluded.data",
+            params![coord.x(), coord.y(), data.enemy_count() as i64, blob],
+        )
+        .map_err(sql_err)?;
+        Ok(())
+    }
+
+    fn remove_chunk(&self, coord: ChunkCoord) -> Result<(), WorldStoreError> {
+        let conn = self.lock()?;
+        conn.execute(
+            "DELETE FROM chunks WHERE x = ?1 AND y = ?2",
+            params![coord.x(), coord.y()],
+        )
+        .map_err(sql_err)?;
+        Ok(())
+    }
+
     fn flush(&self) -> Result<(), WorldStoreError> {
         self.lock()?
             .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
@@ -440,6 +484,7 @@ mod tests {
     use super::*;
     use crate::content::ship::ai::Doctrine;
     use crate::save::design::starter_designs;
+    use crate::save::world::snapshot::{DebrisSnapshot, TransformSave, VelocitySave};
     use std::fs;
 
     fn temp_dir(label: &str) -> PathBuf {
@@ -663,6 +708,50 @@ mod tests {
             Err(WorldStoreError::NotFound(_))
         ));
         assert!(!path.exists(), "open must never create a missing slot");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sqlite_chunk_persistence_reopen_and_empty_cleanup() {
+        let dir = temp_dir("chunks");
+        let path = dir.join(format!("{}.db", Uuid::now_v7()));
+        let store = SqliteWorldStore::create(&path, &meta(), &[]).expect("create slot");
+
+        let coord = ChunkCoord::new(100, -50);
+        assert_eq!(store.load_chunk(coord).expect("unvisited chunk"), None);
+
+        let non_empty = ChunkData {
+            enemies: Vec::new(),
+            debris: vec![DebrisSnapshot {
+                transform: TransformSave {
+                    x: 500.0,
+                    y: -250.0,
+                    rotation: 1.2,
+                },
+                velocity: VelocitySave {
+                    x: 1.0,
+                    y: 2.0,
+                    angvel: 0.1,
+                },
+                team: 3,
+                remaining_secs: 22.5,
+                blocks: Vec::new(),
+            }],
+        };
+
+        store.save_chunk(coord, &non_empty).expect("save chunk");
+        drop(store);
+
+        let reopened = SqliteWorldStore::open(&path).expect("reopen slot");
+        let loaded = reopened.load_chunk(coord).expect("load chunk").expect("chunk present");
+        assert_eq!(loaded.debris.len(), 1);
+        assert_eq!(loaded.debris[0].remaining_secs, 22.5);
+        assert_eq!(reopened.load_chunk(ChunkCoord::new(1, 1)).expect("load unvisited"), None);
+
+        let empty = ChunkData::default();
+        reopened.save_chunk(coord, &empty).expect("save empty chunk");
+        assert_eq!(reopened.load_chunk(coord).expect("load empty chunk"), None);
+
         let _ = fs::remove_dir_all(dir);
     }
 }

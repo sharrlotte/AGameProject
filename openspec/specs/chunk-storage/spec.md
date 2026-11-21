@@ -1,7 +1,10 @@
-## ADDED Requirements
+# chunk-storage Specification
 
+## Purpose
+Defines persistence requirements for world storage chunks within the single-file SQLite save slot database and in-memory store.
+## Requirements
 ### Requirement: Chunk persistence is integrated into WorldStore's chunks table
-`WorldStore` SHALL expose `load_chunk(coord)`, `save_chunk(coord, data)`, and `remove_chunk(coord)` implemented by both `SqliteWorldStore` (backed by the `chunks` table inside `<data_dir>/saves/<slot_id>.db`) and `InMemoryWorldStore` (for `QuickBattle` and unit tests). Chunk payloads SHALL be encoded with `postcard` + `lz4_flex`, and unvisited chunks SHALL NOT create database rows.
+`WorldStore` SHALL expose `load_chunk(coord)`, `save_chunk(coord, data)`, and `remove_chunk(coord)` (all taking `&self`, with interior mutability) implemented by both `SqliteWorldStore` (backed by the `chunks` table inside `<data_dir>/saves/<slot_id>.db`) and `InMemoryWorldStore` (for `QuickBattle` and unit tests). Chunk payloads SHALL be encoded with `postcard` + `lz4_flex`, and unvisited chunks SHALL NOT create database rows.
 
 #### Scenario: Single-file random-access chunk load and save inside the save slot database
 - **WHEN** chunks at `(0, 0)` and `(100, -50)` are saved via `SqliteWorldStore` and the save slot `.db` is reopened
@@ -14,3 +17,4 @@
 #### Scenario: InMemoryWorldStore round-trips chunks with zero disk I/O
 - **WHEN** unit tests or `QuickBattle` save and load chunks via `InMemoryWorldStore`
 - **THEN** chunk data round-trips accurately without touching disk
+

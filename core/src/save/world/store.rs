@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Serialize;
@@ -6,6 +7,7 @@ use uuid::Uuid;
 
 use crate::content::ship::ShipDesign;
 use crate::save::world::component::{ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError};
+use crate::world::chunk::{ChunkCoord, ChunkData};
 
 pub trait WorldStore: Send + Sync {
     fn load_meta(&self) -> Result<WorldMeta, WorldStoreError>;
@@ -15,6 +17,9 @@ pub trait WorldStore: Send + Sync {
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
     fn save_design(&self, design: &ShipDesign) -> Result<(), WorldStoreError>;
     fn delete_design(&self, id: Uuid) -> Result<(), WorldStoreError>;
+    fn load_chunk(&self, coord: ChunkCoord) -> Result<Option<ChunkData>, WorldStoreError>;
+    fn save_chunk(&self, coord: ChunkCoord, data: &ChunkData) -> Result<(), WorldStoreError>;
+    fn remove_chunk(&self, coord: ChunkCoord) -> Result<(), WorldStoreError>;
     fn flush(&self) -> Result<(), WorldStoreError>;
 }
 
@@ -23,6 +28,7 @@ pub struct InMemoryWorldStore {
     meta: Mutex<Option<WorldMeta>>,
     active: Mutex<ActiveStateSnapshot>,
     designs: Mutex<Vec<ShipDesign>>,
+    chunks: Mutex<HashMap<ChunkCoord, ChunkData>>,
 }
 
 impl Default for InMemoryWorldStore {
@@ -32,6 +38,7 @@ impl Default for InMemoryWorldStore {
             meta: Mutex::new(None),
             active: Mutex::new(ActiveStateSnapshot::default()),
             designs: Mutex::new(Vec::new()),
+            chunks: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -88,6 +95,26 @@ impl WorldStore for InMemoryWorldStore {
         Ok(())
     }
 
+    fn load_chunk(&self, coord: ChunkCoord) -> Result<Option<ChunkData>, WorldStoreError> {
+        Ok(self.chunks.lock().map_err(lock_err)?.get(&coord).cloned())
+    }
+
+    fn save_chunk(&self, coord: ChunkCoord, data: &ChunkData) -> Result<(), WorldStoreError> {
+        if data.is_empty() {
+            return self.remove_chunk(coord);
+        }
+        self.chunks
+            .lock()
+            .map_err(lock_err)?
+            .insert(coord, data.clone());
+        Ok(())
+    }
+
+    fn remove_chunk(&self, coord: ChunkCoord) -> Result<(), WorldStoreError> {
+        self.chunks.lock().map_err(lock_err)?.remove(&coord);
+        Ok(())
+    }
+
     fn flush(&self) -> Result<(), WorldStoreError> {
         Ok(())
     }
@@ -121,6 +148,7 @@ mod tests {
     use crate::content::ship::ai::Doctrine;
     use crate::save::design::starter_designs;
     use crate::save::world::component::WorldContext;
+    use crate::save::world::snapshot::{DebrisSnapshot, TransformSave, VelocitySave};
 
     fn sample_meta() -> WorldMeta {
         WorldMeta {
@@ -208,5 +236,46 @@ mod tests {
             "QuickBattle store performs no disk I/O"
         );
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn in_memory_chunk_persistence_round_trip_and_cleanup() {
+        let store = InMemoryWorldStore::default();
+        let coord = ChunkCoord::new(3, -5);
+
+        assert_eq!(store.load_chunk(coord).expect("load unvisited"), None);
+
+        let data = ChunkData {
+            enemies: Vec::new(),
+            debris: Vec::new(),
+        };
+        store.save_chunk(coord, &data).expect("save empty chunk");
+        assert_eq!(store.load_chunk(coord).expect("load empty chunk"), None);
+
+        let non_empty = ChunkData {
+            enemies: Vec::new(),
+            debris: vec![DebrisSnapshot {
+                transform: TransformSave {
+                    x: 100.0,
+                    y: 200.0,
+                    rotation: 0.5,
+                },
+                velocity: VelocitySave {
+                    x: 0.0,
+                    y: 0.0,
+                    angvel: 0.0,
+                },
+                team: 2,
+                remaining_secs: 15.0,
+                blocks: Vec::new(),
+            }],
+        };
+        store.save_chunk(coord, &non_empty).expect("save non-empty chunk");
+        let loaded = store.load_chunk(coord).expect("load chunk").expect("chunk present");
+        assert_eq!(loaded.debris.len(), 1);
+        assert_eq!(loaded.debris[0].remaining_secs, 15.0);
+
+        store.remove_chunk(coord).expect("remove chunk");
+        assert_eq!(store.load_chunk(coord).expect("load removed"), None);
     }
 }

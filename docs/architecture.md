@@ -27,6 +27,10 @@ AGameProject/                Cargo workspace (resolver = "3")
       save/                  persistence (`design/`, `world/`, `document.rs`)
         design/              ShipDesign definition, ShipCatalog, sandbox designs
         world/               SQLite save slots: component/store/sqlite/system, snapshot/ (block, ship, debris, world, sanitize, capture, apply)
+      world/                 world spatial simulation (chunk partitioning, distance streaming)
+        chunk/               spatial chunk persistence & streaming (mod.rs, component.rs, system.rs)
+                             tuning consts live in constant.rs (CHUNK_SIZE, LOAD_RADIUS,
+                             DESPAWN_RADIUS, STREAM_INTERVAL_SECS); no config.rs
 ```
 
 `release` profile: `lto = "thin"`, `codegen-units = 1`, `opt-level = "s"`, stripped.
@@ -70,6 +74,9 @@ catalog remain versioned RON owned by `save/document.rs`.
 | `ControlMode` | `Pilot` (WASD flies the controlled ship, camera follows) or `FreeLook` (WASD pans, thrust paused); `F` toggles, middle-mouse drags the camera in either mode |
 | `PendingLoad` | `active: bool` — set by slot load, consumed by `spawn_loaded_world` on `SceneState::Game` entry |
 | `GameConfigValue` | `GameConfig` from `game.ron` (damping, thrust, AI tuning, drops, `auto_save_interval_secs`) |
+| `StreamingTimer` | `Timer` controlling periodic chunk streaming intervals |
+
+Chunk tuning (`CHUNK_SIZE`, `LOAD_RADIUS`, `DESPAWN_RADIUS`, `STREAM_INTERVAL_SECS`) is defined as compile-time constants in `core/src/constant.rs`; there is no `ChunkConfigValue` resource or `chunk.ron` asset.
 | `WorldSession` | `SaveSlot { slot_id, path }` or `QuickBattle` |
 | `ActiveWorldStore` | `Option<Box<dyn WorldStore>>` — live `SqliteWorldStore` or `InMemoryWorldStore` |
 | `DesignCatalogSource` | `ActiveWorldDb` (slot) or `HomeSandbox` (Home/QuickBattle) |
@@ -88,7 +95,7 @@ The simulation-set ordering contract is stated here; set ordering is configured 
 | `FixedUpdate` | `Ai` | AI think/steering |
 | `FixedUpdate` | `Control` | player forces, camera follow target, drop collection |
 | `FixedUpdate` | `Weapons` | turret targeting/tracking, shooting, projectiles, radar, ammo |
-| `FixedUpdate` | `Cleanup` | lifetime countdown |
+| `FixedUpdate` | `Cleanup` | lifetime countdown (`update_lifetime`), then chunk streaming (`stream_chunks` on `StreamingTimer`) |
 | `FixedPostUpdate` | `Damage` | collisions → damage events → health, laser hit resolution |
 | `FixedPostUpdate` | `Death` | block destruction → `BodyMutation` → debris/drops |
 | `PostUpdate` | `Present` | camera, HUD, indicators, parallax |
@@ -108,7 +115,7 @@ persistence across frames is never assumed.
 | `PreUpdate` | input handling; Bevy state transitions |
 | `FixedFirst` (`Stats`) | `PowerSet::{Generate, Boost, Demand, Solve}` chained: generation, booster priority & apply, active demand, proportional split & battery |
 | `FixedPreUpdate` (`Stats`) | Thruster stat systems (`StatsUpdateSet`), then `ship::update_stats` (after `StatsUpdateSet`) |
-| `FixedUpdate` (`Ai` → `Control` → `Weapons` → `Cleanup`) | AI chain, player control/camera, turrets/bullets/ammo, lifetime countdown |
+| `FixedUpdate` (`Ai` → `Control` → `Weapons` → `Cleanup`) | AI chain, player control/camera, turrets/bullets/ammo, lifetime countdown, then `stream_chunks` (`.after(update_lifetime)`) |
 | `FixedPostUpdate` (`Damage` → `Death`) | Damage events and laser hits; block destruction, mutations, drops |
 | `FixedLast` (`Cleanup`) | `death::despawn_dead` |
 | `PostUpdate` (`Present`) | `update_ship_behavior`, indicators, parallax, UI presentation |

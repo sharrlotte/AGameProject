@@ -15,6 +15,10 @@
 - Save format stays RON (`save/document.rs`).
 - Structural/layout constants stay in code: `GRID_SIZE`, `SMALL_GRID_SIZE`, `LAYER_*`,
   `AUDIO_SCALE`, `FLASH_OVERLAY_COLOR`, `VIEW_HEIGHT`.
+- Chunk streaming tuning stays in code as compile-time constants in `core/src/constant.rs`:
+  `CHUNK_SIZE`, `LOAD_RADIUS`, `DESPAWN_RADIUS`, `STREAM_INTERVAL_SECS`. There is no
+  `chunk.ron` config, `ChunkConfig` asset/resource, hot-reload bridge, or runtime validation;
+  invariants are guarded by unit tests only.
 - Camera feel (zoom speed, smooth speed, boost, pan speed) and beam/laser feel (laser
   intensity `*10.0`, bulge `0.5` ease floor, clamp `0.4..1.0`) stay in code.
 - Items (`ItemDef`) out of scope; can follow the same pattern later.
@@ -45,6 +49,8 @@
 | `config/base/ai.ron` | `AiConfig` asset | error screen | keep last good + error log |
 | `config/base/minimap.ron` | `MinimapConfig` asset | error screen | keep last good + error log |
 | `config/setting.ron` | `GameSetting` asset | defaults + warn | keep last good + error log |
+
+No RON config exists for chunk streaming: its tuning is compile-time constants in `core/src/constant.rs`, not a hot-reloadable asset.
 
 Asset root resolution for settings write-back: `BEVY_ASSET_ROOT` env var, else `assets`
 relative to CWD (same default bevy uses).
@@ -197,8 +203,9 @@ connection only. The `Visual` child applies definition rotation and flips as sig
 the block entity carries only placement rotation so colliders never see negative scale.
 
 Usage sites read `Res<GameConfigValue>` / `BlockRegistry` instead of `constant::X`.
-`constant.rs` keeps only grid/layer/color/audio/camera-design constants; gameplay
-constants moved into `game.ron`.
+`constant.rs` keeps grid/layer/color/audio/camera-design constants and the chunk
+streaming tuning constants (`CHUNK_SIZE`, `LOAD_RADIUS`, `DESPAWN_RADIUS`,
+`STREAM_INTERVAL_SECS`); other gameplay constants moved into `game.ron`.
 
 - Serde mirror types in `config/block.rs` for `Feature` (`FeatureConfig`) and any struct
   holding `Handle`s (`Texture`, `TurretComponent` image, `Ammo` icon) with
@@ -233,7 +240,7 @@ The minimap asset lives with its owning feature: `scene/game/minimap/config.rs`
 - `core/Cargo.toml`: `ron = "0.12"`; `dev` feature adds `"bevy/file_watcher"`.
 - `main.rs`: `ConfigPlugin`.
 - `resource.rs`: `SceneState::Loading` variant, `#[default]`.
-- `constant.rs`: gameplay constants removed (grid/layer/color/audio kept).
+- `constant.rs`: other gameplay constants removed; grid/layer/color/audio and chunk streaming tuning constants kept.
 - `scene/setting.rs`: `GameSetting` derives extended; `sync/apply` read
   `Res<GameSetting>` as today.
 - `content/block/system.rs`: `register_default_blocks` deleted; `handle_drop` reads

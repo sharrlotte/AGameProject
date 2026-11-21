@@ -28,3 +28,22 @@ pub const LAYER_FLASH_OVERLAY: f32 = 220.0;
 pub const LAYER_BLOCK_ICON: f32 = 300.0;
 
 pub const DROP_PICKUP_RADIUS: f32 = 32.0;
+
+pub const CHUNK_SIZE: f32 = 50_000.0;
+pub const LOAD_RADIUS: f32 = 8_000.0;
+pub const DESPAWN_RADIUS: f32 = 10_000.0;
+pub const STREAM_INTERVAL_SECS: f32 = 0.25;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chunk_tuning_invariants_hold() {
+        assert!(CHUNK_SIZE > 0.0);
+        assert!(LOAD_RADIUS > 0.0);
+        assert!(DESPAWN_RADIUS > LOAD_RADIUS);
+        assert!(LOAD_RADIUS < CHUNK_SIZE * 0.5);
+        assert!(STREAM_INTERVAL_SECS > 0.0);
+    }
+}

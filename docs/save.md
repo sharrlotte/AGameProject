@@ -96,7 +96,18 @@ CREATE TABLE chunks (
 );
 ```
 
-`quests` and `chunks` are reserved empty tables for `open-world-quests` and `world-chunk-streaming`.
+`quests` is reserved for `open-world-quests`.
+
+### Chunks table
+
+`chunks` persists spatial chunks (`ChunkCoord(IVec2)`) for distance-based entity streaming:
+- `x, y`: Integer chunk coordinates (`ChunkCoord(IVec2)`).
+- `visited`: Set to `1` when a chunk has been visited/streamed.
+- `enemy_count`: Number of enemies in the chunk (`data.enemy_count()`).
+- `data`: Postcard + lz4_flex compressed `ChunkData { enemies: Vec<ShipSnapshot>, debris: Vec<DebrisSnapshot> }`.
+- When all enemies and debris are removed from a chunk, its row is deleted via `remove_chunk(coord)`.
+- `WorldStore` trait provides `load_chunk`, `save_chunk`, and `remove_chunk` (all `&self`, with interior mutability) implemented for both `SqliteWorldStore` and `InMemoryWorldStore`. Unvisited chunks return `Ok(None)`.
+- Chunk streaming offload is save-first: a live ship/debris snapshot is persisted before the entity is despawned, and only successfully persisted entities are despawned. Failed load/save/restore operations emit a `ChunkStreamError` carrying the `ChunkCoord` and a detail string, which a handler system logs loudly so data loss is never silent.
 
 ## Encoding and Atomicity
 
@@ -123,6 +134,9 @@ pub trait WorldStore: Send + Sync {
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
     fn save_design(&mut self, design: &ShipDesign) -> Result<(), WorldStoreError>;
     fn delete_design(&mut self, id: Uuid) -> Result<(), WorldStoreError>;
+    fn load_chunk(&self, coord: ChunkCoord) -> Result<Option<ChunkData>, WorldStoreError>;
+    fn save_chunk(&self, coord: ChunkCoord, data: &ChunkData) -> Result<(), WorldStoreError>;
+    fn remove_chunk(&self, coord: ChunkCoord) -> Result<(), WorldStoreError>;
     fn flush(&mut self) -> Result<(), WorldStoreError>;
 }
 ```

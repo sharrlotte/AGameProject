@@ -11,6 +11,7 @@ mod simulation;
 mod system;
 mod ui;
 mod validate;
+mod world;
 
 use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
@@ -28,6 +29,7 @@ use crate::scene::setting::SettingScenePlugin;
 use crate::control::ControlPlugin;
 use crate::simulation::SimulationSet;
 use crate::system::{load_default_fleet, setup_camera};
+use crate::world::WorldPlugin;
 use bevy::audio::{AudioPlugin, SpatialScale};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
@@ -171,6 +173,7 @@ fn register_game_plugins(app: &mut App) {
             NoticePlugin,
             UiPlugin,
             scene::widget::WidgetPlugin,
+            WorldPlugin,
         ));
 }
 

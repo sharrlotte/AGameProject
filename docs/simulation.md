@@ -200,3 +200,14 @@ excess.
 `Team { id: u8 }` — id 0 is the player, `Team::new` asserts `id < 16`.
 `GROUP_SHIP`, `GROUP_BULLET`, `GROUP_RADAR`, and per-team bits 16+id implement
 hitbox filtering for up to 16 factions.
+
+## Chunk streaming
+
+World space is partitioned into spatial chunks of size `CHUNK_SIZE = 50_000.0` px. `ChunkCoord(IVec2)` maps world coordinates using floor division: `ChunkCoord::from_world(pos, CHUNK_SIZE)`. Chunk tuning (`CHUNK_SIZE`, `LOAD_RADIUS = 8_000.0`, `DESPAWN_RADIUS = 10_000.0`, `STREAM_INTERVAL_SECS = 0.25`) is compile-time constants in `core/src/constant.rs`: there is no RON config, `ChunkConfig` asset/resource, or hot-reload bridge, and invariants are guarded by unit tests only.
+
+In `FixedUpdate` (`SimulationSet::Cleanup`, ordered `.after(update_lifetime)`) while in `SceneState::Game`, `stream_chunks` executes on a periodic `StreamingTimer` using `STREAM_INTERVAL_SECS`:
+1. **Offload (save-first, then despawn)**: Any live non-player ship (`Ship` where `!team.is_player()`) or detached `Debris` whose distance to the nearest live player-team ship exceeds `DESPAWN_RADIUS` is captured into a `ShipSnapshot` or `DebrisSnapshot`, saved into its corresponding `ChunkCoord` inside the active save slot's `WorldStore` `chunks` table, and despawned from ECS along with its block entities only after the save succeeds. Ship and debris capture/restore share a `StreamSnapshot` trait with generic helpers; the persisted `ChunkData` format is unchanged. Offload never emits `ShipDestroyed` and never spawns loot.
+2. **Load (Spawn)**: For each live player-team ship, the system checks stored entries across its 3×3 chunk neighborhood (`neighborhood_3x3()`). Any stored `ShipSnapshot` or `DebrisSnapshot` whose distance to any live player-team ship is within `LOAD_RADIUS` is removed from `WorldStore` (empty chunks delete their row) and spawned into ECS via `apply_bodies` with full fidelity (transform, velocity, block health, features, doctrine, skill, and AI brain).
+3. **Player-team immunity**: Ships on team 0 (`team.is_player()`) are never offloaded into chunks.
+4. **Hysteresis deadband**: `DESPAWN_RADIUS > LOAD_RADIUS` (and `LOAD_RADIUS < CHUNK_SIZE * 0.5`) prevents thrashing at the boundary; live entities remain live and stored entities remain stored within the deadband.
+5. **Loud failure reporting**: Failed chunk load, save, or restore operations emit a `ChunkStreamError` carrying the `ChunkCoord` and a detail string; a handler system logs every such message loudly. A failed save leaves the live entity in ECS so data is not silently lost.
