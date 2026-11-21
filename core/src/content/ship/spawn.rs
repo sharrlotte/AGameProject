@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::config::{GameConfigValue, GameSetting};
+use crate::config::{GameConfig, GameSettings};
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ai::{AiConfig, Brain, Skill};
 use crate::content::ship::ShipDesign;
@@ -8,16 +8,16 @@ use crate::content::team::Team;
 
 pub struct SpawnEnv<'a> {
     pub registry: &'a BlockRegistry,
-    pub config: &'a GameConfigValue,
-    pub setting: &'a GameSetting,
+    pub config: &'a GameConfig,
+    pub setting: &'a GameSettings,
     pub ai_cfg: &'a AiConfig,
 }
 
 impl<'a> SpawnEnv<'a> {
     pub fn new(
         registry: &'a BlockRegistry,
-        config: &'a GameConfigValue,
-        setting: &'a GameSetting,
+        config: &'a GameConfig,
+        setting: &'a GameSettings,
         ai_cfg: &'a AiConfig,
     ) -> Self {
         Self {

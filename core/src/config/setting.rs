@@ -1,23 +1,17 @@
-use bevy::asset::AssetEvent;
+use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
-
 use serde::{Deserialize, Serialize};
 
-
-use ron::ser::{PrettyConfig, to_string_pretty};
-
-use std::env;
-
-use std::fs;
-
-use std::path::PathBuf;
-
+use crate::save::document::{data_dir, read_document, write_document};
 use crate::validate::{Validate, check};
 
+pub const SETTINGS_SCHEMA_VERSION: u32 = 1;
 
-#[derive(Asset, TypePath, Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
-pub struct GameSetting {
+#[derive(Serialize, Deserialize, Resource, PartialEq, Clone, Debug)]
+pub struct GameSettings {
+    #[serde(default = "default_version")]
+    pub version: u32,
     #[serde(default = "default_volume")]
     pub volume: f32,
     #[serde(default = "default_bloom")]
@@ -28,6 +22,7 @@ pub struct GameSetting {
     pub keys: KeySettings,
 }
 
+crate::ron_document!(GameSettings, SETTINGS_SCHEMA_VERSION, "game settings");
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct KeySettings {
@@ -36,7 +31,6 @@ pub struct KeySettings {
     #[serde(default = "default_rotate_cw")]
     pub rotate_cw: KeyCode,
 }
-
 
 impl Default for KeySettings {
     fn default() -> Self {
@@ -47,19 +41,19 @@ impl Default for KeySettings {
     }
 }
 
-
-impl Default for GameSetting {
+impl Default for GameSettings {
     fn default() -> Self {
         Self {
-            volume: 0.5,
-            bloom: true,
+            version: SETTINGS_SCHEMA_VERSION,
+            volume: default_volume(),
+            bloom: default_bloom(),
             ai_level: default_ai_level(),
             keys: KeySettings::default(),
         }
     }
 }
 
-impl Validate for GameSetting {
+impl Validate for GameSettings {
     type Context = ();
     type Error = String;
 
@@ -68,10 +62,8 @@ impl Validate for GameSetting {
     }
 }
 
-
 #[derive(Resource)]
 pub struct SettingSaveTimer(pub Timer);
-
 
 impl Default for SettingSaveTimer {
     fn default() -> Self {
@@ -79,58 +71,65 @@ impl Default for SettingSaveTimer {
     }
 }
 
+fn default_version() -> u32 {
+    SETTINGS_SCHEMA_VERSION
+}
 
 fn default_volume() -> f32 {
     0.5
 }
 
-
 fn default_bloom() -> bool {
     true
 }
-
 
 fn default_ai_level() -> u8 {
     10
 }
 
-
 fn default_rotate_ccw() -> KeyCode {
     KeyCode::KeyQ
 }
-
 
 fn default_rotate_cw() -> KeyCode {
     KeyCode::KeyE
 }
 
+pub fn settings_path_in(base: &Path) -> PathBuf {
+    base.join("settings.ron")
+}
 
-pub fn game_setting_bridge(
-    mut events: MessageReader<AssetEvent<GameSetting>>,
-    assets: Res<Assets<GameSetting>>,
-    mut setting: ResMut<GameSetting>,
-) {
-    for event in events.read() {
-        let id = match event {
-            AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id } => *id,
-            _ => continue,
-        };
+pub fn settings_path() -> PathBuf {
+    settings_path_in(&data_dir())
+}
 
-        if let Some(asset) = assets.get(id) {
-            let mut next = asset.clone();
-            next.ai_level = next.ai_level.clamp(1, 10);
-            setting.set_if_neq(next);
+pub fn load_settings_in(base: &Path) -> GameSettings {
+    let path = settings_path_in(base);
+    if !path.exists() {
+        return GameSettings::default();
+    }
+    match read_document::<GameSettings>(&path) {
+        Ok(mut loaded) => {
+            loaded.ai_level = loaded.ai_level.clamp(1, 10);
+            loaded
+        }
+        Err(e) => {
+            warn!("Failed to read {}: {e}; using defaults", path.display());
+            GameSettings::default()
         }
     }
 }
 
+pub fn load_settings(mut commands: Commands) {
+    commands.insert_resource(load_settings_in(&data_dir()));
+}
 
 pub fn save_setting_on_change(
-    setting: Res<GameSetting>,
+    settings: Res<GameSettings>,
     time: Res<Time>,
     mut timer: ResMut<SettingSaveTimer>,
 ) {
-    if setting.is_changed() {
+    if settings.is_changed() {
         timer.0.reset();
         return;
     }
@@ -140,57 +139,44 @@ pub fn save_setting_on_change(
         return;
     }
 
-    let root = asset_root();
-    let path = root.join("config/setting.ron");
-
-    if let Some(parent) = path.parent()
-        && let Err(e) = fs::create_dir_all(parent)
-    {
-        error!(
-            "Failed to create config directory {}: {:?}",
-            parent.display(),
-            e
-        );
-
-        return;
-    }
-
-    match to_string_pretty(&*setting, PrettyConfig::default()) {
-        Ok(ron) => {
-            if let Err(e) = fs::write(&path, ron) {
-                error!("Failed to write {}: {:?}", path.display(), e);
-            }
-        }
-        Err(e) => {
-            error!("Failed to serialize settings: {:?}", e);
-        }
+    let path = settings_path();
+    if let Err(e) = write_document(&path, &*settings) {
+        error!("Failed to write {}: {e}", path.display());
     }
     timer.0.reset();
-}
-
-
-fn asset_root() -> PathBuf {
-    env::var("BEVY_ASSET_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("assets"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use uuid::Uuid;
 
-    #[test]
-    fn shipped_setting_parses_with_rotation_keys() {
-        let setting: GameSetting = ron::from_str(include_str!("../../assets/config/setting.ron"))
-            .expect("shipped setting parses");
-        assert_eq!(setting.keys.rotate_ccw, KeyCode::KeyQ);
-        assert_eq!(setting.keys.rotate_cw, KeyCode::KeyE);
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("agame-settings-{label}-{}", Uuid::now_v7()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
     }
 
     #[test]
-    fn missing_keys_fall_back_to_defaults() {
-        let setting: GameSetting = ron::from_str("(volume: 0.5, bloom: true)")
-            .expect("setting without keys parses");
-        assert_eq!(setting, GameSetting::default());
+    fn missing_settings_falls_back_to_defaults() {
+        let dir = temp_dir("missing");
+        assert_eq!(load_settings_in(&dir), GameSettings::default());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn settings_round_trip_atomically_in_data_dir() {
+        let dir = temp_dir("roundtrip");
+        let path = settings_path_in(&dir);
+        let mut settings = GameSettings::default();
+        settings.volume = 0.25;
+        settings.bloom = false;
+        settings.ai_level = 7;
+        write_document(&path, &settings).expect("write settings");
+
+        let loaded = load_settings_in(&dir);
+        assert_eq!(loaded, settings);
+        let _ = fs::remove_dir_all(dir);
     }
 }

@@ -1,4 +1,4 @@
-﻿use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 
 use bevy::prelude::*;
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 
 use crate::{
     constant::GRID_SIZE,
@@ -1138,7 +1138,7 @@ pub fn spawn_block_entity(
     def: &BlockDef,
     body: Entity,
     team: Team,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) -> Entity {
     let base_pixel_size = def.get_base_pixel_size();
     let (_, hitbox) = def.shape.get(placement.rotation);

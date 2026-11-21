@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::Velocity;
 use uuid::Uuid;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::constant::LAYER_DROP;
 
 use crate::content::block::{
@@ -60,7 +60,7 @@ impl ShipSnapshot {
         self,
         commands: &mut Commands,
         registry: &BlockRegistry,
-        config: &GameConfigValue,
+        config: &GameConfig,
     ) -> Result<(Uuid, Entity, u8, BrainSave), WorldStoreError> {
         let placements: Vec<BlockPlacement> =
             self.blocks.iter().map(|b| b.placement.clone()).collect();
@@ -113,7 +113,7 @@ impl DebrisSnapshot {
         self,
         commands: &mut Commands,
         registry: &BlockRegistry,
-        config: &GameConfigValue,
+        config: &GameConfig,
     ) -> Entity {
         let placements: Vec<BlockPlacement> =
             self.blocks.iter().map(|b| b.placement.clone()).collect();
@@ -169,7 +169,7 @@ pub fn apply_bodies(
     commands: &mut Commands,
     bodies: Vec<BodySnapshot>,
     registry: &BlockRegistry,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) -> Result<HashMap<Uuid, Entity>, WorldStoreError> {
     let (ship_bodies, debris_bodies): (Vec<BodySnapshot>, Vec<BodySnapshot>) = bodies
         .into_iter()
@@ -247,7 +247,7 @@ pub fn apply_control(commands: &mut Commands, control: &ControlSave, ship_map: &
 pub fn apply_camera(
     camera: &mut Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     saved: &CameraSave,
-    config: &GameConfigValue,
+    config: &GameConfig,
     ship_map: &HashMap<Uuid, Entity>,
     commands: &mut Commands,
 ) {
@@ -258,7 +258,7 @@ pub fn apply_camera(
         transform.translation.x = saved.x;
         transform.translation.y = saved.y;
         if let Projection::Orthographic(ortho) = &mut *projection {
-            ortho.scale = saved.zoom.clamp(config.0.min_zoom, config.0.max_zoom);
+            ortho.scale = saved.zoom.clamp(config.sim.min_zoom, config.sim.max_zoom);
         }
     }
 }
@@ -266,7 +266,7 @@ pub fn apply_camera(
 pub fn apply_drops(
     commands: &mut Commands,
     drops: Vec<DropSave>,
-    config: &GameConfigValue,
+    config: &GameConfig,
     items: Option<&ItemRegistry>,
 ) {
     for drop in drops {
@@ -280,7 +280,7 @@ pub fn apply_drops(
             Transform::from_translation(drop.position.extend(LAYER_DROP)),
             Sprite {
                 color,
-                custom_size: Some(Vec2::new(config.0.drop_size, config.0.drop_size)),
+                custom_size: Some(Vec2::new(config.sim.drop_size, config.sim.drop_size)),
                 ..default()
             },
             Lifetime::seconds(drop.remaining_secs.max(0.0)),

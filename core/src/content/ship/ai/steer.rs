@@ -1,4 +1,4 @@
-﻿use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::Velocity;
@@ -7,8 +7,8 @@ use super::component::{
     Brain, Capability, FireOrder, Posture, Readiness, SharedContact, Skill, Steering,
     SupportKind, TacticalBoard, Tactic, TeamPlan,
 };
-use super::config::{AiConfig, AiConfigValue};
-use crate::config::GameConfigValue;
+use super::config::AiConfig;
+use crate::config::GameConfig;
 use crate::content::block::feature::turret::lead_point;
 use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
@@ -44,8 +44,8 @@ pub fn desired_ship_angle(direction: Vec2, mount_offset_angle: f32) -> f32 {
 
 pub fn steer_ships(
     time: Res<Time>,
-    ai_cfg: Res<AiConfigValue>,
-    game_cfg: Res<GameConfigValue>,
+    ai_cfg: Res<GameConfig>,
+    game_cfg: Res<GameConfig>,
     board: Res<TacticalBoard>,
     controlled: Res<ControlledShip>,
     ship_transforms: Query<(&GlobalTransform, &Ship)>,
@@ -83,7 +83,7 @@ pub fn steer_ships(
     ) in &mut ships
     {
         let level = skill.level();
-        let lead_accuracy = ai_cfg.0.curves.lead_accuracy.sample(level);
+        let lead_accuracy = ai_cfg.ai.curves.lead_accuracy.sample(level);
 
         if controlled.controlling == Some(entity) {
             *fire_order = FireOrder {
@@ -113,8 +113,8 @@ pub fn steer_ships(
                 level,
                 cap,
                 readiness,
-                &ai_cfg.0,
-                game_cfg.0.linear_damping,
+                &ai_cfg.ai,
+                game_cfg.sim.linear_damping,
                 elapsed,
                 target,
                 range,
@@ -127,7 +127,7 @@ pub fn steer_ships(
                     pos,
                     threat,
                     Some(safe_range),
-                    ai_cfg.0.combat_tuning.recharge_throttle_cap,
+                    ai_cfg.ai.combat_tuning.recharge_throttle_cap,
                     contact,
                     &ship_transforms,
                 ),
@@ -144,9 +144,9 @@ pub fn steer_ships(
                     ally,
                     kind,
                     cap,
-                    &ai_cfg.0,
+                    &ai_cfg.ai,
                     stats.thrust_power / stats.mass.max(1.0),
-                    game_cfg.0.linear_damping,
+                    game_cfg.sim.linear_damping,
                     plan,
                     &ship_transforms,
                 );
@@ -159,9 +159,9 @@ pub fn steer_ships(
                     pos,
                     velocity.linear,
                     position,
-                    ai_cfg.0.investigate_arrival_radius,
+                    ai_cfg.ai.investigate_arrival_radius,
                     stats.thrust_power / stats.mass.max(1.0),
-                    game_cfg.0.linear_damping,
+                    game_cfg.sim.linear_damping,
                 ),
                 None,
             ),
@@ -495,10 +495,10 @@ mod tests {
     #[test]
     fn search_arrival_steering_uses_ship_stats() {
         let mut app = App::new();
-        app.init_resource::<AiConfigValue>()
+        app.init_resource::<GameConfig>()
             .init_resource::<TacticalBoard>()
             .init_resource::<ControlledShip>()
-            .insert_resource(GameConfigValue(GameConfig::default()))
+            .insert_resource(GameConfig::default())
             .init_resource::<Time>()
             .add_systems(Update, steer_ships);
 

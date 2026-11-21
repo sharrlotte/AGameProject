@@ -13,7 +13,7 @@ mod ui;
 mod validate;
 mod world;
 
-use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
+use crate::config::{ConfigPlugin, ConfigState};
 use crate::constant::AUDIO_SCALE;
 use crate::content::ContentPlugin;
 use crate::quest::QuestPlugin;
@@ -122,9 +122,6 @@ fn register_resources_and_states(app: &mut App) {
     app.init_resource::<DeployPayload>()
         .init_resource::<GameRng>()
         .init_resource::<SessionClock>()
-        // Gameplay systems assume config exists; a failed load still shows the
-        // error screen instead of panicking on a missing resource.
-        .init_resource::<GameConfigValue>()
         .init_state::<SceneState>()
         .insert_resource(Time::<Fixed>::from_hz(60.0));
 }

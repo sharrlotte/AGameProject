@@ -32,7 +32,7 @@ pub struct TabButton(pub EditorTab);
 
 pub fn handle_rotation_input(
     keyboard: Res<ButtonInput<KeyCode>>,
-    setting: Res<GameSetting>,
+    setting: Res<GameSettings>,
     mut editor: ResMut<EditorState>,
 ) {
     if keyboard.just_pressed(setting.keys.rotate_ccw) {

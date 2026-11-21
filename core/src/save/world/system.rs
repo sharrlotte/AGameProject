@@ -1,7 +1,7 @@
-﻿use bevy::prelude::*;
+use bevy::prelude::*;
 use uuid::Uuid;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::quest::component::QuestCatalogValue;
@@ -100,7 +100,7 @@ pub fn handle_load_slot(
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
 ) {
@@ -138,7 +138,7 @@ pub fn handle_load_slot(
         let active_slot_id = opened.slot_id().unwrap_or(slot_id);
         let active_path = opened.path().to_path_buf();
 
-        deploy.fleet = starter_fleet(&config.0, &designs);
+        deploy.fleet = starter_fleet(&config, &designs);
         catalog.replace_all(designs);
         *source = DesignCatalogSource::ActiveWorldDb;
         *context = WorldContext::Restoring {
@@ -157,7 +157,7 @@ pub fn handle_create_slot(
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
     time: Res<Time>,
@@ -202,7 +202,7 @@ pub fn handle_create_slot(
         };
 
         *rng = GameRng::new(seed);
-        deploy.fleet = starter_fleet(&config.0, &designs);
+        deploy.fleet = starter_fleet(&config, &designs);
         catalog.replace_all(designs);
         *source = DesignCatalogSource::ActiveWorldDb;
         *context = WorldContext::SaveSlot { slot_id, path, store: Box::new(created) };
@@ -226,7 +226,7 @@ fn resolve_slot_id(context: &WorldContext, slots: &[SlotSummary]) -> Option<Uuid
 pub fn handle_continue_world(
     mut events: MessageReader<ContinueWorldEvent>,
     registry: Res<BlockRegistry>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut context: ResMut<WorldContext>,
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
@@ -282,7 +282,7 @@ pub fn handle_continue_world(
         return;
     }
 
-    deploy.fleet = starter_fleet(&config.0, &designs);
+    deploy.fleet = starter_fleet(&config, &designs);
     catalog.replace_all(designs);
     *source = DesignCatalogSource::ActiveWorldDb;
     *context = WorldContext::Restoring { slot_id, path, store: Box::new(opened) };
@@ -297,7 +297,7 @@ pub fn handle_quick_battle(
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut scene: ResMut<NextState<SceneState>>,
     time: Res<Time>,
     mut clock: ResMut<SessionClock>,
@@ -308,7 +308,7 @@ pub fn handle_quick_battle(
 
     let designs = load_or_seed_designs(&registry);
     *rng = GameRng::new(rand::random::<u64>());
-    deploy.fleet = starter_fleet(&config.0, &designs);
+    deploy.fleet = starter_fleet(&config, &designs);
     catalog.replace_all(designs);
     *source = DesignCatalogSource::HomeSandbox;
     *context = WorldContext::QuickBattle { store: Box::new(InMemoryWorldStore::default()) };
@@ -407,7 +407,7 @@ fn apply_world_data(
     commands: &mut Commands,
     data: WorldLoadData,
     registry: &BlockRegistry,
-    config: &GameConfigValue,
+    config: &GameConfig,
     camera: &mut Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     items: Option<&ItemRegistry>,
     tracker: &mut QuestTracker,
@@ -427,7 +427,7 @@ pub fn spawn_loaded_world(
     mut context: ResMut<WorldContext>,
     registry: Res<BlockRegistry>,
     items: Option<Res<ItemRegistry>>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     time: Res<Time>,
     mut notice: ResMut<AppNotice>,
     mut scene: ResMut<NextState<SceneState>>,
@@ -490,8 +490,8 @@ pub fn spawn_loaded_world(
     clock.resume(time.elapsed_secs(), play_time_secs);
 }
 
-pub fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue>) {
-    let interval = config.0.auto_save_interval_secs.max(1.0);
+pub fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfig>) {
+    let interval = config.sim.auto_save_interval_secs.max(1.0);
     commands.insert_resource(AutoSaveTimer(Timer::from_seconds(
         interval,
         TimerMode::Repeating,

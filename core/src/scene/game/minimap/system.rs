@@ -10,14 +10,15 @@ use crate::resource::{CameraTarget, ControlledShip, SceneState};
 use super::component::{
     LostContact, MarkerSpec, MinimapMarker, MinimapMarkerLayer, MinimapRoot, MinimapState,
 };
-use super::config::{MinimapConfig, MinimapConfigValue};
+use super::config::MinimapConfig;
+use crate::config::GameConfig;
 
 const MINIMAP_BACKGROUND: Color = Color::srgba(0.02, 0.03, 0.05, 0.65);
 const MINIMAP_BORDER: Color = Color::srgba(0.85, 0.85, 0.85, 1.0);
 const GLOW_ALPHA: f32 = 0.65;
 
-pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {
-    let cfg = config.0.clone();
+pub fn setup_minimap(mut commands: Commands, config: Res<GameConfig>) {
+    let cfg = config.minimap.clone();
     commands.insert_resource(MinimapState::default());
 
     commands
@@ -63,11 +64,11 @@ pub fn setup_minimap(mut commands: Commands, config: Res<MinimapConfigValue>) {
 
 pub fn sync_marker_pool(
     mut commands: Commands,
-    config: Res<MinimapConfigValue>,
+    config: Res<GameConfig>,
     layer: Single<Entity, With<MinimapMarkerLayer>>,
     markers: Query<(Entity, &MinimapMarker)>,
 ) {
-    let cfg = &config.0;
+    let cfg = &config.minimap;
 
     if markers.iter().count() == cfg.max_markers {
         return;
@@ -87,7 +88,7 @@ pub fn sync_marker_pool(
 #[allow(clippy::too_many_arguments)]
 pub fn update_minimap(
     time: Res<Time>,
-    config: Res<MinimapConfigValue>,
+    config: Res<GameConfig>,
     board: Res<TacticalBoard>,
     controlled: Res<ControlledShip>,
     camera_target: Res<CameraTarget>,
@@ -110,7 +111,7 @@ pub fn update_minimap(
         Without<MinimapRoot>,
     >,
 ) {
-    let cfg = &config.0;
+    let cfg = &config.minimap;
     let radius_px = cfg.radius_px();
     let dot_size = cfg.dot_size_px;
     let center = camera.translation().truncate();

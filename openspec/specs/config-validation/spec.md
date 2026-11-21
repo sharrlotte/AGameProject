@@ -6,15 +6,19 @@ Config and mission loading returns recoverable errors with validation rules and 
 ## Requirements
 ### Requirement: Config and mission failures are recoverable
 
-Config and mission loading SHALL return `ConfigState::Error(ConfigError)` with a readable message and error screen instead of panicking. `RonAssetLoader` SHALL execute `Validate::validate` at asset decode time and reject invalid assets before they are registered in the asset storage. Mission failure SHALL return to Home with a message.
+Config loading (`game.ron`, `block.ron`, `quests.ron`) SHALL return `ConfigState::Error(ConfigError)` with a readable message naming the failing file and validation reason instead of panicking. `RonAssetLoader` SHALL execute `Validate::validate` at asset decode time and reject invalid assets before they are registered in asset storage.
 
 #### Scenario: Malformed block config
 - **WHEN** `block.ron` is malformed or fails validation on decode
-- **THEN** the game shows the config error screen naming the file and validation reason, and does not panic
+- **THEN** the game shows the config error screen naming `config/block.ron` and the validation reason, and does not panic
+
+#### Scenario: Malformed game config section
+- **WHEN** any section of `game.ron` (`sim`, `ai`, `minimap`, `skirmish`, `quest_gen`) fails validation on decode
+- **THEN** the game shows the config error screen naming `config/game.ron` and the failing section/rule
 
 #### Scenario: Hot reload of invalid config
-- **WHEN** a watched `.ron` file is modified on disk with invalid values
-- **THEN** `RonAssetLoader` rejects the reload with an error log and the running game retains the last valid config asset
+- **WHEN** a watched `.ron` file (`game.ron`, `block.ron`, or `quests.ron`) is modified on disk with invalid values
+- **THEN** `RonAssetLoader` rejects the reload with an error log and the running game retains the last valid `GameConfig` / `BlockRegistry`
 
 ### Requirement: Block config is validated
 Validation SHALL require unique block keys, a runtime feature for every feature config, a core block with group `"core"`, non-empty turret barrels, `range > 0`, `turn_speed >= 0`, `fire_rate > 0`, burst `amount > 0`, producer output `>= 0`, consumer rate `> 0`, storage capacity `> 0`, and a shape spec that bakes successfully: positive dimensions, rectangular `Rows` using only `#`/`.` with at least one filled cell and no empty border row or column, triangles whose rasterized bounding box equals their declared size, at least one cell, a single Manhattan-1 connected cell set, and a buildable triangle hitbox. Validation errors SHALL name the block. Projectile, laser-beam, and thruster numeric fields SHALL additionally be validated: projectile `speed >= 0`, `damage >= 0`, `lifetime >= 0`, `width > 0`, `length > 0`, `piercing >= 0`; laser `damage >= 0`, `width > 0`, `cooldown >= 0`, `duration > 0`; burst and missile `amount > 0`; thruster `force >= 0` and `torque >= 0`. A violation SHALL produce the config error screen naming the block and the failed rule.
@@ -85,19 +89,19 @@ The error screen SHALL name the failing file or config section and the validatio
 
 ### Requirement: Game config values are validated
 
-Game config loading SHALL validate numeric ranges that control runtime behaviour. The debris lifetime minimum and maximum SHALL both be positive and the maximum SHALL be greater than or equal to the minimum. A violation SHALL produce the config error screen naming `config/game.ron` and the failed rule instead of loading the world.
+`game.ron` loading SHALL validate all nested tuning sections (`sim`, `ai`, `minimap`, `skirmish`, `quest_gen`). In `sim`, debris lifetime minimum and maximum SHALL be positive with `max >= min`, `fleet_spacing >= 0`, `auto_save_interval_secs > 0`, and camera zoom bounds ordered and positive. A violation SHALL produce the config error screen naming `config/game.ron` and the failed rule instead of loading the world.
 
 #### Scenario: Inverted debris lifetime range
-- **WHEN** `game.ron` sets `debris_lifetime_min_seconds` above `debris_lifetime_max_seconds`
+- **WHEN** `game.ron` sets `sim.debris_lifetime_min_seconds` above `sim.debris_lifetime_max_seconds`
 - **THEN** loading reports a config error naming `config/game.ron` and the range rule
 
 #### Scenario: Non-positive debris lifetime
 - **WHEN** `game.ron` sets a debris lifetime bound of zero or less
-- **THEN** loading reports a config error naming `config/game.ron`
+- **THEN** loading reports a config error naming `config/game.ron` and the positivity rule
 
-#### Scenario: Valid debris range
-- **WHEN** `game.ron` sets a positive minimum and a maximum at or above it
-- **THEN** the world loads and debris rolls a lifetime inside that range
+#### Scenario: Valid game.ron loads all sections
+- **WHEN** `game.ron` sets valid `sim`, `ai`, `minimap`, `skirmish`, and `quest_gen` sections
+- **THEN** `GameConfig` is populated with all sections before `ConfigState::Ready`
 
 ### Requirement: Fleet configuration is validated
 

@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::{BlockPlacement, BlockRegistry, spawn_block_entity};
 use crate::content::body::grid::BlockGrid;
 use crate::content::selectable::Selectable;
@@ -58,7 +58,7 @@ impl ShipDesign {
         registry: &BlockRegistry,
         team: Team,
         transform: Transform,
-        config: &GameConfigValue,
+        config: &GameConfig,
     ) -> Result<(Entity, Vec<Entity>), Vec<String>> {
         self.spawn_with_id(
             commands,
@@ -76,7 +76,7 @@ impl ShipDesign {
         registry: &BlockRegistry,
         team: Team,
         transform: Transform,
-        config: &GameConfigValue,
+        config: &GameConfig,
         ship_id: Uuid,
     ) -> Result<(Entity, Vec<Entity>), Vec<String>> {
         registry.validate_ship(&self.blocks)?;
@@ -128,8 +128,8 @@ impl ShipDesign {
                 Steering::default(),
                 FireOrder::default(),
                 Damping {
-                    linear_damping: config.0.linear_damping,
-                    angular_damping: config.0.angular_damping,
+                    linear_damping: config.sim.linear_damping,
+                    angular_damping: config.sim.angular_damping,
                 },
                 bounds,
             ))
@@ -183,7 +183,7 @@ mod tests {
     fn spawn_design(
         mut commands: Commands,
         registry: Res<BlockRegistry>,
-        config: Res<GameConfigValue>,
+        config: Res<GameConfig>,
     ) {
         let design = ShipDesign::new(vec![
             BlockPlacement::new(IVec2::ZERO, "core", Rot90::R0),
@@ -208,7 +208,7 @@ mod tests {
 
         let mut app = App::new();
         app.insert_resource(registry)
-            .insert_resource(GameConfigValue(GameConfig::default()))
+            .insert_resource(GameConfig::default())
             .add_systems(Startup, spawn_design);
         app.update();
 

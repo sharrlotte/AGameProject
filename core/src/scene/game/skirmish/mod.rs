@@ -1,60 +1,17 @@
-use bevy::asset::LoadState;
 use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use serde::{Deserialize, Serialize};
 
-use crate::config::loader::RonAssetLoader;
-use crate::config::{ConfigState, GameConfigValue, GameSetting};
+use crate::config::{ConfigState, GameConfig, GameSettings, ShipSpawn};
 use crate::constant::GRID_SIZE;
 use crate::content::block::BlockRegistry;
 use crate::content::body::BlockGrid;
-use crate::content::ship::ai::{AiConfig, AiConfigValue, Skill};
+use crate::content::ship::ai::{AiConfig, Skill};
 use crate::content::ship::spawn::SpawnEnv;
 use crate::content::ship::ShipDesign;
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
-use crate::resource::{AppNotice, DeployPayload, SceneState};
+use crate::resource::{DeployPayload, SceneState};
 use crate::save::design::ShipCatalog;
 use crate::save::world::WorldContext;
 use crate::simulation::SimulationSet;
-use crate::validate::{Validate, check};
-
-#[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct SkirmishDef {
-    #[serde(default)]
-    pub ai_level: Option<u8>,
-    pub spawn: Vec2,
-    pub enemies: Vec<ShipSpawn>,
-}
-
-#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
-pub struct ShipSpawn {
-    pub team: u8,
-    pub position: Vec2,
-    pub schematic_name: String,
-    #[serde(default)]
-    pub ai_level: Option<u8>,
-}
-
-impl Validate for SkirmishDef {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        if let Some(level) = self.ai_level {
-            check::bounded_int("skirmish AI level", level, 1, 10)?;
-        }
-        for enemy in &self.enemies {
-            if enemy.schematic_name.trim().is_empty() {
-                return Err("enemy schematic name must not be empty".to_string());
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Resource)]
-struct SkirmishAsset(Handle<SkirmishDef>);
 
 #[derive(Resource, Default)]
 struct SkirmishPending(bool);
@@ -63,10 +20,7 @@ pub struct SkirmishPlugin;
 
 impl Plugin for SkirmishPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<SkirmishDef>()
-            .register_asset_loader(RonAssetLoader::<SkirmishDef>::new(&["ron"]))
-            .init_resource::<SkirmishPending>()
-            .add_systems(Startup, load_skirmish)
+        app.init_resource::<SkirmishPending>()
             .add_systems(OnEnter(SceneState::Game), begin_skirmish)
             .add_systems(
                 Update,
@@ -79,12 +33,6 @@ impl Plugin for SkirmishPlugin {
     }
 }
 
-fn load_skirmish(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.insert_resource(SkirmishAsset(
-        assets.load("config/base/skirmish.ron"),
-    ));
-}
-
 fn begin_skirmish(context: Res<WorldContext>, mut pending: ResMut<SkirmishPending>) {
     pending.0 = !context.is_restoring();
 }
@@ -92,39 +40,21 @@ fn begin_skirmish(context: Res<WorldContext>, mut pending: ResMut<SkirmishPendin
 #[allow(clippy::too_many_arguments)]
 fn spawn_skirmish(
     mut commands: Commands,
-    assets: Res<Assets<SkirmishDef>>,
-    server: Res<AssetServer>,
-    handle: Option<Res<SkirmishAsset>>,
     registry: Res<BlockRegistry>,
-    config: Res<GameConfigValue>,
-    setting: Res<GameSetting>,
-    ai_cfg: Res<AiConfigValue>,
+    config: Res<GameConfig>,
+    setting: Res<GameSettings>,
     fleet: Res<DeployPayload>,
     catalog: Res<ShipCatalog>,
-    mut notice: ResMut<AppNotice>,
     mut pending: ResMut<SkirmishPending>,
 ) {
-    let Some(handle) = handle else {
-        return;
-    };
+    let def = &config.skirmish;
 
-    if matches!(server.get_load_state(&handle.0), Some(LoadState::Failed(_))) {
-        warn!("config/base/skirmish.ron failed to load");
-        notice.show("Skirmish failed to load; returning home.");
-        pending.0 = false;
-        return;
-    }
-    let Some(def) = assets.get(&handle.0).cloned() else {
-        return;
-    };
-
-    let env = SpawnEnv::new(&registry, &config, &setting, &ai_cfg.0);
-    spawn_fleet(&mut commands, &env, &fleet.fleet, def.spawn, config.0.fleet_spacing);
+    let env = SpawnEnv::new(&registry, &config, &setting, &config.ai);
+    spawn_fleet(&mut commands, &env, &fleet.fleet, def.spawn, config.sim.fleet_spacing);
     for enemy in &def.enemies {
         spawn_enemy(&mut commands, &env, catalog.designs(), enemy, def.ai_level);
     }
 
-    commands.remove_resource::<SkirmishAsset>();
     pending.0 = false;
 }
 

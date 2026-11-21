@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::{feature::power::Boost, stat::StatEffect};
 
 #[derive(Component, Clone, Copy, Debug, Reflect, Default)]
@@ -94,14 +94,14 @@ impl Thruster {
         self.torque
     }
 
-    pub fn insert(&self, commands: &mut Commands, base: Entity, config: &GameConfigValue) {
+    pub fn insert(&self, commands: &mut Commands, base: Entity, config: &GameConfig) {
         commands.entity(base).insert((
             ThrustPowerBase {
-                value: self.force * config.0.thrust_power_factor,
+                value: self.force * config.sim.thrust_power_factor,
             },
             ThrustPowerComputed::default(),
             RotateSpeedBase {
-                value: self.torque * config.0.turn_speed_factor,
+                value: self.torque * config.sim.turn_speed_factor,
             },
             RotateSpeedComputed::default(),
             Boost::default(),

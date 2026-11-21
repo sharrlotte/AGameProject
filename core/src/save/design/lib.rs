@@ -45,6 +45,7 @@ pub fn starter_designs() -> Vec<ShipDesign> {
 
 pub fn starter_fleet(config: &GameConfig, designs: &[ShipDesign]) -> Vec<ShipDesign> {
     config
+        .sim
         .default_fleet
         .iter()
         .filter_map(|name| match designs.iter().find(|design| &design.name == name) {

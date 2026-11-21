@@ -2,7 +2,7 @@ pub mod component;
 pub mod system;
 
 pub use crate::config::minimap as config;
-pub use crate::config::minimap::*;
+pub use crate::config::GameConfig;
 pub use system::*;
 
 use bevy::prelude::*;
@@ -19,7 +19,7 @@ impl Plugin for MinimapPlugin {
                 Update,
                 sync_marker_pool
                     .run_if(in_state(SceneState::Game))
-                    .run_if(resource_changed::<MinimapConfigValue>)
+                    .run_if(resource_changed::<GameConfig>)
                     .in_set(SimulationSet::Present),
             )
             .add_systems(

@@ -1,7 +1,7 @@
-﻿use bevy::prelude::*;
+use bevy::prelude::*;
 use bevy::{audio::Volume, post_process::bloom::Bloom};
 
-use crate::config::GameSetting;
+use crate::config::GameSettings;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 use crate::ui::{Modal, ModalRoot, ModalStack, modal_is};
 use crate::simulation::SimulationSet;
@@ -34,7 +34,7 @@ pub struct SettingScenePlugin;
 
 impl Plugin for SettingScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameSetting>()
+        app.init_resource::<GameSettings>()
             .add_systems(
                 Update,
                 (
@@ -51,7 +51,7 @@ impl Plugin for SettingScenePlugin {
 fn on_volume(
     click: On<PointerClick>,
     buttons: Query<&VolumeButton>,
-    mut setting: ResMut<GameSetting>,
+    mut setting: ResMut<GameSettings>,
 ) {
     let Ok(button) = buttons.get(click.event().entity) else { return; };
     setting.volume = (setting.volume + button.0).clamp(0.0, 1.0);
@@ -60,7 +60,7 @@ fn on_volume(
 fn on_bloom(
     click: On<PointerClick>,
     buttons: Query<&BloomButton>,
-    mut setting: ResMut<GameSetting>,
+    mut setting: ResMut<GameSettings>,
 ) {
     if buttons.contains(click.event().entity) {
         setting.bloom = !setting.bloom;
@@ -70,7 +70,7 @@ fn on_bloom(
 fn on_ai_skill(
     click: On<PointerClick>,
     buttons: Query<&AiSkillButton>,
-    mut setting: ResMut<GameSetting>,
+    mut setting: ResMut<GameSettings>,
 ) {
     let Ok(button) = buttons.get(click.event().entity) else {
         return;
@@ -92,7 +92,7 @@ fn sync_setting_ui(
     mut commands: Commands,
     stack: Res<ModalStack>,
     roots: Query<(Entity, &ModalRoot)>,
-    setting: Res<GameSetting>,
+    setting: Res<GameSettings>,
 ) {
     let open = stack.contains(Modal::Settings);
     let existing = roots.iter().find(|(_, root)| root.0 == Modal::Settings).map(|(e, _)| e);
@@ -103,7 +103,7 @@ fn sync_setting_ui(
     }
 }
 
-pub fn setup_setting_ui(commands: &mut Commands, setting: &GameSetting) {
+pub fn setup_setting_ui(commands: &mut Commands, setting: &GameSettings) {
     let mut bloom_button = None;
 
     commands
@@ -298,7 +298,7 @@ fn small_button_node(width: f32, height: f32) -> Node {
 }
 
 pub fn sync_settings_to_ui(
-    setting: Res<GameSetting>,
+    setting: Res<GameSettings>,
     mut volume_text: Query<&mut Text, (With<VolumeText>, Without<BloomText>, Without<AiSkillText>)>,
     mut bloom_text: Query<&mut Text, (With<BloomText>, Without<VolumeText>, Without<AiSkillText>)>,
     mut ai_skill_text: Query<&mut Text, (With<AiSkillText>, Without<VolumeText>, Without<BloomText>)>,
@@ -321,7 +321,7 @@ pub fn sync_settings_to_ui(
 }
 
 pub fn apply_settings(
-    setting: Res<GameSetting>,
+    setting: Res<GameSettings>,
     mut volume: ResMut<GlobalVolume>,
     mut camera_query: Query<&mut Bloom, With<Camera>>,
 ) {

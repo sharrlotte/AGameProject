@@ -18,7 +18,7 @@ use bevy::prelude::*;
 use uuid::Uuid;
 
 use crate::{
-    config::GameSetting,
+    config::GameSettings,
     constant::{GRID_SIZE, LAYER_OVERDRIVE_FIELD, LAYER_TURRET_BARREL},
     content::{
         block::{

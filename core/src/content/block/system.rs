@@ -1,7 +1,7 @@
-﻿use bevy::prelude::*;
+use bevy::prelude::*;
 
 use super::*;
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::constant::{FLASH_OVERLAY_COLOR, LAYER_DROP, LAYER_FLASH_OVERLAY};
 use crate::content::damage::DamageEvent;
 use crate::content::item::ItemRegistry;
@@ -80,7 +80,7 @@ pub fn handle_drop(
     mut commands: Commands,
     mut events: MessageReader<DropEvent>,
     item_registry: Res<ItemRegistry>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     for event in events.read() {
         let rarity = match &event.drop {
@@ -95,10 +95,10 @@ pub fn handle_drop(
                 color: rarity
                     .map(|f| f.color())
                     .unwrap_or(Color::srgb(5.0, 5.0, 5.0)),
-                custom_size: Some(Vec2::new(config.0.drop_size, config.0.drop_size)),
+                custom_size: Some(Vec2::new(config.sim.drop_size, config.sim.drop_size)),
                 ..default()
             },
-            Lifetime::seconds(config.0.drop_despawn_in_seconds),
+            Lifetime::seconds(config.sim.drop_despawn_in_seconds),
         ));
     }
 }
@@ -120,7 +120,7 @@ pub fn sync_debris_disabled(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::GameConfigValue;
+    use crate::config::GameConfig;
     use crate::content::block::component::{
         LaserBeamPatternShootingState, LaserBeamPatternState, PullingBeamPatternState,
         ShootPattern, ShootingProjectile, SingleShootPattern, SingleShootPatternState,
@@ -213,7 +213,7 @@ mod tests {
 
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(GameConfigValue::default());
+        app.insert_resource(GameConfig::default());
         app.add_systems(
             Update,
             (

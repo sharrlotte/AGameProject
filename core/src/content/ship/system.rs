@@ -1,13 +1,13 @@
-﻿use bevy::math::FloatPow;
+use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use std::f32::consts::PI;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::constant::DROP_PICKUP_RADIUS;
 use crate::content::block::Loot;
 use crate::content::item::ItemCollected;
-use crate::content::ship::ai::{AiConfigValue, Skill, Steering};
+use crate::content::ship::ai::{Skill, Steering};
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
@@ -26,7 +26,7 @@ pub fn update_ship_steering(
         &mut Throttle,
     )>,
     controlled: Res<ControlledShip>,
-    ai_cfg: Res<AiConfigValue>,
+    ai_cfg: Res<GameConfig>,
 ) {
     for (entity, steering, skill, transform, mut force, mut velocity, stats, mut throttle) in
         &mut ships
@@ -59,7 +59,7 @@ pub fn update_ship_steering(
         force.torque = torque;
 
         let cap = steering.throttle_cap.clamp(0.0, 1.0);
-        let linear = if skill.level() >= ai_cfg.0.unlocks.omnidirectional_thrust_level {
+        let linear = if skill.level() >= ai_cfg.ai.unlocks.omnidirectional_thrust_level {
             let applied = thrust_world * cap;
             force.force = applied * thrust_power;
             applied.length()
@@ -117,7 +117,7 @@ pub fn collect_drop(
     mut drops: Query<(Entity, &mut Transform, &Loot)>,
     mut ships: Query<(Entity, &mut ShipStats, &GlobalTransform, &Team)>,
     time: Res<Time>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut collected: MessageWriter<ItemCollected>,
 ) {
     for (drop_entity, mut drop_transform, drop_component) in &mut drops {
@@ -131,7 +131,7 @@ pub fn collect_drop(
                 (entity, stats, transform.translation().truncate(), *team)
             })
             .filter(|(_, _, position, _)| {
-                position.distance(drop_position) <= config.0.drop_collect_radius
+                position.distance(drop_position) <= config.sim.drop_collect_radius
             })
             .min_by(|a, b| {
                 a.2.distance_squared(drop_position)
@@ -144,7 +144,7 @@ pub fn collect_drop(
 
         let direction = ship_position - drop_position;
         let distance = direction.length();
-        drop_transform.translation += (config.0.drop_collect_radius
+        drop_transform.translation += (config.sim.drop_collect_radius
             * direction.normalize_or_zero()
             * time.delta_secs()
             * 3.0)
@@ -194,7 +194,7 @@ mod tests {
         app.add_plugins((MinimalPlugins, ControlPlugin))
             .add_message::<ItemCollected>()
             .add_systems(Update, collect_drop)
-            .insert_resource(GameConfigValue(GameConfig::default()));
+            .insert_resource(GameConfig::default());
         let ship = app
             .world_mut()
             .spawn((
@@ -250,7 +250,7 @@ mod tests {
         app.add_plugins((MinimalPlugins, ControlPlugin))
             .add_message::<ItemCollected>()
             .add_systems(Update, collect_drop)
-            .insert_resource(GameConfigValue(GameConfig::default()));
+            .insert_resource(GameConfig::default());
         let ship = app
             .world_mut()
             .spawn((

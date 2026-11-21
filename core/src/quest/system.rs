@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use bevy::asset::{Asset, AssetEvent};
 use bevy::prelude::*;
 
-use crate::config::{GameConfigValue, GameSetting};
+use crate::config::{GameConfig, GameSettings};
 use crate::content::block::BlockRegistry;
 use crate::content::death::ShipDestroyed;
 use crate::content::item::ItemCollected;
-use crate::content::ship::ai::AiConfigValue;
 use crate::content::ship::spawn::SpawnEnv;
 use crate::content::ship::Ship;
 use crate::content::team::{DEFAULT_TEAM_ID, Team};
@@ -315,11 +314,11 @@ pub fn respawn_player_on_defeat(
     ships: Query<(Entity, &Team), With<Ship>>,
     mut commands: Commands,
     registry: Res<BlockRegistry>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     fleet: Res<DeployPayload>,
     catalog: Res<ShipCatalog>,
-    setting: Res<GameSetting>,
-    ai_cfg: Res<AiConfigValue>,
+    setting: Res<GameSettings>,
+    ai_cfg: Res<GameConfig>,
     mut controlled: ResMut<ControlledShip>,
     mut camera_target: ResMut<CameraTarget>,
 ) {
@@ -342,8 +341,8 @@ pub fn respawn_player_on_defeat(
     };
 
     let team = Team::new(DEFAULT_TEAM_ID);
-    let skill = resolve_skill(None, team, None, setting.ai_level, &ai_cfg.0);
-    let env = SpawnEnv::new(&registry, &config, &setting, &ai_cfg.0);
+    let skill = resolve_skill(None, team, None, setting.ai_level, &ai_cfg.ai);
+    let env = SpawnEnv::new(&registry, &config, &setting, &ai_cfg.ai);
     
     if let Some(entity) = env.spawn_ship(&mut commands, &design, team, Vec2::ZERO, skill) {
         controlled.controlling = Some(entity);
@@ -358,9 +357,8 @@ fn respawn_needed(player_destroyed: bool, any_player_alive: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AiConfigValue, GameConfig, GameSetting};
+    use crate::config::{GameConfig, GameSettings};
     use crate::content::block::BlockRegistry;
-    use crate::content::ship::ai::AiConfig;
     use crate::quest::component::{QuestDef, QuestGenConfig, QuestOffer, QuestPrereqMode};
     use crate::quest::lib::{activate_available, prerequisites_met};
     use crate::resource::DeployPayload;
@@ -399,11 +397,11 @@ mod tests {
             .insert_resource(VisibleOffers::default())
             .insert_resource(QuestOfferQueue::default())
             .insert_resource(BlockRegistry::default())
-            .insert_resource(GameConfigValue(GameConfig::default()))
+            .insert_resource(GameConfig::default())
             .insert_resource(DeployPayload::default())
             .insert_resource(ShipCatalog::default())
-            .insert_resource(GameSetting::default())
-            .insert_resource(AiConfigValue(AiConfig::default()))
+            .insert_resource(GameSettings::default())
+            .insert_resource(GameConfig::default())
             .init_resource::<ControlledShip>()
             .init_resource::<CameraTarget>();
         app

@@ -3,7 +3,7 @@ use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d};
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::feature::power::{Consumer, Demand, Supply};
 use crate::content::team::Team;
 
@@ -87,7 +87,7 @@ impl Shield {
         _visual: Entity,
         _pixel_size: Vec2,
         _team: &Team,
-        _config: &GameConfigValue,
+        _config: &GameConfig,
     ) {
         commands.entity(base).insert(self.clone());
         

@@ -2,7 +2,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::ship::{Ship, Throttle};
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
@@ -22,14 +22,14 @@ pub fn player_control_ship(
     mut camera_target: ResMut<CameraTarget>,
     mut controlled: ResMut<ControlledShip>,
     mode: Res<ControlMode>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     for event in mouse_wheel_events.read() {
         if let Ok((_, mut projection)) = camera.single_mut() {
             if let Projection::Orthographic(ortho) = &mut *projection {
                 let zoom_speed = 0.1;
                 ortho.scale -= event.y * zoom_speed * ortho.scale;
-                ortho.scale = ortho.scale.clamp(config.0.min_zoom, config.0.max_zoom);
+                ortho.scale = ortho.scale.clamp(config.sim.min_zoom, config.sim.max_zoom);
             }
         }
     }

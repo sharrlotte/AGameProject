@@ -1,4 +1,3 @@
-use bevy::asset::AssetEvent;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::Deserialize;
@@ -8,7 +7,7 @@ use super::fleet::{default_fleet_spacing, validate_fleet_spacing};
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct GameConfig {
+pub struct SimConfig {
     pub thrust_power_factor: f32,
     pub turn_speed_factor: f32,
     pub linear_damping: f32,
@@ -37,7 +36,7 @@ pub struct GameConfig {
     pub fleet_spacing: f32,
 }
 
-impl Default for GameConfig {
+impl Default for SimConfig {
     fn default() -> Self {
         Self {
             thrust_power_factor: 50.0,
@@ -68,7 +67,7 @@ impl Default for GameConfig {
     }
 }
 
-impl Validate for GameConfig {
+impl Validate for SimConfig {
     type Context = ();
     type Error = String;
 
@@ -92,29 +91,9 @@ impl Validate for GameConfig {
     }
 }
 
-impl GameConfig {
+impl SimConfig {
     pub fn validate(&self) -> Result<(), String> {
         Validate::validate(self, &())
-    }
-}
-
-#[derive(Resource, Default, Clone, Debug)]
-pub struct GameConfigValue(pub GameConfig);
-
-pub fn game_config_bridge(
-    mut events: MessageReader<AssetEvent<GameConfig>>,
-    assets: Res<Assets<GameConfig>>,
-    mut value: ResMut<GameConfigValue>,
-) {
-    for event in events.read() {
-        let id = match event {
-            AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id } => *id,
-            _ => continue,
-        };
-
-        if let Some(config) = assets.get(id) {
-            *value = GameConfigValue(config.clone());
-        }
     }
 }
 
@@ -124,10 +103,10 @@ mod tests {
 
     #[test]
     fn rejects_inverted_debris_lifetime_range() {
-        let config = GameConfig {
+        let config = SimConfig {
             debris_lifetime_min_seconds: 60.0,
             debris_lifetime_max_seconds: 30.0,
-            ..GameConfig::default()
+            ..SimConfig::default()
         };
 
         let error = config.validate().expect_err("inverted range is invalid");
@@ -136,9 +115,9 @@ mod tests {
 
     #[test]
     fn rejects_non_positive_debris_lifetime() {
-        let config = GameConfig {
+        let config = SimConfig {
             debris_lifetime_min_seconds: 0.0,
-            ..GameConfig::default()
+            ..SimConfig::default()
         };
 
         let error = config.validate().expect_err("zero lifetime is invalid");
@@ -147,6 +126,6 @@ mod tests {
 
     #[test]
     fn accepts_valid_debris_lifetime_range() {
-        assert!(GameConfig::default().validate().is_ok());
+        assert!(SimConfig::default().validate().is_ok());
     }
 }

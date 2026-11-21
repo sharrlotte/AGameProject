@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::{
     block::feature::{
         power::{Battery, Booster, Consumer, Generator},
@@ -33,7 +33,7 @@ impl Feature {
         visual: Entity,
         pixel_size: Vec2,
         team: &Team,
-        config: &GameConfigValue,
+        config: &GameConfig,
     ) {
         match self {
             Self::Texture(sprite) => sprite.insert(commands, visual, pixel_size),

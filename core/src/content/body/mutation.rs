@@ -1,10 +1,10 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use uuid::Uuid;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::{BlockPlacement, BlockRegistry, DropEvent};
 use crate::content::body::debris::{
     component_centroid, component_mass, debris_transform, debris_velocity, detach_component,
@@ -41,7 +41,7 @@ pub fn apply_body_mutations(
     mut commands: Commands,
     mut events: MessageReader<BodyMutation>,
     registry: Res<BlockRegistry>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
     mut bodies: BodyQuery,
     mut changed: MessageWriter<ShipChanged>,
     mut destroyed: MessageWriter<ShipDestroyed>,
@@ -123,7 +123,7 @@ fn apply_ship_mutation(
     velocity: &Velocity,
     entity: &Entity,
     registry: &BlockRegistry,
-    config: &GameConfigValue,
+    config: &GameConfig,
     changed: &mut MessageWriter<ShipChanged>,
     destroyed: &mut MessageWriter<ShipDestroyed>,
 ) {
@@ -215,7 +215,7 @@ fn split_debris(
     velocity: &Velocity,
     entity: &Entity,
     registry: &BlockRegistry,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) {
     let components = grid.components(registry);
 
@@ -274,7 +274,7 @@ fn spawn_debris_from_component(
     velocity: &Velocity,
     team: Team,
     lifetime_secs: f32,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) {
     let centroid = component_centroid(source, ids);
 
@@ -370,7 +370,7 @@ mod tests {
             .add_message::<ShipDestroyed>()
             .add_message::<DropEvent>()
             .insert_resource(registry())
-            .insert_resource(GameConfigValue(GameConfig::default()))
+            .insert_resource(GameConfig::default())
             .add_systems(Update, apply_body_mutations);
         app
     }

@@ -4,7 +4,7 @@ use std::time::Duration;
 use bevy_rapier2d::prelude::{ExternalForce, Velocity};
 
 use super::*;
-use crate::config::{GameConfig, GameConfigValue, GameSetting};
+use crate::config::{GameConfig, GameSettings};
 use crate::content::block::feature::component::Feature;
 use crate::content::block::feature::power::Booster;
 use crate::content::block::feature::thruster::Thruster;
@@ -211,7 +211,7 @@ fn capability_updates_on_fixed_weapon_loss_and_detects_support_hulls() {
 #[test]
 fn team_intel_shares_contacts_memory_and_damage_alerts() {
     let mut app = App::new();
-    app.init_resource::<AiConfigValue>()
+    app.init_resource::<GameConfig>()
         .init_resource::<TacticalBoard>()
         .init_resource::<Time>()
         .add_message::<DamageEvent>()
@@ -351,7 +351,7 @@ fn utility_hysteresis_retreat_and_booster_power_shedding() {
 
     // Booster power-shedding test
     let mut app = App::new();
-    app.init_resource::<AiConfigValue>()
+    app.init_resource::<GameConfig>()
         .init_resource::<TacticalBoard>()
         .init_resource::<ControlledShip>()
         .insert_resource(Time::<()>::default())
@@ -403,7 +403,7 @@ fn utility_hysteresis_retreat_and_booster_power_shedding() {
 #[test]
 fn steering_respects_skill_omnidirectional_thrust_and_skill_precedence() {
     let ai_cfg = AiConfig::default();
-    let setting = GameSetting {
+    let setting = GameSettings {
         ai_level: 3,
         ..default()
     };
@@ -413,9 +413,9 @@ fn steering_respects_skill_omnidirectional_thrust_and_skill_precedence() {
     assert_eq!(resolve_skill(None, Team::new(0), Some(2), setting.ai_level, &ai_cfg).level(), 8);
 
     let mut app = App::new();
-    app.init_resource::<AiConfigValue>()
+    app.init_resource::<GameConfig>()
         .init_resource::<ControlledShip>()
-        .insert_resource(GameConfigValue(GameConfig::default()))
+        .insert_resource(GameConfig::default())
         .add_systems(Update, update_ship_steering);
 
     let high = app
@@ -472,7 +472,7 @@ fn team_intel_alerts_and_last_known_respect_config_bounds() {
     cfg.bounds.alert_merge_radius = 50.0;
 
     let mut app = App::new();
-    app.insert_resource(AiConfigValue(cfg))
+    app.insert_resource(GameConfig { ai: cfg, ..default() })
         .init_resource::<TacticalBoard>()
         .init_resource::<Time>()
         .add_message::<DamageEvent>()

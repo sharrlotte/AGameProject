@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::constant::{CHUNK_SIZE, DESPAWN_RADIUS, LOAD_RADIUS};
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::content::block::BlockRegistry;
 use crate::content::body::{BlockGrid, Debris};
 use crate::content::ship::Ship;
@@ -277,7 +277,7 @@ fn load_in_range(world: &mut World, players: &[Vec2]) {
             ChunkCoord::from_world(Vec2::new(snapshot.transform.x, snapshot.transform.y), CHUNK_SIZE)
         }
     };
-    let Some(game_config) = world.get_resource::<GameConfigValue>().cloned() else {
+    let Some(game_config) = world.get_resource::<GameConfig>().cloned() else {
         return;
     };
 
@@ -329,7 +329,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.init_resource::<Time>();
         app.insert_resource(test_registry());
-        app.init_resource::<GameConfigValue>();
+        app.init_resource::<GameConfig>();
         app.init_resource::<WorldContext>();
         app.init_resource::<StreamingTimer>();
         app.add_message::<ChunkStreamError>();

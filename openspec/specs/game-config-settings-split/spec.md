@@ -1,5 +1,8 @@
-## ADDED Requirements
+# game-config-settings-split Specification
 
+## Purpose
+TBD - created by archiving change unify-config-and-settings. Update Purpose after archive.
+## Requirements
 ### Requirement: Read-only GameConfig is consolidated and strictly separated from user GameSettings
 The engine SHALL separate immutable shipped game configuration (`GameConfig` loaded from `core/assets/config/`) from mutable user preferences (`GameSettings` stored in `<data_dir>/settings.ron`). Small shipped tuning sections (`sim`, `ai`, `minimap`, `skirmish`, `quest_gen`) SHALL live in `core/assets/config/game.ron`, while large content catalogs SHALL remain in `core/assets/config/block.ron` and `core/assets/config/quests.ron`. The game SHALL NEVER write user preferences into the `assets/` directory.
 
@@ -18,3 +21,4 @@ The engine SHALL separate immutable shipped game configuration (`GameConfig` loa
 #### Scenario: Repeat Skirmish sessions spawn enemies from GameConfig.skirmish
 - **WHEN** a player runs Quick Battle / Skirmish, returns to Home, and starts a second Skirmish in the same app run
 - **THEN** the second Skirmish reads `GameConfig.skirmish` and spawns the configured enemies identically to the first run
+

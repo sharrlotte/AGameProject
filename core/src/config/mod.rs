@@ -4,20 +4,39 @@ pub mod game;
 pub(crate) mod loader;
 pub mod minimap;
 pub mod setting;
+pub mod skirmish;
 
-pub use ai::{AiConfig, AiConfigValue, ai_config_bridge};
+pub use ai::AiConfig;
 pub use block::BlocksConfig;
-pub use game::{GameConfig, GameConfigValue};
-pub use minimap::{MinimapConfig, MinimapConfigValue, minimap_config_bridge};
-pub use setting::GameSetting;
+pub use game::SimConfig;
+pub use minimap::MinimapConfig;
+pub use setting::GameSettings;
+pub use skirmish::{ShipSpawn, SkirmishDef};
 
-use bevy::asset::LoadState;
+use std::collections::HashMap;
+
+use bevy::asset::{AssetEvent, LoadState};
 use bevy::prelude::*;
 
 use crate::content::block::BlockRegistry;
+use crate::quest::component::{QuestCatalogDef, QuestDef, QuestGenConfig, QuestId};
 use crate::resource::SceneState;
 use crate::simulation::SimulationSet;
 
+#[derive(Clone, Debug, Default)]
+pub struct QuestConfigData {
+    pub authored: HashMap<QuestId, QuestDef>,
+    pub generation: QuestGenConfig,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct GameConfig {
+    pub sim: SimConfig,
+    pub ai: AiConfig,
+    pub minimap: MinimapConfig,
+    pub skirmish: SkirmishDef,
+    pub quest: QuestConfigData,
+}
 
 #[derive(States, Clone, Eq, Hash, PartialEq, Default, Debug)]
 pub enum ConfigState {
@@ -27,13 +46,11 @@ pub enum ConfigState {
     Error(ConfigError),
 }
 
-
 #[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct ConfigError {
     pub failed: ConfigFile,
     detail: Option<String>,
 }
-
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub enum ConfigFile {
@@ -41,17 +58,12 @@ pub enum ConfigFile {
     Blocks,
     Ai,
     Minimap,
+    Skirmish,
+    Quests,
+    QuestGen,
 }
 
-
 impl ConfigError {
-    fn new(failed: ConfigFile) -> Self {
-        Self {
-            failed,
-            detail: None,
-        }
-    }
-
     pub fn with_detail(failed: ConfigFile, detail: impl Into<String>) -> Self {
         Self {
             failed,
@@ -65,8 +77,11 @@ impl ConfigError {
             ConfigFile::Blocks => "config/base/block.ron failed to load",
             ConfigFile::Ai => "config/base/ai.ron failed to load",
             ConfigFile::Minimap => "config/base/minimap.ron failed to load",
+            ConfigFile::Skirmish => "config/base/skirmish.ron failed to load",
+            ConfigFile::Quests => "config/quest/quests.ron failed to load",
+            ConfigFile::QuestGen => "config/quest/generation.ron failed to load",
         };
-        
+
         match &self.detail {
             Some(detail) => format!("{base}: {detail}"),
             None => base.to_string(),
@@ -74,19 +89,18 @@ impl ConfigError {
     }
 }
 
-
 #[derive(Resource)]
 struct ConfigHandles {
-    game: Handle<GameConfig>,
+    sim: Handle<SimConfig>,
     blocks: Handle<BlocksConfig>,
     ai: Handle<AiConfig>,
     minimap: Handle<MinimapConfig>,
-    settings: Handle<GameSetting>,
+    skirmish: Handle<SkirmishDef>,
+    quests: Handle<QuestCatalogDef>,
+    quest_gen: Handle<QuestGenConfig>,
 }
 
-
 pub struct ConfigPlugin;
-
 
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
@@ -94,17 +108,23 @@ impl Plugin for ConfigPlugin {
 
         app.init_state::<ConfigState>()
             .init_resource::<SettingSaveTimer>()
-            .init_resource::<MinimapConfigValue>()
-            .init_asset::<GameConfig>()
+            .init_resource::<GameConfig>()
+            .init_resource::<GameSettings>()
+            .init_asset::<SimConfig>()
             .init_asset::<BlocksConfig>()
             .init_asset::<AiConfig>()
             .init_asset::<MinimapConfig>()
-            .init_asset::<GameSetting>()
-            .register_asset_loader(loader::RonAssetLoader::<GameConfig>::new(&["ron"]))
+            .init_asset::<SkirmishDef>()
+            .init_asset::<QuestCatalogDef>()
+            .init_asset::<QuestGenConfig>()
+            .register_asset_loader(loader::RonAssetLoader::<SimConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<BlocksConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<AiConfig>::new(&["ron"]))
             .register_asset_loader(loader::RonAssetLoader::<MinimapConfig>::new(&["ron"]))
-            .register_asset_loader(loader::RonAssetLoader::<GameSetting>::new(&["ron"]))
+            .register_asset_loader(loader::RonAssetLoader::<SkirmishDef>::new(&["ron"]))
+            .register_asset_loader(loader::RonAssetLoader::<QuestCatalogDef>::new(&["ron"]))
+            .register_asset_loader(loader::RonAssetLoader::<QuestGenConfig>::new(&["ron"]))
+            .add_systems(PreStartup, setting::load_settings)
             .add_systems(Startup, load_config_handles)
             .add_systems(
                 Update,
@@ -115,11 +135,13 @@ impl Plugin for ConfigPlugin {
             .add_systems(
                 Update,
                 (
-                    game::game_config_bridge,
+                    sim_config_bridge,
                     block::blocks_bridge,
-                    ai_config_bridge,
-                    minimap_config_bridge,
-                    setting::game_setting_bridge,
+                    ai_bridge,
+                    minimap_bridge,
+                    skirmish_bridge,
+                    quests_bridge,
+                    quest_gen_bridge,
                     setting::save_setting_on_change,
                 )
                     .run_if(in_state(ConfigState::Ready))
@@ -135,34 +157,50 @@ impl Plugin for ConfigPlugin {
     }
 }
 
-
 #[derive(Resource)]
 struct ConfigErrorScreen;
-
 
 #[derive(Component)]
 struct ErrorText;
 
-
 fn load_config_handles(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(ConfigHandles {
-        game: assets.load("config/base/game.ron"),
+        sim: assets.load("config/base/game.ron"),
         blocks: assets.load("config/base/block.ron"),
         ai: assets.load("config/base/ai.ron"),
         minimap: assets.load("config/base/minimap.ron"),
-        settings: assets.load("config/setting.ron"),
+        skirmish: assets.load("config/base/skirmish.ron"),
+        quests: assets.load("config/quest/quests.ron"),
+        quest_gen: assets.load("config/quest/generation.ron"),
     });
 }
 
+fn check_load_failed<A: Asset>(
+    assets: &AssetServer,
+    handle: &Handle<A>,
+    file: ConfigFile,
+    config_state: &mut NextState<ConfigState>,
+) -> bool {
+    if let Some(LoadState::Failed(err)) = assets.get_load_state(handle) {
+        config_state.set(ConfigState::Error(ConfigError::with_detail(
+            file,
+            err.to_string(),
+        )));
+        return true;
+    }
+    false
+}
 
 fn check_config_ready(
     mut commands: Commands,
     handles: Option<Res<ConfigHandles>>,
-    game_assets: Res<Assets<GameConfig>>,
+    sim_assets: Res<Assets<SimConfig>>,
     block_assets: Res<Assets<BlocksConfig>>,
     ai_assets: Res<Assets<AiConfig>>,
     minimap_assets: Res<Assets<MinimapConfig>>,
-    setting_assets: Res<Assets<GameSetting>>,
+    skirmish_assets: Res<Assets<SkirmishDef>>,
+    quest_assets: Res<Assets<QuestCatalogDef>>,
+    quest_gen_assets: Res<Assets<QuestGenConfig>>,
     assets: Res<AssetServer>,
     mut config_state: ResMut<NextState<ConfigState>>,
     mut scene_state: ResMut<NextState<SceneState>>,
@@ -171,56 +209,39 @@ fn check_config_ready(
         return;
     };
 
-    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.game) {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Game,
-            err.to_string(),
-        )));
+    if check_load_failed(&assets, &handles.sim, ConfigFile::Game, &mut config_state)
+        || check_load_failed(&assets, &handles.blocks, ConfigFile::Blocks, &mut config_state)
+        || check_load_failed(&assets, &handles.ai, ConfigFile::Ai, &mut config_state)
+        || check_load_failed(&assets, &handles.minimap, ConfigFile::Minimap, &mut config_state)
+        || check_load_failed(&assets, &handles.skirmish, ConfigFile::Skirmish, &mut config_state)
+        || check_load_failed(&assets, &handles.quests, ConfigFile::Quests, &mut config_state)
+        || check_load_failed(&assets, &handles.quest_gen, ConfigFile::QuestGen, &mut config_state)
+    {
         return;
     }
 
-    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.blocks) {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Blocks,
-            err.to_string(),
-        )));
-        return;
-    }
-
-    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.ai) {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Ai,
-            err.to_string(),
-        )));
-        return;
-    }
-
-    if let Some(LoadState::Failed(err)) = assets.get_load_state(&handles.minimap) {
-        config_state.set(ConfigState::Error(ConfigError::with_detail(
-            ConfigFile::Minimap,
-            err.to_string(),
-        )));
-        return;
-    }
-
-    let Some(game) = game_assets.get(&handles.game) else {
-        return;
-    };
-
-    let Some(ai) = ai_assets.get(&handles.ai) else {
-        return;
-    };
-
-    let Some(minimap) = minimap_assets.get(&handles.minimap) else {
-        return;
-    };
-
-    let Some(blocks) = block_assets.get(&handles.blocks) else {
+    let (
+        Some(sim),
+        Some(blocks),
+        Some(ai),
+        Some(minimap),
+        Some(skirmish),
+        Some(quests),
+        Some(quest_gen),
+    ) = (
+        sim_assets.get(&handles.sim),
+        block_assets.get(&handles.blocks),
+        ai_assets.get(&handles.ai),
+        minimap_assets.get(&handles.minimap),
+        skirmish_assets.get(&handles.skirmish),
+        quest_assets.get(&handles.quests),
+        quest_gen_assets.get(&handles.quest_gen),
+    )
+    else {
         return;
     };
 
     let mut registry = BlockRegistry::default();
-
     for (key, block) in &blocks.blocks {
         match block.clone().into_def(assets.as_ref(), key.clone()) {
             Ok(def) => registry.register(key, def),
@@ -234,33 +255,101 @@ fn check_config_ready(
         }
     }
 
-    if matches!(
-        assets.get_load_state(&handles.settings),
-        Some(LoadState::Failed(_))
-    ) {
-        warn!("config/setting.ron failed to load; using defaults");
-    }
+    let authored = quests
+        .quests
+        .iter()
+        .map(|def| (def.id.clone(), def.clone()))
+        .collect();
 
-    commands.insert_resource(GameConfigValue(game.clone()));
-    commands.insert_resource(AiConfigValue(ai.clone()));
-    commands.insert_resource(MinimapConfigValue(minimap.clone()));
+    commands.insert_resource(GameConfig {
+        sim: sim.clone(),
+        ai: ai.clone(),
+        minimap: minimap.clone(),
+        skirmish: skirmish.clone(),
+        quest: QuestConfigData {
+            authored,
+            generation: quest_gen.clone(),
+        },
+    });
     commands.insert_resource(registry);
-    let mut loaded_setting = setting_assets
-        .get(&handles.settings)
-        .cloned()
-        .unwrap_or_default();
-    loaded_setting.ai_level = loaded_setting.ai_level.clamp(1, 10);
-    commands.insert_resource(loaded_setting);
 
     config_state.set(ConfigState::Ready);
     scene_state.set(SceneState::Home);
 }
 
+fn apply_bridge<A: Asset>(
+    events: &mut MessageReader<AssetEvent<A>>,
+    assets: &Assets<A>,
+    mut apply: impl FnMut(&A),
+) {
+    for event in events.read() {
+        let (AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id }) = event
+        else {
+            continue;
+        };
+        if let Some(asset) = assets.get(*id) {
+            apply(asset);
+        }
+    }
+}
+
+fn sim_config_bridge(
+    mut events: MessageReader<AssetEvent<SimConfig>>,
+    assets: Res<Assets<SimConfig>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |v| config.sim = v.clone());
+}
+
+fn ai_bridge(
+    mut events: MessageReader<AssetEvent<AiConfig>>,
+    assets: Res<Assets<AiConfig>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |v| config.ai = v.clone());
+}
+
+fn minimap_bridge(
+    mut events: MessageReader<AssetEvent<MinimapConfig>>,
+    assets: Res<Assets<MinimapConfig>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |v| config.minimap = v.clone());
+}
+
+fn skirmish_bridge(
+    mut events: MessageReader<AssetEvent<SkirmishDef>>,
+    assets: Res<Assets<SkirmishDef>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |v| config.skirmish = v.clone());
+}
+
+fn quests_bridge(
+    mut events: MessageReader<AssetEvent<QuestCatalogDef>>,
+    assets: Res<Assets<QuestCatalogDef>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |catalog| {
+        config.quest.authored = catalog
+            .quests
+            .iter()
+            .map(|def| (def.id.clone(), def.clone()))
+            .collect();
+    });
+}
+
+fn quest_gen_bridge(
+    mut events: MessageReader<AssetEvent<QuestGenConfig>>,
+    assets: Res<Assets<QuestGenConfig>>,
+    mut config: ResMut<GameConfig>,
+) {
+    apply_bridge(&mut events, &assets, |v| config.quest.generation = v.clone());
+}
 
 fn config_failed(state: Res<State<ConfigState>>) -> bool {
     matches!(state.get(), ConfigState::Error(_))
 }
-
 
 fn spawn_config_error_screen(
     mut commands: Commands,
@@ -317,7 +406,6 @@ fn spawn_config_error_screen(
             ));
         });
 }
-
 
 fn refresh_config_error_text(
     state: Res<State<ConfigState>>,

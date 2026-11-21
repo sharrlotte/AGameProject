@@ -1,4 +1,4 @@
-﻿use bevy::math::FloatPow;
+use bevy::math::FloatPow;
 use bevy::prelude::*;
 use bevy_rapier2d::parry::shape::Cuboid;
 use bevy_rapier2d::prelude::*;
@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::f32::consts::PI;
 
 use super::*;
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::constant::{GRID_SIZE, LAYER_BULLET};
 use crate::content::block::feature::ammo::AmmoState;
 use crate::content::block::feature::power::{Boost, STARVATION_THRESHOLD, Supply};
@@ -49,7 +49,7 @@ pub fn handle_missiles(
     mut missiles: Query<(&mut Missile, &mut Transform, &GlobalTransform)>,
     targets: Query<(&GlobalTransform, &BlockGrid)>,
     time: Res<Time>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     for (mut missile, mut transform, global) in missiles.iter_mut() {
         let forward: Vec2 = global.up().truncate();
@@ -81,7 +81,7 @@ pub fn handle_missiles(
                 let target_dir = to_target.normalize_or_zero();
                 let angle_error = forward.perp_dot(target_dir).atan2(forward.dot(target_dir));
 
-                let max_turn = config.0.missile_max_turn * time.delta_secs();
+                let max_turn = config.sim.missile_max_turn * time.delta_secs();
                 let turn = angle_error.clamp(-max_turn, max_turn);
 
                 transform.translation += (forward * current_speed * time.delta_secs()).extend(0.0);
@@ -116,7 +116,7 @@ pub fn handle_single_shot(
         ),
         Without<Disabled>,
     >,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     let dt = time.delta_secs();
     for (
@@ -198,7 +198,7 @@ pub fn handle_burst_shot(
         ),
         Without<Disabled>,
     >,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     let dt = time.delta_secs();
     for (
@@ -629,7 +629,7 @@ pub fn spawn_bullet(
     range: f32,
     projectile: &ShootingProjectile,
     target: Option<Entity>,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) -> Entity {
     let rotation = turret_transform.rotation();
     let offset = rotation * barrel_position.extend(LAYER_BULLET);
@@ -722,7 +722,7 @@ pub fn spawn_bullet(
                         lock_range: *lock_range,
                         age: 0.0,
                         speed: *speed,
-                        accel_time: config.0.missile_accel_time,
+                        accel_time: config.sim.missile_accel_time,
                         target,
                     },
                     Sprite {
@@ -772,7 +772,7 @@ pub fn handle_laser(
     mut lasers: Query<(Entity, &Laser, &Damage, &Team, Option<&mut Sprite>)>,
     rapier: ReadRapierContext,
     time: Res<Time>,
-    config: Res<GameConfigValue>,
+    config: Res<GameConfig>,
 ) {
     for (entity, laser, damage, team, sprite) in lasers.iter_mut() {
         match laser {
@@ -824,7 +824,7 @@ pub fn handle_laser(
                 });
             }
             Laser::Fired { fired_at } => {
-                let fade_time = config.0.bullet_fade_time;
+                let fade_time = config.sim.bullet_fade_time;
 
                 if time.elapsed_secs() - *fired_at > fade_time {
                     commands.entity(entity).despawn();

@@ -29,7 +29,6 @@
 - High-level modules should depend on trait abstractions rather than concrete structs, using either static dispatch (generics) or dynamic dispatch (Box<dyn Trait> / &dyn Trait).
 - Wrap primitive types (String, u64, f64) in single-field tuple structs to prevent mixing up arguments of the same underlying type.
 - Validate raw input once at the boundary of your system and convert it into a strongly typed wrapper. Internal functions can then trust the type without re-checking.
-- 
 - Use Rust's strict type system (enum and struct) so invalid combinations of data simply cannot compile
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 - Use short and concise for name and file name, prefer using 1 word, use folder to group files and prefer creating folder to group for

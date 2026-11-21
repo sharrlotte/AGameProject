@@ -1,8 +1,8 @@
-﻿use bevy::prelude::*;
+use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use uuid::Uuid;
 
-use crate::config::GameConfigValue;
+use crate::config::GameConfig;
 use crate::constant::GRID_SIZE;
 use crate::content::block::{BlockOwner, BlockRegistry};
 use crate::content::lifetime::Lifetime;
@@ -113,16 +113,16 @@ pub fn shift_block_transform(transform: &mut Transform, anchor: IVec2) {
     transform.translation.y -= anchor.y as f32 * GRID_SIZE;
 }
 
-pub fn next_lifetime(parent: Option<&Lifetime>, config: &GameConfigValue) -> f32 {
+pub fn next_lifetime(parent: Option<&Lifetime>, config: &GameConfig) -> f32 {
     match parent {
         Some(lifetime) => lifetime.timer().remaining_secs(),
         None => roll_lifetime(config),
     }
 }
 
-fn roll_lifetime(config: &GameConfigValue) -> f32 {
-    let min = config.0.debris_lifetime_min_seconds;
-    let max = config.0.debris_lifetime_max_seconds;
+fn roll_lifetime(config: &GameConfig) -> f32 {
+    let min = config.sim.debris_lifetime_min_seconds;
+    let max = config.sim.debris_lifetime_max_seconds;
     rand::random::<f32>().mul_add(max - min, min)
 }
 
@@ -136,7 +136,7 @@ pub fn spawn_debris_body(
     lifetime_secs: f32,
     collider: Collider,
     mass: f32,
-    config: &GameConfigValue,
+    config: &GameConfig,
 ) -> Entity {
     commands
         .spawn((
@@ -149,8 +149,8 @@ pub fn spawn_debris_body(
             collider,
             ColliderMassProperties::Mass(mass),
             Damping {
-                linear_damping: config.0.linear_damping,
-                angular_damping: config.0.angular_damping,
+                linear_damping: config.sim.linear_damping,
+                angular_damping: config.sim.angular_damping,
             },
             CollisionGroups::new(GROUP_DEBRIS, GROUP_SHIP | GROUP_DEBRIS),
             ActiveCollisionTypes::all(),
