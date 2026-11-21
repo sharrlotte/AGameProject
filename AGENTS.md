@@ -23,6 +23,14 @@
 - Make sure code is optimized for perfermance
 - Dev only code should not exists in Production build
 - Respect SOLID principle
+- Keep structs focused on holding specific data, and separate unrelated behaviors into distinct structs or modules.
+- Use traits to allow new behaviors to be added without modifying existing core logic.
+- Favor small, granular traits over monolithic ones, and use trait bounds (+) to compose only what a function needs
+- High-level modules should depend on trait abstractions rather than concrete structs, using either static dispatch (generics) or dynamic dispatch (Box<dyn Trait> / &dyn Trait).
+- Wrap primitive types (String, u64, f64) in single-field tuple structs to prevent mixing up arguments of the same underlying type.
+- Validate raw input once at the boundary of your system and convert it into a strongly typed wrapper. Internal functions can then trust the type without re-checking.
+- 
+- Use Rust's strict type system (enum and struct) so invalid combinations of data simply cannot compile
 - Use macro to replace duplicated code when a function can not do it or using macro is better than using a function
 - Use short and concise for name and file name, prefer using 1 word, use folder to group files and prefer creating folder to group for
   future proof when more files is added
@@ -39,14 +47,13 @@
   lib.rs, only function defined in system.rs, enum + struct + trait + component should be defined in component, lib.rs is for function that
   used in other folder/module, if the file over 300 lines you can split it into subfolder if needed, function over 100 lines should also
   split
-- Bevy component should use a nounce without any prefix or subfix
 - The order of defnification in code should be enum + struct + trait + impl on top, function next, test on the bottom
-- Prefer enum to create state machine to avoid invalid state for complex state
 - Avoid fail silently, we must fail loud or log depend on which is better for UX
 - Method should be stateless and have no side-effect so we can test the easier
 
 ## Bevy
 
+- Bevy component should use a nounce without any prefix or subfix
 - Prefer Single over Query if you only need 1 and that entity always exists 1
 - Prefer DespawnOnExit
 - Always use prelude for bevy
