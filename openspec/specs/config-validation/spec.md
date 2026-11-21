@@ -6,11 +6,15 @@ Config and mission loading returns recoverable errors with validation rules and 
 ## Requirements
 ### Requirement: Config and mission failures are recoverable
 
-Config and mission loading SHALL return `ConfigState::Error(ConfigError)` with a readable message and error screen instead of panicking. Mission failure SHALL return to Home with a message.
+Config and mission loading SHALL return `ConfigState::Error(ConfigError)` with a readable message and error screen instead of panicking. `RonAssetLoader` SHALL execute `Validate::validate` at asset decode time and reject invalid assets before they are registered in the asset storage. Mission failure SHALL return to Home with a message.
 
 #### Scenario: Malformed block config
-- **WHEN** `block.ron` is malformed
-- **THEN** the game shows the config error screen and does not panic
+- **WHEN** `block.ron` is malformed or fails validation on decode
+- **THEN** the game shows the config error screen naming the file and validation reason, and does not panic
+
+#### Scenario: Hot reload of invalid config
+- **WHEN** a watched `.ron` file is modified on disk with invalid values
+- **THEN** `RonAssetLoader` rejects the reload with an error log and the running game retains the last valid config asset
 
 ### Requirement: Block config is validated
 Validation SHALL require unique block keys, a runtime feature for every feature config, a core block with group `"core"`, non-empty turret barrels, `range > 0`, `turn_speed >= 0`, `fire_rate > 0`, burst `amount > 0`, producer output `>= 0`, consumer rate `> 0`, storage capacity `> 0`, and a shape spec that bakes successfully: positive dimensions, rectangular `Rows` using only `#`/`.` with at least one filled cell and no empty border row or column, triangles whose rasterized bounding box equals their declared size, at least one cell, a single Manhattan-1 connected cell set, and a buildable triangle hitbox. Validation errors SHALL name the block. Projectile, laser-beam, and thruster numeric fields SHALL additionally be validated: projectile `speed >= 0`, `damage >= 0`, `lifetime >= 0`, `width > 0`, `length > 0`, `piercing >= 0`; laser `damage >= 0`, `width > 0`, `cooldown >= 0`, `duration > 0`; burst and missile `amount > 0`; thruster `force >= 0` and `torque >= 0`. A violation SHALL produce the config error screen naming the block and the failed rule.

@@ -4,7 +4,7 @@
 TBD - created by archiving change state-consistency-hardening. Update Purpose after archive.
 ## Requirements
 ### Requirement: Persisted data is validated at the load boundary
-Every deserialization path for `ShipDesign`, `ShipSnapshot`, `DebrisSnapshot`, and `BlockSnapshot` SHALL call a typed `validate()` immediately after decode and before any entity is spawned. Validation SHALL reject unknown block types, duplicate block ids, overlapping occupied cells, zero or multiple cores, invalid team ids, multiple shoot patterns on one block, and references that cannot resolve to a spawned ship.
+Every deserialization path for `ShipDesign`, `ShipSnapshot`, `DebrisSnapshot`, and `BlockSnapshot` SHALL call `Validate::validate()` defined in its respective dedicated snapshot module immediately after decode and before any entity is spawned. Validation SHALL reject unknown block types, duplicate block ids, overlapping occupied cells, zero or multiple cores, invalid team ids, multiple shoot patterns on one block, and references that cannot resolve to a spawned ship. Non-structural transient values SHALL be normalized separately in `sanitize.rs`.
 
 #### Scenario: Corrupt design RON is rejected
 - **WHEN** a design file in the sandbox directory contains two blocks on the same cell

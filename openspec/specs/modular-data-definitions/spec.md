@@ -1,4 +1,10 @@
-## ADDED Requirements
+# Modular Data Definitions
+
+## Purpose
+
+Enforce modular, single-responsibility file boundaries for all data schemas (configs, save snapshots) and establish a unified `Validate` contract with reusable assertion helpers across the engine.
+
+## Requirements
 
 ### Requirement: Single-file encapsulation of data kinds
 Every distinct configuration schema and save snapshot entity SHALL be defined in its own dedicated file under 150 lines. The file SHALL encapsulate its struct definitions, serde annotations, `Validate` implementation, and domain conversions without mixing unrelated features.
