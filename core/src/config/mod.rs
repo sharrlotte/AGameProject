@@ -242,7 +242,7 @@ fn check_config_ready(
     };
 
     let mut registry = BlockRegistry::default();
-    for (key, block) in &blocks.blocks {
+    for (key, block) in blocks.blocks.as_map() {
         match block.clone().into_def(assets.as_ref(), key.clone()) {
             Ok(def) => registry.register(key, def),
             Err(error) => {

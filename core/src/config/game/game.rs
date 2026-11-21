@@ -2,8 +2,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::Deserialize;
 
-use crate::validate::{Validate, check};
-use super::fleet::validate_fleet_spacing;
+use crate::validate::{NonNegativeF32, OrderedRange, PositiveF32};
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(default, deny_unknown_fields)]
@@ -28,10 +27,9 @@ pub struct SimConfig {
     pub ai_wander_attack_chance: f32,
     pub ai_wander_guard_chance: f32,
     pub auto_save_interval_secs: f32,
-    pub debris_lifetime_min_seconds: f32,
-    pub debris_lifetime_max_seconds: f32,
+    pub debris_lifetime: OrderedRange<PositiveF32>,
     pub default_fleet: Vec<String>,
-    pub fleet_spacing: f32,
+    pub fleet_spacing: NonNegativeF32,
 }
 
 impl Default for SimConfig {
@@ -57,41 +55,10 @@ impl Default for SimConfig {
             ai_wander_attack_chance: 0.5,
             ai_wander_guard_chance: 0.5,
             auto_save_interval_secs: 30.0,
-            debris_lifetime_min_seconds: 30.0,
-            debris_lifetime_max_seconds: 60.0,
+            debris_lifetime: OrderedRange::<PositiveF32>::from_const(30.0, 60.0),
             default_fleet: Vec::new(),
-            fleet_spacing: 400.0,
+            fleet_spacing: NonNegativeF32::from_const(400.0),
         }
-    }
-}
-
-impl Validate for SimConfig {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        check::positive(
-            "minimum debris lifetime",
-            self.debris_lifetime_min_seconds,
-        )?;
-        check::positive(
-            "maximum debris lifetime",
-            self.debris_lifetime_max_seconds,
-        )?;
-        check::range_ordered(
-            "minimum debris lifetime",
-            self.debris_lifetime_min_seconds,
-            "maximum debris lifetime",
-            self.debris_lifetime_max_seconds,
-        )?;
-        validate_fleet_spacing(self.fleet_spacing)?;
-        Ok(())
-    }
-}
-
-impl SimConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        Validate::validate(self, &())
     }
 }
 
@@ -101,29 +68,20 @@ mod tests {
 
     #[test]
     fn rejects_inverted_debris_lifetime_range() {
-        let config = SimConfig {
-            debris_lifetime_min_seconds: 60.0,
-            debris_lifetime_max_seconds: 30.0,
-            ..SimConfig::default()
-        };
-
-        let error = config.validate().expect_err("inverted range is invalid");
-        assert!(error.contains("maximum debris lifetime"), "{error}");
+        let ron = "(debris_lifetime: (60.0, 30.0))";
+        let error = ron::from_str::<SimConfig>(ron).expect_err("inverted range is invalid");
+        assert!(error.to_string().contains("must be <="), "{error}");
     }
 
     #[test]
     fn rejects_non_positive_debris_lifetime() {
-        let config = SimConfig {
-            debris_lifetime_min_seconds: 0.0,
-            ..SimConfig::default()
-        };
-
-        let error = config.validate().expect_err("zero lifetime is invalid");
-        assert!(error.contains("must be positive"), "{error}");
+        let ron = "(debris_lifetime: (0.0, 30.0))";
+        let error = ron::from_str::<SimConfig>(ron).expect_err("zero lifetime is invalid");
+        assert!(error.to_string().contains("finite and positive"), "{error}");
     }
 
     #[test]
     fn accepts_valid_debris_lifetime_range() {
-        assert!(SimConfig::default().validate().is_ok());
+        assert!(ron::from_str::<SimConfig>("()").is_ok());
     }
 }

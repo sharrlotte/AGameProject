@@ -13,6 +13,7 @@ use crate::content::block::feature::power::Booster;
 use crate::content::ship::Ship;
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
+use crate::validate::SkillLevel;
 
 pub struct EvalContext<'a> {
     pub entity: Entity,
@@ -75,7 +76,7 @@ impl Scorer for RetreatScorer {
 
 impl Scorer for RechargeScorer {
     fn score(&self, ctx: &EvalContext) -> Option<(Tactic, f32)> {
-        if ctx.skill < ctx.cfg.unlocks.power_management_level
+        if ctx.skill < ctx.cfg.unlocks.power_management_level.get()
             || !ctx.cap.can_move
             || !ctx.cap.uses_energy_weapons
         {
@@ -116,7 +117,7 @@ impl Scorer for SupportScorer {
         }
 
         let wants_support = matches!(ctx.cap.role, Role::Support | Role::Escort)
-            || (ctx.skill >= ctx.cfg.unlocks.support_coordination_level
+            || (ctx.skill >= ctx.cfg.unlocks.support_coordination_level.get()
                 && ctx.cap.booster_count > 0
                 && ctx.cap.role == Role::Support);
         if !wants_support {
@@ -257,7 +258,11 @@ impl Scorer for SearchScorer {
 fn select_posture_and_range(ctx: &EvalContext) -> (Posture, f32) {
     let cap = ctx.cap;
     let ct = &ctx.cfg.combat_tuning;
-    let precision = ctx.cfg.curves.range_precision.sample(ctx.skill);
+    let precision = ctx
+        .cfg
+        .curves
+        .range_precision
+        .sample(SkillLevel::saturating(ctx.skill as i16));
     if let Some(fixed) = cap.fixed_mount
         && (cap.fixed_dps_ratio >= ctx.cfg.role_tuning.sniper_fixed_dps_ratio
             || cap.role == Role::Sniper)
@@ -269,7 +274,7 @@ fn select_posture_and_range(ctx: &EvalContext) -> (Posture, f32) {
     if matches!(cap.role, Role::Sniper | Role::Skirmisher)
         || (cap.has_pulling_beam && cap.offensive_dps <= 0.0)
         || (ctx.readiness.hp_ratio < ct.kite_hp_threshold
-            && ctx.skill >= ctx.cfg.unlocks.focus_fire_level)
+            && ctx.skill >= ctx.cfg.unlocks.focus_fire_level.get())
     {
         return (
             Posture::Kite,
@@ -309,7 +314,7 @@ pub fn select_tactic(ctx: &EvalContext) -> Tactic {
             continue;
         };
         if ctx.current.same_kind(&candidate) {
-            score += ctx.cfg.hysteresis;
+            score += ctx.cfg.hysteresis.get();
         }
         if best.is_none_or(|(_, best_score)| score > best_score) {
             best = Some((candidate, score));
@@ -373,12 +378,18 @@ pub fn evaluate_utility_and_power(
         brain.strafe_timer -= dt_secs;
         if brain.strafe_timer <= 0.0 {
             brain.strafe_sign = -brain.strafe_sign;
-            let min_s = ai_cfg.0.combat_tuning.strafe_flip_min_secs;
-            let span = (ai_cfg.0.combat_tuning.strafe_flip_max_secs - min_s).max(0.1);
+            let min_s = ai_cfg.0.combat_tuning.strafe_flip_secs.min().get();
+            let span = (ai_cfg.0.combat_tuning.strafe_flip_secs.max().get() - min_s).max(0.1);
             brain.strafe_timer = min_s + rand::random::<f32>() * span;
         }
 
-        let desired_interval = 1.0 / ai_cfg.0.curves.think_rate_hz.sample(skill.level()).max(0.1);
+        let desired_interval = 1.0
+            / ai_cfg
+                .0
+                .curves
+                .think_rate_hz
+                .sample(skill.as_skill_level())
+                .max(0.1);
         if (brain.think_timer.duration().as_secs_f32() - desired_interval).abs() > 0.01 {
             brain
                 .think_timer
@@ -413,7 +424,7 @@ pub fn evaluate_utility_and_power(
                     .distance_squared(position)
                     .total_cmp(&b.position.distance_squared(position))
             });
-        let preferred_contact = if level >= ai_cfg.0.unlocks.focus_fire_level {
+        let preferred_contact = if level >= ai_cfg.0.unlocks.focus_fire_level.get() {
             plan.focus_target
                 .and_then(|id| plan.intel.contacts.get(&id).copied())
                 .or(nearest_contact)

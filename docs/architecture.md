@@ -25,7 +25,7 @@ AGameProject/                Cargo workspace (resolver = "3")
           mod.rs             module root: declarations, re-exports, plugin
         layout.rs            shared UI layout constants
       ui/                    modal stack & shared UI state
-      validate/              shared validation trait and assertion helpers
+      validate/              self-validating wrapper types (parse, don't validate)
       config/                modular RON config definitions (block, game, ai, minimap, setting)
       save/                  persistence (`design/`, `world/`, `document.rs`)
         design/              ShipDesign definition, ShipCatalog, sandbox designs

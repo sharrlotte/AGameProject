@@ -1,15 +1,17 @@
+use serde::Deserialize;
+
 use crate::content::block::feature::thruster::Thruster;
-use crate::validate::{Validate, check};
+use crate::validate::NonNegativeF32;
 
-pub use crate::content::block::feature::thruster::Thruster as ThrusterConfig;
+#[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ThrusterConfig {
+    pub force: NonNegativeF32,
+    pub torque: NonNegativeF32,
+}
 
-impl Validate for Thruster {
-    type Context = str;
-    type Error = String;
-
-    fn validate(&self, block_type: &str) -> Result<(), String> {
-        check::non_negative("thruster force", self.force())
-            .and_then(|_| check::non_negative("thruster torque", self.torque()))
-            .map_err(|err| format!("block {block_type}: {err}"))
+impl ThrusterConfig {
+    pub fn into_feature(self) -> Thruster {
+        Thruster::new(self.force.get(), self.torque.get())
     }
 }

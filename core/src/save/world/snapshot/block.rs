@@ -11,7 +11,6 @@ use crate::content::block::{
     BlockPlacement, BurstShootPatternState, GridBlock, Health, LaserBeamPatternShootingState,
     LaserBeamPatternState, PullingBeamPatternState, SingleShootPatternState,
 };
-use crate::validate::Validate;
 use super::sanitize::{sanitize_charge, sanitize_health};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -44,11 +43,8 @@ pub struct BlockSnapshot {
     pub pattern: Option<PatternSave>,
 }
 
-impl Validate for BlockSnapshot {
-    type Context = ();
-    type Error = Vec<String>;
-
-    fn validate(&self, _: &()) -> Result<(), Vec<String>> {
+impl BlockSnapshot {
+    pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         if self.placement.id.is_nil() {
             errors.push("block has a nil id".to_string());
@@ -122,10 +118,6 @@ impl BlockSnapshot {
         } else {
             Err(errors)
         }
-    }
-
-    pub fn validate(&self) -> Result<(), Vec<String>> {
-        Validate::validate(self, &())
     }
 
     pub fn capture(world: &World, grid_block: &GridBlock) -> Self {

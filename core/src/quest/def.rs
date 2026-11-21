@@ -1,46 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::quest::component::{
-    QuestAcceptance, QuestCatalogDef, QuestGenConfig, QuestId, QuestObjectiveDef,
+    QuestAcceptance, QuestDef, QuestId, QuestObjectiveDef,
 };
-use crate::validate::{Validate, check};
+use crate::validate::PositiveF32;
 
-impl Validate for QuestCatalogDef {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        validate_catalog(self)
-    }
-}
-
-impl Validate for QuestGenConfig {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        check::positive("notification radius", self.notification_radius)?;
-        check::positive("chunk size", self.chunk_size)?;
-        check::at_least("manual acceptance interval", self.manual_acceptance_every, 1)?;
-        check::range_ordered("min destroy count", self.destroy_count.0 as f32, "max destroy count", self.destroy_count.1 as f32)?;
-        check::at_least("min destroy count", self.destroy_count.0, 1)?;
-        check::range_ordered("min collect count", self.collect_count.0 as f32, "max collect count", self.collect_count.1 as f32)?;
-        check::at_least("min collect count", self.collect_count.0, 1)?;
-        check::positive("min reach radius", self.reach_radius.0)?;
-        check::range_ordered("min reach radius", self.reach_radius.0, "max reach radius", self.reach_radius.1)?;
-        if self.item_pool.is_empty() {
-            return Err("item pool must not be empty".to_string());
-        }
-        if self.item_pool.iter().any(|item| item.trim().is_empty()) {
-            return Err("item pool must not contain empty item names".to_string());
-        }
-        Ok(())
-    }
-}
-
-pub fn validate_catalog(catalog: &QuestCatalogDef) -> Result<(), String> {
+pub fn validate_catalog(quests: &[QuestDef]) -> Result<(), String> {
     let mut ids = HashSet::new();
-    for quest in &catalog.quests {
+    for quest in quests {
         if let QuestId::Authored(id) = &quest.id
             && id.trim().is_empty()
         {
@@ -67,11 +34,11 @@ pub fn validate_catalog(catalog: &QuestCatalogDef) -> Result<(), String> {
             match objective {
                 QuestObjectiveDef::DestroyEnemies { count, .. }
                 | QuestObjectiveDef::CollectItem { count, .. } => {
-                    check::at_least("objective count", *count, 1)
+                    if *count < 1 { Err(format!("must be at least 1, got {}", *count)) } else { Ok(()) }
                         .map_err(|e| format!("quest {}: {e}", quest.id.key()))?;
                 }
                 QuestObjectiveDef::ReachPosition { radius, .. } => {
-                    check::positive("objective radius", *radius)
+                    PositiveF32::new(*radius).map(|_| ())
                         .map_err(|e| format!("quest {}: {e}", quest.id.key()))?;
                 }
             }
@@ -82,12 +49,12 @@ pub fn validate_catalog(catalog: &QuestCatalogDef) -> Result<(), String> {
         }
 
         if let Some(offer) = &quest.offer {
-            check::positive("quest offer radius", offer.radius)
+            PositiveF32::new(offer.radius).map(|_| ())
                 .map_err(|e| format!("quest {}: {e}", quest.id.key()))?;
         }
     }
 
-    for quest in &catalog.quests {
+    for quest in quests {
         for required in &quest.requires {
             if !ids.contains(required) {
                 return Err(format!(
@@ -99,8 +66,7 @@ pub fn validate_catalog(catalog: &QuestCatalogDef) -> Result<(), String> {
         }
     }
 
-    let graph: HashMap<&QuestId, &Vec<QuestId>> = catalog
-        .quests
+    let graph: HashMap<&QuestId, &Vec<QuestId>> = quests
         .iter()
         .map(|quest| (&quest.id, &quest.requires))
         .collect();
@@ -108,7 +74,7 @@ pub fn validate_catalog(catalog: &QuestCatalogDef) -> Result<(), String> {
     let mut visiting = HashSet::new();
     let mut visited = HashSet::new();
     
-    for quest in &catalog.quests {
+    for quest in quests {
         check_acyclic(&quest.id, &graph, &mut visiting, &mut visited)?;
     }
 
@@ -162,22 +128,18 @@ mod tests {
 
     #[test]
     fn cycle_is_rejected() {
-        let catalog = QuestCatalogDef {
-            quests: vec![
-                quest("a", vec![QuestId::Authored("b".to_string())]),
-                quest("b", vec![QuestId::Authored("a".to_string())]),
-            ],
-        };
-        let err = validate_catalog(&catalog).expect_err("cycle must fail");
+        let quests = vec![
+            quest("a", vec![QuestId::Authored("b".to_string())]),
+            quest("b", vec![QuestId::Authored("a".to_string())]),
+        ];
+        let err = validate_catalog(&quests).expect_err("cycle must fail");
         assert!(err.contains("cycle"), "{err}");
     }
 
     #[test]
     fn unknown_prerequisite_is_rejected() {
-        let catalog = QuestCatalogDef {
-            quests: vec![quest("a", vec![QuestId::Authored("missing".to_string())])],
-        };
-        let err = validate_catalog(&catalog).expect_err("unknown requires must fail");
+        let quests = vec![quest("a", vec![QuestId::Authored("missing".to_string())])];
+        let err = validate_catalog(&quests).expect_err("unknown requires must fail");
         assert!(err.contains("unknown quest"), "{err}");
     }
 
@@ -189,10 +151,7 @@ mod tests {
             position: Vec2::ZERO,
             radius: 1.0,
         });
-        let catalog = QuestCatalogDef {
-            quests: vec![manual],
-        };
-        let err = validate_catalog(&catalog).expect_err("manual authored must fail");
+        let err = validate_catalog(&[manual]).expect_err("manual authored must fail");
         assert!(err.contains("cannot be Manual"), "{err}");
     }
 }

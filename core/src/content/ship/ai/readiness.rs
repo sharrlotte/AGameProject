@@ -120,7 +120,7 @@ pub fn update_booster_shedding(
     };
     let shedding = shedding_ships.contains(&ship_entity);
 
-    if skill < cfg.unlocks.power_management_level || cap.booster_count == 0 {
+    if skill < cfg.unlocks.power_management_level.get() || cap.booster_count == 0 {
         if shedding {
             for &booster in list {
                 commands.entity(booster).remove::<Disabled>();
@@ -131,13 +131,13 @@ pub fn update_booster_shedding(
 
     if !shedding
         && readiness.power_supply < cfg.booster_shed_supply_threshold
-        && readiness.battery_ratio < cfg.booster_shed_battery_threshold
+        && readiness.battery_ratio < cfg.booster_battery_band.min().get()
     {
         for &booster in list {
             commands.entity(booster).insert(Disabled);
         }
     } else if shedding
-        && (readiness.battery_ratio >= cfg.booster_restore_battery_threshold
+        && (readiness.battery_ratio >= cfg.booster_battery_band.max().get()
             || readiness.power_supply >= 0.99)
     {
         for &booster in list {

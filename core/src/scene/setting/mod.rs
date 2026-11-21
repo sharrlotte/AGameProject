@@ -5,6 +5,7 @@ use crate::config::GameSettings;
 use crate::scene::widget::{ButtonVisuals, spawn_button, spawn_widget};
 use crate::ui::{Modal, ModalRoot, ModalStack, modal_is};
 use crate::simulation::SimulationSet;
+use crate::validate::SkillLevel;
 
 #[derive(Component)]
 pub struct SettingRoot;
@@ -75,7 +76,7 @@ fn on_ai_skill(
     let Ok(button) = buttons.get(click.event().entity) else {
         return;
     };
-    setting.ai_level = (setting.ai_level as i16 + button.0 as i16).clamp(1, 10) as u8;
+    setting.ai_level = SkillLevel::saturating(setting.ai_level.get() as i16 + button.0 as i16);
 }
 
 fn on_close(
@@ -231,7 +232,7 @@ pub fn setup_setting_ui(commands: &mut Commands, setting: &GameSettings) {
                     );
 
                     row.spawn((
-                        Text::new(format!("{}", setting.ai_level.clamp(1, 10))),
+                        Text::new(format!("{}", setting.ai_level.get())),
                         TextFont {
                             font_size: FontSize::Px(24.0),
                             ..default()
@@ -315,7 +316,7 @@ pub fn sync_settings_to_ui(
             };
         }
         for mut text in &mut ai_skill_text {
-            text.0 = format!("{}", setting.ai_level.clamp(1, 10));
+            text.0 = format!("{}", setting.ai_level.get());
         }
     }
 }

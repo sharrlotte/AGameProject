@@ -1,4 +1,5 @@
 use std::f32::consts::{FRAC_PI_2, PI};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use bevy_rapier2d::prelude::{ExternalForce, Velocity};
@@ -19,6 +20,7 @@ use crate::content::ship::{Ship, ShipStats, Throttle, update_ship_steering};
 use crate::content::team::Team;
 use crate::scene::game::skirmish::resolve_skill;
 use crate::resource::ControlledShip;
+use crate::validate::SkillLevel;
 
 fn make_registry() -> BlockRegistry {
     let mut reg = BlockRegistry::default();
@@ -185,7 +187,7 @@ fn capability_updates_on_fixed_weapon_loss_and_detects_support_hulls() {
     );
     assert!(cap_after.fixed_mount.is_none());
     assert_eq!(cap_after.role, Role::Brawler);
-    assert_eq!(cap_after.max_radar_range, ai_cfg.base_core_radar_range);
+    assert_eq!(cap_after.max_radar_range, ai_cfg.base_core_radar_range.get());
 
     let mut support_grid = BlockGrid::new();
     support_grid.rebuild_from_layout(
@@ -404,13 +406,14 @@ fn utility_hysteresis_retreat_and_booster_power_shedding() {
 fn steering_respects_skill_omnidirectional_thrust_and_skill_precedence() {
     let ai_cfg = AiConfig::default();
     let setting = GameSettings {
-        ai_level: 3,
+        ai_level: SkillLevel::from_const(3),
         ..default()
     };
-    assert_eq!(resolve_skill(Some(9), Team::new(1), Some(4), setting.ai_level, &ai_cfg).level(), 9);
-    assert_eq!(resolve_skill(None, Team::new(1), Some(6), setting.ai_level, &ai_cfg).level(), 6);
+    let lvl = SkillLevel::from_const;
+    assert_eq!(resolve_skill(Some(lvl(9)), Team::new(1), Some(lvl(4)), setting.ai_level, &ai_cfg).level(), 9);
+    assert_eq!(resolve_skill(None, Team::new(1), Some(lvl(6)), setting.ai_level, &ai_cfg).level(), 6);
     assert_eq!(resolve_skill(None, Team::new(1), None, setting.ai_level, &ai_cfg).level(), 3);
-    assert_eq!(resolve_skill(None, Team::new(0), Some(2), setting.ai_level, &ai_cfg).level(), 8);
+    assert_eq!(resolve_skill(None, Team::new(0), Some(lvl(2)), setting.ai_level, &ai_cfg).level(), 8);
 
     let mut app = App::new();
     app.init_resource::<GameConfig>()
@@ -468,7 +471,7 @@ fn steering_respects_skill_omnidirectional_thrust_and_skill_precedence() {
 #[test]
 fn team_intel_alerts_and_last_known_respect_config_bounds() {
     let mut cfg = AiConfig::default();
-    cfg.bounds.max_team_alerts = 2;
+    cfg.bounds.max_team_alerts = NonZeroUsize::new(2).expect("2");
     cfg.bounds.alert_merge_radius = 50.0;
 
     let mut app = App::new();

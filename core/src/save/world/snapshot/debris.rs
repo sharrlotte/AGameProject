@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::content::block::BlockRegistry;
-use crate::validate::Validate;
 use super::block::BlockSnapshot;
 use super::ship::{TransformSave, VelocitySave};
 
@@ -14,11 +13,8 @@ pub struct DebrisSnapshot {
     pub blocks: Vec<BlockSnapshot>,
 }
 
-impl Validate for DebrisSnapshot {
-    type Context = BlockRegistry;
-    type Error = Vec<String>;
-
-    fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
+impl DebrisSnapshot {
+    pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         if self.team >= 16 {
             errors.push(format!("debris has invalid team {}", self.team));
@@ -36,11 +32,5 @@ impl Validate for DebrisSnapshot {
         } else {
             Err(errors)
         }
-    }
-}
-
-impl DebrisSnapshot {
-    pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
-        Validate::validate(self, registry)
     }
 }

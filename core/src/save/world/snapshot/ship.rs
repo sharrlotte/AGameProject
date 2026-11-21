@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use crate::content::block::BlockRegistry;
 use crate::content::ship::ai::{Doctrine, Posture, SupportKind};
-use crate::validate::Validate;
 use super::block::BlockSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -122,11 +121,8 @@ pub struct ShipSnapshot {
     pub blocks: Vec<BlockSnapshot>,
 }
 
-impl Validate for ShipSnapshot {
-    type Context = BlockRegistry;
-    type Error = Vec<String>;
-
-    fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
+impl ShipSnapshot {
+    pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         if self.team >= 16 {
             errors.push(format!("ship {} has invalid team {}", self.id, self.team));
@@ -150,11 +146,5 @@ impl Validate for ShipSnapshot {
         } else {
             Err(errors)
         }
-    }
-}
-
-impl ShipSnapshot {
-    pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
-        Validate::validate(self, registry)
     }
 }

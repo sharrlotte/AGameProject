@@ -27,10 +27,10 @@ pub fn setup_minimap(mut commands: Commands, config: Res<GameConfig>) {
             DespawnOnExit(SceneState::Game),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(cfg.margin_px),
-                right: Val::Px(cfg.margin_px),
-                width: Val::Px(cfg.size_px),
-                height: Val::Px(cfg.size_px),
+                top: Val::Px(cfg.margin_px.get()),
+                right: Val::Px(cfg.margin_px.get()),
+                width: Val::Px(cfg.size_px.get()),
+                height: Val::Px(cfg.size_px.get()),
                 border: UiRect::all(Val::Px(1.0)),
                 border_radius: BorderRadius::MAX,
                 overflow: Overflow::clip(),
@@ -55,7 +55,7 @@ pub fn setup_minimap(mut commands: Commands, config: Res<GameConfig>) {
                 Pickable::IGNORE,
             ))
             .with_children(|layer| {
-                for slot in 0..cfg.max_markers {
+                for slot in 0..cfg.max_markers.get() {
                     spawn_marker(layer, &cfg, slot);
                 }
             });
@@ -70,7 +70,7 @@ pub fn sync_marker_pool(
 ) {
     let cfg = &config.minimap;
 
-    if markers.iter().count() == cfg.max_markers {
+    if markers.iter().count() == cfg.max_markers.get() {
         return;
     }
 
@@ -79,7 +79,7 @@ pub fn sync_marker_pool(
     }
 
     commands.entity(*layer).with_children(|layer| {
-        for slot in 0..cfg.max_markers {
+        for slot in 0..cfg.max_markers.get() {
             spawn_marker(layer, cfg, slot);
         }
     });
@@ -113,16 +113,16 @@ pub fn update_minimap(
 ) {
     let cfg = &config.minimap;
     let radius_px = cfg.radius_px();
-    let dot_size = cfg.dot_size_px;
+    let dot_size = cfg.dot_size_px.get();
     let center = camera.translation().truncate();
 
     if let Ok(mut root) = root_query.single_mut()
-        && (config.is_changed() || root.width != Val::Px(cfg.size_px))
+        && (config.is_changed() || root.width != Val::Px(cfg.size_px.get()))
     {
-        root.width = Val::Px(cfg.size_px);
-        root.height = Val::Px(cfg.size_px);
-        root.top = Val::Px(cfg.margin_px);
-        root.right = Val::Px(cfg.margin_px);
+        root.width = Val::Px(cfg.size_px.get());
+        root.height = Val::Px(cfg.size_px.get());
+        root.top = Val::Px(cfg.margin_px.get());
+        root.right = Val::Px(cfg.margin_px.get());
     }
 
     colors.clear();
@@ -216,10 +216,10 @@ pub fn update_minimap(
         }
         state_ref
             .lost_flashes
-            .retain(|lost| lost.elapsed < cfg.lost_flash_secs);
+            .retain(|lost| lost.elapsed < cfg.lost_flash_secs.get());
 
         for lost in &state_ref.lost_flashes {
-            let phase = (lost.elapsed / cfg.lost_flash_secs) * cfg.lost_flash_count as f32;
+            let phase = (lost.elapsed / cfg.lost_flash_secs.get()) * cfg.lost_flash_count.get() as f32;
             if phase.fract() >= 0.5 {
                 continue;
             }
@@ -234,7 +234,7 @@ pub fn update_minimap(
         }
     }
 
-    render_specs.truncate(cfg.max_markers);
+    render_specs.truncate(cfg.max_markers.get());
 
     for (marker, mut node, mut background, mut shadow, mut visibility) in &mut markers {
         let Some(spec) = render_specs.get(marker.slot) else {
@@ -255,7 +255,7 @@ pub fn update_minimap(
             Val::Px(0.0),
             Val::Px(0.0),
             Val::Px(1.0),
-            Val::Px(cfg.glow_blur_px),
+            Val::Px(cfg.glow_blur_px.get()),
         );
         *visibility = Visibility::Visible;
     }
@@ -292,8 +292,8 @@ fn spawn_marker(layer: &mut ChildSpawnerCommands, cfg: &MinimapConfig, slot: usi
         Visibility::Hidden,
         Node {
             position_type: PositionType::Absolute,
-            width: Val::Px(cfg.dot_size_px),
-            height: Val::Px(cfg.dot_size_px),
+            width: Val::Px(cfg.dot_size_px.get()),
+            height: Val::Px(cfg.dot_size_px.get()),
             border_radius: BorderRadius::MAX,
             ..default()
         },

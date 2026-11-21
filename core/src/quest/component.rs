@@ -1,8 +1,12 @@
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::{Deserialize, Serialize};
+
+use crate::quest::def::validate_catalog;
+use crate::validate::{NonEmpty, OrderedRange, PositiveF32, non_zero_u32};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum QuestId {
@@ -119,36 +123,55 @@ pub struct QuestDef {
     pub objectives: Vec<QuestObjectiveDef>,
 }
 
+#[derive(Clone, PartialEq, Debug, Deserialize)]
+#[serde(try_from = "Vec<QuestDef>")]
+pub struct ValidCatalog(Vec<QuestDef>);
+
+impl ValidCatalog {
+    pub fn iter(&self) -> std::slice::Iter<'_, QuestDef> {
+        self.0.iter()
+    }
+}
+
+impl TryFrom<Vec<QuestDef>> for ValidCatalog {
+    type Error = String;
+
+    fn try_from(quests: Vec<QuestDef>) -> Result<Self, Self::Error> {
+        validate_catalog(&quests)?;
+        Ok(Self(quests))
+    }
+}
+
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QuestCatalogDef {
-    pub quests: Vec<QuestDef>,
+    pub quests: ValidCatalog,
 }
 
-#[derive(Asset, TypePath, Deserialize, Serialize, Clone, PartialEq, Debug)]
+#[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct QuestGenConfig {
     pub max_active_generated: usize,
-    pub notification_radius: f32,
-    pub manual_acceptance_every: u32,
-    pub chunk_size: f32,
-    pub destroy_count: (u32, u32),
-    pub collect_count: (u32, u32),
-    pub reach_radius: (f32, f32),
-    pub item_pool: Vec<String>,
+    pub notification_radius: PositiveF32,
+    pub manual_acceptance_every: NonZeroU32,
+    pub chunk_size: PositiveF32,
+    pub destroy_count: OrderedRange<NonZeroU32>,
+    pub collect_count: OrderedRange<NonZeroU32>,
+    pub reach_radius: OrderedRange<PositiveF32>,
+    pub item_pool: NonEmpty<Vec<NonEmpty<String>>>,
 }
 
 impl Default for QuestGenConfig {
     fn default() -> Self {
         Self {
             max_active_generated: 2,
-            notification_radius: 2500.0,
-            manual_acceptance_every: 2,
-            chunk_size: 50_000.0,
-            destroy_count: (2, 6),
-            collect_count: (3, 10),
-            reach_radius: (500.0, 2000.0),
-            item_pool: vec!["steel".to_string()],
+            notification_radius: PositiveF32::from_const(2500.0),
+            manual_acceptance_every: non_zero_u32(2),
+            chunk_size: PositiveF32::from_const(50_000.0),
+            destroy_count: OrderedRange::<NonZeroU32>::from_const(2, 6),
+            collect_count: OrderedRange::<NonZeroU32>::from_const(3, 10),
+            reach_radius: OrderedRange::<PositiveF32>::from_const(500.0, 2000.0),
+            item_pool: NonEmpty::single(NonEmpty::from_static_str("steel")),
         }
     }
 }

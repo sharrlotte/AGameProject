@@ -11,7 +11,6 @@ use crate::content::ship::ai::{Brain, Doctrine, FireOrder, Readiness, Sensor, Sk
 use crate::content::ship::inspect::on_ship_click;
 use crate::content::team::Team;
 use crate::resource::SceneState;
-use crate::validate::Validate;
 
 pub const DESIGN_SCHEMA_VERSION: u32 = 3;
 
@@ -26,18 +25,9 @@ pub struct ShipDesign {
     pub doctrine: Doctrine,
 }
 
-impl Validate for ShipDesign {
-    type Context = BlockRegistry;
-    type Error = Vec<String>;
-
-    fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
-        registry.validate_ship(&self.blocks)
-    }
-}
-
 impl ShipDesign {
     pub fn validate(&self, registry: &BlockRegistry) -> Result<(), Vec<String>> {
-        Validate::validate(self, registry)
+        registry.validate_ship(&self.blocks)
     }
 
     #[cfg(test)]

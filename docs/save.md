@@ -11,7 +11,7 @@ core/src/save/
 ├── design/         DesignSavePlugin, ShipDesign, ShipCatalog, DesignCatalogSource, sandbox designs, fleet helpers
 │   ├── mod.rs
 │   ├── component.rs
-│   ├── design.rs   ShipDesign definition, serialization, Validate, and spawn methods
+│   ├── design.rs   ShipDesign definition, serialization, validate(), and spawn methods
 │   ├── lib.rs
 │   └── system.rs
 └── world/          WorldSavePlugin: single-file SQLite save slots
@@ -21,9 +21,9 @@ core/src/save/
     ├── sqlite.rs   SqliteWorldStore, list_slots, delete_slot_files
     ├── snapshot/   modular capture and apply subfolder (<150 lines/file)
     │   ├── mod.rs        BodySnapshot enum, module re-exports
-    │   ├── block.rs      BlockSnapshot, TurretSaveState, PatternSave + Validate
-    │   ├── ship.rs       ShipSnapshot, TransformSave, VelocitySave, CargoSave, TacticSave, BrainSave + Validate
-    │   ├── debris.rs     DebrisSnapshot + Validate
+    │   ├── block.rs      BlockSnapshot, TurretSaveState, PatternSave + validate()
+    │   ├── ship.rs       ShipSnapshot, TransformSave, VelocitySave, CargoSave, TacticSave, BrainSave + validate()
+    │   ├── debris.rs     DebrisSnapshot + validate()
     │   ├── world.rs      CameraSave, ControlSave, DropSave
     │   ├── sanitize.rs   value clamping and normalization for transient fields
     │   ├── capture.rs    world entity extraction (bodies, ships, debris, camera, control, drops, intel)

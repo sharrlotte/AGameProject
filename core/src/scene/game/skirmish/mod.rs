@@ -12,6 +12,7 @@ use crate::resource::{DeployPayload, SceneState};
 use crate::save::design::ShipCatalog;
 use crate::save::world::WorldContext;
 use crate::simulation::SimulationSet;
+use crate::validate::SkillLevel;
 
 #[derive(Resource, Default)]
 struct SkirmishPending(bool);
@@ -50,7 +51,7 @@ fn spawn_skirmish(
     let def = &config.skirmish;
 
     let env = SpawnEnv::new(&registry, &config, &setting, &config.ai);
-    spawn_fleet(&mut commands, &env, &fleet.fleet, def.spawn, config.sim.fleet_spacing);
+    spawn_fleet(&mut commands, &env, &fleet.fleet, def.spawn, config.sim.fleet_spacing.get());
     for enemy in &def.enemies {
         spawn_enemy(&mut commands, &env, catalog.designs(), enemy, def.ai_level);
     }
@@ -59,26 +60,20 @@ fn spawn_skirmish(
 }
 
 pub fn resolve_skill(
-    spawn_level: Option<u8>,
+    spawn_level: Option<SkillLevel>,
     team: Team,
-    mission_level: Option<u8>,
-    setting_level: u8,
+    mission_level: Option<SkillLevel>,
+    setting_level: SkillLevel,
     ai_cfg: &AiConfig,
 ) -> Skill {
-    let raw = spawn_level.unwrap_or_else(|| {
+    let level = spawn_level.unwrap_or_else(|| {
         if team.is_player() {
             ai_cfg.default_ally_level
         } else {
-            mission_level.unwrap_or_else(|| {
-                if (1..=10).contains(&setting_level) {
-                    setting_level
-                } else {
-                    ai_cfg.default_enemy_level
-                }
-            })
+            mission_level.unwrap_or(setting_level)
         }
     });
-    Skill::new(raw)
+    Skill::new(level.get())
 }
 
 pub fn find_schematic<'a>(designs: &'a [ShipDesign], name: &str) -> Option<&'a ShipDesign> {
@@ -93,9 +88,9 @@ fn spawn_enemy(
     env: &SpawnEnv,
     designs: &[ShipDesign],
     spawn: &ShipSpawn,
-    mission_level: Option<u8>,
+    mission_level: Option<SkillLevel>,
 ) {
-    let Some(design) = find_schematic(designs, &spawn.schematic_name) else {
+    let Some(design) = find_schematic(designs, spawn.schematic_name.get()) else {
         warn!("Skirmish references design {:?}, which is not available", spawn.schematic_name);
         return;
     };

@@ -50,18 +50,6 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn validated(self, block_type: &str) -> Self {
-        if self.output < 0.0 {
-            warn!(
-                "Generator output on {block_type} is negative ({}); clamping to 0.0",
-                self.output
-            );
-            Self { output: 0.0 }
-        } else {
-            self
-        }
-    }
-
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((*self, Boost::default()));
     }
@@ -74,18 +62,6 @@ pub struct Battery {
 }
 
 impl Battery {
-    pub fn validated(self, block_type: &str) -> Self {
-        if self.capacity < 0.0 {
-            warn!(
-                "Battery capacity on {block_type} is negative ({}); clamping to 0.0",
-                self.capacity
-            );
-            Self { capacity: 0.0 }
-        } else {
-            self
-        }
-    }
-
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands.entity(base).insert((
             *self,
@@ -109,18 +85,6 @@ pub struct Consumer {
 }
 
 impl Consumer {
-    pub fn validated(self, block_type: &str) -> Self {
-        if self.rate < 0.0 {
-            warn!(
-                "Consumer rate on {block_type} is negative ({}); clamping to 0.0",
-                self.rate
-            );
-            Self { rate: 0.0 }
-        } else {
-            self
-        }
-    }
-
     pub fn rate(&self) -> f32 {
         self.rate
     }
@@ -141,32 +105,6 @@ pub struct Booster {
 }
 
 impl Booster {
-    pub fn validated(self, block_type: &str) -> Self {
-        let mut out = self;
-        if out.radius < 0.0 {
-            warn!(
-                "Booster radius on {block_type} is negative ({}); clamping to 0.0",
-                out.radius
-            );
-            out.radius = 0.0;
-        }
-        if out.rate < 0.0 {
-            warn!(
-                "Booster rate on {block_type} is negative ({}); clamping to 0.0",
-                out.rate
-            );
-            out.rate = 0.0;
-        }
-        if out.boost < 1.0 {
-            warn!(
-                "Booster boost on {block_type} is below 1.0 ({}); clamping to 1.0",
-                out.boost
-            );
-            out.boost = 1.0;
-        }
-        out
-    }
-
     pub fn insert(&self, commands: &mut Commands, base: Entity) {
         commands
             .entity(base)

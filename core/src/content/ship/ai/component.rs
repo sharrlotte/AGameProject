@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::validate::SkillLevel;
+
 #[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Component)]
 pub enum Doctrine {
@@ -54,6 +56,10 @@ impl Skill {
 
     pub fn level(self) -> u8 {
         self.0.clamp(1, 10)
+    }
+
+    pub fn as_skill_level(self) -> SkillLevel {
+        SkillLevel::saturating(self.0 as i16)
     }
 }
 

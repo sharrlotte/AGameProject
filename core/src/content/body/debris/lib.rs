@@ -121,8 +121,8 @@ pub fn next_lifetime(parent: Option<&Lifetime>, config: &GameConfig) -> f32 {
 }
 
 fn roll_lifetime(config: &GameConfig) -> f32 {
-    let min = config.sim.debris_lifetime_min_seconds;
-    let max = config.sim.debris_lifetime_max_seconds;
+    let min = config.sim.debris_lifetime.min().get();
+    let max = config.sim.debris_lifetime.max().get();
     rand::random::<f32>().mul_add(max - min, min)
 }
 

@@ -13,6 +13,7 @@ use crate::content::block::feature::turret::lead_point;
 use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
 use crate::resource::ControlledShip;
+use crate::validate::SkillLevel;
 
 #[cfg(feature = "dev")]
 use crate::content::ship::{BoundingBox, ship_center};
@@ -83,7 +84,8 @@ pub fn steer_ships(
     ) in &mut ships
     {
         let level = skill.level();
-        let lead_accuracy = ai_cfg.ai.curves.lead_accuracy.sample(level);
+        let skill_level = skill.as_skill_level();
+        let lead_accuracy = ai_cfg.ai.curves.lead_accuracy.sample(skill_level);
 
         if controlled.controlling == Some(entity) {
             *fire_order = FireOrder {
@@ -202,8 +204,9 @@ fn steer_engage(
     let to_target = target_pos - pos;
     let dist = to_target.length();
     let dir = to_target.normalize_or_zero();
-    let lead_accuracy = cfg.curves.lead_accuracy.sample(skill);
-    let evasion = cfg.curves.evasion_strength.sample(skill);
+    let skill_level = SkillLevel::saturating(skill as i16);
+    let lead_accuracy = cfg.curves.lead_accuracy.sample(skill_level);
+    let evasion = cfg.curves.evasion_strength.sample(skill_level);
 
     let ct = &cfg.combat_tuning;
     let mut desired_heading = None;
@@ -218,7 +221,7 @@ fn steer_engage(
                     target_vel * lead_accuracy,
                     fixed.projectile_speed,
                 );
-                let jitter = cfg.curves.aim_jitter_rad.sample(skill);
+                let jitter = cfg.curves.aim_jitter_rad.sample(skill_level);
                 if jitter > 0.0 {
                     let wobble = (elapsed * 1.9 + (entity.to_bits() % 1024) as f32).sin() * jitter;
                     let off = aim - pos;
@@ -232,7 +235,7 @@ fn steer_engage(
             } else if dist < range * 0.85 {
                 thrust_world -= dir * ((range - dist) / (range * 0.35)).clamp(0.2, 0.9);
             }
-            if skill >= cfg.unlocks.strafe_evade_level {
+            if skill >= cfg.unlocks.strafe_evade_level.get() {
                 thrust_world += dir.perp() * brain.strafe_sign * (0.45 * evasion);
             }
         }
@@ -247,7 +250,7 @@ fn steer_engage(
             let tangent = dir.perp() * brain.strafe_sign * tangent_weight;
             thrust_world = radial + tangent;
 
-            if skill >= cfg.unlocks.armor_angling_level
+            if skill >= cfg.unlocks.armor_angling_level.get()
                 && let Some(angle) = best_armor_heading(cap, dir, ct.armor_angle_hp_ratio)
             {
                 desired_heading = Some(angle);
@@ -255,7 +258,7 @@ fn steer_engage(
         }
     }
 
-    if skill >= cfg.unlocks.spinal_dodge_level
+    if skill >= cfg.unlocks.spinal_dodge_level.get()
         && has_fixed_gun
         && enemy_heading.dot(-dir) > ct.spinal_dodge_cos_threshold
     {
@@ -271,7 +274,7 @@ fn steer_engage(
     }
 
     let mut throttle_cap = 1.0;
-    if skill >= cfg.unlocks.power_management_level
+    if skill >= cfg.unlocks.power_management_level.get()
         && readiness.firing_drain_beam
         && readiness.power_supply < ct.drain_beam_supply_threshold
         && (dist - range).abs() < range * 0.25

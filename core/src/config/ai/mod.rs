@@ -7,22 +7,20 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use serde::Deserialize;
 
-use crate::config::{ConfigError, ConfigFile, ConfigState};
-use crate::validate::{Validate, check};
+use crate::validate::{NonNegativeF32, OrderedRange, PositiveF32, SkillLevel};
 
 #[derive(Asset, TypePath, Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct AiConfig {
-    pub default_enemy_level: u8,
-    pub default_ally_level: u8,
-    pub base_core_radar_range: f32,
-    pub hysteresis: f32,
+    pub default_enemy_level: SkillLevel,
+    pub default_ally_level: SkillLevel,
+    pub base_core_radar_range: PositiveF32,
+    pub hysteresis: NonNegativeF32,
     pub investigate_arrival_radius: f32,
     pub search_patrol_radius: f32,
     pub support_orbit_factor: f32,
     pub booster_shed_supply_threshold: f32,
-    pub booster_shed_battery_threshold: f32,
-    pub booster_restore_battery_threshold: f32,
+    pub booster_battery_band: OrderedRange<NonNegativeF32>,
     pub support_auto_ratio: f32,
     #[serde(default)]
     pub bounds: IntelBounds,
@@ -40,16 +38,15 @@ pub struct AiConfig {
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
-            default_enemy_level: 5,
-            default_ally_level: 8,
-            base_core_radar_range: 2500.0,
-            hysteresis: 0.12,
+            default_enemy_level: SkillLevel::from_const(5),
+            default_ally_level: SkillLevel::from_const(8),
+            base_core_radar_range: PositiveF32::from_const(2500.0),
+            hysteresis: NonNegativeF32::from_const(0.12),
             investigate_arrival_radius: 350.0,
             search_patrol_radius: 2400.0,
             support_orbit_factor: 0.75,
             booster_shed_supply_threshold: 0.75,
-            booster_shed_battery_threshold: 0.25,
-            booster_restore_battery_threshold: 0.55,
+            booster_battery_band: OrderedRange::<NonNegativeF32>::from_const(0.25, 0.55),
             support_auto_ratio: 1.0,
             bounds: IntelBounds::default(),
             role_tuning: RoleTuning::default(),
@@ -57,42 +54,42 @@ impl Default for AiConfig {
             combat_tuning: CombatTuning::default(),
             curves: SkillCurves {
                 think_rate_hz: SkillCurve {
-                    level_1: 2.0,
-                    level_10: 20.0,
+                    level_1: PositiveF32::from_const(2.0),
+                    level_10: PositiveF32::from_const(20.0),
                 },
                 lead_accuracy: SkillCurve {
-                    level_1: 0.15,
-                    level_10: 1.0,
+                    level_1: NonNegativeF32::from_const(0.15),
+                    level_10: NonNegativeF32::from_const(1.0),
                 },
                 aim_jitter_rad: SkillCurve {
-                    level_1: 0.14,
-                    level_10: 0.0,
+                    level_1: NonNegativeF32::from_const(0.14),
+                    level_10: NonNegativeF32::from_const(0.0),
                 },
                 range_precision: SkillCurve {
-                    level_1: 0.55,
-                    level_10: 0.98,
+                    level_1: NonNegativeF32::from_const(0.55),
+                    level_10: NonNegativeF32::from_const(0.98),
                 },
                 evasion_strength: SkillCurve {
-                    level_1: 0.0,
-                    level_10: 1.0,
+                    level_1: NonNegativeF32::from_const(0.0),
+                    level_10: NonNegativeF32::from_const(1.0),
                 },
                 memory_secs: SkillCurve {
-                    level_1: 6.0,
-                    level_10: 18.0,
+                    level_1: PositiveF32::from_const(6.0),
+                    level_10: PositiveF32::from_const(18.0),
                 },
                 alert_ttl_secs: SkillCurve {
-                    level_1: 5.0,
-                    level_10: 12.0,
+                    level_1: PositiveF32::from_const(5.0),
+                    level_10: PositiveF32::from_const(12.0),
                 },
             },
             unlocks: SkillUnlocks {
-                omnidirectional_thrust_level: 4,
-                power_management_level: 4,
-                focus_fire_level: 5,
-                support_coordination_level: 4,
-                strafe_evade_level: 6,
-                spinal_dodge_level: 7,
-                armor_angling_level: 8,
+                omnidirectional_thrust_level: SkillLevel::from_const(4),
+                power_management_level: SkillLevel::from_const(4),
+                focus_fire_level: SkillLevel::from_const(5),
+                support_coordination_level: SkillLevel::from_const(4),
+                strafe_evade_level: SkillLevel::from_const(6),
+                spinal_dodge_level: SkillLevel::from_const(7),
+                armor_angling_level: SkillLevel::from_const(8),
             },
             weights: UtilityWeights {
                 retreat_hp_threshold: 0.28,
@@ -110,64 +107,6 @@ impl Default for AiConfig {
     }
 }
 
-impl Validate for AiConfig {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _ctx: &()) -> Result<(), String> {
-        check::bounded_int("default enemy AI level", self.default_enemy_level, 1, 10)?;
-        check::bounded_int("default ally AI level", self.default_ally_level, 1, 10)?;
-
-        for (name, level) in [
-            ("omnidirectional thrust unlock level", self.unlocks.omnidirectional_thrust_level),
-            ("power management unlock level", self.unlocks.power_management_level),
-            ("focus fire unlock level", self.unlocks.focus_fire_level),
-            ("support coordination unlock level", self.unlocks.support_coordination_level),
-            ("strafe evasion unlock level", self.unlocks.strafe_evade_level),
-            ("spinal weapon dodge unlock level", self.unlocks.spinal_dodge_level),
-            ("armor angling unlock level", self.unlocks.armor_angling_level),
-        ] {
-            check::bounded_int(name, level, 1, 10)?;
-        }
-
-        self.curves.think_rate_hz.validate("think rate", 0.1)?;
-        self.curves.lead_accuracy.validate("lead accuracy", 0.0)?;
-        self.curves.aim_jitter_rad.validate("aim jitter", 0.0)?;
-        self.curves.range_precision.validate("range precision", 0.0)?;
-        self.curves.evasion_strength.validate("evasion strength", 0.0)?;
-        self.curves.memory_secs.validate("memory duration", 0.1)?;
-        self.curves.alert_ttl_secs.validate("alert time-to-live", 0.1)?;
-
-        check::positive("base radar range", self.base_core_radar_range)?;
-        check::non_negative("targeting hysteresis", self.hysteresis)?;
-
-        if self.booster_restore_battery_threshold < self.booster_shed_battery_threshold {
-            return Err(
-                "booster battery restore threshold must be at least the booster shed battery threshold"
-                    .to_string(),
-            );
-        }
-        check::at_least("maximum team alerts", self.bounds.max_team_alerts, 1)?;
-        check::at_least("maximum remembered contacts", self.bounds.max_last_known, 1)?;
-        check::at_least("maximum local contacts", self.bounds.max_local_contacts, 1)?;
-
-        check::range_ordered(
-            "minimum strafe flip duration",
-            self.combat_tuning.strafe_flip_min_secs,
-            "maximum strafe flip duration",
-            self.combat_tuning.strafe_flip_max_secs,
-        )?;
-
-        Ok(())
-    }
-}
-
-impl AiConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        Validate::validate(self, &())
-    }
-}
-
 #[derive(Resource, Default, Clone, Debug)]
 pub struct AiConfigValue(pub AiConfig);
 
@@ -175,7 +114,6 @@ pub fn ai_config_bridge(
     mut events: MessageReader<AssetEvent<AiConfig>>,
     assets: Res<Assets<AiConfig>>,
     mut value: ResMut<AiConfigValue>,
-    mut config_state: ResMut<NextState<ConfigState>>,
 ) {
     for event in events.read() {
         let id = match event {
@@ -184,14 +122,6 @@ pub fn ai_config_bridge(
         };
 
         if let Some(config) = assets.get(id) {
-            if let Err(reason) = config.validate() {
-                error!("Invalid ai.ron reload: {reason}");
-                config_state.set(ConfigState::Error(ConfigError::with_detail(
-                    ConfigFile::Ai,
-                    reason,
-                )));
-                return;
-            }
             *value = AiConfigValue(config.clone());
         }
     }
@@ -203,35 +133,36 @@ mod tests {
 
     #[test]
     fn shipped_ai_config_parses_and_validates() {
-        let config: AiConfig =
+        let _config: AiConfig =
             ron::from_str(include_str!("../../../assets/config/base/ai.ron"))
                 .expect("shipped ai.ron parses");
-        assert!(config.validate().is_ok());
     }
 
     #[test]
     fn skill_curve_samples_linearly() {
         let curve = SkillCurve {
-            level_1: 2.0,
-            level_10: 20.0,
+            level_1: PositiveF32::new(2.0).expect("2.0"),
+            level_10: PositiveF32::new(20.0).expect("20.0"),
         };
-        assert!((curve.sample(1) - 2.0).abs() < 1e-5);
-        assert!((curve.sample(10) - 20.0).abs() < 1e-5);
-        assert!((curve.sample(5) - 10.0).abs() < 1e-5);
+        assert!((curve.sample(SkillLevel::MIN) - 2.0).abs() < 1e-5);
+        assert!((curve.sample(SkillLevel::MAX) - 20.0).abs() < 1e-5);
+        assert!((curve.sample(SkillLevel::from_const(5)) - 10.0).abs() < 1e-5);
     }
 
     #[test]
     fn rejects_invalid_ai_config() {
-        let mut bad_level = AiConfig::default();
-        bad_level.default_enemy_level = 11;
-        assert!(bad_level.validate().is_err());
+        let base = include_str!("../../../assets/config/base/ai.ron");
 
-        let mut bad_rate = AiConfig::default();
-        bad_rate.curves.think_rate_hz.level_1 = 0.0;
-        assert!(bad_rate.validate().is_err());
+        let bad_level = base.replace("default_enemy_level: 5", "default_enemy_level: 11");
+        assert!(ron::from_str::<AiConfig>(&bad_level).is_err());
 
-        let mut bad_bounds = AiConfig::default();
-        bad_bounds.bounds.max_team_alerts = 0;
-        assert!(bad_bounds.validate().is_err());
+        let bad_rate = base.replace("think_rate_hz: (level_1: 2.0", "think_rate_hz: (level_1: 0.0");
+        assert!(ron::from_str::<AiConfig>(&bad_rate).is_err());
+
+        let bad_bounds = base.replace("max_team_alerts: 8", "max_team_alerts: 0");
+        assert!(ron::from_str::<AiConfig>(&bad_bounds).is_err());
+
+        let bad_band = base.replace("booster_battery_band: (0.25, 0.55)", "booster_battery_band: (0.6, 0.2)");
+        assert!(ron::from_str::<AiConfig>(&bad_band).is_err());
     }
 }

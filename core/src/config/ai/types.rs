@@ -1,51 +1,47 @@
+use std::num::NonZeroUsize;
+
 use serde::Deserialize;
+
+use crate::validate::{NonNegativeF32, OrderedRange, PositiveF32, SkillLevel, non_zero_usize};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct SkillCurve {
-    pub level_1: f32,
-    pub level_10: f32,
+pub struct SkillCurve<T = NonNegativeF32> {
+    pub level_1: T,
+    pub level_10: T,
 }
 
-impl SkillCurve {
-    pub fn sample(self, level: u8) -> f32 {
-        let t = (level.clamp(1, 10) - 1) as f32 / 9.0;
-        self.level_1 + (self.level_10 - self.level_1) * t
-    }
-
-    pub fn validate(self, name: &str, min_bound: f32) -> Result<(), String> {
-        if !self.level_1.is_finite() || !self.level_10.is_finite() {
-            return Err(format!("{name} endpoints must be finite numbers"));
-        }
-        if self.level_1 < min_bound || self.level_10 < min_bound {
-            return Err(format!("{name} endpoints must be at least {min_bound}"));
-        }
-        Ok(())
+impl<T: Copy + Into<f32>> SkillCurve<T> {
+    pub fn sample(self, level: SkillLevel) -> f32 {
+        let t = (level.get() - 1) as f32 / 9.0;
+        let l1: f32 = self.level_1.into();
+        let l10: f32 = self.level_10.into();
+        l1 + (l10 - l1) * t
     }
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SkillCurves {
-    pub think_rate_hz: SkillCurve,
-    pub lead_accuracy: SkillCurve,
-    pub aim_jitter_rad: SkillCurve,
-    pub range_precision: SkillCurve,
-    pub evasion_strength: SkillCurve,
-    pub memory_secs: SkillCurve,
-    pub alert_ttl_secs: SkillCurve,
+    pub think_rate_hz: SkillCurve<PositiveF32>,
+    pub lead_accuracy: SkillCurve<NonNegativeF32>,
+    pub aim_jitter_rad: SkillCurve<NonNegativeF32>,
+    pub range_precision: SkillCurve<NonNegativeF32>,
+    pub evasion_strength: SkillCurve<NonNegativeF32>,
+    pub memory_secs: SkillCurve<PositiveF32>,
+    pub alert_ttl_secs: SkillCurve<PositiveF32>,
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SkillUnlocks {
-    pub omnidirectional_thrust_level: u8,
-    pub power_management_level: u8,
-    pub focus_fire_level: u8,
-    pub support_coordination_level: u8,
-    pub strafe_evade_level: u8,
-    pub spinal_dodge_level: u8,
-    pub armor_angling_level: u8,
+    pub omnidirectional_thrust_level: SkillLevel,
+    pub power_management_level: SkillLevel,
+    pub focus_fire_level: SkillLevel,
+    pub support_coordination_level: SkillLevel,
+    pub strafe_evade_level: SkillLevel,
+    pub spinal_dodge_level: SkillLevel,
+    pub armor_angling_level: SkillLevel,
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
@@ -66,21 +62,21 @@ pub struct UtilityWeights {
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct IntelBounds {
-    pub max_team_alerts: usize,
+    pub max_team_alerts: NonZeroUsize,
     pub alert_merge_radius: f32,
     pub alert_spotted_radius: f32,
-    pub max_last_known: usize,
-    pub max_local_contacts: usize,
+    pub max_last_known: NonZeroUsize,
+    pub max_local_contacts: NonZeroUsize,
 }
 
 impl Default for IntelBounds {
     fn default() -> Self {
         Self {
-            max_team_alerts: 8,
+            max_team_alerts: non_zero_usize(8),
             alert_merge_radius: 450.0,
             alert_spotted_radius: 600.0,
-            max_last_known: 16,
-            max_local_contacts: 16,
+            max_last_known: non_zero_usize(16),
+            max_local_contacts: non_zero_usize(16),
         }
     }
 }
@@ -152,8 +148,7 @@ pub struct CombatTuning {
     pub orbit_min_range: f32,
     pub brawl_range_factor: f32,
     pub brawl_min_range: f32,
-    pub strafe_flip_min_secs: f32,
-    pub strafe_flip_max_secs: f32,
+    pub strafe_flip_secs: OrderedRange<PositiveF32>,
     pub orbit_tangent_weight: f32,
     pub brawl_tangent_weight: f32,
     pub spinal_dodge_cos_threshold: f32,
@@ -182,8 +177,7 @@ impl Default for CombatTuning {
             orbit_min_range: 600.0,
             brawl_range_factor: 0.7,
             brawl_min_range: 450.0,
-            strafe_flip_min_secs: 2.5,
-            strafe_flip_max_secs: 5.0,
+            strafe_flip_secs: OrderedRange::<PositiveF32>::from_const(2.5, 5.0),
             orbit_tangent_weight: 0.85,
             brawl_tangent_weight: 0.35,
             spinal_dodge_cos_threshold: 0.975,

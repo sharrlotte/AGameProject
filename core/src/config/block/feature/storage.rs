@@ -1,18 +1,9 @@
-use serde::Deserialize;
+use std::num::NonZeroU32;
 
-use crate::validate::{Validate, check};
+use serde::Deserialize;
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
-    pub capacity: u32,
-}
-
-impl Validate for StorageConfig {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        check::at_least("storage capacity", self.capacity, 1)
-    }
+    pub capacity: NonZeroU32,
 }

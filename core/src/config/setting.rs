@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::save::document::{data_dir, read_document, write_document};
-use crate::validate::{Validate, check};
+use crate::validate::SkillLevel;
 
 pub const SETTINGS_SCHEMA_VERSION: u32 = 1;
 
@@ -14,8 +14,22 @@ pub struct GameSettings {
     pub version: u32,
     pub volume: f32,
     pub bloom: bool,
-    pub ai_level: u8,
+    #[serde(deserialize_with = "deserialize_skill_saturating")]
+    pub ai_level: SkillLevel,
     pub keys: KeySettings,
+}
+
+fn deserialize_skill_saturating<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<SkillLevel, D::Error> {
+    let raw = u8::deserialize(deserializer)?;
+    match SkillLevel::new(raw) {
+        Ok(level) => Ok(level),
+        Err(_) => {
+            warn!("Saved ai_level {raw} is out of 1..=10; clamping");
+            Ok(SkillLevel::saturating(raw as i16))
+        }
+    }
 }
 
 crate::ron_document!(GameSettings, SETTINGS_SCHEMA_VERSION, "game settings");
@@ -42,18 +56,9 @@ impl Default for GameSettings {
             version: SETTINGS_SCHEMA_VERSION,
             volume: 0.5,
             bloom: true,
-            ai_level: 10,
+            ai_level: SkillLevel::MAX,
             keys: KeySettings::default(),
         }
-    }
-}
-
-impl Validate for GameSettings {
-    type Context = ();
-    type Error = String;
-
-    fn validate(&self, _: &()) -> Result<(), String> {
-        check::bounded_int("AI difficulty level", self.ai_level, 1, 10)
     }
 }
 
@@ -80,10 +85,7 @@ pub fn load_settings_in(base: &Path) -> GameSettings {
         return GameSettings::default();
     }
     match read_document::<GameSettings>(&path) {
-        Ok(mut loaded) => {
-            loaded.ai_level = loaded.ai_level.clamp(1, 10);
-            loaded
-        }
+        Ok(loaded) => loaded,
         Err(e) => {
             warn!("Failed to read {}: {e}; using defaults", path.display());
             GameSettings::default()
@@ -143,11 +145,25 @@ mod tests {
         let mut settings = GameSettings::default();
         settings.volume = 0.25;
         settings.bloom = false;
-        settings.ai_level = 7;
+        settings.ai_level = SkillLevel::new(7).expect("7 is valid");
         write_document(&path, &settings).expect("write settings");
 
         let loaded = load_settings_in(&dir);
         assert_eq!(loaded, settings);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn out_of_range_ai_level_clamps_without_resetting_other_fields() {
+        let dir = temp_dir("clamp");
+        let path = settings_path_in(&dir);
+        fs::write(&path, "(version: 1, volume: 0.2, bloom: false, ai_level: 99)")
+            .expect("write raw settings");
+
+        let loaded = load_settings_in(&dir);
+        assert!((loaded.volume - 0.2).abs() < 1e-6);
+        assert!(!loaded.bloom);
+        assert_eq!(loaded.ai_level, SkillLevel::MAX);
         let _ = fs::remove_dir_all(dir);
     }
 }

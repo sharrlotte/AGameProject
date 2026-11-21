@@ -1,17 +1,18 @@
+use std::num::NonZeroU32;
+
 use bevy::prelude::*;
 
 use crate::quest::component::{
     QuestAcceptance, QuestDef, QuestGenConfig, QuestId, QuestObjectiveDef, QuestOffer,
 };
 use crate::resource::GameRng;
+use crate::validate::{NonEmpty, OrderedRange};
 
 pub fn build(chunk: IVec2, config: &QuestGenConfig, rng: &mut GameRng) -> QuestDef {
-    let center = chunk.as_vec2() * config.chunk_size
-        + Vec2::splat(config.chunk_size * 0.5);
+    let center = chunk.as_vec2() * config.chunk_size.get()
+        + Vec2::splat(config.chunk_size.get() * 0.5);
 
-    let acceptance = if (chunk.x.unsigned_abs() + chunk.y.unsigned_abs())
-        % config.manual_acceptance_every.max(1)
-        == 0
+    let acceptance = if (chunk.x.unsigned_abs() + chunk.y.unsigned_abs()).is_multiple_of(config.manual_acceptance_every.get())
     {
         QuestAcceptance::Manual
     } else {
@@ -29,13 +30,13 @@ pub fn build(chunk: IVec2, config: &QuestGenConfig, rng: &mut GameRng) -> QuestD
             }),
             1 => objectives.push(QuestObjectiveDef::CollectItem {
                 id,
-                item: pick_item(rng, &config.item_pool),
+                item: pick_item(rng, config.item_pool.get()),
                 count: range_u32(rng, config.collect_count),
             }),
             _ => objectives.push(QuestObjectiveDef::ReachPosition {
                 id,
                 position: center + Vec2::new(range_f32(rng, -2000.0, 2000.0), range_f32(rng, -2000.0, 2000.0)),
-                radius: range_f32(rng, config.reach_radius.0, config.reach_radius.1),
+                radius: range_f32(rng, config.reach_radius.min().get(), config.reach_radius.max().get()),
             }),
         }
     }
@@ -54,7 +55,7 @@ pub fn build(chunk: IVec2, config: &QuestGenConfig, rng: &mut GameRng) -> QuestD
         acceptance,
         offer: Some(QuestOffer {
             position: center,
-            radius: config.notification_radius,
+            radius: config.notification_radius.get(),
         }),
         objectives,
     }
@@ -76,12 +77,9 @@ pub fn validate_generated(def: &QuestDef) -> Result<(), String> {
     Ok(())
 }
 
-fn range_u32(rng: &mut GameRng, range: (u32, u32)) -> u32 {
-    let (min, max) = if range.0 <= range.1 {
-        range
-    } else {
-        (range.1, range.0)
-    };
+fn range_u32(rng: &mut GameRng, range: OrderedRange<NonZeroU32>) -> u32 {
+    let min = range.min().get();
+    let max = range.max().get();
     min + (rng.next_u64() % (u64::from(max - min) + 1)) as u32
 }
 
@@ -91,12 +89,9 @@ fn range_f32(rng: &mut GameRng, min: f32, max: f32) -> f32 {
     min + span * ratio
 }
 
-fn pick_item(rng: &mut GameRng, pool: &[String]) -> String {
-    if pool.is_empty() {
-        return "steel".to_string();
-    }
+fn pick_item(rng: &mut GameRng, pool: &[NonEmpty<String>]) -> String {
     let index = (rng.next_u64() % pool.len() as u64) as usize;
-    pool[index].clone()
+    pool[index].get().clone()
 }
 
 #[cfg(test)]

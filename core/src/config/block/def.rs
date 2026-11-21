@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 use crate::content::block::component::{BakedShape, BlockDef, Loot, ShapeError, ShapeSpec};
-use crate::validate::{Validate, check};
+use crate::validate::PositiveF32;
 use super::feature::FeatureConfig;
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -10,26 +10,12 @@ use super::feature::FeatureConfig;
 pub struct BlockDefConfig {
     pub name: String,
     pub block_group: String,
-    pub mass: f32,
-    pub health: f32,
+    pub mass: PositiveF32,
+    pub health: PositiveF32,
     pub cost: u32,
     pub shape: ShapeSpec,
     pub features: Vec<FeatureConfig>,
     pub drops: Vec<Loot>,
-}
-
-impl Validate for BlockDefConfig {
-    type Context = str;
-    type Error = String;
-
-    fn validate(&self, block_type: &str) -> Result<(), String> {
-        check::positive("block mass", self.mass)?;
-        check::positive("block health", self.health)?;
-        for feature in &self.features {
-            feature.validate(block_type)?;
-        }
-        Ok(())
-    }
 }
 
 impl BlockDefConfig {
@@ -51,8 +37,8 @@ impl BlockDefConfig {
             name: self.name,
             block_type,
             block_group: self.block_group,
-            mass: self.mass,
-            health: self.health,
+            mass: self.mass.get(),
+            health: self.health.get(),
             cost: self.cost,
             shape,
             features,

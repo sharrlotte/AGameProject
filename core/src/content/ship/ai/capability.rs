@@ -24,7 +24,7 @@ pub fn compute_capability(
     live_healths: Option<&Query<&Health>>,
 ) -> Capability {
     let mut cap = Capability {
-        max_radar_range: ai_cfg.base_core_radar_range,
+        max_radar_range: ai_cfg.base_core_radar_range.get(),
         ..default()
     };
 

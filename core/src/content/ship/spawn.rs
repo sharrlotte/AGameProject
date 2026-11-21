@@ -36,7 +36,7 @@ impl<'a> SpawnEnv<'a> {
         position: Vec2,
         skill: Skill,
     ) -> Option<Entity> {
-        let think_hz = self.ai_cfg.curves.think_rate_hz.sample(skill.level());
+        let think_hz = self.ai_cfg.curves.think_rate_hz.sample(skill.as_skill_level());
         match design.spawn(
             commands,
             self.registry,

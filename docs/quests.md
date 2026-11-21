@@ -33,8 +33,8 @@ under hot reload cannot misattribute progress.
 
 | File | Asset | Purpose |
 | --- | --- | --- |
-| `config/quest/quests.ron` | `QuestCatalogDef` | Authored quest catalog, validated on load and hot reload |
-| `config/quest/generation.ron` | `QuestGenConfig` | Generated quest tuning: caps, radius, objective ranges, item pool |
+| `config/quest/quests.ron` | `QuestCatalogDef` | Authored quest catalog (`ValidCatalog`), validated at parse time |
+| `config/quest/generation.ron` | `QuestGenConfig` | Generated quest tuning: caps, radius, objective `OrderedRange`s, `NonEmpty` item pool |
 | `config/base/skirmish.ron` | `SkirmishDef` | QuickBattle enemy spawn list (unsaved skirmish only) |
 
 Both quest assets use `RonAssetLoader` and an `AssetEvent` hot-reload bridge. Hot reload replaces

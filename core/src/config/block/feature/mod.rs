@@ -10,7 +10,6 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 use crate::content::block::feature::component::Feature;
-use crate::validate::Validate;
 
 pub use ammo::AmmoConfig;
 pub use power::{BatteryConfig, BoosterConfig, ConsumerConfig, GeneratorConfig};
@@ -36,25 +35,6 @@ pub enum FeatureConfig {
     Shield(ShieldConfig),
 }
 
-impl Validate for FeatureConfig {
-    type Context = str;
-    type Error = String;
-
-    fn validate(&self, block_type: &str) -> Result<(), String> {
-        match self {
-            FeatureConfig::Texture(t) => t.validate(&()),
-            FeatureConfig::Turret(t) => t.validate(block_type),
-            FeatureConfig::Generator(g) => g.validate(block_type),
-            FeatureConfig::Battery(b) => b.validate(block_type),
-            FeatureConfig::Consumer(c) => c.validate(block_type),
-            FeatureConfig::Booster(b) => b.validate(block_type),
-            FeatureConfig::Thruster(th) => th.validate(block_type),
-            FeatureConfig::Storage(s) => s.validate(&()),
-            FeatureConfig::Shield(sh) => sh.validate(&()),
-        }
-    }
-}
-
 impl FeatureConfig {
     pub fn into_feature(self, assets: &AssetServer, block_type: &str) -> Feature {
         match self {
@@ -62,14 +42,12 @@ impl FeatureConfig {
             FeatureConfig::Turret(config) => {
                 Feature::Turret(config.into_turret(assets, block_type))
             }
-            FeatureConfig::Generator(generator) => {
-                Feature::Generator(generator.validated(block_type))
-            }
-            FeatureConfig::Battery(battery) => Feature::Battery(battery.validated(block_type)),
-            FeatureConfig::Consumer(consumer) => Feature::Consumer(consumer.validated(block_type)),
-            FeatureConfig::Booster(booster) => Feature::Booster(booster.validated(block_type)),
-            FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster.validated()),
-            FeatureConfig::Storage(config) => Feature::Storage(config.capacity),
+            FeatureConfig::Generator(generator) => Feature::Generator(generator.into_feature()),
+            FeatureConfig::Battery(battery) => Feature::Battery(battery.into_feature()),
+            FeatureConfig::Consumer(consumer) => Feature::Consumer(consumer.into_feature()),
+            FeatureConfig::Booster(booster) => Feature::Booster(booster.into_feature()),
+            FeatureConfig::Thruster(thruster) => Feature::Thruster(thruster.into_feature()),
+            FeatureConfig::Storage(config) => Feature::Storage(config.capacity.get()),
             FeatureConfig::Shield(config) => Feature::Shield(config.into_shield()),
         }
     }

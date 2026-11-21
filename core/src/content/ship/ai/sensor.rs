@@ -12,6 +12,7 @@ use crate::content::bullet::{Bullet, Laser, Missile};
 use crate::content::damage::DamageEvent;
 use crate::content::ship::{Ship, ShipStats};
 use crate::content::team::Team;
+use crate::validate::SkillLevel;
 
 #[derive(Clone, Copy)]
 pub struct ShipSnap {
@@ -47,7 +48,7 @@ pub fn update_sensors_and_intel(
         Option<&mut Sensor>,
     )>,
     mut snapshots: Local<Vec<ShipSnap>>,
-    mut team_max_skill: Local<HashMap<u8, u8>>,
+    mut team_max_skill: Local<HashMap<u8, SkillLevel>>,
     mut ship_map: Local<HashMap<Entity, (u8, Vec2)>>,
     mut prev_contacts_by_team: Local<HashMap<u8, HashMap<Entity, SharedContact>>>,
     mut local_contacts: Local<Vec<(f32, Entity)>>,
@@ -73,7 +74,7 @@ pub fn update_sensors_and_intel(
             has_fixed_gun: cap.fixed_mount.is_some(),
         });
         ship_map.insert(entity, (team.id(), pos));
-        let s = skill.map_or(ai_cfg.0.default_enemy_level, |s| s.level());
+        let s = skill.map_or(ai_cfg.0.default_enemy_level, |s| s.as_skill_level());
         team_max_skill
             .entry(team.id())
             .and_modify(|cur| *cur = (*cur).max(s))
@@ -121,7 +122,7 @@ pub fn update_sensors_and_intel(
         }
         if let Some(mut sensor) = sensor_opt {
             local_contacts.sort_by(|a, b| a.0.total_cmp(&b.0));
-            local_contacts.truncate(ai_cfg.0.bounds.max_local_contacts);
+            local_contacts.truncate(ai_cfg.0.bounds.max_local_contacts.get());
             sensor.local_contacts = local_contacts.iter().map(|(_, e)| *e).collect();
         }
     }
@@ -152,7 +153,7 @@ pub fn update_sensors_and_intel(
                 }
             }
         }
-        trim_last_known(&mut plan.intel.last_known, ai_cfg.0.bounds.max_last_known);
+        trim_last_known(&mut plan.intel.last_known, ai_cfg.0.bounds.max_last_known.get());
     }
 
     // Record shared DamageEvent hit alerts for unseen attackers
@@ -242,7 +243,7 @@ fn push_or_refresh_alert(
     {
         existing.position = position;
         existing.ttl = ttl;
-    } else if alerts.len() < bounds.max_team_alerts {
+    } else if alerts.len() < bounds.max_team_alerts.get() {
         alerts.push(TeamAlert { position, ttl });
     } else if let Some(oldest) = alerts.iter_mut().min_by(|a, b| a.ttl.total_cmp(&b.ttl)) {
         *oldest = TeamAlert { position, ttl };

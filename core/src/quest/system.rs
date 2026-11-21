@@ -23,7 +23,6 @@ use crate::resource::{DeployPayload, GameRng};
 use crate::save::design::ShipCatalog;
 use crate::save::world::WorldContext;
 use crate::scene::game::skirmish::resolve_skill;
-use crate::validate::Validate;
 use crate::world::SectorDiscovered;
 
 pub fn load_quest_handles(mut commands: Commands, assets: Res<AssetServer>) {
@@ -94,13 +93,8 @@ pub fn generation_config_bridge(
 }
 
 pub fn apply_catalog(catalog: &QuestCatalogDef, value: &mut QuestCatalogValue) {
-    if let Err(error) = catalog.validate(&()) {
-        warn!("Quest catalog failed validation: {error}");
-        return;
-    }
-
     let mut next = QuestCatalogValue::default();
-    for def in &catalog.quests {
+    for def in catalog.quests.iter() {
         next.0.insert(def.id.clone(), def.clone());
     }
     for (id, def) in &value.0 {
@@ -112,10 +106,6 @@ pub fn apply_catalog(catalog: &QuestCatalogDef, value: &mut QuestCatalogValue) {
 }
 
 fn apply_generation(config: &QuestGenConfig, value: &mut QuestGenConfigValue) {
-    if let Err(error) = config.validate(&()) {
-        warn!("Quest generation config failed validation: {error}");
-        return;
-    }
     *value = QuestGenConfigValue(config.clone());
 }
 

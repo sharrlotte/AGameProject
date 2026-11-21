@@ -59,7 +59,7 @@ pub fn update_ship_steering(
         force.torque = torque;
 
         let cap = steering.throttle_cap.clamp(0.0, 1.0);
-        let linear = if skill.level() >= ai_cfg.ai.unlocks.omnidirectional_thrust_level {
+        let linear = if skill.level() >= ai_cfg.ai.unlocks.omnidirectional_thrust_level.get() {
             let applied = thrust_world * cap;
             force.force = applied * thrust_power;
             applied.length()

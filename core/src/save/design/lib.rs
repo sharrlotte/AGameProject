@@ -189,7 +189,7 @@ mod tests {
         ))
         .expect("shipped block config parses");
         let mut registry = BlockRegistry::default();
-        for (key, def) in &config.blocks {
+        for (key, def) in config.blocks.as_map() {
             let def = def
                 .clone()
                 .into_def(&server, key.clone())
