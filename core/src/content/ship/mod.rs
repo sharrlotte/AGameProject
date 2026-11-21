@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod component;
 pub mod inspect;
+pub mod spawn;
 pub mod stat;
 pub mod system;
 pub mod throttle;

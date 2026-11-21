@@ -1,5 +1,8 @@
-## ADDED Requirements
+# open-world-quests Specification
 
+## Purpose
+Defines requirements for authored and procedurally generated open-world quests, objective tracking, range-gated notifications, HUD display, and save-slot persistence.
+## Requirements
 ### Requirement: Quests are loaded from validated hot-reloadable RON definitions
 
 The quest system SHALL load `QuestCatalogDef` from `core/assets/config/quest/quests.ron` with hot-reload support. Validation SHALL reject duplicate or empty quest IDs, empty objective lists, non-positive objective counts or radii, unknown prerequisite IDs, prerequisite cycles, `QuestAcceptance::Manual` on an authored quest, and a `Manual` quest without an `offer`. Hot reload SHALL replace authored catalog entries only and SHALL preserve generated entries.
@@ -94,7 +97,7 @@ A generated quest with `QuestAcceptance::Manual` SHALL carry a `QuestOffer { pos
 
 #### Scenario: Dialog does not pause gameplay
 - **WHEN** a notification card is clicked and its dialog is open
-- **THEN** the game continues simulating without a `PauseState` transition
+- **THEN** the game continues simulating without a `Modal::Pause` transition
 
 ### Requirement: Quest progress persists inside the active save slot's SQLite database
 
@@ -138,12 +141,13 @@ While in `SceneState::Game`, a compact HUD panel SHALL display active quests and
 
 ### Requirement: Session timekeeping survives mission removal
 
-Play time SHALL be tracked by a `SessionClock` resource instead of `BattleResult`. Saving SHALL write the clock's elapsed time to `WorldMeta.play_time_secs`; loading SHALL resume the clock from the saved value. Auto-save SHALL run only while `SceneState::Game` and `PauseState::Playing`.
+Play time SHALL be tracked by a `SessionClock` resource instead of `BattleResult`. Saving SHALL write the clock's elapsed time to `WorldMeta.play_time_secs`; loading SHALL resume the clock from the saved value. Auto-save SHALL run only while `SceneState::Game` and no pause modal is open (`ModalStack::top()` is not `Modal::Pause`).
 
 #### Scenario: Play time accumulates across save and load
 - **WHEN** a slot with 120 seconds of play time is saved, reloaded, and played for 10 more seconds
 - **THEN** the next save records approximately 130 seconds
 
 #### Scenario: Auto-save is gated by scene and pause state
-- **WHEN** the game is in `SceneState::Game` but `PauseState::Paused`
+- **WHEN** the game is in `SceneState::Game` but `ModalStack::top()` is `Some(Modal::Pause)`
 - **THEN** the auto-save timer does not fire
+

@@ -7,10 +7,11 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::quest::component::QuestStatus;
 use crate::save::world::snapshot::{BodySnapshot, CameraSave, ControlSave, DropSave, TeamIntelSave};
 use crate::save::world::store::{InMemoryWorldStore, WorldStore};
 
-pub const WORLD_DB_SCHEMA_VERSION: u32 = 2;
+pub const WORLD_DB_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Message)]
 pub struct SaveWorldEvent;
@@ -151,6 +152,14 @@ pub struct WorldLoadData {
     pub ship_ids: HashSet<Uuid>,
     pub drops: Vec<DropSave>,
     pub intel: Vec<TeamIntelSave>,
+    pub quests: Vec<QuestStoreRow>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct QuestStoreRow {
+    pub quest_id: String,
+    pub status: QuestStatus,
+    pub record_blob: Vec<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

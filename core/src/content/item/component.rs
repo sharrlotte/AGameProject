@@ -1,6 +1,15 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+use crate::content::team::Team;
+
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ItemCollected {
+    pub item: String,
+    pub amount: u32,
+    pub team: Team,
+}
+
 #[derive(Debug, Reflect, Copy, Clone)]
 pub enum Rarity {
     Common,

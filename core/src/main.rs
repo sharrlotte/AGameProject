@@ -3,7 +3,7 @@ mod config;
 mod constant;
 mod content;
 mod control;
-mod mission;
+mod quest;
 mod resource;
 mod save;
 mod scene;
@@ -16,8 +16,8 @@ mod world;
 use crate::config::{ConfigPlugin, ConfigState, GameConfigValue};
 use crate::constant::AUDIO_SCALE;
 use crate::content::ContentPlugin;
-use crate::mission::MissionPlugin;
-use crate::resource::{DeployPayload, GameRng, SceneState};
+use crate::quest::QuestPlugin;
+use crate::resource::{DeployPayload, GameRng, SceneState, SessionClock};
 use crate::ui::UiPlugin;
 use crate::save::SavePlugin;
 use crate::scene::editor::ShipEditorPlugin;
@@ -121,6 +121,7 @@ fn register_engine_plugins(app: &mut App) {
 fn register_resources_and_states(app: &mut App) {
     app.init_resource::<DeployPayload>()
         .init_resource::<GameRng>()
+        .init_resource::<SessionClock>()
         // Gameplay systems assume config exists; a failed load still shows the
         // error screen instead of panicking on a missing resource.
         .init_resource::<GameConfigValue>()
@@ -161,7 +162,7 @@ fn register_game_plugins(app: &mut App) {
         .add_plugins((
             ConfigPlugin,
             ControlPlugin,
-            MissionPlugin,
+            QuestPlugin,
             GameScenePlugin,
             HomeScenePlugin,
             PauseScenePlugin,

@@ -6,14 +6,22 @@ use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use crate::content::ship::ShipDesign;
-use crate::save::world::component::{ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError};
+use crate::save::world::component::{
+    ActiveStateSnapshot, QuestStoreRow, SlotSummary, WorldMeta, WorldStoreError,
+};
 use crate::world::chunk::{ChunkCoord, ChunkData};
 
 pub trait WorldStore: Send + Sync {
     fn load_meta(&self) -> Result<WorldMeta, WorldStoreError>;
     fn load_active_state(&self) -> Result<ActiveStateSnapshot, WorldStoreError>;
     fn list_slots(&self) -> Result<Vec<SlotSummary>, WorldStoreError>;
-    fn save_world(&self, meta: &WorldMeta, active: &ActiveStateSnapshot) -> Result<(), WorldStoreError>;
+    fn save_world(
+        &self,
+        meta: &WorldMeta,
+        active: &ActiveStateSnapshot,
+        quests: &[QuestStoreRow],
+    ) -> Result<(), WorldStoreError>;
+    fn load_quests(&self) -> Result<Vec<QuestStoreRow>, WorldStoreError>;
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError>;
     fn save_design(&self, design: &ShipDesign) -> Result<(), WorldStoreError>;
     fn delete_design(&self, id: Uuid) -> Result<(), WorldStoreError>;
@@ -29,6 +37,7 @@ pub struct InMemoryWorldStore {
     active: Mutex<ActiveStateSnapshot>,
     designs: Mutex<Vec<ShipDesign>>,
     chunks: Mutex<HashMap<ChunkCoord, ChunkData>>,
+    quests: Mutex<Vec<QuestStoreRow>>,
 }
 
 impl Default for InMemoryWorldStore {
@@ -39,6 +48,7 @@ impl Default for InMemoryWorldStore {
             active: Mutex::new(ActiveStateSnapshot::default()),
             designs: Mutex::new(Vec::new()),
             chunks: Mutex::new(HashMap::new()),
+            quests: Mutex::new(Vec::new()),
         }
     }
 }
@@ -70,10 +80,20 @@ impl WorldStore for InMemoryWorldStore {
         Ok(self.active.lock().map_err(lock_err)?.clone())
     }
 
-    fn save_world(&self, meta: &WorldMeta, active: &ActiveStateSnapshot) -> Result<(), WorldStoreError> {
+    fn save_world(
+        &self,
+        meta: &WorldMeta,
+        active: &ActiveStateSnapshot,
+        quests: &[QuestStoreRow],
+    ) -> Result<(), WorldStoreError> {
         *self.meta.lock().map_err(lock_err)? = Some(meta.clone());
         *self.active.lock().map_err(lock_err)? = active.clone();
+        *self.quests.lock().map_err(lock_err)? = quests.to_vec();
         Ok(())
+    }
+
+    fn load_quests(&self) -> Result<Vec<QuestStoreRow>, WorldStoreError> {
+        Ok(self.quests.lock().map_err(lock_err)?.clone())
     }
 
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError> {
@@ -175,7 +195,7 @@ mod tests {
         let store = InMemoryWorldStore::default();
         let meta = sample_meta();
         let state = sample_state();
-        store.save_world(&meta, &state).expect("save world");
+        store.save_world(&meta, &state, &[]).expect("save world");
 
         assert_eq!(store.load_meta().expect("load meta"), meta);
         assert_eq!(store.load_active_state().expect("load state"), state);
@@ -198,7 +218,7 @@ mod tests {
     fn listed_seed_is_the_meta_seed_for_both_stores() {
         let meta = sample_meta();
         let memory = InMemoryWorldStore::default();
-        memory.save_world(&meta, &sample_state()).expect("save world");
+        memory.save_world(&meta, &sample_state(), &[]).expect("save world");
         let slots = memory.list_slots().expect("list slots");
         assert_eq!(slots.len(), 1);
         assert_eq!(slots[0].seed, meta.seed);
@@ -227,7 +247,9 @@ mod tests {
         let store = InMemoryWorldStore::default();
         let design = starter_designs().into_iter().next().expect("starter");
         store.save_design(&design).expect("save design in memory");
-        store.save_world(&sample_meta(), &sample_state()).expect("save world in memory");
+        store
+            .save_world(&sample_meta(), &sample_state(), &[])
+            .expect("save world in memory");
         store.flush().expect("flush is a no-op");
 
         assert_eq!(

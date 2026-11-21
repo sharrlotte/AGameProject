@@ -7,9 +7,11 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension, Transaction, Transactio
 use uuid::Uuid;
 
 use crate::content::ship::ShipDesign;
+use crate::quest::component::QuestStatus;
 use crate::save::document::data_dir;
 use crate::save::world::component::{
-    ActiveStateSnapshot, SlotSummary, WorldMeta, WorldStoreError, WORLD_DB_SCHEMA_VERSION,
+    ActiveStateSnapshot, QuestStoreRow, SlotSummary, WorldMeta, WorldStoreError,
+    WORLD_DB_SCHEMA_VERSION,
 };
 use crate::save::world::store::{WorldStore, decode, encode, now_unix_ms};
 use crate::world::chunk::{ChunkCoord, ChunkData};
@@ -196,6 +198,7 @@ impl WorldStore for SqliteWorldStore {
         &self,
         meta: &WorldMeta,
         active: &ActiveStateSnapshot,
+        quests: &[QuestStoreRow],
     ) -> Result<(), WorldStoreError> {
         let mut conn = self.lock()?;
         let tx = conn
@@ -230,9 +233,48 @@ impl WorldStore for SqliteWorldStore {
                 params![active.bodies_blob, active.drops_blob, active.intel_blob],
             )
             .map_err(sql_err)?;
+
+            tx.execute("DELETE FROM quests", []).map_err(sql_err)?;
+            for row in quests {
+                tx.execute(
+                    "INSERT INTO quests (quest_id, status, record_blob) VALUES (?1, ?2, ?3)",
+                    params![row.quest_id, row.status.as_u8(), row.record_blob],
+                )
+                .map_err(sql_err)?;
+            }
         }
 
         tx.commit().map_err(sql_err)
+    }
+
+    fn load_quests(&self) -> Result<Vec<QuestStoreRow>, WorldStoreError> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare("SELECT quest_id, status, record_blob FROM quests ORDER BY quest_id")
+            .map_err(sql_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, u8>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                ))
+            })
+            .map_err(sql_err)?;
+
+        let mut quests = Vec::new();
+        for row in rows {
+            let (quest_id, status, record_blob) = row.map_err(sql_err)?;
+            let status = QuestStatus::from_u8(status).ok_or_else(|| {
+                WorldStoreError::InvalidData(format!("invalid quest status {status} for {quest_id}"))
+            })?;
+            quests.push(QuestStoreRow {
+                quest_id,
+                status,
+                record_blob,
+            });
+        }
+        Ok(quests)
     }
 
     fn list_designs(&self) -> Result<Vec<ShipDesign>, WorldStoreError> {
@@ -462,8 +504,8 @@ const CREATE_SCHEMA_SQL: &str = "
     );
     CREATE TABLE IF NOT EXISTS quests (
         quest_id      TEXT PRIMARY KEY,
-        status        TEXT NOT NULL,
-        progress_blob BLOB NOT NULL
+        status        INTEGER NOT NULL,
+        record_blob   BLOB NOT NULL
     );
     CREATE TABLE IF NOT EXISTS chunks (
         x             INTEGER NOT NULL,
@@ -545,7 +587,9 @@ mod tests {
         changed_meta.name = "Renamed World".to_string();
         changed_meta.updated_at_ms += 1000;
         let changed_state = state();
-        store.save_world(&changed_meta, &changed_state).expect("save world");
+        store
+            .save_world(&changed_meta, &changed_state, &[])
+            .expect("save world");
         store.flush().expect("flush");
         drop(store);
 
@@ -648,7 +692,10 @@ mod tests {
         let error = SqliteWorldStore::open(&path).expect_err("older schema is rejected");
         assert!(matches!(
             error,
-            WorldStoreError::VersionMismatch { expected: 2, found: 1 }
+            WorldStoreError::VersionMismatch {
+                expected: WORLD_DB_SCHEMA_VERSION,
+                found: 1
+            }
         ));
 
         let db_files = fs::read_dir(&dir)

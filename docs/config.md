@@ -49,6 +49,13 @@
 | `config/base/ai.ron` | `AiConfig` asset | error screen | keep last good + error log |
 | `config/base/minimap.ron` | `MinimapConfig` asset | error screen | keep last good + error log |
 | `config/setting.ron` | `GameSetting` asset | defaults + warn | keep last good + error log |
+| `config/quest/quests.ron` | `QuestCatalogDef` asset | defaults to empty catalog + error log | keep last good + error log |
+| `config/quest/generation.ron` | `QuestGenConfig` asset | defaults + warn | keep last good + error log |
+| `config/base/skirmish.ron` | `SkirmishDef` asset | warning + return home | keep last good + error log |
+
+Quest assets are loaded by `QuestPlugin` with `RonAssetLoader` and applied once config is ready,
+then hot-reloaded through an `AssetEvent` bridge (see quests.md). Hot reload of `quests.ron`
+replaces authored entries only; generated entries are preserved.
 
 No RON config exists for chunk streaming: its tuning is compile-time constants in `core/src/constant.rs`, not a hot-reloadable asset.
 

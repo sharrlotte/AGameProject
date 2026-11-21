@@ -23,9 +23,13 @@ No game entities exist here.
   echo panel, `SelectablePanel`).
 - Background parallax starfields: far/mid/near colored sprites wrapped around the camera,
   tagged `DespawnOnExit(SceneState::Game)` (despawn on scene exit).
-- Battle-core (see mission.md): mission loads async; ship spawns driven by the mission
-  def; outcome is win/lose; overlay on `Ended`. Top-up spawner deleted; `check_ship`
-  gone.
+- Quest system (see quests.md): authored tutorial quests auto-activate from prerequisites;
+  generated quests appear only when a sector is discovered. No win/lose overlay; destroying
+  the last enemy does not end play. Last-player-ship destruction respawns a starter ship at
+  the origin.
+- Skirmish spawner (`scene/game/skirmish/`): `config/base/skirmish.ron` supplies the enemy spawn
+  list for the unsaved QuickBattle sandbox (Blackbird, Raider, Interceptor, Aegis, Vanguard); a
+  snapshot load takes over Game entry instead.
 - Ship mutations rebuild ship stats and bounds from `BlockGrid` and the compound collider
   from the baked hitboxes of live blocks, then emit `ShipChanged`; `update_stats`
   (`ShipChanged`, `OnMessage`) recomputes `ShipStats`. Detached components become

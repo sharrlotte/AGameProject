@@ -1,0 +1,10 @@
+(
+    spawn: (5000.0, 0.0),
+    enemies: [
+        (team: 1, position: (-3000.0, 0.0), schematic_name: "Blackbird"),
+        (team: 1, position: (0.0, 3000.0), schematic_name: "Raider"),
+        (team: 1, position: (0.0, -3000.0), schematic_name: "Interceptor"),
+        (team: 1, position: (0.0, -4000.0), schematic_name: "Aegis"),
+        (team: 1, position: (0.0, 4000.0), schematic_name: "Vanguard"),
+    ],
+)

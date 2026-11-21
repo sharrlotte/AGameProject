@@ -17,7 +17,7 @@ use crate::content::body::BlockGrid;
 use crate::content::damage::DamageEvent;
 use crate::content::ship::{Ship, ShipStats, Throttle, update_ship_steering};
 use crate::content::team::Team;
-use crate::mission::resolve_skill;
+use crate::scene::game::skirmish::resolve_skill;
 use crate::resource::ControlledShip;
 
 fn make_registry() -> BlockRegistry {

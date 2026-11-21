@@ -4,8 +4,10 @@ use uuid::Uuid;
 use crate::config::GameConfigValue;
 use crate::content::block::BlockRegistry;
 use crate::content::item::ItemRegistry;
-use crate::mission::{BattlePhase, BattleResult};
-use crate::resource::{AppNotice, BattleMode, DeployPayload, GameRng, SceneState};
+use crate::quest::component::QuestCatalogValue;
+use crate::quest::lib::{quest_rows, restore_tracker};
+use crate::quest::QuestTracker;
+use crate::resource::{AppNotice, DeployPayload, GameRng, SceneState, SessionClock};
 use crate::save::design::{
     DesignCatalogSource, ShipCatalog, load_or_seed_designs, starter_designs, starter_fleet,
 };
@@ -37,9 +39,10 @@ pub fn handle_save_world_event(
     mut events: MessageReader<SaveWorldEvent>,
     world: &World,
     time: Res<Time>,
-    battle: Res<BattleResult>,
+    clock: Res<SessionClock>,
     rng: Res<GameRng>,
     context: Res<WorldContext>,
+    tracker: Res<QuestTracker>,
 ) {
     if events.read().next().is_none() {
         return;
@@ -59,7 +62,7 @@ pub fn handle_save_world_event(
                 .as_ref()
                 .map_or_else(|| "World".to_string(), |m| m.name.clone()),
             seed: rng.seed(),
-            play_time_secs: battle_duration(&time, &battle),
+            play_time_secs: clock.elapsed(time.elapsed_secs()),
             created_at_ms: previous.as_ref().map_or(now, |m| m.created_at_ms),
             updated_at_ms: now,
             camera_blob: encode(&capture_camera(world))?,
@@ -81,7 +84,11 @@ pub fn handle_save_world_event(
         }
     };
 
-    if let Err(e) = active.save_world(&meta, &snapshot).and_then(|()| active.flush()) {
+    let quest_records = quest_rows(&tracker);
+    if let Err(e) = active
+        .save_world(&meta, &snapshot, &quest_records)
+        .and_then(|()| active.flush())
+    {
         error!("Save failed: {e}");
     }
 }
@@ -94,7 +101,6 @@ pub fn handle_load_slot(
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
-    mut mode: ResMut<BattleMode>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
 ) {
@@ -143,7 +149,6 @@ pub fn handle_load_slot(
             path: active_path,
             store: Box::new(opened),
         };
-        *mode = BattleMode::Campaign;
         scene.set(SceneState::Loading);
     }
 }
@@ -156,9 +161,11 @@ pub fn handle_create_slot(
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
-    mut mode: ResMut<BattleMode>,
     mut scene: ResMut<NextState<SceneState>>,
     mut notice: ResMut<AppNotice>,
+    time: Res<Time>,
+    mut clock: ResMut<SessionClock>,
+    mut tracker: ResMut<QuestTracker>,
 ) {
     for event in events.read() {
         let slot_id = Uuid::now_v7();
@@ -202,7 +209,9 @@ pub fn handle_create_slot(
         catalog.replace_all(designs);
         *source = DesignCatalogSource::ActiveWorldDb;
         *context = WorldContext::SaveSlot { slot_id, path, store: Box::new(created) };
-        *mode = BattleMode::Campaign;
+        clock.reset();
+        clock.resume(time.elapsed_secs(), 0.0);
+        *tracker = QuestTracker::default();
         scene.set(SceneState::Game);
     }
 }
@@ -225,7 +234,6 @@ pub fn handle_continue_world(
     mut source: ResMut<DesignCatalogSource>,
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
-    mut mode: ResMut<BattleMode>,
     mut notice: ResMut<AppNotice>,
     mut scene: ResMut<NextState<SceneState>>,
     mut creates: MessageWriter<CreateSlotEvent>,
@@ -281,7 +289,6 @@ pub fn handle_continue_world(
     catalog.replace_all(designs);
     *source = DesignCatalogSource::ActiveWorldDb;
     *context = WorldContext::Restoring { slot_id, path, store: Box::new(opened) };
-    *mode = BattleMode::Campaign;
     scene.set(SceneState::Game);
 }
 
@@ -294,8 +301,9 @@ pub fn handle_quick_battle(
     mut catalog: ResMut<ShipCatalog>,
     mut deploy: ResMut<DeployPayload>,
     config: Res<GameConfigValue>,
-    mut mode: ResMut<BattleMode>,
     mut scene: ResMut<NextState<SceneState>>,
+    time: Res<Time>,
+    mut clock: ResMut<SessionClock>,
 ) {
     if events.read().next().is_none() {
         return;
@@ -307,7 +315,8 @@ pub fn handle_quick_battle(
     catalog.replace_all(designs);
     *source = DesignCatalogSource::HomeSandbox;
     *context = WorldContext::QuickBattle { store: Box::new(InMemoryWorldStore::default()) };
-    *mode = BattleMode::QuickBattle;
+    clock.reset();
+    clock.resume(time.elapsed_secs(), 0.0);
     scene.set(SceneState::Game);
 }
 
@@ -349,6 +358,7 @@ fn load_world_data(active: &dyn WorldStore, registry: &BlockRegistry) -> Result<
 
     let drops = decode(&state.drops_blob)?;
     let intel = decode(&state.intel_blob)?;
+    let quests = active.load_quests()?;
 
     Ok(WorldLoadData {
         seed,
@@ -359,6 +369,7 @@ fn load_world_data(active: &dyn WorldStore, registry: &BlockRegistry) -> Result<
         ship_ids,
         drops,
         intel,
+        quests,
     })
 }
 
@@ -402,12 +413,15 @@ fn apply_world_data(
     config: &GameConfigValue,
     camera: &mut Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     items: Option<&ItemRegistry>,
+    tracker: &mut QuestTracker,
+    catalog: &QuestCatalogValue,
 ) -> Result<(), WorldStoreError> {
     let ship_map = apply_bodies(commands, data.bodies, registry, config)?;
     apply_intel(commands, data.intel, &ship_map);
     apply_control(commands, &data.control_save, &ship_map);
     apply_camera(camera, &data.camera_save, config, &ship_map, commands);
     apply_drops(commands, data.drops, config, items);
+    *tracker = restore_tracker(&data.quests, catalog);
     Ok(())
 }
 
@@ -418,13 +432,14 @@ pub fn spawn_loaded_world(
     items: Option<Res<ItemRegistry>>,
     config: Res<GameConfigValue>,
     time: Res<Time>,
-    mut battle: ResMut<BattleResult>,
-    mut phase: ResMut<NextState<BattlePhase>>,
     mut notice: ResMut<AppNotice>,
     mut scene: ResMut<NextState<SceneState>>,
     mut camera: Query<(&mut Transform, &mut Projection), With<Camera2d>>,
     transients: Query<Entity, With<DespawnOnExit<SceneState>>>,
     mut rng: ResMut<GameRng>,
+    mut clock: ResMut<SessionClock>,
+    mut tracker: ResMut<QuestTracker>,
+    catalog: Res<QuestCatalogValue>,
 ) {
     let Some((slot_id, path, store)) = context.take_restoring() else {
         return;
@@ -463,6 +478,8 @@ pub fn spawn_loaded_world(
         &config,
         &mut camera,
         items.as_deref(),
+        &mut tracker,
+        &catalog,
     ) {
         *context = WorldContext::SaveSlot { slot_id, path, store };
         warn!("Failed to restore save slot: {e}");
@@ -473,15 +490,7 @@ pub fn spawn_loaded_world(
 
     *context = WorldContext::SaveSlot { slot_id, path, store };
     *rng = GameRng::new(seed);
-    let mission_name = battle.mission_name.clone();
-
-    *battle = BattleResult {
-        started_at: Some((time.elapsed_secs() - play_time_secs).max(0.0)),
-        outcome: None,
-        duration_secs: play_time_secs,
-        mission_name,
-    };
-    phase.set(BattlePhase::Active);
+    clock.resume(time.elapsed_secs(), play_time_secs);
 }
 
 pub fn reset_auto_save_timer(mut commands: Commands, config: Res<GameConfigValue>) {
@@ -531,13 +540,6 @@ pub fn reset_catalog_on_home(
 ) {
     *source = DesignCatalogSource::HomeSandbox;
     catalog.designs = load_or_seed_designs(&registry);
-}
-
-fn battle_duration(time: &Time, battle: &BattleResult) -> f32 {
-    battle
-        .started_at
-        .map(|start| (time.elapsed_secs() - start).max(0.0))
-        .unwrap_or(battle.duration_secs)
 }
 
 #[cfg(test)]

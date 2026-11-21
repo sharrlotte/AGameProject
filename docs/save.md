@@ -46,12 +46,12 @@ core/src/save/
 Legacy `saves/battle.ron`, `saves/campaign.ron`, `fleet.ron`, `saves/slot_*.ron`, `designs/*.ron`,
 `schematics/*.json` and `world/` are never read, written, migrated, or deleted by the save system.
 
-`WORLD_DB_SCHEMA_VERSION = 1` is stored in `PRAGMA user_version`. When opening a slot whose schema version
-is outdated (`found < WORLD_DB_SCHEMA_VERSION`), the save system leaves the original database file completely
-unmodified, copies it to a newly generated save slot at `<data_dir>/saves/<new_uuid>.db`, migrates the copy,
-and appends `" (Migrated)"` to `world_meta.name`. Downgrade attempts (`found > WORLD_DB_SCHEMA_VERSION`)
-fail loudly with `WorldStoreError::VersionMismatch { expected, found }` without copying or modifying anything.
-`list_slots` skips incompatible or corrupt files with a warning.
+`WORLD_DB_SCHEMA_VERSION = 3` is stored in `PRAGMA user_version`. Version 3 renamed the quest column
+`progress_blob` to `record_blob` and changed `status` to an integer. The save system does not migrate older
+slots: any file whose version differs from `WORLD_DB_SCHEMA_VERSION` fails loudly with
+`WorldStoreError::VersionMismatch { expected, found }` without copying or modifying anything. Version 2 saves
+are therefore not loadable after the version 3 change. `list_slots` skips incompatible or corrupt files with
+a warning.
 
 ## SQLite Schema
 
@@ -66,8 +66,7 @@ CREATE TABLE world_meta (
     created_at_ms  INTEGER NOT NULL,
     updated_at_ms  INTEGER NOT NULL,
     camera_blob    BLOB NOT NULL,
-    control_blob   BLOB NOT NULL,
-    rng_blob       BLOB NOT NULL
+    control_blob   BLOB NOT NULL
 );
 CREATE TABLE active_state (
     id            INTEGER PRIMARY KEY CHECK (id = 1),
@@ -83,8 +82,8 @@ CREATE TABLE designs (
 );
 CREATE TABLE quests (
     quest_id      TEXT PRIMARY KEY,
-    status        TEXT NOT NULL,
-    progress_blob BLOB NOT NULL
+    status        INTEGER NOT NULL,
+    record_blob   BLOB NOT NULL
 );
 CREATE TABLE chunks (
     x             INTEGER NOT NULL,
@@ -96,7 +95,8 @@ CREATE TABLE chunks (
 );
 ```
 
-`quests` is reserved for `open-world-quests`.
+`quests` stores active and completed quests as encoded `QuestRecord` blobs, written in the same
+transaction as world state (see quests.md). `Offered` quests are never persisted.
 
 ### Chunks table
 

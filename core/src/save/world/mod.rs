@@ -8,8 +8,7 @@ pub use component::*;
 
 use bevy::prelude::*;
 
-use crate::mission::BattlePhase;
-use crate::resource::{BattleMode, SceneState};
+use crate::resource::SceneState;
 use crate::save::world::system::{
     begin_loaded_game, flush_pending_exit_action, handle_continue_world, handle_create_slot,
     handle_load_slot, handle_quick_battle, handle_save_world_event, init_world_session,
@@ -30,7 +29,6 @@ impl Plugin for WorldSavePlugin {
             .init_resource::<WorldContext>()
             .init_resource::<EditorReturnTarget>()
             .init_resource::<PendingExitAction>()
-            .init_resource::<BattleMode>()
             .add_systems(PreStartup, init_world_session)
             .add_systems(
                 Update,
@@ -56,7 +54,6 @@ impl Plugin for WorldSavePlugin {
                     handle_quick_battle.run_if(on_message::<StartQuickBattleEvent>),
                     tick_auto_save
                         .run_if(in_state(SceneState::Game))
-                        .run_if(in_state(BattlePhase::Active))
                         .run_if(|stack: Res<ModalStack>| stack.top() != Some(Modal::Pause)),
                 )
                     .in_set(SimulationSet::Present),

@@ -11,7 +11,7 @@ All HUD elements are UI nodes (not world-space canvases).
   recently updated. Each row shows name, play time (`HH:MM:SS`), and a relative last-saved time
   (`just now` / `N min ago` / `N h ago` / `N d ago`). Rows are `Select`ed (cyan border) before acting.
 - **New World** — type a name (keyboard input, 32 char cap; `Frontier` placeholder) then `New World`
-  creates a seeded SQLite slot and enters `Game` with a fresh mission.
+  creates a seeded SQLite slot and enters `Game` with authored tutorial quests active.
 - **Load** — opens the selected slot and enters `Loading → Game` with a snapshot restore.
 - **Delete** — two-step `Delete` → `Confirm` / `Cancel`; confirmation removes `.db`, `.db-wal`, and
   `.db-shm`, then refreshes the list. `Escape` closes the picker.
@@ -20,7 +20,7 @@ All HUD elements are UI nodes (not world-space canvases).
 ## Pause menu
 
 `PauseScenePlugin` (`scene/pause/`) shows `Resume`, `Settings`, `Back to Home`, and — only during a
-`WorldSession::SaveSlot` session — `Ship Editor`. `Back to Home` writes `SaveWorldEvent` (save +
+`WorldContext::SaveSlot` session — `Ship Editor`. `Back to Home` writes `SaveWorldEvent` (save +
 WAL checkpoint) before transitioning, and resets `EditorReturnTarget` to `Home`. Pause → Ship Editor
 sets `EditorReturnTarget::Game` so the editor's back button resumes the active slot.
 
@@ -38,6 +38,14 @@ sets `EditorReturnTarget::Game` so the editor's back button resumes the active s
   - Click: first click → `following`, click again → `controlling`, third click → clear both.
 - **Bottom bar** — `SelectablePanel`: after any drag-select, one `"<TYPE>: <len>"` label per
   selection group. Stale between events.
+- **Quest tracker** — top-left compact panel listing active quest titles and objective counters,
+  updated only when quest progress changes.
+- **Quest notifications** — right-center queue of small cards for manual generated quests while
+  the player is inside the quest's offer radius. Leaving range hides a card without dropping the
+  offer. Clicking a card opens a non-blocking dialog with **Accept** and **Close**; accepting
+  activates the quest, closing leaves it offered for a later visit.
+- **No end overlay** — arena Victory/Defeat overlays are removed; player defeat respawns at the
+  origin (see quests.md).
 - **Selection outline** — drag rectangle drawn via gizmos (`SelectablePlugin`). Both the
   dragging rectangle and entourage highlights use world-space gizmos.
 - **Ship debug gizmos** — with the `dev` feature, `ShipDebugPlugin` draws AI behavior

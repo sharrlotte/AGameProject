@@ -1,0 +1,10 @@
+(
+    max_active_generated: 2,
+    notification_radius: 2500.0,
+    manual_acceptance_every: 2,
+    chunk_size: 50000.0,
+    destroy_count: (2, 6),
+    collect_count: (3, 10),
+    reach_radius: (500.0, 2000.0),
+    item_pool: ["steel"],
+)

@@ -1,6 +1,7 @@
 ﻿mod inspector;
 
 pub mod minimap;
+pub mod skirmish;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
@@ -55,7 +56,12 @@ impl Plugin for GameScenePlugin {
                     .run_if(in_state(SceneState::Game))
                     .in_set(SimulationSet::Input),
             )
-            .add_plugins((BackgroundPlugin, ShipInspectorPlugin, MinimapPlugin));
+            .add_plugins((
+                BackgroundPlugin,
+                ShipInspectorPlugin,
+                MinimapPlugin,
+                skirmish::SkirmishPlugin,
+            ));
     }
 }
 

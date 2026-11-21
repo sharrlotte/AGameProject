@@ -5,9 +5,7 @@
 Battle outcomes are derived from an explicit core-destruction message rather than from ship
 counts that cannot distinguish a real kill from scene teardown. Mission logic is scoped to the
 Game scene and has an explicit resting state.
-
 ## Requirements
-
 ### Requirement: Core destruction emits a ship-level message
 
 The mutation pipeline SHALL emit exactly one `ShipDestroyed` message when a ship's core is
@@ -26,49 +24,21 @@ processing and SHALL NOT emit.
 
 ### Requirement: Battle outcome is decided from the destruction message
 
-Outcome detection SHALL run in `FixedPostUpdate` in `SimulationSet::Death`, after
-`apply_ship_mutations`. It SHALL consume `ShipDestroyed` as its trigger and SHALL determine
-remaining ships by querying `Query<&Team, With<Ship>>` at that moment, rather than by maintained
-counters. The first side with zero ships SHALL set `BattleResult.outcome` and transition
-`BattlePhase` to `Ended`.
+Outcome detection SHALL run in `FixedPostUpdate` in `SimulationSet::Death`, after `apply_body_mutations`. It SHALL consume `ShipDestroyed` as its trigger and SHALL determine remaining ships by querying `Query<&Team, With<Ship>>` at that moment, rather than by maintained counters. Enemy destruction SHALL NOT end gameplay or produce a Victory screen. When `ShipDestroyed` is received for a player-team ship and zero live player-team ships remain, the system SHALL respawn a fresh starter player ship at the configured respawn point (default `(0, 0)`), re-attach `ControlledShip` and `CameraTarget`, and preserve all world entities, chunks, and quest progress. This behavior SHALL apply in both save slots and `QuickBattle`.
 
-#### Scenario: Player core destroyed
-- **WHEN** `ShipDestroyed` is received for a player ship and no player ships remain
-- **THEN** `BattleResult.outcome` is `Defeat` and `BattlePhase` becomes `Ended`
+#### Scenario: Destroying all nearby enemies does not end the game
+- **WHEN** `ShipDestroyed` is received for the last live enemy ship
+- **THEN** gameplay continues with no Victory overlay and no end transition
 
-#### Scenario: Enemy core destroyed
-- **WHEN** `ShipDestroyed` is received for an enemy ship and no enemy ships remain
-- **THEN** `BattleResult.outcome` is `Victory` and `BattlePhase` becomes `Ended`
+#### Scenario: Last player ship destroyed triggers origin respawn
+- **WHEN** `ShipDestroyed` is received for the last live player-team ship
+- **THEN** a starter player ship spawns at the respawn point with control and camera attached, and existing world entities and quest progress remain intact
 
 #### Scenario: Other ships remain
-- **WHEN** a `ShipDestroyed` message is received but both teams still have at least one ship
-- **THEN** `BattleResult.outcome` remains unchanged and `BattlePhase` stays `Active`
+- **WHEN** a `ShipDestroyed` message is received but at least one player-team ship remains
+- **THEN** no respawn occurs and gameplay continues
 
-### Requirement: Mission logic is scoped to the Game scene
+#### Scenario: Respawn in QuickBattle
+- **WHEN** the last player ship is destroyed during `QuickBattle`
+- **THEN** a starter player ship is respawned and the skirmish continues
 
-Outcome detection and mission loading SHALL only run while `SceneState` is `Game`. Leaving Game
-SHALL set `BattlePhase` to `Idle` (the default state) and reset `BattleResult`; `BattleRestart`
-SHALL be preserved so a Retry request is still honoured on entering Home.
-
-#### Scenario: Back to Home from the pause menu
-- **WHEN** the player clicks "Back to Home" while `BattlePhase` is `Active`
-- **THEN** scene teardown despawns the ships without emitting `ShipDestroyed`, no outcome is
-  recorded, and no DEFEAT/VICTORY overlay is spawned over the Home menu
-
-#### Scenario: Mission asset finishes loading after scene exit
-- **WHEN** `poll_mission_loaded` would complete after the player has left Game
-- **THEN** the scene guard prevents any ships from spawning into the Home scene
-
-#### Scenario: Retry after a completed battle
-- **WHEN** the overlay's Retry button was pressed before leaving Game
-- **THEN** `BattleRestart` survives the Game-exit reset and `resume_battle_on_restart` re-enters
-  Game on `OnEnter(Home)`
-
-### Requirement: The end overlay remains state-driven
-
-The DEFEAT/VICTORY overlay SHALL spawn only on `OnEnter(BattlePhase::Ended)` and SHALL read its
-title and duration from `BattleResult`. It SHALL NOT subscribe directly to `ShipDestroyed`.
-
-#### Scenario: Overlay content
-- **WHEN** `BattlePhase` enters `Ended` with outcome `Defeat`
-- **THEN** an overlay showing "DEFEAT" and the recorded duration is spawned

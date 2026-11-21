@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 use crate::config::GameConfigValue;
 use crate::constant::DROP_PICKUP_RADIUS;
 use crate::content::block::Loot;
+use crate::content::item::ItemCollected;
 use crate::content::ship::ai::{AiConfigValue, Skill, Steering};
 use crate::content::ship::stat::ShipStats;
 use crate::content::team::Team;
@@ -117,6 +118,7 @@ pub fn collect_drop(
     mut ships: Query<(Entity, &mut ShipStats, &GlobalTransform, &Team)>,
     time: Res<Time>,
     config: Res<GameConfigValue>,
+    mut collected: MessageWriter<ItemCollected>,
 ) {
     for (drop_entity, mut drop_transform, drop_component) in &mut drops {
         let drop_position = drop_transform.translation.truncate();
@@ -125,10 +127,10 @@ pub fn collect_drop(
         let nearest = ships
             .iter_mut()
             .filter(|(_, stats, _, team)| team.is_player() && !stats.is_full())
-            .map(|(entity, stats, transform, _)| {
-                (entity, stats, transform.translation().truncate())
+            .map(|(entity, stats, transform, team)| {
+                (entity, stats, transform.translation().truncate(), *team)
             })
-            .filter(|(_, _, position)| {
+            .filter(|(_, _, position, _)| {
                 position.distance(drop_position) <= config.0.drop_collect_radius
             })
             .min_by(|a, b| {
@@ -136,7 +138,7 @@ pub fn collect_drop(
                     .total_cmp(&b.2.distance_squared(drop_position))
             });
 
-        let Some((_, mut stats, ship_position)) = nearest else {
+        let Some((_, mut stats, ship_position, ship_team)) = nearest else {
             continue;
         };
 
@@ -156,6 +158,11 @@ pub fn collect_drop(
             continue;
         }
         stats.add_cargo(&item.item_type, item.amount);
+        collected.write(ItemCollected {
+            item: item.item_type.clone(),
+            amount: item.amount,
+            team: ship_team,
+        });
         commands.entity(drop_entity).despawn();
     }
 }
@@ -185,6 +192,7 @@ mod tests {
     fn app_with_cargo(capacity: u32) -> (App, Entity) {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, ControlPlugin))
+            .add_message::<ItemCollected>()
             .add_systems(Update, collect_drop)
             .insert_resource(GameConfigValue(GameConfig::default()));
         let ship = app
@@ -240,6 +248,7 @@ mod tests {
     fn enemy_ships_do_not_collect() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, ControlPlugin))
+            .add_message::<ItemCollected>()
             .add_systems(Update, collect_drop)
             .insert_resource(GameConfigValue(GameConfig::default()));
         let ship = app

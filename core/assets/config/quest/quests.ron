@@ -1,0 +1,42 @@
+(
+    quests: [
+        (
+            id: Authored("tutorial_first_kills"),
+            title: "Frontier Defense",
+            description: "Hostile lances have entered the sector. Break their Cores.",
+            objectives: [
+                DestroyEnemies(id: "kills", count: 2),
+            ],
+        ),
+        (
+            id: Authored("tutorial_sector_sweep"),
+            title: "Sector Sweep",
+            description: "Push out to the forward beacon and confirm the route is clear.",
+            requires: [Authored("tutorial_first_kills")],
+            requires_mode: Started,
+            objectives: [
+                ReachPosition(id: "beacon", position: (1000.0, 0.0), radius: 400.0),
+            ],
+        ),
+        (
+            id: Authored("tutorial_salvage"),
+            title: "Salvage Operation",
+            description: "Recover steel from the field to restock the fleet.",
+            requires: [Authored("tutorial_sector_sweep")],
+            requires_mode: Started,
+            objectives: [
+                CollectItem(id: "steel", item: "steel", count: 4),
+            ],
+        ),
+        (
+            id: Authored("tutorial_fleet_action"),
+            title: "Fleet Action",
+            description: "Destroy the remaining raiders in the sector.",
+            requires: [Authored("tutorial_salvage")],
+            requires_mode: Completed,
+            objectives: [
+                DestroyEnemies(id: "kills", count: 3),
+            ],
+        ),
+    ],
+)
